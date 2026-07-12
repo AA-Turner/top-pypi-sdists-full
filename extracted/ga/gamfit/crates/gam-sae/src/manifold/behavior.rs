@@ -257,6 +257,26 @@ impl SphereTangentEmbedding {
         Ok(q.mapv(|value| value * value))
     }
 
+    /// Decode a row-aligned matrix of nats-unit tangent coordinates back to
+    /// probability distributions.  This is the batched public inverse used by
+    /// the behavior-fit report; it delegates every row to [`Self::decode`] so
+    /// the scalar and batched hemisphere/normalization contracts cannot drift.
+    pub fn decode_rows(&self, y: ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
+        if y.ncols() != self.behavior_dim() {
+            return Err(format!(
+                "SphereTangentEmbedding::decode_rows: coordinates have {} columns; chart tangent dim is {}",
+                y.ncols(),
+                self.behavior_dim()
+            ));
+        }
+        let mut probabilities = Array2::<f64>::zeros((y.nrows(), self.vocab()));
+        for row in 0..y.nrows() {
+            let decoded = self.decode(y.row(row))?;
+            probabilities.row_mut(row).assign(&decoded);
+        }
+        Ok(probabilities)
+    }
+
     /// Local (flat-metric) predicted dose in nats for a tangent displacement
     /// `Δy`: `‖Δy‖²`. By construction of the `√2` scaling this equals the
     /// second-order KL between the two decoded distributions, and it is the
@@ -836,6 +856,159 @@ impl OutputBlock {
     }
 }
 
+/// Stacked-column offset bookkeeping for a crosscoder target
+/// `Z̃ = [Z | √λ_1·Y_1 | … | √λ_{L-1}·Y_{L-1}]` and the block-columned decoders
+/// carved out of it.
+///
+/// # Why this exists — one owner of the offset arithmetic
+///
+/// Every consumer of the augmented layout — stacking the target
+/// ([`stack_augmented_target`]), reading a block's residual sum of squares
+/// ([`SaeManifoldTerm::run_multiblock_reml_fit`]'s `augmented_block_rss`), and
+/// carving the honest per-layer decoder
+/// (`B_k^(ℓ) = C̃_k[:, off_ℓ..off_ℓ+p_ℓ] / √λ_ℓ`,
+/// [`SaeManifoldTerm::layer_decoder`]) — recomputed `off_ℓ = p_x + Σ_{m<ℓ} p_m`
+/// by hand. This type owns that arithmetic once ([`Self::block_range`],
+/// [`Self::total_dim`]) and carries the fitted per-block weight `λ_ℓ` alongside
+/// the widths and labels, so a caller reads a layer's decoder in honest units
+/// without re-deriving either the offsets or the `√λ_ℓ` unscaling.
+///
+/// The anchor block `Z` (`p_x` columns) is implicit at `[0, p_x)`; the `L-1`
+/// output blocks follow it in order. `block_dims`, `labels`, and
+/// `block_log_lambda` are parallel (one entry per output block); the type's
+/// constructors are the only way to build one, so the three stay in lock-step.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CrosscoderLayout {
+    /// Anchor width `p_x` (the leading `[0, p_x)` column block).
+    p_x: usize,
+    /// Per-output-block width `p_ℓ`, in stacked-column order.
+    block_dims: Vec<usize>,
+    /// Per-output-block label (diagnostics only), parallel to `block_dims`.
+    labels: Vec<String>,
+    /// Per-output-block fitted `log(λ_ℓ)`, parallel to `block_dims`. The honest
+    /// per-layer decoder divides by `√λ_ℓ = exp(½·log λ_ℓ)`.
+    block_log_lambda: Vec<f64>,
+}
+
+impl CrosscoderLayout {
+    /// Build a layout from the anchor width and parallel per-block
+    /// `(dim, label, log λ)` vectors. The three block vectors must have equal
+    /// length; `p_x` and every block dim must be non-zero; every `log λ_ℓ`
+    /// finite. Zero output blocks is valid (an anchor-only / plain layout,
+    /// `total_dim() == p_x`).
+    pub fn new(
+        p_x: usize,
+        block_dims: Vec<usize>,
+        labels: Vec<String>,
+        block_log_lambda: Vec<f64>,
+    ) -> Result<Self, String> {
+        if p_x == 0 {
+            return Err("CrosscoderLayout::new: anchor width p_x must be non-zero".to_string());
+        }
+        if block_dims.len() != labels.len() || block_dims.len() != block_log_lambda.len() {
+            return Err(format!(
+                "CrosscoderLayout::new: block_dims ({}), labels ({}), and block_log_lambda ({}) \
+                 must have equal length",
+                block_dims.len(),
+                labels.len(),
+                block_log_lambda.len()
+            ));
+        }
+        for (l, &dim) in block_dims.iter().enumerate() {
+            if dim == 0 {
+                return Err(format!(
+                    "CrosscoderLayout::new: block {l} ('{}') has width 0",
+                    labels[l]
+                ));
+            }
+        }
+        for (l, &ll) in block_log_lambda.iter().enumerate() {
+            if !ll.is_finite() {
+                return Err(format!(
+                    "CrosscoderLayout::new: block {l} ('{}') log λ is {ll} (not finite)",
+                    labels[l]
+                ));
+            }
+        }
+        Ok(Self {
+            p_x,
+            block_dims,
+            labels,
+            block_log_lambda,
+        })
+    }
+
+    /// Build a layout from the anchor width and the fitted [`OutputBlock`]s (their
+    /// widths, labels, and converged `log λ_ℓ`). Infallible: an `OutputBlock` is
+    /// already validated to carry a non-zero width and a finite `log λ_ℓ`.
+    pub fn from_blocks(p_x: usize, blocks: &[OutputBlock]) -> Self {
+        Self {
+            p_x,
+            block_dims: blocks.iter().map(|b| b.block_dim()).collect(),
+            labels: blocks.iter().map(|b| b.label.clone()).collect(),
+            block_log_lambda: blocks.iter().map(|b| b.log_lambda).collect(),
+        }
+    }
+
+    /// Anchor width `p_x` (the leading `[0, p_x)` column block).
+    pub fn anchor_dim(&self) -> usize {
+        self.p_x
+    }
+
+    /// Number of output blocks `L-1` (excludes the anchor).
+    pub fn num_blocks(&self) -> usize {
+        self.block_dims.len()
+    }
+
+    /// Per-output-block widths `p_ℓ`, in stacked-column order.
+    pub fn block_dims(&self) -> &[usize] {
+        &self.block_dims
+    }
+
+    /// Per-output-block labels, parallel to [`Self::block_dims`].
+    pub fn labels(&self) -> &[String] {
+        &self.labels
+    }
+
+    /// Per-output-block fitted `log(λ_ℓ)`, parallel to [`Self::block_dims`].
+    pub fn block_log_lambda(&self) -> &[f64] {
+        &self.block_log_lambda
+    }
+
+    /// Total augmented width `p̃ = p_x + Σ_ℓ p_ℓ`.
+    pub fn total_dim(&self) -> usize {
+        self.p_x + self.block_dims.iter().sum::<usize>()
+    }
+
+    /// The half-open column range `[off_ℓ, off_ℓ + p_ℓ)` of output block `ℓ` in
+    /// the stacked target / decoder, `off_ℓ = p_x + Σ_{m<ℓ} p_m`.
+    ///
+    /// # Panics
+    /// If `l >= num_blocks()`. Callers that take an untrusted index bounds-check
+    /// against [`Self::num_blocks`] first (e.g. [`SaeManifoldTerm::layer_decoder`]).
+    pub fn block_range(&self, l: usize) -> std::ops::Range<usize> {
+        assert!(
+            l < self.block_dims.len(),
+            "CrosscoderLayout::block_range: block {l} out of range (L-1 = {})",
+            self.block_dims.len()
+        );
+        let start = self.p_x + self.block_dims[..l].iter().sum::<usize>();
+        start..start + self.block_dims[l]
+    }
+
+    /// `log(λ_ℓ)` for output block `ℓ`.
+    pub fn log_lambda(&self, l: usize) -> f64 {
+        self.block_log_lambda[l]
+    }
+
+    /// `√λ_ℓ = exp(½·log λ_ℓ)`, the per-column target scaling. Computed exactly as
+    /// [`OutputBlock::sqrt_lambda`], so a layout built from the fitted blocks
+    /// unscales a decoder bit-for-bit like the by-hand [`OutputBlock::split_honest_decoder`].
+    pub fn sqrt_lambda(&self, l: usize) -> f64 {
+        (0.5 * self.block_log_lambda[l]).exp()
+    }
+}
+
 /// Stack an anchor target `Z` (`n × p_x`) with the `√λ_ℓ`-scaled targets of a
 /// list of output blocks to form the augmented multi-block fit target
 /// `Z̃ = [Z | √λ_1·Y_1 | … | √λ_{K-1}·Y_{K-1}]` (`n × p̃`,
@@ -856,7 +1029,6 @@ pub fn stack_augmented_target(
             "stack_augmented_target: anchor must be a non-empty (n × p_x) matrix; got ({n}, {px})"
         ));
     }
-    let mut p_tot = px;
     for block in blocks {
         if block.target.nrows() != n {
             return Err(format!(
@@ -865,23 +1037,21 @@ pub fn stack_augmented_target(
                 block.target.nrows()
             ));
         }
-        p_tot += block.block_dim();
     }
-    // Precompute √λ_ℓ once per block (deterministic, so bit-identical to the
-    // two-block path which computes it once).
-    let sqrt_lambdas: Vec<f64> = blocks.iter().map(|b| b.sqrt_lambda()).collect();
-    let mut augmented = Array2::<f64>::zeros((n, p_tot));
+    // The column offsets and total width are owned by the layout (no by-hand
+    // `off_ℓ` accumulation here). `√λ_ℓ` per block matches the two-block path
+    // ([`OutputBlock::sqrt_lambda`]) bit-for-bit.
+    let layout = CrosscoderLayout::from_blocks(px, blocks);
+    let mut augmented = Array2::<f64>::zeros((n, layout.total_dim()));
     for i in 0..n {
         for j in 0..px {
             augmented[[i, j]] = anchor[[i, j]];
         }
-        let mut offset = px;
-        for (block, &sqrt_lambda) in blocks.iter().zip(sqrt_lambdas.iter()) {
-            let pl = block.block_dim();
-            for j in 0..pl {
-                augmented[[i, offset + j]] = sqrt_lambda * block.target[[i, j]];
+        for (l, block) in blocks.iter().enumerate() {
+            let sqrt_lambda = layout.sqrt_lambda(l);
+            for (jj, col) in layout.block_range(l).enumerate() {
+                augmented[[i, col]] = sqrt_lambda * block.target[[i, jj]];
             }
-            offset += pl;
         }
     }
     Ok(augmented)
@@ -932,6 +1102,98 @@ pub fn profiled_reml_criterion(
         return f64::INFINITY;
     }
     0.5 * n * p_tilde * (pooled / (n * p_tilde)).ln() - 0.5 * n * jac
+}
+
+/// The analytic outer-REML gradient of [`profiled_reml_criterion`] with respect
+/// to each block weight `log λ_ℓ` (#2231 §2a), evaluated at a fitted state's
+/// UNSCALED per-block residual sums of squares. At the inner optimum the residual
+/// is stationary in `(t, β)` (the envelope theorem: `∂R/∂β · ∂β/∂λ` vanishes), so
+/// only the EXPLICIT `λ_ℓ`-dependence of the profiled criterion survives:
+///
+/// ```text
+///   ∂C/∂(log λ_ℓ) = (n·p̃/2) · λ_ℓ·R_ℓ / (R_x + Σ_m λ_m·R_m)  −  n·p_ℓ/2 ,
+/// ```
+///
+/// (`p̃ = p_x + Σ p_ℓ`), the exact derivative of the profiled Gaussian
+/// negative-log-marginal (`d pooled/d log λ_ℓ = λ_ℓ R_ℓ`) plus the `√λ_ℓ`
+/// target-scaling Jacobian (`d(−½ n Σ p_m log λ_m)/d log λ_ℓ = −½ n p_ℓ`). This is
+/// the desync-safe (#2087) partner of the value in [`profiled_reml_criterion`] —
+/// they are a consistent `(value, gradient)` pair, FD-verified in
+/// `tests_crosscoder_block_fd_2231.rs`.
+///
+/// The per-coordinate stationary point `λ_ℓ·R_ℓ = (p_ℓ/p̃)·pooled` is met exactly
+/// by the joint variance-ratio fixed point `λ_ℓ = (R_x/p_x)/(R_ℓ/p_ℓ)` (substitute
+/// and use `pooled = R_x·p̃/p_x` there), so the analytic gradient and the
+/// closed-form EFS step ([`profiled_reml_block_efs_log_lambda_steps`]) agree at the
+/// optimum — the coherence the planted two-layer test pins.
+///
+/// Returns all-zero for a non-positive pooled residual (the criterion is then
+/// `+∞`; a caller's line search rejects the value and must not consume a NaN
+/// direction).
+pub fn profiled_reml_block_log_lambda_gradient(
+    n_obs: usize,
+    p_x: usize,
+    rss_x: f64,
+    block_rss_unscaled: &[f64],
+    block_dims: &[usize],
+    block_log_lambda: &[f64],
+) -> Vec<f64> {
+    let n = n_obs as f64;
+    let mut p_tilde = p_x as f64;
+    let mut pooled = rss_x;
+    for ((&rss, &dim), &log_lambda) in block_rss_unscaled
+        .iter()
+        .zip(block_dims.iter())
+        .zip(block_log_lambda.iter())
+    {
+        pooled += log_lambda.exp() * rss;
+        p_tilde += dim as f64;
+    }
+    if !(pooled > 0.0) {
+        return vec![0.0; block_rss_unscaled.len()];
+    }
+    block_rss_unscaled
+        .iter()
+        .zip(block_dims.iter())
+        .zip(block_log_lambda.iter())
+        .map(|((&rss, &dim), &log_lambda)| {
+            let lambda_r = log_lambda.exp() * rss;
+            0.5 * n * p_tilde * lambda_r / pooled - 0.5 * n * dim as f64
+        })
+        .collect()
+}
+
+/// The Fellner–Schall / MacKay closed-form fixed-point STEP on each block weight
+/// `log λ_ℓ` (#2231 §2a): the ADDITIVE log-λ move to the variance-ratio root
+/// `log λ_ℓ* = ln((R_x/p_x)/(R_ℓ/p_ℓ))`, i.e. `step_ℓ = log λ_ℓ* − log λ_ℓ`. This
+/// is [`OutputBlock::reml_updated_log_lambda`] re-expressed as an outer-coordinate
+/// step (multiplicative in λ, additive in log λ — the EFS convention the outer
+/// engine's `efs_step` uses for every ρ coordinate), so a block coordinate reduces
+/// M1's alternation to one more Fellner–Schall coordinate. A block with no
+/// residual variance (`R_ℓ ≤ 0`, or a non-positive anchor variance) is
+/// unidentifiable and HELD (step 0), matching the M1 driver's `identifiable`
+/// gate.
+pub fn profiled_reml_block_efs_log_lambda_steps(
+    p_x: usize,
+    rss_x: f64,
+    block_rss_unscaled: &[f64],
+    block_dims: &[usize],
+    block_log_lambda: &[f64],
+) -> Vec<f64> {
+    let var_x = rss_x / p_x as f64;
+    block_rss_unscaled
+        .iter()
+        .zip(block_dims.iter())
+        .zip(block_log_lambda.iter())
+        .map(|((&rss, &dim), &log_lambda)| {
+            if var_x > 0.0 && rss > 0.0 {
+                let var_y = rss / dim as f64;
+                (var_x / var_y).ln() - log_lambda
+            } else {
+                0.0
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

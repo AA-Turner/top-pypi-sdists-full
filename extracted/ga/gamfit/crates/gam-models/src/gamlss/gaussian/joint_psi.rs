@@ -632,6 +632,18 @@ pub(crate) fn gaussian_jointrow_scalars(
     })
 }
 
+/// The LIVE third-order tower `∂_dir H_obs` (directional derivative of the
+/// observed joint Hessian along the β-direction `(dotmu, dot_eta)`), returned as
+/// the row weights `(w_u, c_u, d_u) = (∂H_μμ, ∂H_μls, ∂H_lsls)`.
+///
+/// #932 documented performance exception: this κ-chain-rule closed form (and its
+/// fourth-order sibling `gaussian_jointsecond_directionalweights`) STAYS in the
+/// production outer-Hessian drift; it is not cut over to the generic gam-math
+/// `Tower4` jet, which would materialise a full per-row 4th-order tensor on this
+/// hot path. It is instead pinned as a non-ignored jet oracle at ≤1e-9, with an
+/// independent central-difference witness, in
+/// `observed_single_source_oracle_tests::jet_third_fourth_oracle` /
+/// `first_directional_weights_match_observed_finite_difference`.
 pub(crate) fn gaussian_joint_first_directionalweights(
     scalars: &GaussianJointRowScalars,
     dotmu: &Array1<f64>,
@@ -720,9 +732,7 @@ pub(crate) fn gaussian_jointsecond_directionalweights(
             2.0 * wi * a_coef * (dmu * dmv)
                 + mi * (8.0 * ki * ki * ki - 12.0 * ki * kpi + 2.0 * kdpi) * de_sym
                 + (ktp * ai - 2.0 * ki * ni * e_coef
-                    + ni * (6.0 * kpi * kpi + 6.0 * ki * kdpi
-                        - 12.0 * ki * ki * kpi
-                        - ktp))
+                    + ni * (6.0 * kpi * kpi + 6.0 * ki * kdpi - 12.0 * ki * ki * kpi - ktp))
                     * de_eta,
         );
     }
@@ -903,9 +913,7 @@ pub(crate) fn gaussian_joint_psisecondweights(
             2.0 * wi * a_coef * ma_mb
                 + mi * (8.0 * ki * ki * ki - 12.0 * ki * kpi + 2.0 * kdpi) * cross_eta
                 + (ktp * ai - 2.0 * ki * ni * e_coef
-                    + ni * (6.0 * kpi * kpi + 6.0 * ki * kdpi
-                        - 12.0 * ki * ki * kpi
-                        - ktp))
+                    + ni * (6.0 * kpi * kpi + 6.0 * ki * kdpi - 12.0 * ki * ki * kpi - ktp))
                     * ea_eb
                 - 2.0 * mi * a_coef * mab
                 + (kdpi * amn + (6.0 * ki * kpi - 4.0 * ki * ki * ki) * ni) * eab,
@@ -999,9 +1007,7 @@ pub(crate) fn gaussian_joint_psi_mixed_driftweights(
             2.0 * wi * a_coef * (dmu * ma)
                 + mi * (8.0 * ki * ki * ki - 12.0 * ki * kpi + 2.0 * kdpi) * (dmu * ea + ma * de)
                 + (ktp * ai - 2.0 * ki * ni * e_coef
-                    + ni * (6.0 * kpi * kpi + 6.0 * ki * kdpi
-                        - 12.0 * ki * ki * kpi
-                        - ktp))
+                    + ni * (6.0 * kpi * kpi + 6.0 * ki * kdpi - 12.0 * ki * ki * kpi - ktp))
                     * de_ea
                 - 2.0 * mi * a_coef * dma
                 + (kdpi * (ai - ni) + (6.0 * ki * kpi - 4.0 * ki * ki * ki) * ni) * dea,
@@ -1459,13 +1465,13 @@ mod observed_single_source_oracle_tests {
         ];
         let t = 1e-6;
         for &(mu, eta_ls, a, xi_mu, xi_ls, y) in &cases {
-            let rows = gaussian_jointrow_scalars(&array![y], &array![mu], &array![eta_ls], &array![a])
-                .expect("row scalars");
+            let rows =
+                gaussian_jointrow_scalars(&array![y], &array![mu], &array![eta_ls], &array![a])
+                    .expect("row scalars");
             let (w_u, c_u, d_u) =
                 gaussian_joint_first_directionalweights(&rows, &array![xi_mu], &array![xi_ls]);
-            let coeffs_at = |m: f64, e: f64| -> (f64, f64, f64) {
-                production_observed_row(y, m, e, a)
-            };
+            let coeffs_at =
+                |m: f64, e: f64| -> (f64, f64, f64) { production_observed_row(y, m, e, a) };
             let (mmp, mlp, llp) = coeffs_at(mu + t * xi_mu, eta_ls + t * xi_ls);
             let (mmm, mlm, llm) = coeffs_at(mu - t * xi_mu, eta_ls - t * xi_ls);
             let fd_w = (mmp - mmm) / (2.0 * t);
@@ -1502,8 +1508,9 @@ mod observed_single_source_oracle_tests {
         ];
         let t = 1e-5;
         for &(mu, eta_ls, a, xi_mu_u, xi_ls_u, xi_mu_v, xi_ls_v, y) in &cases {
-            let rows = gaussian_jointrow_scalars(&array![y], &array![mu], &array![eta_ls], &array![a])
-                .expect("row scalars");
+            let rows =
+                gaussian_jointrow_scalars(&array![y], &array![mu], &array![eta_ls], &array![a])
+                    .expect("row scalars");
             let (w_uv, c_uv, d_uv) = gaussian_jointsecond_directionalweights(
                 &rows,
                 &array![xi_mu_u],
@@ -1538,6 +1545,139 @@ mod observed_single_source_oracle_tests {
                 "d²H_lsls drift μ={mu} η={eta_ls}: hand={} fd={fd_d}",
                 d_uv[0]
             );
+        }
+    }
+
+    /// #932 jet oracle for the LIVE gaulss third/fourth directional Hessian
+    /// drifts. The FD tests above are the independent numerical witness; these
+    /// two pin the SAME live hand closed forms
+    /// (`gaussian_joint_first_directionalweights` /
+    /// `gaussian_jointsecond_directionalweights`) against the universal gam-math
+    /// Taylor jet — the mechanical single source — at ≤1e-9, closing the audit
+    /// gap that the gam-math gaulss oracle covered only value/∇/observed-H.
+    mod jet_third_fourth_oracle {
+        use super::*;
+        use gam_math::jet_scalar::JetScalar;
+        use gam_math::jet_tower::{
+            RowNllProgramGeneric, generic_fourth_contracted, generic_third_contracted,
+        };
+
+        /// The gaulss row NLL `ℓ = a·ln σ + ½·a·(y−η_μ)²/σ²` in the PRODUCTION
+        /// log-b σ-link `σ = LOGB_SIGMA_FLOOR + e^{η_ls}`, written ONCE through the
+        /// jet scalar. Primary 0 = η_μ, primary 1 = η_ls.
+        struct GaulssJetRow {
+            y: f64,
+            eta_mu: f64,
+            eta_ls: f64,
+            a: f64,
+        }
+
+        impl RowNllProgramGeneric<2> for GaulssJetRow {
+            fn n_rows(&self) -> usize {
+                1
+            }
+            fn primaries(&self, row: usize) -> Result<[f64; 2], String> {
+                if row != 0 {
+                    return Err(format!("GaulssJetRow holds exactly one row; got row {row}"));
+                }
+                Ok([self.eta_mu, self.eta_ls])
+            }
+            fn row_nll_generic<S: JetScalar<2>>(
+                &self,
+                row: usize,
+                p: &[S; 2],
+            ) -> Result<S, String> {
+                if row != 0 {
+                    return Err(format!("GaulssJetRow holds exactly one row; got row {row}"));
+                }
+                let sigma = p[1]
+                    .exp()
+                    .add(&S::constant(crate::sigma_link::LOGB_SIGMA_FLOOR));
+                let r = S::constant(self.y).sub(&p[0]);
+                let log_term = sigma.ln().scale(self.a);
+                let r_over_sigma = r.mul(&sigma.recip());
+                let quad = r_over_sigma.mul(&r_over_sigma).scale(0.5 * self.a);
+                Ok(log_term.add(&quad))
+            }
+        }
+
+        fn close(hand: f64, jet: f64, label: &str) {
+            let band = 1e-9 + 1e-9 * hand.abs().max(jet.abs());
+            assert!(
+                (hand - jet).abs() <= band,
+                "{label}: hand {hand:+.15e} vs jet {jet:+.15e} (band {band:.3e})"
+            );
+        }
+
+        /// `gaussian_joint_first_directionalweights` (the LIVE third-order ∂_dir
+        /// of the observed Hessian) equals the jet's contracted third at ≤1e-9.
+        #[test]
+        fn first_directional_weights_match_jet_third() {
+            let cases = [
+                (0.3_f64, -0.4_f64, 1.0_f64, 0.5_f64, -0.7_f64, 0.55_f64),
+                (-1.2, 0.7, 2.5, 1.1, 0.3, -0.9),
+                (0.0, 1.5, 0.4, -0.2, 0.9, 0.35),
+                (2.4, -1.1, 0.8, 0.6, -0.4, 1.7),
+                (-0.6, 0.2, 3.3, 0.8, -1.0, -1.1),
+            ];
+            for &(mu, eta_ls, a, xi_mu, xi_ls, y) in &cases {
+                let rows =
+                    gaussian_jointrow_scalars(&array![y], &array![mu], &array![eta_ls], &array![a])
+                        .expect("row scalars");
+                let (w_u, c_u, d_u) =
+                    gaussian_joint_first_directionalweights(&rows, &array![xi_mu], &array![xi_ls]);
+                let prog = GaulssJetRow {
+                    y,
+                    eta_mu: mu,
+                    eta_ls,
+                    a,
+                };
+                let jt = generic_third_contracted(&prog, 0, &[xi_mu, xi_ls]).expect("jet third");
+                close(w_u[0], jt[0][0], &format!("dH_μμ μ={mu} η={eta_ls}"));
+                close(c_u[0], jt[0][1], &format!("dH_μls μ={mu} η={eta_ls}"));
+                close(c_u[0], jt[1][0], &format!("dH_lsμ μ={mu} η={eta_ls}"));
+                close(d_u[0], jt[1][1], &format!("dH_lsls μ={mu} η={eta_ls}"));
+            }
+        }
+
+        /// `gaussian_jointsecond_directionalweights` (the LIVE fourth-order
+        /// ∂_u∂_v of the observed Hessian) equals the jet's contracted fourth at
+        /// ≤1e-9.
+        #[test]
+        fn second_directional_weights_match_jet_fourth() {
+            let cases = [
+                (
+                    0.3_f64, -0.4_f64, 1.0_f64, 0.5_f64, -0.7_f64, 0.8_f64, 0.2_f64, 0.55_f64,
+                ),
+                (-1.2, 0.7, 2.5, 1.1, 0.3, -0.6, 0.9, -0.9),
+                (0.0, 1.5, 0.4, -0.2, 0.9, 0.4, -0.5, 0.35),
+                (2.4, -1.1, 0.8, 0.6, -0.4, -0.3, 0.7, 1.7),
+            ];
+            for &(mu, eta_ls, a, xi_mu_u, xi_ls_u, xi_mu_v, xi_ls_v, y) in &cases {
+                let rows =
+                    gaussian_jointrow_scalars(&array![y], &array![mu], &array![eta_ls], &array![a])
+                        .expect("row scalars");
+                let (w_uv, c_uv, d_uv) = gaussian_jointsecond_directionalweights(
+                    &rows,
+                    &array![xi_mu_u],
+                    &array![xi_ls_u],
+                    &array![xi_mu_v],
+                    &array![xi_ls_v],
+                );
+                let prog = GaulssJetRow {
+                    y,
+                    eta_mu: mu,
+                    eta_ls,
+                    a,
+                };
+                let jt =
+                    generic_fourth_contracted(&prog, 0, &[xi_mu_u, xi_ls_u], &[xi_mu_v, xi_ls_v])
+                        .expect("jet fourth");
+                close(w_uv[0], jt[0][0], &format!("d²H_μμ μ={mu} η={eta_ls}"));
+                close(c_uv[0], jt[0][1], &format!("d²H_μls μ={mu} η={eta_ls}"));
+                close(c_uv[0], jt[1][0], &format!("d²H_lsμ μ={mu} η={eta_ls}"));
+                close(d_uv[0], jt[1][1], &format!("d²H_lsls μ={mu} η={eta_ls}"));
+            }
         }
     }
 }

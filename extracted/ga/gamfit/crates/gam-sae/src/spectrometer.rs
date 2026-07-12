@@ -244,12 +244,19 @@ pub fn dimension_spectrometer(
     if cfg.k_min == 0 {
         return Err("dimension_spectrometer requires k_min >= 1".to_string());
     }
-    // Need at least three rungs: two regression parameters (slope, intercept) plus
-    // one residual degree of freedom for the slope's standard error.
-    if cfg.n_doublings < 2 {
+    // Need at least four rungs: the scaling law L(K) = σ² + c·K^m has THREE fitted
+    // parameters (the profiled-out noise floor σ², plus the log-log slope and
+    // intercept), so a residual degree of freedom for the slope's standard error
+    // needs `nrung − 3 ≥ 1`. With only three rungs the three parameters interpolate
+    // the data exactly (RSS ≈ 0) and the slope SE is undefined; the fit would report
+    // a spurious near-zero uncertainty. `fit_scaling_law` still accepts three rungs
+    // (returning an infinite SE / floor-saturated verdict) so the drop-last probe and
+    // the stable-window fallback stay well-posed, but the primary entry demands four.
+    if cfg.n_doublings < 3 {
         return Err(
-            "dimension_spectrometer requires n_doublings >= 2 (>= 3 rungs) to estimate a slope \
-             and its standard error"
+            "dimension_spectrometer requires n_doublings >= 3 (>= 4 rungs): the scaling law has \
+             three parameters (σ², slope, intercept), so a slope standard error needs at least \
+             one residual degree of freedom (nrung − 3 >= 1)"
                 .to_string(),
         );
     }
@@ -257,10 +264,9 @@ pub fn dimension_spectrometer(
     // Build the ladder K_j = k_min · 2^j, j = 0..=n_doublings, guarding overflow.
     let mut widths: Vec<usize> = Vec::with_capacity(cfg.n_doublings + 1);
     for j in 0..=cfg.n_doublings {
-        let k = cfg
-            .k_min
-            .checked_shl(j as u32)
-            .ok_or_else(|| format!("dimension_spectrometer: rung width k_min·2^{j} overflows usize"))?;
+        let k = cfg.k_min.checked_shl(j as u32).ok_or_else(|| {
+            format!("dimension_spectrometer: rung width k_min·2^{j} overflows usize")
+        })?;
         widths.push(k);
     }
 
@@ -500,7 +506,9 @@ fn fit_scaling_law(rungs: &[(usize, f64)]) -> Result<ScalingLaw, String> {
     let t_bar = t.iter().sum::<f64>() / nrung as f64;
     let stt: f64 = t.iter().map(|&ti| (ti - t_bar) * (ti - t_bar)).sum();
     if stt <= 0.0 {
-        return Err("fit_scaling_law: log-K design is degenerate (all rungs equal width)".to_string());
+        return Err(
+            "fit_scaling_law: log-K design is degenerate (all rungs equal width)".to_string(),
+        );
     }
 
     // The plateau cannot exceed the smallest achieved loss; a variance floor is
@@ -523,9 +531,18 @@ fn fit_scaling_law(rungs: &[(usize, f64)]) -> Result<ScalingLaw, String> {
         .ok_or_else(|| "fit_scaling_law: profiled σ² left an undefined log-excess".to_string())?;
     let slope = fit.slope;
 
-    // Standard error of the OLS slope: s² = RSS/(n−2), SE(m) = sqrt(s² / Stt).
-    let dof = (nrung as f64) - 2.0;
-    let s2 = if dof > 0.0 { fit.rss / dof } else { f64::INFINITY };
+    // Standard error of the OLS slope: s² = RSS/(n−3), SE(m) = sqrt(s² / Stt).
+    // The fitted model is L_k = σ² + c·K^m — THREE parameters, with σ² profiled
+    // out by the golden section over the SAME rungs (variable projection), so
+    // the residual degrees of freedom are n−3, not n−2. With n−2 an nrung=3
+    // exact fit (RSS≈0 by construction) would report a finite ~0 SE and an
+    // unsaturated floor from 3 points fitting 3 parameters.
+    let dof = (nrung as f64) - 3.0;
+    let s2 = if dof > 0.0 {
+        fit.rss / dof
+    } else {
+        f64::INFINITY
+    };
     let slope_se = (s2 / stt).sqrt();
 
     let d_hat = -2.0 / slope;
@@ -690,7 +707,7 @@ mod tests {
             code_ridge: 1.0e-6,
             decoder_ridge: 1.0e-6,
             tolerance: 1.0e-6,
-            score_mode: gam_gpu::GpuMode::Off,
+            score_mode: gam_gpu::GpuPolicy::Off,
         }
     }
 
@@ -823,15 +840,17 @@ mod tests {
             "profiled σ² {} should recover planted floor {sigma2_true}",
             law.sigma2
         );
-        assert!(!law.floor_saturated, "clean power law must not read as saturated");
+        assert!(
+            !law.floor_saturated,
+            "clean power law must not read as saturated"
+        );
     }
 
     #[test]
     fn flat_losses_flag_floor_saturation() {
         // Losses at the floor (no decay in K) must flag saturation, not report a
         // spurious finite dimension.
-        let rungs: Vec<(usize, f64)> =
-            [4, 8, 16, 32, 64].iter().map(|&k| (k, 0.05f64)).collect();
+        let rungs: Vec<(usize, f64)> = [4, 8, 16, 32, 64].iter().map(|&k| (k, 0.05f64)).collect();
         let law = fit_scaling_law(&rungs).expect("flat scaling law fit");
         assert!(
             law.floor_saturated,
@@ -916,9 +935,7 @@ mod tests {
         );
         // Points-per-atom is exposed so the drift is inspectable, aligned to the ladder.
         assert_eq!(report.points_per_atom.len(), report.rungs.len());
-        assert!(
-            (report.points_per_atom[0] - n_rows as f64 / rungs[0].0 as f64).abs() < 1.0e-9
-        );
+        assert!((report.points_per_atom[0] - n_rows as f64 / rungs[0].0 as f64).abs() < 1.0e-9);
     }
 
     #[test]

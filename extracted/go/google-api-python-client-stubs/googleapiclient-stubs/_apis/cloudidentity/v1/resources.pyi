@@ -21,7 +21,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: CancelUserInvitationRequest = ...,
+                body: CancelUserInvitationRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def get(
@@ -34,10 +34,10 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListUserInvitationsResponseHttpRequest: ...
             def list_next(
@@ -49,7 +49,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: SendUserInvitationRequest = ...,
+                body: SendUserInvitationRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
@@ -62,16 +62,16 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class ClientStatesResource(googleapiclient.discovery.Resource):
                 def get(
-                    self, *, name: str, customer: str = ..., **kwargs: typing.Any
+                    self, *, name: str, customer: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleAppsCloudidentityDevicesV1ClientStateHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    customer: str = ...,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageToken: str = ...,
+                    customer: str | None = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleAppsCloudidentityDevicesV1ListClientStatesResponseHttpRequest
@@ -88,9 +88,9 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleAppsCloudidentityDevicesV1ClientState = ...,
-                    customer: str = ...,
-                    updateMask: str = ...,
+                    body: GoogleAppsCloudidentityDevicesV1ClientState,
+                    customer: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -98,38 +98,38 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleAppsCloudidentityDevicesV1ApproveDeviceUserRequest = ...,
+                body: GoogleAppsCloudidentityDevicesV1ApproveDeviceUserRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def block(
                 self,
                 *,
                 name: str,
-                body: GoogleAppsCloudidentityDevicesV1BlockDeviceUserRequest = ...,
+                body: GoogleAppsCloudidentityDevicesV1BlockDeviceUserRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def cancelWipe(
                 self,
                 *,
                 name: str,
-                body: GoogleAppsCloudidentityDevicesV1CancelWipeDeviceUserRequest = ...,
+                body: GoogleAppsCloudidentityDevicesV1CancelWipeDeviceUserRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def delete(
-                self, *, name: str, customer: str = ..., **kwargs: typing.Any
+                self, *, name: str, customer: str | None = ..., **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def get(
-                self, *, name: str, customer: str = ..., **kwargs: typing.Any
+                self, *, name: str, customer: str | None = ..., **kwargs: typing.Any
             ) -> GoogleAppsCloudidentityDevicesV1DeviceUserHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                customer: str = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                customer: str | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleAppsCloudidentityDevicesV1ListDeviceUsersResponseHttpRequest: ...
             def list_next(
@@ -144,13 +144,13 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                androidId: str = ...,
-                iosDeviceId: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                partner: str = ...,
-                rawResourceId: str = ...,
-                userId: str = ...,
+                androidId: str | None = ...,
+                iosDeviceId: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                partner: str | None = ...,
+                rawResourceId: str | None = ...,
+                userId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleAppsCloudidentityDevicesV1LookupSelfDeviceUsersResponseHttpRequest
@@ -167,7 +167,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleAppsCloudidentityDevicesV1WipeDeviceUserRequest = ...,
+                body: GoogleAppsCloudidentityDevicesV1WipeDeviceUserRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def clientStates(self) -> ClientStatesResource: ...
@@ -176,33 +176,34 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GoogleAppsCloudidentityDevicesV1CancelWipeDeviceRequest = ...,
+            body: GoogleAppsCloudidentityDevicesV1CancelWipeDeviceRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def create(
             self,
             *,
-            body: GoogleAppsCloudidentityDevicesV1Device = ...,
-            customer: str = ...,
+            body: GoogleAppsCloudidentityDevicesV1Device,
+            customer: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
-            self, *, name: str, customer: str = ..., **kwargs: typing.Any
+            self, *, name: str, customer: str | None = ..., **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def get(
-            self, *, name: str, customer: str = ..., **kwargs: typing.Any
+            self, *, name: str, customer: str | None = ..., **kwargs: typing.Any
         ) -> GoogleAppsCloudidentityDevicesV1DeviceHttpRequest: ...
         def list(
             self,
             *,
-            customer: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            customer: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             view: typing_extensions.Literal[
                 "VIEW_UNSPECIFIED", "COMPANY_INVENTORY", "USER_ASSIGNED_DEVICES"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleAppsCloudidentityDevicesV1ListDevicesResponseHttpRequest: ...
         def list_next(
@@ -214,7 +215,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GoogleAppsCloudidentityDevicesV1WipeDeviceRequest = ...,
+            body: GoogleAppsCloudidentityDevicesV1WipeDeviceRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def deviceUsers(self) -> DeviceUsersResource: ...
@@ -224,10 +225,10 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class MembershipsResource(googleapiclient.discovery.Resource):
             def checkTransitiveMembership(
-                self, *, parent: str, query: str = ..., **kwargs: typing.Any
+                self, *, parent: str, query: str | None = ..., **kwargs: typing.Any
             ) -> CheckTransitiveMembershipResponseHttpRequest: ...
             def create(
-                self, *, parent: str, body: Membership = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Membership, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -236,17 +237,16 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self, *, name: str, **kwargs: typing.Any
             ) -> MembershipHttpRequest: ...
             def getMembershipGraph(
-                self, *, parent: str, query: str = ..., **kwargs: typing.Any
+                self, *, parent: str, query: str | None = ..., **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                view: typing_extensions.Literal[
-                    "VIEW_UNSPECIFIED", "BASIC", "FULL"
-                ] = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                view: typing_extensions.Literal["VIEW_UNSPECIFIED", "BASIC", "FULL"]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListMembershipsResponseHttpRequest: ...
             def list_next(
@@ -258,25 +258,25 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                memberKey_id: str = ...,
-                memberKey_namespace: str = ...,
+                memberKey_id: str | None = ...,
+                memberKey_namespace: str | None = ...,
                 **kwargs: typing.Any,
             ) -> LookupMembershipNameResponseHttpRequest: ...
             def modifyMembershipRoles(
                 self,
                 *,
                 name: str,
-                body: ModifyMembershipRolesRequest = ...,
+                body: ModifyMembershipRolesRequest,
                 **kwargs: typing.Any,
             ) -> ModifyMembershipRolesResponseHttpRequest: ...
             def searchDirectGroups(
                 self,
                 *,
                 parent: str,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                query: str = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                query: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SearchDirectGroupsResponseHttpRequest: ...
             def searchDirectGroups_next(
@@ -288,9 +288,9 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                query: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                query: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SearchTransitiveGroupsResponseHttpRequest: ...
             def searchTransitiveGroups_next(
@@ -302,8 +302,8 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SearchTransitiveMembershipsResponseHttpRequest: ...
             def searchTransitiveMemberships_next(
@@ -315,10 +315,11 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: Group = ...,
+            body: Group,
             initialGroupConfig: typing_extensions.Literal[
                 "INITIAL_GROUP_CONFIG_UNSPECIFIED", "WITH_INITIAL_OWNER", "EMPTY"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
@@ -326,15 +327,16 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         ) -> OperationHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> GroupHttpRequest: ...
         def getSecuritySettings(
-            self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+            self, *, name: str, readMask: str | None = ..., **kwargs: typing.Any
         ) -> SecuritySettingsHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
-            view: typing_extensions.Literal["VIEW_UNSPECIFIED", "BASIC", "FULL"] = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
+            view: typing_extensions.Literal["VIEW_UNSPECIFIED", "BASIC", "FULL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> ListGroupsResponseHttpRequest: ...
         def list_next(
@@ -345,25 +347,26 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         def lookup(
             self,
             *,
-            groupKey_id: str = ...,
-            groupKey_namespace: str = ...,
+            groupKey_id: str | None = ...,
+            groupKey_namespace: str | None = ...,
             **kwargs: typing.Any,
         ) -> LookupGroupNameResponseHttpRequest: ...
         def patch(
             self,
             *,
             name: str,
-            body: Group = ...,
-            updateMask: str = ...,
+            body: Group,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def search(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
-            view: typing_extensions.Literal["VIEW_UNSPECIFIED", "BASIC", "FULL"] = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
+            view: typing_extensions.Literal["VIEW_UNSPECIFIED", "BASIC", "FULL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> SearchGroupsResponseHttpRequest: ...
         def search_next(
@@ -375,8 +378,8 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: SecuritySettings = ...,
-            updateMask: str = ...,
+            body: SecuritySettings,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def memberships(self) -> MembershipsResource: ...
@@ -384,7 +387,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class InboundOidcSsoProfilesResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, body: InboundOidcSsoProfile = ..., **kwargs: typing.Any
+            self, *, body: InboundOidcSsoProfile, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
@@ -395,9 +398,9 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListInboundOidcSsoProfilesResponseHttpRequest: ...
         def list_next(
@@ -409,8 +412,8 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: InboundOidcSsoProfile = ...,
-            updateMask: str = ...,
+            body: InboundOidcSsoProfile,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
 
@@ -422,7 +425,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: AddIdpCredentialRequest = ...,
+                body: AddIdpCredentialRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def delete(
@@ -435,8 +438,8 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListIdpCredentialsResponseHttpRequest: ...
             def list_next(
@@ -446,7 +449,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             ) -> ListIdpCredentialsResponseHttpRequest | None: ...
 
         def create(
-            self, *, body: InboundSamlSsoProfile = ..., **kwargs: typing.Any
+            self, *, body: InboundSamlSsoProfile, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
@@ -457,9 +460,9 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListInboundSamlSsoProfilesResponseHttpRequest: ...
         def list_next(
@@ -471,8 +474,8 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: InboundSamlSsoProfile = ...,
-            updateMask: str = ...,
+            body: InboundSamlSsoProfile,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def idpCredentials(self) -> IdpCredentialsResource: ...
@@ -480,7 +483,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class InboundSsoAssignmentsResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, body: InboundSsoAssignment = ..., **kwargs: typing.Any
+            self, *, body: InboundSsoAssignment, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
@@ -491,9 +494,9 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListInboundSsoAssignmentsResponseHttpRequest: ...
         def list_next(
@@ -505,15 +508,15 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: InboundSsoAssignment = ...,
-            updateMask: str = ...,
+            body: InboundSsoAssignment,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
 
     @typing.type_check_only
     class PoliciesResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, body: Policy = ..., **kwargs: typing.Any
+            self, *, body: Policy, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
@@ -522,9 +525,9 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListPoliciesResponseHttpRequest: ...
         def list_next(
@@ -533,7 +536,7 @@ class CloudIdentityResource(googleapiclient.discovery.Resource):
             previous_response: ListPoliciesResponse,
         ) -> ListPoliciesResponseHttpRequest | None: ...
         def patch(
-            self, *, name: str, body: Policy = ..., **kwargs: typing.Any
+            self, *, name: str, body: Policy, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
 
     def new_batch_http_request(

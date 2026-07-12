@@ -8,9 +8,9 @@
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 use rand::RngExt;
+use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use rand::SeedableRng;
 use std::f64::consts::PI;
 
 /// Direction of the claim statistic under the null.
@@ -18,6 +18,59 @@ use std::f64::consts::PI;
 pub enum Tail {
     Larger,
     Smaller,
+}
+
+impl Tail {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Larger => "larger",
+            Self::Smaller => "smaller",
+        }
+    }
+}
+
+/// Plus-one-corrected Monte Carlo tail probability and its sampling uncertainty.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EmpiricalPValue {
+    pub p_value: f64,
+    pub monte_carlo_standard_error: f64,
+    pub extreme_draws: usize,
+    pub draws: usize,
+}
+
+/// Evaluate a scalar statistic against an explicit Monte Carlo null distribution.
+///
+/// This is the single plus-one correction used by every native null-calibrated
+/// report. Ties count as extreme in the requested tail, so a null statistic equal
+/// to the observation is evidence against rejection rather than a free win.
+pub fn empirical_p_value(
+    observed: f64,
+    null_samples: &[f64],
+    tail: Tail,
+) -> Result<EmpiricalPValue, String> {
+    require_finite(observed, "observed statistic")?;
+    if null_samples.is_empty() {
+        return Err("empirical p-value requires at least one null draw".to_string());
+    }
+    for (draw, &sample) in null_samples.iter().enumerate() {
+        require_finite(sample, &format!("null statistic draw {draw}"))?;
+    }
+    let extreme_draws = null_samples
+        .iter()
+        .filter(|&&sample| match tail {
+            Tail::Larger => sample >= observed,
+            Tail::Smaller => sample <= observed,
+        })
+        .count();
+    let draws = null_samples.len();
+    let p_value = (extreme_draws as f64 + 1.0) / (draws as f64 + 1.0);
+    let monte_carlo_standard_error = (p_value * (1.0 - p_value) / (draws as f64 + 1.0)).sqrt();
+    Ok(EmpiricalPValue {
+        p_value,
+        monte_carlo_standard_error,
+        extreme_draws,
+        draws,
+    })
 }
 
 /// One member of the standing null battery.
@@ -32,6 +85,18 @@ pub enum NullKind {
     /// Permute token rows, preserving the activation cloud and column marginals
     /// while destroying row-order structure.
     TokenShuffle,
+    /// Permute every column independently. This preserves each one-dimensional
+    /// empirical marginal exactly while destroying cross-column geometry such
+    /// as an unordered circle or ring of clusters.
+    PerDimensionShuffle,
+    /// Draw independent Gaussian principal-component scores with the same mean
+    /// and variance in every supplied PC column, preserving the eigenspectrum
+    /// while destroying cyclic/non-Gaussian structure.
+    MatchedSpectrumGaussian,
+    /// Draw a multivariate Gaussian with the observed mean and full covariance.
+    /// Unlike `MatchedSpectrumGaussian`, this is expressed in the supplied
+    /// coordinates and preserves their cross-covariance as well as their scales.
+    CovarianceMatchedGaussian,
     /// Use separately supplied random-weight activations from the same
     /// architecture, moment-matched to the observed matrix shape.
     ArchitectureMatchedRandomWeight,
@@ -43,6 +108,9 @@ impl NullKind {
             Self::PhaseRandomized => "phase_randomized",
             Self::RandomRotation => "random_rotation",
             Self::TokenShuffle => "token_shuffle",
+            Self::PerDimensionShuffle => "per_dimension_shuffle",
+            Self::MatchedSpectrumGaussian => "matched_spectrum_gaussian",
+            Self::CovarianceMatchedGaussian => "covariance_matched_gaussian",
             Self::ArchitectureMatchedRandomWeight => "architecture_matched_random_weight",
         }
     }
@@ -66,6 +134,9 @@ impl NullBatteryConfig {
                 NullKind::PhaseRandomized,
                 NullKind::RandomRotation,
                 NullKind::TokenShuffle,
+                NullKind::PerDimensionShuffle,
+                NullKind::MatchedSpectrumGaussian,
+                NullKind::CovarianceMatchedGaussian,
                 NullKind::ArchitectureMatchedRandomWeight,
             ],
             tail: Tail::Larger,
@@ -74,9 +145,10 @@ impl NullBatteryConfig {
 }
 
 /// Null distribution summary for a single null kind.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NullSummary {
     pub kind: NullKind,
+    pub tail: Tail,
     pub observed: f64,
     pub n: usize,
     pub mean: f64,
@@ -88,6 +160,10 @@ pub struct NullSummary {
     pub max: f64,
     pub z: f64,
     pub p_value: f64,
+    pub monte_carlo_standard_error: f64,
+    pub extreme_draws: usize,
+    /// Statistic values in draw order. Keeping seed order (rather than sorting
+    /// this ledger for quantiles) makes a persisted null artifact replayable.
     pub samples: Vec<f64>,
 }
 
@@ -280,7 +356,10 @@ pub fn primary_null_pvalue(report: &NullBatteryReport) -> f64 {
     for summary in &report.summaries {
         if matches!(
             summary.kind,
-            NullKind::PhaseRandomized | NullKind::ArchitectureMatchedRandomWeight
+            NullKind::PhaseRandomized
+                | NullKind::MatchedSpectrumGaussian
+                | NullKind::CovarianceMatchedGaussian
+                | NullKind::ArchitectureMatchedRandomWeight
         ) {
             selected.push(summary.p_value);
         }
@@ -296,7 +375,10 @@ pub fn primary_null_z(report: &NullBatteryReport) -> f64 {
     for summary in &report.summaries {
         if matches!(
             summary.kind,
-            NullKind::PhaseRandomized | NullKind::ArchitectureMatchedRandomWeight
+            NullKind::PhaseRandomized
+                | NullKind::MatchedSpectrumGaussian
+                | NullKind::CovarianceMatchedGaussian
+                | NullKind::ArchitectureMatchedRandomWeight
         ) {
             selected.push(summary.z);
         }
@@ -338,6 +420,13 @@ where
                 NullKind::PhaseRandomized => phase_randomized_surrogate(data, rep_seed)?,
                 NullKind::RandomRotation => random_rotation_null(data, rep_seed)?,
                 NullKind::TokenShuffle => token_shuffle_null(data, rep_seed)?,
+                NullKind::PerDimensionShuffle => per_dimension_shuffle_null(data, rep_seed)?,
+                NullKind::MatchedSpectrumGaussian => {
+                    matched_spectrum_gaussian_null(data, rep_seed)?
+                }
+                NullKind::CovarianceMatchedGaussian => {
+                    covariance_matched_gaussian_null(data, rep_seed)?
+                }
                 NullKind::ArchitectureMatchedRandomWeight => {
                     let Some(rw) = random_weight else {
                         return Err(
@@ -352,7 +441,12 @@ where
             require_finite(stat, "null statistic")?;
             samples.push(stat);
         }
-        summaries.push(summarize_null(kind, observed, samples, config.tail));
+        summaries.push(summarize_null_distribution(
+            kind,
+            observed,
+            samples,
+            config.tail,
+        )?);
     }
 
     Ok(NullBatteryReport {
@@ -425,6 +519,112 @@ pub fn token_shuffle_null(data: ArrayView2<'_, f64>, seed: u64) -> Result<Array2
     let mut out = Array2::<f64>::zeros(data.raw_dim());
     for (dst, &src) in order.iter().enumerate() {
         out.row_mut(dst).assign(&data.row(src));
+    }
+    Ok(out)
+}
+
+/// Independently permute each dimension of an activation/coordinate matrix.
+///
+/// Every output column is a bit-for-bit permutation of the corresponding input
+/// column, so all empirical marginal moments and tails are preserved exactly.
+/// The independently seeded permutations break cross-dimensional geometry; in
+/// particular, this is the matched shuffle control required for an unordered
+/// circle census, whereas [`token_shuffle_null`] leaves that point cloud intact.
+pub fn per_dimension_shuffle_null(
+    data: ArrayView2<'_, f64>,
+    seed: u64,
+) -> Result<Array2<f64>, String> {
+    validate_matrix(data, "per-dimension-shuffle input")?;
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut out = Array2::<f64>::zeros(data.raw_dim());
+    for col in 0..data.ncols() {
+        let mut order: Vec<usize> = (0..data.nrows()).collect();
+        order.shuffle(&mut rng);
+        for (dst, &src) in order.iter().enumerate() {
+            out[[dst, col]] = data[[src, col]];
+        }
+    }
+    Ok(out)
+}
+
+/// Gaussian matched-spectrum null for a matrix already expressed in principal-
+/// component coordinates.
+///
+/// Each output PC column is an independent normal draw with the observed
+/// column's mean and sample standard deviation. Consequently the per-PC
+/// eigenspectrum is preserved while cyclic ordering, higher moments, and
+/// cross-row manifold structure are destroyed. The explicit PC-coordinate
+/// contract avoids a hidden eigen-decomposition or a Python-side reimplementation.
+pub fn matched_spectrum_gaussian_null(
+    pc_scores: ArrayView2<'_, f64>,
+    seed: u64,
+) -> Result<Array2<f64>, String> {
+    validate_matrix(pc_scores, "matched-spectrum PC scores")?;
+    let mean = column_mean(pc_scores);
+    let sd = column_sd(pc_scores, mean.view());
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut out = Array2::<f64>::zeros(pc_scores.raw_dim());
+    for row in 0..out.nrows() {
+        for pc in 0..out.ncols() {
+            out[[row, pc]] = mean[pc] + sd[pc] * standard_normal(&mut rng);
+        }
+    }
+    Ok(out)
+}
+
+/// Gaussian null matched to the observed mean and full covariance.
+///
+/// The covariance square root is formed from the symmetric eigendecomposition,
+/// not by adding a ridge: zero empirical eigenvalues stay exactly zero, so a
+/// rank-deficient coordinate cloud produces a rank-deficient matched null
+/// rather than a different full-rank distribution. Tiny negative eigenvalues
+/// produced solely by floating-point eigensolver roundoff are projected to the
+/// positive-semidefinite cone at zero.
+pub fn covariance_matched_gaussian_null(
+    data: ArrayView2<'_, f64>,
+    seed: u64,
+) -> Result<Array2<f64>, String> {
+    use faer::Side;
+    use gam_linalg::faer_ndarray::FaerEigh;
+
+    validate_matrix(data, "covariance-matched Gaussian input")?;
+    let n = data.nrows();
+    let p = data.ncols();
+    let mean = column_mean(data);
+    let mut covariance = Array2::<f64>::zeros((p, p));
+    for row in data.rows() {
+        for a in 0..p {
+            let da = row[a] - mean[a];
+            for b in 0..=a {
+                covariance[[a, b]] += da * (row[b] - mean[b]);
+            }
+        }
+    }
+    for a in 0..p {
+        for b in 0..=a {
+            let value = covariance[[a, b]] / n as f64;
+            covariance[[a, b]] = value;
+            covariance[[b, a]] = value;
+        }
+    }
+    let (eigenvalues, eigenvectors) = covariance.eigh(Side::Lower).map_err(|error| {
+        format!("covariance-matched Gaussian eigendecomposition failed: {error}")
+    })?;
+
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut out = Array2::<f64>::zeros((n, p));
+    let mut scaled_normal = vec![0.0_f64; p];
+    for row in 0..n {
+        for axis in 0..p {
+            scaled_normal[axis] = eigenvalues[axis].max(0.0).sqrt() * standard_normal(&mut rng);
+        }
+        for col in 0..p {
+            let mut draw = mean[col];
+            for axis in 0..p {
+                draw += eigenvectors[[col, axis]] * scaled_normal[axis];
+            }
+            out[[row, col]] = draw;
+        }
     }
     Ok(out)
 }
@@ -519,7 +719,9 @@ pub fn residual_surrogate_from_moments(
     }
     for (idx, &value) in spec.mean.iter().enumerate() {
         if !value.is_finite() {
-            return Err(format!("residual surrogate mean[{idx}] is not finite: {value}"));
+            return Err(format!(
+                "residual surrogate mean[{idx}] is not finite: {value}"
+            ));
         }
     }
     validate_matrix(spec.covariance.view(), "residual surrogate covariance")?;
@@ -909,8 +1111,14 @@ pub fn first_two_ordered_circle_stat(data: ArrayView2<'_, f64>) -> Result<f64, S
     let pos = pos_re * pos_re + pos_im * pos_im;
     let neg = neg_re * neg_re + neg_im * neg_im;
     let winding_balance = (pos - neg).max(0.0) / (pos + neg).max(f64::MIN_POSITIVE);
+    // Parseval-normalized energy in the ordered frequency-1 mode. A coherent
+    // circle attains one; unstructured architecture-matched activations put only
+    // O(1/n) of their energy in this single Fourier mode. The previous statistic
+    // computed these coefficients but omitted their concentration, allowing a
+    // chance high-area noise polygon to outrank the planted circle.
+    let harmonic_concentration = ((pos + neg) / (n as f64 * energy)).clamp(0.0, 1.0);
     let area_scale = signed_area.abs() / energy.max(f64::MIN_POSITIVE);
-    Ok(winding_balance * area_scale)
+    Ok(winding_balance * harmonic_concentration * area_scale)
 }
 
 /// Basis-dependent energy in the first two coordinates.
@@ -1019,7 +1227,9 @@ fn validate_spike_in_config(config: &SpikeInRocConfig) -> Result<(), String> {
     }
     for (idx, &snr) in config.snrs.iter().enumerate() {
         if !snr.is_finite() || snr < 0.0 {
-            return Err(format!("snr[{idx}] must be finite and non-negative, got {snr}"));
+            return Err(format!(
+                "snr[{idx}] must be finite and non-negative, got {snr}"
+            ));
         }
     }
     if config.fpr_levels.is_empty() {
@@ -1073,7 +1283,11 @@ fn circle_topology_audit_from_harmonic_stat(
     eigenvalues: &[f64],
 ) -> TopologyAuditReport {
     let expected = SpikeInShape::Circle.expected_betti();
-    let leading = eigenvalues.first().copied().unwrap_or(0.0).max(f64::MIN_POSITIVE);
+    let leading = eigenvalues
+        .first()
+        .copied()
+        .unwrap_or(0.0)
+        .max(f64::MIN_POSITIVE);
     let second = eigenvalues.get(1).copied().unwrap_or(0.0).max(0.0);
     let tail = eigenvalues.get(2).copied().unwrap_or(0.0).max(0.0);
     let spectral_balance = second / leading;
@@ -1101,12 +1315,12 @@ fn topology_audit_from_spectrum(
 ) -> TopologyAuditReport {
     let rank = shape.signal_rank();
     let expected = shape.expected_betti();
-    let leading = eigenvalues.first().copied().unwrap_or(0.0).max(f64::MIN_POSITIVE);
-    let rank_tail = eigenvalues
-        .get(rank)
+    let leading = eigenvalues
+        .first()
         .copied()
         .unwrap_or(0.0)
-        .max(0.0);
+        .max(f64::MIN_POSITIVE);
+    let rank_tail = eigenvalues.get(rank).copied().unwrap_or(0.0).max(0.0);
     let weakest_signal = eigenvalues
         .get(rank.saturating_sub(1))
         .copied()
@@ -1294,6 +1508,9 @@ fn kind_seed(kind: NullKind) -> u64 {
         NullKind::PhaseRandomized => 0x91E4_11CE,
         NullKind::RandomRotation => 0x807A_7100,
         NullKind::TokenShuffle => 0x70CE_514F,
+        NullKind::PerDimensionShuffle => 0xD1AE_510F,
+        NullKind::MatchedSpectrumGaussian => 0x5EEC_7A11,
+        NullKind::CovarianceMatchedGaussian => 0xC0A4_71A1,
         NullKind::ArchitectureMatchedRandomWeight => 0xA2C4_177E,
     }
 }
@@ -1306,8 +1523,21 @@ fn mix_seed(a: u64, b: u64, c: u64) -> u64 {
     x ^ (x >> 31)
 }
 
-fn summarize_null(kind: NullKind, observed: f64, mut samples: Vec<f64>, tail: Tail) -> NullSummary {
-    samples.sort_by(|a, b| a.total_cmp(b));
+/// Summarize an explicit Monte Carlo null distribution with the same native
+/// plus-one tail calibration used by [`run_null_battery`].
+///
+/// `samples` remains in draw order in the returned artifact. Quantiles are
+/// computed from a separate sorted copy so a seed and draw index can reproduce
+/// every persisted statistic exactly.
+pub fn summarize_null_distribution(
+    kind: NullKind,
+    observed: f64,
+    samples: Vec<f64>,
+    tail: Tail,
+) -> Result<NullSummary, String> {
+    let calibration = empirical_p_value(observed, &samples, tail)?;
+    let mut sorted = samples.clone();
+    sorted.sort_by(|a, b| a.total_cmp(b));
     let n = samples.len();
     let mean = samples.iter().sum::<f64>() / n as f64;
     let var = if n > 1 {
@@ -1328,29 +1558,24 @@ fn summarize_null(kind: NullKind, observed: f64, mut samples: Vec<f64>, tail: Ta
     } else {
         0.0
     };
-    let extreme = samples
-        .iter()
-        .filter(|&&x| match tail {
-            Tail::Larger => x >= observed,
-            Tail::Smaller => x <= observed,
-        })
-        .count();
-    let p_value = (extreme + 1) as f64 / (n + 1) as f64;
-    NullSummary {
+    Ok(NullSummary {
         kind,
+        tail,
         observed,
         n,
         mean,
         sd,
-        min: samples[0],
-        q25: samples[n / 4],
-        median: samples[n / 2],
-        q75: samples[(3 * n) / 4],
-        max: samples[n - 1],
+        min: sorted[0],
+        q25: sorted[n / 4],
+        median: sorted[n / 2],
+        q75: sorted[(3 * n) / 4],
+        max: sorted[n - 1],
         z,
-        p_value,
+        p_value: calibration.p_value,
+        monte_carlo_standard_error: calibration.monte_carlo_standard_error,
+        extreme_draws: calibration.extreme_draws,
         samples,
-    }
+    })
 }
 
 fn random_orthogonal(p: usize, seed: u64) -> Result<Array2<f64>, String> {
@@ -1466,8 +1691,13 @@ mod tests {
     fn structured_signal_beats_required_nulls_but_noise_does_not() {
         let signal = ordered_circle_fixture(96, 6, 0.04);
         let random_weight = noise_fixture(128, 6, 1717);
+        let alpha = 0.05_f64;
+        // With the plus-one correction, zero exceedances attain 1 / (R + 1).
+        // Derive the smallest battery that can strictly clear the declared
+        // level instead of weakening alpha to accommodate too few draws.
+        let replicates = (1.0_f64 / alpha).floor() as usize;
         let config = NullBatteryConfig {
-            replicates: 16,
+            replicates,
             seed: 17,
             kinds: vec![
                 NullKind::PhaseRandomized,
@@ -1484,7 +1714,10 @@ mod tests {
         )
         .expect("structured null battery should run");
         assert!(
-            report.summaries.iter().all(|s| s.z > 2.0 && s.p_value <= 0.12),
+            report
+                .summaries
+                .iter()
+                .all(|s| s.z > 2.0 && s.p_value < alpha),
             "structured ordered circle should separate from nulls: {:?}",
             report.summaries
         );
@@ -1502,7 +1735,7 @@ mod tests {
             noise_report
                 .summaries
                 .iter()
-                .all(|s| s.z.abs() < 2.0 || s.p_value > 0.12),
+                .all(|s| s.z.abs() < 2.0 || s.p_value >= alpha),
             "pure noise must not look separated from nulls: {:?}",
             noise_report.summaries
         );
@@ -1525,6 +1758,120 @@ mod tests {
             (invariant_before - invariant_after).abs() < 1.0e-8,
             "top-two energy should survive rotation: before={invariant_before} after={invariant_after}"
         );
+    }
+
+    #[test]
+    fn matched_spectrum_gaussian_preserves_pc_scales_and_is_seeded_2250() {
+        let rows = 8_192;
+        let mut scores = Array2::<f64>::zeros((rows, 3));
+        for row in 0..rows {
+            let t = row as f64 / rows as f64;
+            scores[[row, 0]] = 2.0 + 3.0 * (2.0 * PI * t).cos();
+            scores[[row, 1]] = -1.0 + 1.5 * (4.0 * PI * t).sin();
+            scores[[row, 2]] = 0.25 + 0.4 * (6.0 * PI * t).cos();
+        }
+        let first = matched_spectrum_gaussian_null(scores.view(), 72).expect("matched null");
+        let repeated = matched_spectrum_gaussian_null(scores.view(), 72).expect("matched null");
+        assert_eq!(first, repeated, "seeded null draws must be reproducible");
+
+        let observed_mean = column_mean(scores.view());
+        let observed_sd = column_sd(scores.view(), observed_mean.view());
+        let null_mean = column_mean(first.view());
+        let null_sd = column_sd(first.view(), null_mean.view());
+        for pc in 0..scores.ncols() {
+            let mean_se = observed_sd[pc] / (rows as f64).sqrt();
+            assert!(
+                (null_mean[pc] - observed_mean[pc]).abs() <= 4.0 * mean_se,
+                "PC {pc} mean mismatch: observed={} null={} se={mean_se}",
+                observed_mean[pc],
+                null_mean[pc]
+            );
+            assert!(
+                (null_sd[pc] / observed_sd[pc] - 1.0).abs() < 0.05,
+                "PC {pc} scale mismatch: observed={} null={}",
+                observed_sd[pc],
+                null_sd[pc]
+            );
+        }
+    }
+
+    #[test]
+    fn per_dimension_shuffle_preserves_marginals_but_breaks_geometry_2262() {
+        let rows = 2_048;
+        let mut paired = Array2::<f64>::zeros((rows, 2));
+        for row in 0..rows {
+            let value = row as f64 - (rows as f64 - 1.0) / 2.0;
+            paired[[row, 0]] = value;
+            paired[[row, 1]] = value;
+        }
+        let shuffled = per_dimension_shuffle_null(paired.view(), 2262).expect("shuffle null");
+        let repeated = per_dimension_shuffle_null(paired.view(), 2262).expect("shuffle null");
+        assert_eq!(shuffled, repeated, "seeded shuffle must be reproducible");
+
+        for col in 0..paired.ncols() {
+            let mut observed = paired.column(col).to_vec();
+            let mut null = shuffled.column(col).to_vec();
+            observed.sort_by(f64::total_cmp);
+            null.sort_by(f64::total_cmp);
+            assert_eq!(observed, null, "column {col} marginal changed");
+        }
+        let original_cross = paired
+            .rows()
+            .into_iter()
+            .map(|row| row[0] * row[1])
+            .sum::<f64>();
+        let shuffled_cross = shuffled
+            .rows()
+            .into_iter()
+            .map(|row| row[0] * row[1])
+            .sum::<f64>();
+        assert!(
+            shuffled_cross.abs() < original_cross.abs() / 10.0,
+            "independent permutations did not destroy the paired geometry: original={original_cross} shuffled={shuffled_cross}"
+        );
+    }
+
+    #[test]
+    fn covariance_matched_gaussian_preserves_full_second_moment_2262() {
+        let rows = 16_384;
+        let mut observed = Array2::<f64>::zeros((rows, 3));
+        for row in 0..rows {
+            let t = 2.0 * PI * row as f64 / rows as f64;
+            observed[[row, 0]] = 1.0 + 2.0 * t.cos();
+            observed[[row, 1]] = -2.0 + 0.8 * t.cos() + 1.2 * t.sin();
+            observed[[row, 2]] = 0.5 - 0.6 * t.cos() + 0.3 * t.sin();
+        }
+        let draw = covariance_matched_gaussian_null(observed.view(), 2262)
+            .expect("covariance-matched Gaussian null");
+        let repeated = covariance_matched_gaussian_null(observed.view(), 2262)
+            .expect("covariance-matched Gaussian null");
+        assert_eq!(draw, repeated, "seeded Gaussian null must be reproducible");
+
+        let empirical_covariance = |data: ArrayView2<'_, f64>| {
+            let mean = column_mean(data);
+            let mut covariance = Array2::<f64>::zeros((data.ncols(), data.ncols()));
+            for row in data.rows() {
+                for a in 0..data.ncols() {
+                    for b in 0..data.ncols() {
+                        covariance[[a, b]] += (row[a] - mean[a]) * (row[b] - mean[b]);
+                    }
+                }
+            }
+            covariance / data.nrows() as f64
+        };
+        let target = empirical_covariance(observed.view());
+        let realized = empirical_covariance(draw.view());
+        for a in 0..observed.ncols() {
+            for b in 0..observed.ncols() {
+                let scale = target[[a, a]].sqrt() * target[[b, b]].sqrt();
+                assert!(
+                    (realized[[a, b]] - target[[a, b]]).abs() < 0.04 * scale,
+                    "covariance ({a},{b}) mismatch: target={} realized={} scale={scale}",
+                    target[[a, b]],
+                    realized[[a, b]],
+                );
+            }
+        }
     }
 
     #[test]
@@ -1570,11 +1917,13 @@ mod tests {
     #[test]
     fn torus_spike_in_detection_reports_expected_betti_payload() {
         let noise = noise_fixture(128, 10, 4321);
-        let spiked =
-            inject_torus_spike(noise.view(), 2.0, 88).expect("torus injection should run");
+        let spiked = inject_torus_spike(noise.view(), 2.0, 88).expect("torus injection should run");
         let report = default_spike_in_detection_pipeline(spiked.view(), SpikeInShape::Torus)
             .expect("torus detector should run");
-        assert!(report.detected, "high-SNR torus should be detected: {report:?}");
+        assert!(
+            report.detected,
+            "high-SNR torus should be detected: {report:?}"
+        );
         assert_eq!(report.topology.measured_betti0, 1);
         assert_eq!(report.topology.measured_betti1, 2);
         assert_eq!(report.topology.measured_betti2, 1);

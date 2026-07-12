@@ -50,7 +50,8 @@ def remove_token(token_cls):
     Arguments:
         token_cls (SpanToken): token to be removed from the parsing process.
     """
-    _token_types.remove(token_cls)
+    if token_cls in _token_types:
+        _token_types.remove(token_cls)
 
 
 def reset_tokens():
@@ -192,7 +193,7 @@ class Link(SpanToken):
 
 class AutoLink(SpanToken):
     """
-    Autolink token. ("<http://www.google.com>")
+    Autolink token. ("<http://www.google.com>", or "<user@example.org>")
     This is an inline token with a single child of type RawText.
 
     Attributes:
@@ -201,14 +202,15 @@ class AutoLink(SpanToken):
         mailto (bool): true iff the target looks like an email address, but does not have the "mailto:" prefix.
     """
     repr_attributes = ("target", "mailto")
-    pattern = re.compile(r"(?<!\\)(?:\\\\)*<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^ <>]*?|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>")
+    pattern = re.compile(r"(?<!\\)(?:\\\\)*<(([A-Za-z][A-Za-z0-9+.-]{1,31}):[^ <>]*?|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>")
     parse_inner = False
 
     def __init__(self, match):
         content = match.group(self.parse_group)
+        scheme = match.group(2)
         self.children = (RawText(content),)
         self.target = content
-        self.mailto = '@' in self.target and 'mailto' not in self.target.casefold()
+        self.mailto = not scheme
 
 
 class EscapeSequence(SpanToken):

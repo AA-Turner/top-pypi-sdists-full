@@ -26,10 +26,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAnnouncementsResponseHttpRequest: ...
                 def list_next(
@@ -44,17 +44,17 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Datastore = ...,
-                    datastoreId: str = ...,
-                    requestId: str = ...,
+                    body: Datastore,
+                    datastoreId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    requestId: str = ...,
+                    etag: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -64,11 +64,11 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    requestId: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDatastoresResponseHttpRequest: ...
                 def list_next(
@@ -80,9 +80,9 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Datastore = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Datastore,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -92,14 +92,14 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GrantDnsBindPermissionRequest = ...,
+                    body: GrantDnsBindPermissionRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def revoke(
                     self,
                     *,
                     name: str,
-                    body: RevokeDnsBindPermissionRequest = ...,
+                    body: RevokeDnsBindPermissionRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -111,9 +111,9 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListPeeringRoutesResponseHttpRequest: ...
                     def list_next(
@@ -126,14 +126,18 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: NetworkPeering = ...,
-                    networkPeeringId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: NetworkPeering,
+                    networkPeeringId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -142,10 +146,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListNetworkPeeringsResponseHttpRequest: ...
                 def list_next(
@@ -157,10 +161,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: NetworkPeering = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: NetworkPeering,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def peeringRoutes(self) -> PeeringRoutesResource: ...
@@ -173,14 +177,18 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ExternalAccessRule = ...,
-                        externalAccessRuleId: str = ...,
-                        requestId: str = ...,
-                        validateOnly: bool = ...,
+                        body: ExternalAccessRule,
+                        externalAccessRuleId: str | None = ...,
+                        requestId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -189,10 +197,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListExternalAccessRulesResponseHttpRequest: ...
                     def list_next(
@@ -204,10 +212,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ExternalAccessRule = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: ExternalAccessRule,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -215,21 +223,25 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: NetworkPolicy = ...,
-                    networkPolicyId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: NetworkPolicy,
+                    networkPolicyId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchExternalAddresses(
                     self,
                     *,
                     networkPolicy: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchNetworkPolicyExternalAddressesResponseHttpRequest: ...
                 def fetchExternalAddresses_next(
@@ -244,10 +256,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListNetworkPoliciesResponseHttpRequest: ...
                 def list_next(
@@ -259,10 +271,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: NetworkPolicy = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: NetworkPolicy,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def externalAccessRules(self) -> ExternalAccessRulesResource: ...
@@ -276,9 +288,9 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListNodeTypesResponseHttpRequest: ...
                 def list_next(
@@ -299,10 +311,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -324,8 +336,8 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListNodesResponseHttpRequest: ...
                         def list_next(
@@ -338,14 +350,18 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Cluster = ...,
-                        clusterId: str = ...,
-                        requestId: str = ...,
-                        validateOnly: bool = ...,
+                        body: Cluster,
+                        clusterId: str | None = ...,
+                        requestId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -354,17 +370,17 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListClustersResponseHttpRequest: ...
                     def list_next(
@@ -376,38 +392,38 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: MountDatastoreRequest = ...,
+                        body: MountDatastoreRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def patch(
                         self,
                         *,
                         name: str,
-                        body: Cluster = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: Cluster,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
                     def unmountDatastore(
                         self,
                         *,
                         name: str,
-                        body: UnmountDatastoreRequest = ...,
+                        body: UnmountDatastoreRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def nodes(self) -> NodesResource: ...
@@ -418,14 +434,18 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ExternalAddress = ...,
-                        externalAddressId: str = ...,
-                        requestId: str = ...,
-                        validateOnly: bool = ...,
+                        body: ExternalAddress,
+                        externalAddressId: str | None = ...,
+                        requestId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -434,10 +454,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListExternalAddressesResponseHttpRequest: ...
                     def list_next(
@@ -449,10 +469,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ExternalAddress = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: ExternalAddress,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -462,9 +482,9 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: HcxActivationKey = ...,
-                        hcxActivationKeyId: str = ...,
-                        requestId: str = ...,
+                        body: HcxActivationKey,
+                        hcxActivationKeyId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -474,15 +494,15 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListHcxActivationKeysResponseHttpRequest: ...
                     def list_next(
@@ -494,14 +514,14 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -511,13 +531,17 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: LoggingServer = ...,
-                        loggingServerId: str = ...,
-                        requestId: str = ...,
+                        body: LoggingServer,
+                        loggingServerId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -526,10 +550,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListLoggingServersResponseHttpRequest: ...
                     def list_next(
@@ -541,9 +565,9 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: LoggingServer = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
+                        body: LoggingServer,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -555,13 +579,17 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ManagementDnsZoneBinding = ...,
-                        managementDnsZoneBindingId: str = ...,
-                        requestId: str = ...,
+                        body: ManagementDnsZoneBinding,
+                        managementDnsZoneBindingId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -570,10 +598,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListManagementDnsZoneBindingsResponseHttpRequest: ...
                     def list_next(
@@ -585,16 +613,16 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ManagementDnsZoneBinding = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
+                        body: ManagementDnsZoneBinding,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def repair(
                         self,
                         *,
                         name: str,
-                        body: RepairManagementDnsZoneBindingRequest = ...,
+                        body: RepairManagementDnsZoneBindingRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -607,8 +635,8 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSubnetsResponseHttpRequest: ...
                     def list_next(
@@ -620,8 +648,8 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Subnet = ...,
-                        updateMask: str = ...,
+                        body: Subnet,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -634,10 +662,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListUpgradesResponseHttpRequest: ...
                     def list_next(
@@ -649,9 +677,9 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Upgrade = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
+                        body: Upgrade,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -659,19 +687,19 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: PrivateCloud = ...,
-                    privateCloudId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: PrivateCloud,
+                    privateCloudId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    delayHours: int = ...,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    delayHours: int | None = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -684,17 +712,17 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPrivateCloudsResponseHttpRequest: ...
                 def list_next(
@@ -706,45 +734,45 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: MigrateManagementVmsRequest = ...,
+                    body: MigrateManagementVmsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: PrivateCloud = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: PrivateCloud,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def privateCloudDeletionNow(
                     self,
                     *,
                     name: str,
-                    body: AcceleratePrivateCloudDeletionRequest = ...,
+                    body: AcceleratePrivateCloudDeletionRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def resetNsxCredentials(
                     self,
                     *,
                     privateCloud: str,
-                    body: ResetNsxCredentialsRequest = ...,
+                    body: ResetNsxCredentialsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def resetVcenterCredentials(
                     self,
                     *,
                     privateCloud: str,
-                    body: ResetVcenterCredentialsRequest = ...,
+                    body: ResetVcenterCredentialsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def showNsxCredentials(
@@ -754,30 +782,30 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     privateCloud: str,
-                    username: str = ...,
+                    username: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> CredentialsHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def undelete(
                     self,
                     *,
                     name: str,
-                    body: UndeletePrivateCloudRequest = ...,
+                    body: UndeletePrivateCloudRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def updateDnsForwarding(
                     self,
                     *,
                     name: str,
-                    body: DnsForwarding = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: DnsForwarding,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def clusters(self) -> ClustersResource: ...
@@ -798,8 +826,8 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListPrivateConnectionPeeringRoutesResponseHttpRequest: ...
                     def list_next(
@@ -814,14 +842,18 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: PrivateConnection = ...,
-                    privateConnectionId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: PrivateConnection,
+                    privateConnectionId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -830,10 +862,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPrivateConnectionsResponseHttpRequest: ...
                 def list_next(
@@ -845,10 +877,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: PrivateConnection = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: PrivateConnection,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def peeringRoutes(self) -> PeeringRoutesResource: ...
@@ -859,18 +891,18 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: VmwareEngineNetwork = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
-                    vmwareEngineNetworkId: str = ...,
+                    body: VmwareEngineNetwork,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
+                    vmwareEngineNetworkId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    requestId: str = ...,
+                    etag: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -880,10 +912,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListVmwareEngineNetworksResponseHttpRequest: ...
                 def list_next(
@@ -895,10 +927,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: VmwareEngineNetwork = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: VmwareEngineNetwork,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -912,10 +944,10 @@ class VMwareEngineResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

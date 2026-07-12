@@ -1,34 +1,29 @@
 Metadata-Version: 2.4
 Name: editdistpy
-Version: 0.2.0
-Summary: Fast Levenshtein and Damerau optimal string alignment algorithms.
-Author: mmb L
-License-Expression: MIT
-Project-URL: Repository, https://github.com/mammothb/editdistpy
-Project-URL: Changelog, https://github.com/mammothb/editdistpy/blob/master/CHANGELOG.md
-Keywords: edit distance,levenshtein,damerau
+Version: 0.3.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: POSIX
-Classifier: Operating System :: Unix
-Classifier: Operating System :: MacOS
-Classifier: Programming Language :: C++
-Classifier: Programming Language :: Cython
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
 License-File: LICENSE
-Dynamic: license-file
+Summary: Fast Levenshtein and Damerau optimal string alignment algorithms.
+Keywords: edit distance,levenshtein,damerau
+Author: mmb L
+License-Expression: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://github.com/mammothb/editdistpy/blob/master/CHANGELOG.md
+Project-URL: Repository, https://github.com/mammothb/editdistpy
 
 editdistpy <br>
 [![PyPI version](https://badge.fury.io/py/editdistpy.svg)](https://badge.fury.io/py/editdistpy)
@@ -165,3 +160,4 @@ strings.
 ## Changelog
 
 See the [changelog](https://github.com/mammothb/editdistpy/blob/master/CHANGELOG.md) for a history of notable changes to edistdistpy.
+

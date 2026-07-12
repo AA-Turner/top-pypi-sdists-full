@@ -68,7 +68,7 @@ use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::chart_canonicalization::d1_atom_fitted_turning;
 use crate::manifold::{SaeManifoldAtom, solve_design_least_squares};
-use gam_linalg::faer_ndarray::{FaerEigh, FaerSvd};
+use gam_linalg::faer_ndarray::FaerSvd;
 use gam_solve::evidence::{
     HybridAtomCandidate, HybridAtomChoice, HybridSplitSelection, select_hybrid_split,
 };
@@ -95,90 +95,6 @@ fn reduced_laplace_nle(residual_objective: f64, log_det_h: f64) -> f64 {
     residual_objective + 0.5 * log_det_h
 }
 
-/// Rank-aware `log|ΦᵀWΦ|_+` of the curved atom's weighted design Gram over its
-/// `M` decoder basis columns, with per-row weight `wᵢ = a_k²` (the same
-/// assignment-mass design weight the linear arm uses), summed over the
-/// eigenvalues above a relative spectral floor (#1223). This is the genuine
-/// weighted-design determinant the linear arm already reports — `log|XᵀWX|` —
-/// assembled for the curved basis so the two arms' Laplace complexity prices are
-/// computed on the SAME footing instead of pricing the curved arm with a
-/// parameter-count proxy `M·log(Σw)`.
-///
-/// Mirrors the linear arm exactly in what it does NOT include: no smoothing-
-/// penalty `λS` normalizer (the linear arm's Gram is the bare data Gram
-/// `diag(w_sum, s_tt)` too), so the comparison stays symmetric. The Gram is the
-/// design's outer Gram over its basis columns; it is identical across the `p`
-/// output channels (every channel shares the design `Φ`), so the per-channel
-/// `log|G|_+` is multiplied by `p` — matching the linear arm's `p·(…)` form.
-///
-/// `phi` is the curved design `Φ(t)` evaluated on the atom's assigned rows
-/// (`n × M`); `assign` is the per-row assignment mass `a_k` (NOT squared).
-/// Returns `None` when `Φ` is missing rows, the Gram is non-finite, or it has no
-/// positive eigenvalues (a fully rank-deficient design carries no determinant);
-/// the caller then falls back to the parameter-count proxy rather than fabricate
-/// a determinant.
-fn curved_design_gram_logdet(
-    phi: ArrayView2<'_, f64>,
-    assign: ArrayView1<'_, f64>,
-    p: usize,
-) -> Option<f64> {
-    let n = phi.nrows();
-    let m = phi.ncols();
-    if m == 0 || assign.len() != n || n == 0 {
-        return None;
-    }
-    // G = Φᵀ diag(a²) Φ  (M×M, symmetric PSD).
-    let mut gram = Array2::<f64>::zeros((m, m));
-    for i in 0..n {
-        let w = assign[i] * assign[i];
-        if !(w.is_finite() && w >= 0.0) {
-            return None;
-        }
-        if w == 0.0 {
-            continue;
-        }
-        let row = phi.row(i);
-        for a in 0..m {
-            let wa = w * row[a];
-            for b in a..m {
-                gram[[a, b]] += wa * row[b];
-            }
-        }
-    }
-    // Symmetrize the lower triangle (we only filled the upper).
-    for a in 0..m {
-        for b in 0..a {
-            gram[[a, b]] = gram[[b, a]];
-        }
-    }
-    if gram.iter().any(|v| !v.is_finite()) {
-        return None;
-    }
-    let (vals, _vecs) = gram.eigh(faer::Side::Lower).ok()?;
-    // Rank-aware log-determinant: sum log of eigenvalues above a relative floor
-    // tied to the largest eigenvalue, dropping the numerically-null directions
-    // (the curved design's null space, analogous to the linear arm's full-rank
-    // 2-D Gram). A design with no positive eigenvalue carries no determinant.
-    let lambda_max = vals.iter().cloned().fold(0.0_f64, f64::max);
-    if !(lambda_max > 0.0 && lambda_max.is_finite()) {
-        return None;
-    }
-    let floor = lambda_max * 1e-12;
-    let mut log_det = 0.0_f64;
-    let mut rank = 0usize;
-    for &lambda in vals.iter() {
-        if lambda > floor {
-            log_det += lambda.ln();
-            rank += 1;
-        }
-    }
-    if rank == 0 || !log_det.is_finite() {
-        return None;
-    }
-    // The design Gram is shared across the p output channels.
-    Some((p as f64) * log_det)
-}
-
 /// The fitted straight sub-model `γ̃(t) = b₀ + (t − t̄)·b₁` of one `d = 1` atom:
 /// the exact assignment-mass-weighted least-squares line fit to the atom's
 /// leave-this-atom-out RESPONSE residual `y_resp` over its assigned rows (the
@@ -198,38 +114,15 @@ pub struct AtomLinearImage {
     pub b0: Array1<f64>,
     /// Per-output-channel slope `b₁` (length `p`).
     pub b1: Array1<f64>,
-    /// #1026 collapse-rescue per-row coordinates. `None` for the ordinary path:
-    /// the line is evaluated at the atom's OWN realized coordinate `t`. `Some(u)`
-    /// only when the atom's circle codes had collapsed to a single point
-    /// (`s_tt ≈ 0`) so its own coordinate carries no spread — then the line is fit
-    /// against, and reconstruct evaluates it at, these FRESH per-row codes `uᵢ`
-    /// (the projection of the leave-this-atom-out residual onto its top
-    /// mass-weighted output direction). This is what lets a circle atom that the
-    /// joint fit drove into the degenerate "chord-through-the-arc" fixed point
-    /// still reconstruct its residual's best linear direction — recovering the
-    /// linear-tail reach the hybrid-split was designed to deliver — instead of a
-    /// constant (its collapsed curve), which is the real-OLMo rank-1 co-collapse
-    /// (held-out EV ≈ 0.13 vs the linear ceiling ≈ 0.74). Length `n` (one per
-    /// reconstructed row); unassigned rows are gated to zero by `a_k` anyway.
-    ///
-    /// TRAIN-ONLY CAVEAT (#1777): these are the TRAIN rows' codes. They are only
-    /// meaningful for the exact rows the split was fit on; a held-out row has no
-    /// entry here and used to fall back to the atom's own (collapsed) coordinate
-    /// `own_t` — a DIFFERENT, degraded model out of sample. Prefer [`Self::v`]:
-    /// projecting a held-out row's leave-this-atom-out residual onto `v` recovers
-    /// that row's coordinate by the SAME math the train codes were built with, so
-    /// train and OOS use one model. `row_codes` is retained for back-compat and as
-    /// the exact cached train projection.
-    pub row_codes: Option<Array1<f64>>,
     /// #1777 collapse-rescue projection DIRECTION `v` (length `p`, unit norm), the
     /// top mass-weighted output direction of the atom's leave-this-atom-out
-    /// residual. `Some` exactly when this is a collapse-rescued image (paired with
-    /// `row_codes`); `None` for the ordinary straight-image path (which decodes at
-    /// the atom's own coordinate). This is the SERIALIZABLE quantity the FFI must
-    /// persist so an OOS term can recompute any row's coordinate as
+    /// residual. `Some` exactly when this is a collapse-rescued image; `None` for
+    /// the ordinary straight-image path (which decodes at the atom's own
+    /// coordinate). This is the only serializable rescue coordinate model: every
+    /// train or OOS reconstruction must recompute a row's coordinate as
     /// `uᵢ = ⟨y_i − Σ_{j≠k} f_j(x_i), v⟩` — identical to the train code
-    /// `row_codes[i]` on a train row, and the correct held-out coordinate on an OOS
-    /// row (see [`Self::coordinate_from_residual`]). Length must equal `b0`/`b1`.
+    /// used to fit the image and valid for held-out rows by the same model (see
+    /// [`Self::coordinate_from_residual`]). Length must equal `b0`/`b1`.
     pub v: Option<Array1<f64>>,
 }
 
@@ -242,31 +135,15 @@ impl AtomLinearImage {
         }
     }
 
-    /// The coordinate at which row `row` should evaluate this image: the
-    /// collapse-rescue fresh code `uᵢ` when present (#1026), else the atom's own
-    /// realized coordinate `own_t` passed by the caller.
-    ///
-    /// TRAIN-ONLY: `row_codes` is indexed by TRAIN row, so this is correct only
-    /// for the rows the split was fit on. Out of sample use
-    /// [`Self::coordinate_from_residual`] (target-aware, model-identical to train).
-    pub fn coordinate_for_row(&self, row: usize, own_t: f64) -> f64 {
-        match &self.row_codes {
-            Some(u) if row < u.len() => u[row],
-            _ => own_t,
-        }
-    }
-
     /// #1777 — the collapse-rescue coordinate of a row from ITS OWN
     /// leave-this-atom-out residual `resid = y_i − Σ_{j≠k} f_j(x_i)` (length `p`),
     /// namely `uᵢ = ⟨resid, v⟩`. `Some(uᵢ)` exactly when this is a collapse-rescued
     /// image (`v` is set); `None` for the ordinary straight-image path (which has
     /// no projection direction and decodes at the atom's own coordinate).
     ///
-    /// This is the SAME math [`build_collapse_rescue_linear_image`] used to build
-    /// the train `row_codes` (`row_codes[i] = ⟨target_resid[i], v⟩`), so on a TRAIN
-    /// row it reproduces `row_codes[i]` exactly, and on a HELD-OUT row it yields
-    /// that row's correct coordinate — train and OOS share one model. Returns
-    /// `None` if `resid`'s length disagrees with `v`.
+    /// This is the SAME math [`build_collapse_rescue_linear_image`] used to fit the
+    /// train image, so train and OOS share one model. Returns `None` if `resid`'s
+    /// length disagrees with `v`.
     pub fn coordinate_from_residual(&self, resid: &[f64]) -> Option<f64> {
         let v = self.v.as_ref()?;
         if resid.len() != v.len() {
@@ -276,8 +153,8 @@ impl AtomLinearImage {
     }
 
     /// Whether this image is a #1777 collapse-rescued image (carries a projection
-    /// direction `v` and per-row train codes) rather than an ordinary straight
-    /// image evaluated at the atom's own coordinate.
+    /// direction `v`) rather than an ordinary straight image evaluated at the
+    /// atom's own coordinate.
     pub fn is_collapse_rescued(&self) -> bool {
         self.v.is_some()
     }
@@ -687,13 +564,11 @@ fn build_atom_candidates(
     curved_num_params: usize,
     curved_phi: Option<ArrayView2<'_, f64>>,
     fitted_turning: Option<f64>,
-    // #16 DEMOTE: when `rank_charge_evidence` is on, price both arms in the joint
-    // fit's currency — ½·d_eff·log(n_obs) on the realised decoder rank — instead of
-    // the ½log|H| Laplace det. `n_obs` = the term's full row count (matches PROMOTE's
-    // charge); `dispersion_r` = the term's reconstruction φ̂ (the MP-edge noise floor).
+    // #16 DEMOTE: price both arms in the joint fit's canonical currency —
+    // ½·d_eff·log(n_obs) on the realised decoder rank. `n_obs` is the term's full
+    // row count; `dispersion_r` is its reconstruction φ̂ (the MP-edge noise floor).
     n_obs: usize,
     dispersion_r: f64,
-    rank_charge_evidence: bool,
 ) -> Option<(
     HybridAtomCandidate,
     HybridAtomCandidate,
@@ -769,11 +644,8 @@ fn build_atom_candidates(
     // common data. The linear candidate predicts the best line
     // `a_k·(b₀ + (t − t̄)·b₁)`; the curved candidate is scored at its CONSTRAINED
     // MINIMUM over the decoder coefficients (nested min-vs-min, #1051), re-fit on
-    // this same residual — not the possibly-collapsed already-realized curve. We
-    // also carry the realized curve's RSS as the honest fallback when the basis
-    // `Φ` is unavailable or its refit solve is degenerate.
+    // this same residual — not the possibly-collapsed already-realized curve.
     let mut linear_rss = 0.0_f64;
-    let mut realized_curved_rss = 0.0_f64;
     for i in 0..n {
         let a = assign[i];
         let dt = coords[i] - t_bar;
@@ -781,22 +653,17 @@ fn build_atom_candidates(
             let y = target_resid[[i, j]];
             let r_linear = y - a * (b0[j] + dt * b1[j]);
             linear_rss += r_linear * r_linear;
-            let r_curved = y - a * decoded[[i, j]];
-            realized_curved_rss += r_curved * r_curved;
         }
     }
     // #1051 NESTED MIN — the curved arm's data fit is `min_B ‖y_resp − diag(a)Φ B‖²`,
     // its constrained minimum over the decoder. Because the linear lane is a member
     // of the curved family (the straight columns lie in `span(Φ)` for the eligible
     // charts), this min-curved RSS is `≤ linear_rss` up to solver tolerance — the
-    // "curved match-or-beats linear" floor. Fall back to the realized curve's RSS
-    // only when Φ is absent or the refit is degenerate.
-    let curved_rss = match curved_phi {
-        Some(phi) if phi.nrows() == n => {
-            curved_refit_rss(phi, assign, target_resid).unwrap_or(realized_curved_rss)
-        }
-        _ => realized_curved_rss,
-    };
+    // "curved match-or-beats linear" floor. Without an evaluable basis and exact
+    // decoder refit there is no comparable curved-model evidence, so refuse the
+    // adjudication instead of substituting a different objective.
+    let curved_phi = curved_phi.filter(|phi| phi.nrows() == n)?;
+    let curved_rss = curved_refit_rss(curved_phi, assign, target_resid)?;
 
     // Gaussian-reconstruction deviance: the residual objective `½ RSS` the
     // Laplace normalizer is added to. The curved arm pays `½·curved_rss` (how
@@ -813,48 +680,10 @@ fn build_atom_candidates(
     // Linear candidate parameter price: intercept + slope per output channel.
     let linear_num_params = 2 * p;
 
-    // Laplace logdet of the (weighted) design Gram for the LINEAR candidate.
-    //
-    // For the centered weighted line fit `a_k·(b₀ + (t − t̄)·b₁)`, the per-output-
-    // channel design column is `a_k·[1, (t − t̄)]`, whose Gram is DIAGONAL in the
-    // centered basis: `diag(Σ a_k², Σ a_k²(t − t̄)²) = diag(w_sum, s_tt)`. Its log
-    // determinant is `log(w_sum) + log(s_tt)` PER output channel, i.e.
-    //
-    //     log|H_linear| = p · ( log(w_sum) + log(s_tt) ).
-    //
-    // The `log(s_tt)` term is the slope direction's information: a line through a
-    // wide, heavily-massed coordinate spread is better-determined than one through
-    // a tiny spread, and the Laplace evidence must reflect that (#1203).
-    //
-    // The curved arm's Laplace determinant is now the genuine weighted-design
-    // Gram log-determinant `p · log|ΦᵀWΦ|_+` (#1223): the SAME quantity the
-    // linear arm reports (`p·(log w_sum + log s_tt) = p·log|XᵀWX|`), assembled
-    // from the curved basis `Φ` on the atom's assigned rows under the same
-    // assignment-mass design weight `wᵢ = a_k²`. Both arms omit the smoothing
-    // `λS` normalizer, so the complexity price is computed on a symmetric
-    // footing — no parameter-count proxy. Only when `Φ` is unavailable (the
-    // caller could not evaluate the basis) or its Gram is fully rank-deficient do
-    // we fall back to the historical `curved_num_params · log(w_sum)` proxy, so
-    // the comparison degrades gracefully rather than fabricating a determinant.
     if !(w_sum > 0.0 && w_sum.is_finite() && s_tt.is_finite()) {
         return None;
     }
-    let linear_log_det_h = (p as f64) * (w_sum.ln() + s_tt.ln());
-    let curved_log_det_h = curved_phi
-        .and_then(|phi| {
-            if phi.nrows() == n {
-                curved_design_gram_logdet(phi, assign, p)
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| (curved_num_params as f64) * w_sum.ln());
-
-    // Reduced Laplace NLE `residual_objective + ½ log|H|`. Both omit an explicit
-    // smoothing-penalty logdet (the intrinsic smoothness penalty is
-    // reparameterization-invariant and identical in expectation across the two
-    // parameterizations of the same image).
-    let (linear_nle, curved_nle) = if rank_charge_evidence {
+    let (linear_nle, curved_nle) = {
         // #16 DEMOTE currency swap: charge ½·d_eff·log(n_obs) (realised decoder rank,
         // the SAME quantity the joint REML PROMOTE gate charges) in place of the
         // ½log|H| Laplace det (the #5-mispriced term + its column-symmetric ·p
@@ -862,7 +691,10 @@ fn build_atom_candidates(
         // rank-2 circle → ~2×basis_edf, a vanishing decoder → 0. The migration gate
         // (curve earns Tier-2 iff Δloss > ½·Δd_eff·log n) then falls out of the SAME
         // select_hybrid_atom NLE comparison — one currency, no separate margin.
-        let n_obs_ln = (n_obs.max(1) as f64).ln();
+        if n_obs == 0 || !(dispersion_r.is_finite() && dispersion_r > 0.0) {
+            return None;
+        }
+        let n_obs_ln = (n_obs as f64).ln();
         let n_eff = w_sum; // effective sample size Σa² (MP-edge aspect)
         // Linear arm: decoder B=[b₀;b₁] (2×p), Gram G=diag(w_sum, s_tt) (2×2).
         let mut b_lin = Array2::<f64>::zeros((2, p));
@@ -874,24 +706,27 @@ fn build_atom_candidates(
         g_lin[[0, 0]] = w_sum;
         g_lin[[1, 1]] = s_tt;
         let d_lin = crate::manifold::realised_rank_charge_dof(
-            &g_lin, &b_lin, n_eff, p as f64, dispersion_r, 0.0, None,
+            &g_lin,
+            &b_lin,
+            n_eff,
+            p as f64,
+            dispersion_r,
+            0.0,
+            None,
         )
         .ok()?;
         // Curved arm: refit decoder B + Gram G=ΦᵀWΦ on the same residual.
-        let d_curved = match curved_phi {
-            Some(phi) if phi.nrows() == n => {
-                match curved_refit_decoder(phi, assign, target_resid) {
-                    Some((_, b_c, g_c)) => crate::manifold::realised_rank_charge_dof(
-                        &g_c, &b_c, n_eff, p as f64, dispersion_r, 0.0, None,
-                    )
-                    .ok()?,
-                    // Φ refit degenerate: fall back to the raw decoder param count.
-                    None => curved_num_params as f64,
-                }
-            }
-            // Φ absent or row-count mismatch → param-count fallback (same as flag-off).
-            _ => curved_num_params as f64,
-        };
+        let (_, b_curved, g_curved) = curved_refit_decoder(curved_phi, assign, target_resid)?;
+        let d_curved = crate::manifold::realised_rank_charge_dof(
+            &g_curved,
+            &b_curved,
+            n_eff,
+            p as f64,
+            dispersion_r,
+            0.0,
+            None,
+        )
+        .ok()?;
         // DEVIANCE, not raw SSE (#2124 units fix): the rank charge `½·d_eff·ln n`
         // is dimensionless, so trading it against the bare `½·RSS` makes the
         // linear↔curved decision depend on the response scale (exactly the
@@ -899,22 +734,14 @@ fn build_atom_candidates(
         // residual objective by the term's reconstruction dispersion φ̂
         // (`dispersion_r`) so the boundary is `Δ(½RSS)/φ̂ vs ½·Δd_eff·ln n` —
         // scale-invariant, the BIC large-n limit of the Laplace evidence in
-        // proper units. A non-finite or non-positive φ̂ falls back to the
-        // historical unit-dispersion reading rather than fabricating an infinite
-        // deviance.
-        let inv_dispersion = if dispersion_r.is_finite() && dispersion_r > 0.0 {
-            dispersion_r.recip()
-        } else {
-            1.0
-        };
+        // proper units.
+        let inv_dispersion = dispersion_r.recip();
         (
             reduced_laplace_nle(linear_residual_objective * inv_dispersion, d_lin * n_obs_ln),
-            reduced_laplace_nle(curved_residual_objective * inv_dispersion, d_curved * n_obs_ln),
-        )
-    } else {
-        (
-            reduced_laplace_nle(linear_residual_objective, linear_log_det_h),
-            reduced_laplace_nle(curved_residual_objective, curved_log_det_h),
+            reduced_laplace_nle(
+                curved_residual_objective * inv_dispersion,
+                d_curved * n_obs_ln,
+            ),
         )
     };
     if !(linear_nle.is_finite() && curved_nle.is_finite()) {
@@ -940,9 +767,11 @@ fn build_atom_candidates(
 /// fit uses). These codes span the residual's strongest linear axis by
 /// construction, so the straight image `b₀ + (uᵢ − ū)·b₁` fit against them
 /// reconstructs that axis at LINEAR quality — exactly the linear-tail reach the
-/// split owes. Returns the forced-LINEAR candidate plus the image carrying `uᵢ`,
+/// split owes. Returns the forced-LINEAR candidate plus the image carrying `v`,
 /// or `None` when the residual itself carries no usable direction (a genuine zero
-/// atom the mass/decoder guards own).
+/// atom the mass/decoder guards own). The per-row `uᵢ` values are fit-local and
+/// are deliberately not stored; reconstruction must project its own target-aware
+/// residual through `v`.
 fn build_collapse_rescue_linear_image(
     atom_idx: usize,
     assign: ArrayView1<'_, f64>,
@@ -1063,10 +892,9 @@ fn build_collapse_rescue_linear_image(
         t_bar,
         b0,
         b1,
-        row_codes: Some(u),
-        // #1777 — persist the projection direction so an OOS row's coordinate can
-        // be recomputed as ⟨residual, v⟩ (identical to the train `row_codes`),
-        // rather than falling back to the atom's collapsed own coordinate.
+        // #1777 — persist the projection direction so every row's coordinate is
+        // recomputed as ⟨residual, v⟩ rather than using a train-only cached code
+        // or the atom's collapsed own coordinate.
         v: Some(v),
     };
     Some((linear, image))
@@ -1076,29 +904,59 @@ fn build_collapse_rescue_linear_image(
 /// change `δ_k[i,j] = a_k·(γ_k(t_i) − line_k(t_i))` over ALL globally-aligned rows
 /// (the caller presents `coords`/`assign`/`decoded`/`image` on the same `n` rows,
 /// so these δ vectors ARE cross-atom aligned and their inner products are the
-/// genuine cross terms). `line_k` is evaluated at the image's own coordinate
-/// (collapse-rescue slots evaluate at their fresh per-row codes via
-/// [`AtomLinearImage::coordinate_for_row`], exactly as the collapsed reconstruction
-/// does). Collapsing atom `k` shifts the full reconstruction residual by `+δ_k`.
+/// genuine cross terms). Ordinary images are evaluated at the atom coordinate;
+/// collapse-rescued images project the same leave-this-atom-out `target_resid`
+/// used to fit them. Collapsing atom `k` shifts the full reconstruction residual
+/// by `+δ_k`.
 fn slot_delta(
     coords: &Array1<f64>,
     assign: &Array1<f64>,
     decoded: &Array2<f64>,
+    target_resid: &Array2<f64>,
     image: &AtomLinearImage,
-) -> Array2<f64> {
+) -> Result<Array2<f64>, String> {
     let n = decoded.nrows();
     let p = decoded.ncols();
+    if coords.len() != n
+        || assign.len() != n
+        || target_resid.dim() != (n, p)
+        || image.b0.len() != p
+        || image.b1.len() != p
+    {
+        return Err(format!(
+            "slot_delta: incompatible shapes coords={}, assign={}, decoded={:?}, target_resid={:?}, b0={}, b1={}",
+            coords.len(),
+            assign.len(),
+            decoded.dim(),
+            target_resid.dim(),
+            image.b0.len(),
+            image.b1.len()
+        ));
+    }
     let mut d = Array2::<f64>::zeros((n, p));
     for i in 0..n {
         let a = assign[i];
-        let coord = image.coordinate_for_row(i, coords[i]);
+        let coord = if image.is_collapse_rescued() {
+            let residual_row = target_resid.row(i);
+            let residual = residual_row
+                .as_slice()
+                .expect("target_resid row must be contiguous");
+            image.coordinate_from_residual(residual).ok_or_else(|| {
+                format!(
+                    "slot_delta: collapse-rescued image for atom {} cannot project a {p}-channel residual",
+                    image.atom_idx
+                )
+            })?
+        } else {
+            coords[i]
+        };
         let dt = coord - image.t_bar;
         for j in 0..p {
             let line = image.b0[j] + dt * image.b1[j];
             d[[i, j]] = a * (decoded[[i, j]] - line);
         }
     }
-    d
+    Ok(d)
 }
 
 /// #1026 item-2 — the ALL-CURVED global reconstruction residual
@@ -1224,13 +1082,11 @@ pub fn build_hybrid_split_report<'a, C, W, D, R, M, E>(
     // fixed denominator of the EV-preservation gate. `≤ 0` / non-finite disables
     // the gate (a degenerate, varianceless target has no EV to preserve).
     total_centered_variance: f64,
-    // #16 DEMOTE rank-charge currency (default-off ⇒ historical ½log|H|). `n_obs` =
-    // the term's row count (the log-n BIC scale, matching PROMOTE); `dispersion_r` =
-    // the reconstruction noise floor φ̂ for the MP edge; `rank_charge_evidence` = the
-    // per-fit flag.
+    // #16 DEMOTE rank-charge currency. `n_obs` is the term's row count (the log-n
+    // BIC scale, matching PROMOTE); `dispersion_r` is the reconstruction noise
+    // floor φ̂ for the MP edge.
     n_obs: usize,
     dispersion_r: f64,
-    rank_charge_evidence: bool,
 ) -> Result<Option<SaeHybridSplitReport>, String>
 where
     C: FnMut(usize) -> Array1<f64>,
@@ -1322,7 +1178,6 @@ where
             fitted_turning,
             n_obs,
             dispersion_r,
-            rank_charge_evidence,
         ) {
             Some((linear, curved, (t_bar, b0, b1))) => {
                 // #1026 PER-ATOM EV-PRESERVATION gate. Collapsing this slot raises
@@ -1364,12 +1219,11 @@ where
                     t_bar,
                     b0,
                     b1,
-                    row_codes: None,
                     // Ordinary straight image: decoded at the atom's own
                     // coordinate, so it carries no residual-projection direction.
                     v: None,
                 };
-                let delta = slot_delta(&coords, &assign, &decoded, &image);
+                let delta = slot_delta(&coords, &assign, &decoded, &target_resid, &image)?;
                 if r0.is_none() {
                     r0 = Some(slot_r0(&assign, &decoded, &target_resid));
                 }
@@ -1399,7 +1253,7 @@ where
                 target_resid.view(),
             ) {
                 Some((linear, image)) => {
-                    let delta = slot_delta(&coords, &assign, &decoded, &image);
+                    let delta = slot_delta(&coords, &assign, &decoded, &target_resid, &image)?;
                     if r0.is_none() {
                         r0 = Some(slot_r0(&assign, &decoded, &target_resid));
                     }
@@ -1616,6 +1470,11 @@ mod tests {
             decoded[[i, 0]] = coords[i];
             decoded[[i, 1]] = 0.6 * coords[i];
         }
+        let mut phi = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            phi[[i, 0]] = 1.0;
+            phi[[i, 1]] = coords[i];
+        }
         let (linear, curved, _) = build_atom_candidates(
             coords.view(),
             assign.view(),
@@ -1623,11 +1482,10 @@ mod tests {
             data.view(),
             // a generous curved parameter price (M·p)
             10,
-            None,
+            Some(phi.view()),
             Some(0.0),
             coords.len(),
-            0.0,
-            false,
+            0.0025,
         )
         .expect("straight residual yields a candidate pair");
         let choice =
@@ -1661,6 +1519,13 @@ mod tests {
             decoded[[i, 0]] = theta.cos();
             decoded[[i, 1]] = theta.sin();
         }
+        let mut phi = Array2::<f64>::zeros((n, 3));
+        for i in 0..n {
+            let theta = 2.0 * PI * coords[i];
+            phi[[i, 0]] = 1.0;
+            phi[[i, 1]] = theta.cos();
+            phi[[i, 2]] = theta.sin();
+        }
         // The curved atom has 5 parameters (just above the 4 = 2·p linear budget);
         // the full-circle linear residual exceeds the extra-parameter overhead, so
         // curved wins on evidence.
@@ -1670,11 +1535,10 @@ mod tests {
             decoded.view(),
             data.view(),
             5,
-            None,
+            Some(phi.view()),
             Some(2.0 * PI),
             coords.len(),
-            0.0,
-            false,
+            0.0025,
         )
         .expect("turning residual yields a candidate pair");
         assert!(
@@ -1697,14 +1561,13 @@ mod tests {
         );
     }
 
-    /// #16 DEMOTE flag-ON: with `rank_charge_evidence = true`, the two arms are
-    /// priced in the joint fit's ½·d_eff·log(n_obs) currency (d_eff read off the
+    /// #16 DEMOTE: the two arms are priced in the joint fit's canonical
+    /// ½·d_eff·log(n_obs) currency (d_eff read off the
     /// curved REFIT decoder + Gram via `realised_rank_charge_dof`), NOT the ½log|H|
     /// Laplace det. A full-circle residual still KEEPS curved (its realised rank-2
     /// d_eff earns the fit); a straight-line residual stays LINEAR (the periodic
     /// curve bends away from the line, so its extra realised DOF is not earned).
-    /// A real `Φ = [1, cos, sin]` is passed so d_eff reads the refit decoder rather
-    /// than the parameter-count fallback.
+    /// A real `Φ = [1, cos, sin]` is passed so d_eff reads the exact refit decoder.
     #[test]
     fn rank_charge_demote_prices_realised_rank() {
         let n = 60;
@@ -1734,11 +1597,9 @@ mod tests {
             Some(2.0 * PI),
             n,
             0.0025,
-            true,
         )
         .expect("circle candidate pair");
-        let choice =
-            gam_solve::evidence::select_hybrid_atom(&[lin, crv]).expect("non-empty slot");
+        let choice = gam_solve::evidence::select_hybrid_atom(&[lin, crv]).expect("non-empty slot");
         assert_eq!(
             choice.param,
             gam_solve::evidence::HybridAtomParam::Curved { latent_dim: 1 },
@@ -1765,7 +1626,6 @@ mod tests {
             Some(0.0),
             n,
             0.0025,
-            true,
         )
         .expect("line candidate pair");
         let choice2 =
@@ -1774,185 +1634,6 @@ mod tests {
             choice2.param,
             gam_solve::evidence::HybridAtomParam::Linear,
             "rank charge must stay LINEAR on a straight-line residual"
-        );
-    }
-
-    /// The nested-dominance floor on common data (#1202): when the curved decoded
-    /// image is a WORSE fit to the response residual than its own best straight
-    /// projection, linear must win — the curved family cannot be charged extra
-    /// parameters to fit the residual no better than its `Θ = 0` member. Here the
-    /// data is a line but the curved image bends away from it, so curved_rss >
-    /// linear_rss and the cheaper, better-fitting line is selected.
-    #[test]
-    fn linear_beats_curved_when_curve_misfits_residual() {
-        let n = 50;
-        let coords = Array1::from_iter((0..n).map(|i| (i as f64) / ((n - 1) as f64)));
-        let assign = Array1::<f64>::ones(n);
-        // Data is a straight line; the curved decoded image is a parabola that
-        // departs from it, so a straight line fits the data strictly better.
-        let mut data = Array2::<f64>::zeros((n, 2));
-        let mut decoded = Array2::<f64>::zeros((n, 2));
-        for i in 0..n {
-            let t = coords[i];
-            data[[i, 0]] = t;
-            data[[i, 1]] = 0.5 * t;
-            decoded[[i, 0]] = t;
-            decoded[[i, 1]] = t * t; // bends away from the linear data
-        }
-        let (linear, curved, _) = build_atom_candidates(
-            coords.view(),
-            assign.view(),
-            decoded.view(),
-            data.view(),
-            // a real curved Θ above the floor so the dominance floor does not fire
-            6,
-            None,
-            Some(1.0),
-            coords.len(),
-            0.0,
-            false,
-        )
-        .expect("candidate pair");
-        let choice =
-            gam_solve::evidence::select_hybrid_atom(&[linear, curved]).expect("non-empty slot");
-        assert!(
-            choice.param.is_linear(),
-            "a curved image that fits the data worse than its own line must yield \
-             to the linear special case on common-data evidence (#1202)"
-        );
-    }
-
-    /// The LINEAR candidate's Laplace logdet is the genuine weighted-design Gram
-    /// determinant `p·(log w_sum + log s_tt)` with `w_sum = Σ a_k²`, `s_tt =
-    /// Σ a_k²(t − t̄)²` — it INCLUDES the coordinate-spread term `log(s_tt)`
-    /// (#1203). Verify both contributions are present by reading the logdet off a
-    /// candidate whose linear residual is exactly zero (response residual = the
-    /// fitted line), so `NLE_linear = ½·logdet`. Doubling the coordinate spread
-    /// (at fixed assignment mass) scales `s_tt` by 4 → logdet += `p·log(4)`;
-    /// doubling all assignment masses scales BOTH `w_sum` and `s_tt` by 4 (they
-    /// are quadratic in `a_k`) → logdet += `2p·log(4)`.
-    #[test]
-    fn linear_logdet_includes_weighted_coordinate_spread() {
-        let n = 40;
-        let p = 2usize;
-        // Read the logdet back off a candidate with zero linear residual: the
-        // response residual is exactly `a_k·(line)`, so the WLS line recovers it
-        // with RSS == 0 and `NLE_linear = ½·logdet`.
-        let logdet = |coords: &Array1<f64>, assign: &Array1<f64>| -> f64 {
-            // A straight image; the response residual is the same line scaled by
-            // the per-row assignment mass `a_k`, so the prediction `a_k·(b₀+dt·b₁)`
-            // matches it exactly and linear_rss == 0.
-            let line = |t: f64| -> [f64; 2] { [t, 0.6 * t] };
-            let mut decoded = Array2::<f64>::zeros((n, p));
-            let mut data = Array2::<f64>::zeros((n, p));
-            for i in 0..n {
-                let l = line(coords[i]);
-                decoded[[i, 0]] = l[0];
-                decoded[[i, 1]] = l[1];
-                data[[i, 0]] = assign[i] * l[0];
-                data[[i, 1]] = assign[i] * l[1];
-            }
-            let (linear, _curved, _) = build_atom_candidates(
-                coords.view(),
-                assign.view(),
-                decoded.view(),
-                data.view(),
-                10,
-                None,
-                Some(0.0),
-                coords.len(),
-                0.0,
-                false,
-            )
-            .expect("straight residual yields a pair");
-            2.0 * linear.negative_log_evidence // = logdet (linear_rss == 0)
-        };
-
-        let base_coords =
-            Array1::from_iter((0..n).map(|i| -1.0 + 2.0 * (i as f64) / ((n - 1) as f64)));
-        let ones = Array1::<f64>::ones(n);
-
-        // Doubling the coordinate spread → s_tt ×4, w_sum fixed → logdet += p·log(4).
-        let wide_coords = base_coords.mapv(|t| 2.0 * t);
-        let d_spread = logdet(&wide_coords, &ones) - logdet(&base_coords, &ones);
-        assert!(
-            (d_spread - (p as f64) * 4.0_f64.ln()).abs() < 1e-9,
-            "linear logdet must move by p·log(4) when coordinate spread doubles \
-             (got {d_spread}); the spread term log(s_tt) must be present"
-        );
-
-        // Doubling all assignment masses → w_sum ×4 AND s_tt ×4 (quadratic in a_k)
-        // → logdet += 2p·log(4).
-        let twos = Array1::<f64>::from_elem(n, 2.0);
-        let d_weight = logdet(&base_coords, &twos) - logdet(&base_coords, &ones);
-        assert!(
-            (d_weight - 2.0 * (p as f64) * 4.0_f64.ln()).abs() < 1e-9,
-            "linear logdet must move by 2p·log(4) when all assignment masses double \
-             (got {d_weight})"
-        );
-    }
-
-    /// #1223 — the curved arm's Laplace complexity is the REAL weighted-design
-    /// Gram log-determinant `p·log|ΦᵀWΦ|_+`, not a parameter-count proxy. Build a
-    /// curved design whose columns are the constant and the centered coordinate
-    /// (a 2-column basis), so `ΦᵀWΦ = diag(w_sum, s_tt)` exactly matches the
-    /// linear arm's data Gram, and assert `curved_design_gram_logdet` returns
-    /// `p·(log w_sum + log s_tt)` — the same determinant the linear arm reports
-    /// on the same design weight. A proxy `M·log(w_sum)` would instead omit the
-    /// `log(s_tt)` spread term, so this pins the genuine determinant.
-    #[test]
-    fn curved_gram_logdet_is_real_weighted_design_determinant() {
-        let n = 40;
-        let p = 3usize;
-        let coords = Array1::from_iter((0..n).map(|i| -1.0 + 2.0 * (i as f64) / ((n - 1) as f64)));
-        let assign = Array1::<f64>::from_iter((0..n).map(|i| 0.5 + 0.01 * (i as f64)));
-
-        // Mass-weighted coordinate mean and spread under wᵢ = a_k².
-        let mut w_sum = 0.0;
-        let mut t_bar = 0.0;
-        for i in 0..n {
-            let w = assign[i] * assign[i];
-            w_sum += w;
-            t_bar += w * coords[i];
-        }
-        t_bar /= w_sum;
-        let mut s_tt = 0.0;
-        for i in 0..n {
-            let dt = coords[i] - t_bar;
-            s_tt += assign[i] * assign[i] * dt * dt;
-        }
-
-        // Curved design columns: [1, (t − t̄)]. Its weighted Gram is exactly
-        // diag(w_sum, s_tt) (the cross term Σ w·(t−t̄) vanishes by construction),
-        // so log|ΦᵀWΦ| = log(w_sum) + log(s_tt).
-        let mut phi = Array2::<f64>::zeros((n, 2));
-        for i in 0..n {
-            phi[[i, 0]] = 1.0;
-            phi[[i, 1]] = coords[i] - t_bar;
-        }
-        let got = curved_design_gram_logdet(phi.view(), assign.view(), p)
-            .expect("non-degenerate curved design has a determinant");
-        let want = (p as f64) * (w_sum.ln() + s_tt.ln());
-        assert!(
-            (got - want).abs() < 1e-9,
-            "curved Gram logdet must be the real p·log|ΦᵀWΦ| = {want}, got {got}"
-        );
-
-        // A rank-deficient design (a duplicated column) drops the null direction:
-        // its determinant equals that of the single retained constant column,
-        // p·log(w_sum), NOT a 2-column proxy.
-        let mut phi_dup = Array2::<f64>::zeros((n, 2));
-        for i in 0..n {
-            phi_dup[[i, 0]] = 1.0;
-            phi_dup[[i, 1]] = 1.0;
-        }
-        let got_dup = curved_design_gram_logdet(phi_dup.view(), assign.view(), p)
-            .expect("rank-1 design still has a positive determinant");
-        let want_dup = (p as f64) * (2.0 * w_sum).ln();
-        assert!(
-            (got_dup - want_dup).abs() < 1e-9,
-            "rank-deficient curved Gram must report only its positive direction \
-             (p·log(2·w_sum) = {want_dup}), got {got_dup}"
         );
     }
 
@@ -2103,7 +1784,6 @@ mod tests {
                 Some(0.0),
                 coords.len(),
                 0.0,
-                false,
             )
             .is_none(),
             "a degenerate coordinate span must be refused"

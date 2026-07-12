@@ -11,6 +11,13 @@ use std::collections::HashMap;
 
 use ndarray::{Array1, Array2, ArrayView2, s};
 
+use crate::inference::model::{
+    FittedFamily, FittedModel as SavedModel, SavedBaselineTimeWiggleRuntime,
+    load_survival_time_basis_config_from_model, survival_baseline_config_from_model,
+};
+use crate::inference::predict_io::{BernoulliMarginalSlopePredictor, PredictInput};
+use crate::model_types::{BlockRole, FittedBlock, FittedLinkState, UnifiedFitResult};
+use crate::probability::signed_probit_logcdf_and_mills_ratio;
 use crate::scale_design::scale_transform_from_payload;
 use crate::survival::construction::{
     SurvivalBaselineConfig, SurvivalBaselineTarget, SurvivalLikelihoodMode,
@@ -22,23 +29,14 @@ use crate::survival::construction::{
     survival_derivative_guard_for_likelihood, survival_likelihood_modename,
 };
 use crate::survival::lognormal_kernel::FrailtySpec;
-use crate::survival::{
-    CompetingRisksCifResult, assemble_competing_risks_cif_from_endpoints,
-};
+use crate::survival::{CompetingRisksCifResult, assemble_competing_risks_cif_from_endpoints};
 use crate::wiggle::buildwiggle_block_input_from_knots;
-use crate::inference::model::{
-    FittedFamily, FittedModel as SavedModel, SavedBaselineTimeWiggleRuntime,
-    load_survival_time_basis_config_from_model, survival_baseline_config_from_model,
-};
-use crate::inference::predict_io::{BernoulliMarginalSlopePredictor, PredictInput};
 use gam_linalg::matrix::DesignMatrix;
-use crate::model_types::{BlockRole, FittedBlock, FittedLinkState, UnifiedFitResult};
-use crate::probability::signed_probit_logcdf_and_mills_ratio;
-use gam_solve::mixture_link::inverse_link_jet_for_inverse_link;
-use gam_terms::term_builder::resolve_role_col;
-use gam_terms::smooth::build_term_collection_design;
-use gam_terms::smooth::TermCollectionSpec;
 use gam_problem::{InverseLink, LikelihoodSpec, ResponseFamily, StandardLink};
+use gam_solve::mixture_link::inverse_link_jet_for_inverse_link;
+use gam_terms::smooth::TermCollectionSpec;
+use gam_terms::smooth::build_term_collection_design;
+use gam_terms::term_builder::resolve_role_col;
 
 /// Resolved survival entry/exit column indices for a saved survival model.
 ///
@@ -114,6 +112,12 @@ pub enum SurvivalPredictError {
     /// uncertainty for non-location-scale, latent window prediction,
     /// competing-risks with `with_uncertainty`).
     UnsupportedConfiguration { reason: String },
+    /// Posterior-mean prediction requires the fitted joint coefficient
+    /// covariance in exactly the same block-concatenated coordinate system as
+    /// the saved coefficient vector. Missing, malformed, or dimensionally
+    /// incompatible covariance is an error; it must never change the requested
+    /// estimand by falling back to a plug-in surface.
+    PosteriorCovariance { reason: String },
     /// A numerical step (hazard / derivative / survival reconstruction)
     /// produced a non-finite or out-of-domain value that downstream code
     /// cannot consume.
@@ -133,6 +137,7 @@ impl std::fmt::Display for SurvivalPredictError {
             | SurvivalPredictError::MissingFitMetadata { reason }
             | SurvivalPredictError::IncompatibleSchema { reason }
             | SurvivalPredictError::UnsupportedConfiguration { reason }
+            | SurvivalPredictError::PosteriorCovariance { reason }
             | SurvivalPredictError::NumericalFailure { reason } => f.write_str(reason),
             SurvivalPredictError::ModelPayload { context, source } => {
                 write!(f, "{context}: {source}")
@@ -149,6 +154,7 @@ impl std::error::Error for SurvivalPredictError {
             | SurvivalPredictError::MissingFitMetadata { .. }
             | SurvivalPredictError::IncompatibleSchema { .. }
             | SurvivalPredictError::UnsupportedConfiguration { .. }
+            | SurvivalPredictError::PosteriorCovariance { .. }
             | SurvivalPredictError::NumericalFailure { .. } => None,
         }
     }
@@ -182,6 +188,20 @@ impl From<gam_data::DataError> for SurvivalPredictError {
     }
 }
 
+/// Statistical target returned by the survival prediction API.
+///
+/// Survival, cumulative hazard, and hazard are nonlinear in the fitted
+/// coefficients, so evaluating them at the posterior centre is not the same
+/// estimand as integrating the coefficient posterior. The default is the
+/// posterior-predictive surface. Callers that specifically need the historical
+/// coefficient-mode surface must opt in to [`Self::Plugin`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SurvivalPredictEstimand {
+    #[default]
+    PosteriorMean,
+    Plugin,
+}
+
 /// Inputs to the unified survival predict pipeline.
 pub struct SurvivalPredictRequest<'a> {
     pub model: &'a SavedModel,
@@ -199,6 +219,9 @@ pub struct SurvivalPredictRequest<'a> {
     /// likelihood modes return `Err` rather than silently dropping
     /// the request.
     pub with_uncertainty: bool,
+    /// Response-scale estimand. [`SurvivalPredictEstimand::PosteriorMean`] is
+    /// the default; plug-in prediction is available only as an explicit opt-in.
+    pub estimand: SurvivalPredictEstimand,
 }
 
 /// Result of [`predict_survival`].
@@ -217,6 +240,478 @@ pub struct SurvivalPredictResult {
     /// exit time.  Length `n`.  Populated under the same conditions as
     /// `survival_se`.
     pub eta_se: Option<Array1<f64>>,
+}
+
+/// Conditional-posterior covariance projected onto the coefficients that can
+/// affect a survival prediction.  The absorbed stage-one influence block in a
+/// marginal-slope fit is persisted for inference provenance but deliberately
+/// drops out of deployment, so its trailing coordinates are not quadrature
+/// dimensions.
+fn survival_prediction_posterior_factor(
+    model: &SavedModel,
+) -> Result<(Array1<f64>, Array2<f64>), SurvivalPredictError> {
+    let fit = fit_result_from_saved_model_for_prediction(model)?;
+    let inactive_tail = if require_saved_survival_likelihood_mode(model)?
+        == SurvivalLikelihoodMode::MarginalSlope
+    {
+        model
+            .saved_prediction_runtime()?
+            .influence_absorber_width
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    let active_len = fit.beta.len().checked_sub(inactive_tail).ok_or_else(|| {
+        SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "saved survival influence-absorber width {inactive_tail} exceeds the {} fitted coefficients",
+                fit.beta.len()
+            ),
+        }
+    })?;
+    let covariance = fit.beta_covariance().ok_or_else(|| {
+        SurvivalPredictError::PosteriorCovariance {
+            reason: "posterior-mean survival prediction requires the saved conditional coefficient covariance; refit with the current REML path"
+                .to_string(),
+        }
+    })?;
+    if covariance.nrows() != fit.beta.len() || covariance.ncols() != fit.beta.len() {
+        return Err(SurvivalPredictError::PosteriorCovariance {
+            reason: format!(
+                "saved survival conditional covariance has shape {}x{}, expected {}x{} in fitted block order",
+                covariance.nrows(),
+                covariance.ncols(),
+                fit.beta.len(),
+                fit.beta.len(),
+            ),
+        });
+    }
+    Ok((
+        fit.beta.clone(),
+        covariance.slice(s![..active_len, ..active_len]).to_owned(),
+    ))
+}
+
+fn saved_model_with_survival_coefficients(
+    model: &SavedModel,
+    coefficients: &Array1<f64>,
+) -> Result<SavedModel, SurvivalPredictError> {
+    let mut draw_model = model.clone();
+    let payload = match &mut draw_model {
+        SavedModel::Standard { payload }
+        | SavedModel::LocationScale { payload }
+        | SavedModel::MarginalSlope { payload }
+        | SavedModel::Survival { payload }
+        | SavedModel::TransformationNormal { payload } => payload,
+    };
+
+    let (beta_time, beta_threshold, beta_log_sigma, beta_link_wiggle, beta_time_blocks) = {
+        let fit = payload.fit_result.as_mut().ok_or_else(|| {
+            SurvivalPredictError::MissingFitMetadata {
+                reason: "saved survival model is missing canonical fit_result".to_string(),
+            }
+        })?;
+        if coefficients.len() != fit.beta.len() {
+            return Err(SurvivalPredictError::IncompatibleSchema {
+                reason: format!(
+                    "posterior survival coefficient draw has length {}, expected {}",
+                    coefficients.len(),
+                    fit.beta.len()
+                ),
+            });
+        }
+        fit.beta.assign(coefficients);
+        let mut cursor = 0usize;
+        for block in &mut fit.blocks {
+            let end = cursor + block.beta.len();
+            block.beta.assign(&coefficients.slice(s![cursor..end]));
+            cursor = end;
+        }
+        if cursor != coefficients.len() {
+            return Err(SurvivalPredictError::IncompatibleSchema {
+                reason: format!(
+                    "saved survival coefficient blocks total {cursor} entries, but the joint vector has {}",
+                    coefficients.len()
+                ),
+            });
+        }
+        (
+            fit.block_by_role(BlockRole::Time)
+                .map(|block| block.beta.to_vec()),
+            fit.block_by_role(BlockRole::Threshold)
+                .map(|block| block.beta.to_vec()),
+            fit.block_by_role(BlockRole::Scale)
+                .map(|block| block.beta.to_vec()),
+            fit.block_by_role(BlockRole::LinkWiggle)
+                .map(|block| block.beta.to_vec()),
+            fit.blocks
+                .iter()
+                .map(|block| block.beta.to_vec())
+                .collect::<Vec<_>>(),
+        )
+    };
+
+    if payload.survival_beta_time.is_some() {
+        payload.survival_beta_time = beta_time.clone();
+    }
+    if payload.survival_beta_threshold.is_some() {
+        payload.survival_beta_threshold = beta_threshold;
+    }
+    if payload.survival_beta_log_sigma.is_some() {
+        payload.survival_beta_log_sigma = beta_log_sigma;
+    }
+    if payload.beta_link_wiggle.is_some() {
+        payload.beta_link_wiggle = beta_link_wiggle;
+    }
+    if let (Some(saved), Some(time_beta)) = (
+        payload.beta_baseline_timewiggle.as_mut(),
+        beta_time.as_ref(),
+    ) {
+        if saved.len() > time_beta.len() {
+            return Err(SurvivalPredictError::IncompatibleSchema {
+                reason: format!(
+                    "saved baseline-timewiggle has {} coefficients, but the time block has {}",
+                    saved.len(),
+                    time_beta.len()
+                ),
+            });
+        }
+        *saved = time_beta[time_beta.len() - saved.len()..].to_vec();
+    }
+    if let Some(saved_by_cause) = payload.beta_baseline_timewiggle_by_cause.as_mut() {
+        if saved_by_cause.len() != beta_time_blocks.len() {
+            return Err(SurvivalPredictError::IncompatibleSchema {
+                reason: format!(
+                    "saved cause-specific timewiggles have {} blocks, but the fit has {} cause blocks",
+                    saved_by_cause.len(),
+                    beta_time_blocks.len()
+                ),
+            });
+        }
+        for (saved, block) in saved_by_cause.iter_mut().zip(&beta_time_blocks) {
+            if saved.len() > block.len() {
+                return Err(SurvivalPredictError::IncompatibleSchema {
+                    reason: format!(
+                        "saved cause-specific timewiggle has {} coefficients, but its endpoint block has {}",
+                        saved.len(),
+                        block.len()
+                    ),
+                });
+            }
+            *saved = block[block.len() - saved.len()..].to_vec();
+        }
+    }
+    Ok(draw_model)
+}
+
+fn conditional_event_density(
+    survival: f64,
+    cumulative_hazard: f64,
+    hazard: f64,
+) -> Result<f64, SurvivalPredictError> {
+    if hazard == 0.0 {
+        return Ok(0.0);
+    }
+    if survival > 0.0 && hazard.is_finite() {
+        return Ok(survival * hazard);
+    }
+    if cumulative_hazard.is_finite() && hazard > 0.0 {
+        return Ok((hazard.ln() - cumulative_hazard).exp());
+    }
+    if cumulative_hazard == f64::INFINITY && hazard.is_finite() && hazard >= 0.0 {
+        return Ok(0.0);
+    }
+    Err(SurvivalPredictError::NumericalFailure {
+        reason: format!(
+            "posterior survival quadrature could not resolve conditional density from S={survival}, H={cumulative_hazard}, h={hazard}"
+        ),
+    })
+}
+
+/// Third-degree spherical-radial quadrature for a possibly singular Gaussian
+/// coefficient posterior.  The `2r` equal-weight nodes are exact for every
+/// polynomial through total degree three in the active rank-`r` subspace, use
+/// the full covariance (including cross-block/cross-cause terms), and require
+/// no sampling seed or dimension-specific tuning constant.
+fn for_each_survival_posterior_node<F>(
+    posterior_mean: &Array1<f64>,
+    active_covariance: &Array2<f64>,
+    mut consume: F,
+) -> Result<(), SurvivalPredictError>
+where
+    F: FnMut(&Array1<f64>, f64) -> Result<(), SurvivalPredictError>,
+{
+    let active_len = active_covariance.nrows();
+    if active_covariance.ncols() != active_len || active_len > posterior_mean.len() {
+        return Err(SurvivalPredictError::PosteriorCovariance {
+            reason: format!(
+                "survival posterior quadrature received mean length {} and active covariance {}x{}",
+                posterior_mean.len(),
+                active_covariance.nrows(),
+                active_covariance.ncols(),
+            ),
+        });
+    }
+    let factorization = crate::survival::location_scale::factorize_psd_covariance(
+        active_covariance,
+        "survival posterior coefficient covariance",
+    )
+    .map_err(|reason| SurvivalPredictError::PosteriorCovariance { reason })?;
+    let rank = factorization.factor.ncols();
+    if rank == 0 {
+        return consume(posterior_mean, 1.0);
+    }
+    let scale = (rank as f64).sqrt();
+    let weight = 1.0 / (2 * rank) as f64;
+    for column in 0..rank {
+        for sign in [-1.0_f64, 1.0_f64] {
+            let mut node = posterior_mean.clone();
+            for row in 0..active_len {
+                node[row] += sign * scale * factorization.factor[[row, column]];
+            }
+            consume(&node, weight)?;
+        }
+    }
+    Ok(())
+}
+
+fn predict_survival_posterior_mean(
+    req: SurvivalPredictRequest<'_>,
+) -> Result<SurvivalPredictResult, SurvivalPredictError> {
+    let (posterior_mean, active_covariance) = survival_prediction_posterior_factor(req.model)?;
+    let mut result = predict_survival(SurvivalPredictRequest {
+        model: req.model,
+        data: req.data,
+        col_map: req.col_map,
+        training_headers: req.training_headers,
+        primary_offset: req.primary_offset,
+        noise_offset: req.noise_offset,
+        time_grid: req.time_grid,
+        with_uncertainty: false,
+        estimand: SurvivalPredictEstimand::Plugin,
+    })?;
+    let (n_rows, n_times) = result.survival.dim();
+    let mut survival_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut survival_second = Array2::<f64>::zeros((n_rows, n_times));
+    let mut density_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut hazard_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut eta_mean = Array1::<f64>::zeros(n_rows);
+    let mut eta_second = Array1::<f64>::zeros(n_rows);
+
+    for_each_survival_posterior_node(&posterior_mean, &active_covariance, |node, weight| {
+        let draw_model = saved_model_with_survival_coefficients(req.model, node)?;
+        let draw = predict_survival(SurvivalPredictRequest {
+            model: &draw_model,
+            data: req.data,
+            col_map: req.col_map,
+            training_headers: req.training_headers,
+            primary_offset: req.primary_offset,
+            noise_offset: req.noise_offset,
+            time_grid: req.time_grid,
+            with_uncertainty: false,
+            estimand: SurvivalPredictEstimand::Plugin,
+        })?;
+        if draw.survival.dim() != (n_rows, n_times)
+            || draw.hazard.dim() != (n_rows, n_times)
+            || draw.cumulative_hazard.dim() != (n_rows, n_times)
+            || draw.linear_predictor.len() != n_rows
+            || draw.times != result.times
+            || draw.likelihood_mode != result.likelihood_mode
+        {
+            return Err(SurvivalPredictError::IncompatibleSchema {
+                reason: "posterior survival quadrature node changed the prediction schema"
+                    .to_string(),
+            });
+        }
+        for row in 0..n_rows {
+            let eta = draw.linear_predictor[row];
+            eta_mean[row] += weight * eta;
+            eta_second[row] += weight * eta * eta;
+            for time in 0..n_times {
+                let survival = draw.survival[[row, time]];
+                let hazard = draw.hazard[[row, time]];
+                let density = conditional_event_density(
+                    survival,
+                    draw.cumulative_hazard[[row, time]],
+                    hazard,
+                )?;
+                survival_mean[[row, time]] += weight * survival;
+                survival_second[[row, time]] += weight * survival * survival;
+                density_mean[[row, time]] += weight * density;
+                hazard_mean[[row, time]] += weight * hazard;
+            }
+        }
+        Ok(())
+    })?;
+
+    for row in 0..n_rows {
+        for time in 0..n_times {
+            let survival = survival_mean[[row, time]].clamp(0.0, 1.0);
+            let density = density_mean[[row, time]];
+            if !(density.is_finite() && density >= 0.0) {
+                return Err(SurvivalPredictError::NumericalFailure {
+                    reason: format!(
+                        "posterior survival density is invalid at row {row}, time column {time}: {density}"
+                    ),
+                });
+            }
+            result.survival[[row, time]] = survival;
+            result.cumulative_hazard[[row, time]] = -survival.ln();
+            result.hazard[[row, time]] = if survival > 0.0 {
+                density / survival
+            } else if hazard_mean[[row, time]] == 0.0 {
+                0.0
+            } else {
+                f64::INFINITY
+            };
+        }
+    }
+    result.survival_se = req.with_uncertainty.then(|| {
+        Array2::from_shape_fn((n_rows, n_times), |(row, time)| {
+            (survival_second[[row, time]] - survival_mean[[row, time]] * survival_mean[[row, time]])
+                .max(0.0)
+                .sqrt()
+        })
+    });
+    result.eta_se = req.with_uncertainty.then(|| {
+        Array1::from_shape_fn(n_rows, |row| {
+            (eta_second[row] - eta_mean[row] * eta_mean[row])
+                .max(0.0)
+                .sqrt()
+        })
+    });
+    Ok(result)
+}
+
+fn predict_competing_risks_posterior_mean(
+    req: SurvivalPredictRequest<'_>,
+) -> Result<CompetingRisksPredictResult, SurvivalPredictError> {
+    if req.with_uncertainty {
+        return Err(SurvivalPredictError::UnsupportedConfiguration {
+            reason: "competing-risks survival prediction does not yet expose posterior surface standard errors"
+                .to_string(),
+        });
+    }
+    let (posterior_mean, active_covariance) = survival_prediction_posterior_factor(req.model)?;
+    let mut result = predict_competing_risks_survival(SurvivalPredictRequest {
+        model: req.model,
+        data: req.data,
+        col_map: req.col_map,
+        training_headers: req.training_headers,
+        primary_offset: req.primary_offset,
+        noise_offset: req.noise_offset,
+        time_grid: req.time_grid,
+        with_uncertainty: false,
+        estimand: SurvivalPredictEstimand::Plugin,
+    })?;
+    let cause_count = result.cif.len();
+    let (n_rows, n_times) = result.overall_survival.dim();
+    let mut survival_mean = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
+    let mut density_mean = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
+    let mut hazard_mean = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
+    let mut cif_mean = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
+    let mut overall_mean = Array2::<f64>::zeros((n_rows, n_times));
+
+    for_each_survival_posterior_node(&posterior_mean, &active_covariance, |node, weight| {
+        let draw_model = saved_model_with_survival_coefficients(req.model, node)?;
+        let draw = predict_competing_risks_survival(SurvivalPredictRequest {
+            model: &draw_model,
+            data: req.data,
+            col_map: req.col_map,
+            training_headers: req.training_headers,
+            primary_offset: req.primary_offset,
+            noise_offset: req.noise_offset,
+            time_grid: req.time_grid,
+            with_uncertainty: false,
+            estimand: SurvivalPredictEstimand::Plugin,
+        })?;
+        if draw.cif.len() != cause_count
+            || draw.survival.len() != cause_count
+            || draw.hazard.len() != cause_count
+            || draw.cumulative_hazard.len() != cause_count
+            || draw.overall_survival.dim() != (n_rows, n_times)
+            || draw.times != result.times
+            || draw.endpoint_names != result.endpoint_names
+            || draw.likelihood_mode != result.likelihood_mode
+        {
+            return Err(SurvivalPredictError::IncompatibleSchema {
+                reason: "posterior competing-risks quadrature node changed the prediction schema"
+                    .to_string(),
+            });
+        }
+        for cause in 0..cause_count {
+            if draw.survival[cause].dim() != (n_rows, n_times)
+                || draw.hazard[cause].dim() != (n_rows, n_times)
+                || draw.cumulative_hazard[cause].dim() != (n_rows, n_times)
+                || draw.cif[cause].dim() != (n_rows, n_times)
+            {
+                return Err(SurvivalPredictError::IncompatibleSchema {
+                    reason: format!(
+                        "posterior competing-risks quadrature node changed cause {} surface dimensions",
+                        cause + 1
+                    ),
+                });
+            }
+            for row in 0..n_rows {
+                for time in 0..n_times {
+                    let survival = draw.survival[cause][[row, time]];
+                    let hazard = draw.hazard[cause][[row, time]];
+                    let density = conditional_event_density(
+                        survival,
+                        draw.cumulative_hazard[cause][[row, time]],
+                        hazard,
+                    )?;
+                    survival_mean[cause][[row, time]] += weight * survival;
+                    density_mean[cause][[row, time]] += weight * density;
+                    hazard_mean[cause][[row, time]] += weight * hazard;
+                    cif_mean[cause][[row, time]] += weight * draw.cif[cause][[row, time]];
+                }
+            }
+        }
+        for row in 0..n_rows {
+            for time in 0..n_times {
+                overall_mean[[row, time]] += weight * draw.overall_survival[[row, time]];
+            }
+        }
+        Ok(())
+    })?;
+
+    for cause in 0..cause_count {
+        for row in 0..n_rows {
+            for time in 0..n_times {
+                let survival = survival_mean[cause][[row, time]].clamp(0.0, 1.0);
+                let density = density_mean[cause][[row, time]];
+                if !(density.is_finite() && density >= 0.0) {
+                    return Err(SurvivalPredictError::NumericalFailure {
+                        reason: format!(
+                            "posterior competing-risks density is invalid for cause {}, row {row}, time column {time}: {density}",
+                            cause + 1
+                        ),
+                    });
+                }
+                result.survival[cause][[row, time]] = survival;
+                result.cumulative_hazard[cause][[row, time]] = -survival.ln();
+                result.hazard[cause][[row, time]] = if survival > 0.0 {
+                    density / survival
+                } else if hazard_mean[cause][[row, time]] == 0.0 {
+                    0.0
+                } else {
+                    f64::INFINITY
+                };
+                result.cif[cause][[row, time]] = cif_mean[cause][[row, time]].clamp(0.0, 1.0);
+            }
+        }
+    }
+    result.overall_survival = overall_mean.mapv(|value| value.clamp(0.0, 1.0));
+    Ok(result)
 }
 
 /// Trapezoidal integral of a per-row survival curve `s(t)` sampled at the shared
@@ -607,6 +1102,9 @@ pub struct CompetingRisksPredictResult {
 pub fn predict_survival(
     req: SurvivalPredictRequest<'_>,
 ) -> Result<SurvivalPredictResult, SurvivalPredictError> {
+    if req.estimand == SurvivalPredictEstimand::PosteriorMean {
+        return predict_survival_posterior_mean(req);
+    }
     let SurvivalPredictRequest {
         model,
         data,
@@ -616,6 +1114,7 @@ pub fn predict_survival(
         noise_offset,
         time_grid,
         with_uncertainty,
+        estimand: _,
     } = req;
 
     // `survival_entry == None` is the right-censored shorthand
@@ -1016,6 +1515,9 @@ pub fn predict_survival(
 pub fn predict_competing_risks_survival(
     req: SurvivalPredictRequest<'_>,
 ) -> Result<CompetingRisksPredictResult, SurvivalPredictError> {
+    if req.estimand == SurvivalPredictEstimand::PosteriorMean {
+        return predict_competing_risks_posterior_mean(req);
+    }
     let SurvivalPredictRequest {
         model,
         data,
@@ -1025,6 +1527,7 @@ pub fn predict_competing_risks_survival(
         noise_offset,
         time_grid,
         with_uncertainty,
+        estimand: _,
     } = req;
 
     if with_uncertainty {
@@ -1207,10 +1710,24 @@ pub fn predict_competing_risks_survival(
     let (refined_times, user_time_to_refined_index): (Vec<f64>, Vec<usize>) = if per_row_eval {
         (Vec::new(), Vec::new())
     } else {
+        // The user grid may arrive in any order (and contain duplicates); the
+        // AJ recurrence is a time-ordered prefix integral, so the refinement
+        // walks the SORTED times and maps every user position back to its
+        // refined index. Walking an unsorted grid directly is not merely
+        // inaccurate: a decreasing grid produces negative gaps, skips the
+        // fill, and silently maps later user times onto the wrong refined
+        // column (e.g. grid [2, 1] returned the t=2 CIF for both queries).
+        let mut order: Vec<usize> = (0..eval_times.len()).collect();
+        order.sort_by(|&a, &b| {
+            eval_times[a]
+                .partial_cmp(&eval_times[b])
+                .expect("survival time_grid entries are validated finite above")
+        });
         let mut refined: Vec<f64> = Vec::new();
-        let mut user_index: Vec<usize> = Vec::with_capacity(eval_times.len());
+        let mut user_index: Vec<usize> = vec![0; eval_times.len()];
         let mut prev = 0.0_f64;
-        for &t_user in &eval_times {
+        for &j_user in &order {
+            let t_user = eval_times[j_user];
             // Insert CIF_REFINE_SUBINTERVALS-1 strictly-interior points in
             // (prev, t_user], landing exactly on t_user as the last point. Skip
             // the interior fill for a zero-length gap (duplicate / origin user
@@ -1228,12 +1745,18 @@ pub fn predict_competing_risks_survival(
             if refined.last().is_none_or(|&last| t_user > last) {
                 refined.push(t_user);
             }
-            user_index.push(refined.len() - 1);
+            user_index[j_user] = refined.len() - 1;
             prev = t_user;
         }
         (refined, user_index)
     };
-    let refined_cols = refined_times.len();
+    // Per-row eval integrates each row's CIF on its own refined [0, age_exit]
+    // subdivision (normalized-fraction grid; see the assembly step below).
+    let refined_cols = if per_row_eval {
+        CIF_REFINE_SUBINTERVALS
+    } else {
+        refined_times.len()
+    };
 
     let saved_timewiggle_by_cause = saved_cause_specific_timewiggles(model, &fit, cause_count)?;
     let cov_rows = (0..n)
@@ -1328,6 +1851,26 @@ pub fn predict_competing_risks_survival(
                 out.hazard[0] = haz_t;
                 out.cumulative[0] = cum_t;
                 out.survival[0] = (-cum_t).exp().clamp(0.0, 1.0);
+                // Cause-specific cumulative hazards on this row's refined
+                // [0, age_exit] subdivision for the time-ordered AJ assembly.
+                // A single-interval assembly splits the CIF by ENDPOINT
+                // cumulative-hazard proportions, which is exact only when the
+                // cause-specific hazard ratio is constant in time; the CIF is
+                // the time-ordered integral ∫ S(u−) dH_k(u) (gam#1385).
+                for s in 1..=CIF_REFINE_SUBINTERVALS {
+                    let frac = (s as f64) / (CIF_REFINE_SUBINTERVALS as f64);
+                    let t_query = age_exit[i] * frac;
+                    out.cumulative_refined[s - 1] = if t_query <= 0.0 {
+                        0.0
+                    } else if s == CIF_REFINE_SUBINTERVALS {
+                        // frac == 1 exactly: reuse the exit evaluation so the
+                        // assembled CIF and the reported cumulative hazard
+                        // agree to the bit.
+                        cum_t
+                    } else {
+                        evaluate_at(t_query)?.1
+                    };
+                }
             } else {
                 for (j, &t_query) in eval_times.iter().enumerate() {
                     // Mirror the single-cause origin guard: every subject is
@@ -1380,11 +1923,39 @@ pub fn predict_competing_risks_survival(
 
     // Assemble the Aalen-Johansen CIF on the refined grid (gam#1385), then read
     // the result back at the user-requested times so the CIF is grid-resolution
-    // independent. Per-row eval keeps the single-anchor assembly path.
+    // independent.
     let assembled = if per_row_eval {
-        let assembly_times = Array1::from_elem(1, 0.0);
-        assemble_competing_risks_cif_from_endpoints(assembly_times.view(), &cumulative_hazard)
-            .map_err(|err| err.to_string())?
+        // Each row was integrated on its own normalized subdivision
+        // t = age_exit·s/K. The AJ recurrence consumes only the time-ORDERED
+        // cumulative-hazard values (the time stamps enter validation, never
+        // the arithmetic), so a shared fraction grid s/K is an exact
+        // parameterization of every row's [0, age_exit]; the row's CIF at its
+        // exit time is the final column.
+        let assembly_times = Array1::from_shape_fn(CIF_REFINE_SUBINTERVALS, |s| {
+            ((s + 1) as f64) / (CIF_REFINE_SUBINTERVALS as f64)
+        });
+        let refined_assembled = assemble_competing_risks_cif_from_endpoints(
+            assembly_times.view(),
+            &cumulative_hazard_refined,
+        )
+        .map_err(|err| err.to_string())?;
+        let last = CIF_REFINE_SUBINTERVALS - 1;
+        let mut cif_user = (0..cause_count)
+            .map(|_| Array2::<f64>::zeros((n, 1)))
+            .collect::<Vec<_>>();
+        let mut overall_user = Array2::<f64>::zeros((n, 1));
+        for cause in 0..cause_count {
+            for row in 0..n {
+                cif_user[cause][[row, 0]] = refined_assembled.cif[cause][[row, last]];
+            }
+        }
+        for row in 0..n {
+            overall_user[[row, 0]] = refined_assembled.overall_survival[[row, last]];
+        }
+        CompetingRisksCifResult {
+            cif: cif_user,
+            overall_survival: overall_user,
+        }
     } else {
         let assembly_times = Array1::from_vec(refined_times.clone());
         let refined_assembled = assemble_competing_risks_cif_from_endpoints(
@@ -1758,9 +2329,9 @@ fn evaluate_marginal_slope_row(
     let pred_input = PredictInput {
         design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(q_design_full)),
         offset: Array1::from_elem(1, r_eta_exit[0] + primary_offset_row),
-        design_noise: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            logslope_design_2d,
-        ))),
+        design_noise: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(logslope_design_2d),
+        )),
         offset_noise: Some(Array1::from_elem(1, ctx.noise_offset[row_index])),
         auxiliary_scalar: Some(Array1::from_elem(1, ctx.z_raw[row_index])),
         auxiliary_matrix: None,

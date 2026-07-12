@@ -24,12 +24,14 @@ pub mod identifiability;
 
 pub(crate) use crate::custom_family::{
     BlockWorkingSet, BlockwiseFitOptions, CustomFamily, CustomFamilyWarmStart,
-    ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
+    ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace, FamilyEvaluation,
+    ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, custom_family_outer_derivatives,
+    evaluate_custom_family_joint_hyper_efs_shared, evaluate_custom_family_joint_hyper_shared,
+    fit_custom_family, fit_custom_family_fixed_log_lambda_warm_start,
+    joint_hyper_options_for_outer_tolerance,
+};
+pub(crate) use gam_problem::{
     ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
-    FamilyEvaluation, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
-    custom_family_outer_derivatives, evaluate_custom_family_joint_hyper_efs_shared,
-    evaluate_custom_family_joint_hyper_shared, fit_custom_family,
-    fit_custom_family_fixed_log_lambda_warm_start, joint_hyper_options_for_outer_tolerance,
 };
 
 pub(crate) use crate::model_types::UnifiedFitResult;
@@ -97,13 +99,13 @@ pub(crate) use gam_solve::pirls::LinearInequalityConstraints;
 
 pub(crate) use crate::probability::signed_probit_logcdf_and_mills_ratio;
 
-pub(crate) use gam_terms::smooth::{
-    BlockwisePenalty, SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords,
-    TermCollectionDesign, TermCollectionSpec,
-};
 pub(crate) use crate::fit_orchestration::drivers::{
     ExactJointHyperSetup, build_term_collection_designs_and_freeze_joint,
     optimize_spatial_length_scale_exact_joint, spatial_length_scale_term_indices,
+};
+pub(crate) use gam_terms::smooth::{
+    BlockwisePenalty, SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords,
+    TermCollectionDesign, TermCollectionSpec,
 };
 
 pub(crate) use gam_problem::HyperOperator;
@@ -116,21 +118,11 @@ pub(crate) use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut1, 
 
 pub(crate) use rayon::prelude::*;
 
-pub(crate) use smallvec::SmallVec;
-
 pub(crate) use std::cell::RefCell;
 
 pub(crate) use std::sync::atomic::AtomicUsize;
 
 pub(crate) use std::sync::{Arc, Mutex};
-
-/// Inline-stored polynomial coefficient vector for survival marginal-slope
-/// integrand assembly. `poly_*` helpers in this module routinely build
-/// degree ≤ ~28 polynomials (max product of four affine cell coefficient
-/// arrays of length 4) inside per-row hot loops; the previous `Vec<f64>`
-/// returns drove millions of mallocs per outer iteration on large-scale
-/// fits. Thirty-two inline slots cover every observed shape.
-pub(crate) type PolyVec = SmallVec<[f64; 32]>;
 
 mod accumulate;
 mod block_jacobians;
@@ -153,10 +145,11 @@ pub mod gpu_prep;
 mod hessian;
 mod intercept;
 mod joint_eval;
-mod kkt_refusal;
 mod joint_workspace;
+mod kkt_refusal;
 mod newton_operators;
-mod poly_arith;
+#[cfg(test)]
+mod poly_arith_tests;
 mod primary_geometry;
 mod psi_terms;
 mod pullback;
@@ -176,7 +169,6 @@ pub(crate) use hessian::*;
 pub(crate) use joint_eval::*;
 pub(crate) use joint_workspace::*;
 pub(crate) use kkt_refusal::*;
-pub(crate) use poly_arith::{poly_add, poly_mul, poly_scale, poly_sub};
 pub(crate) use primary_geometry::*;
 pub(crate) use row_kernel::*;
 pub use row_math::*;

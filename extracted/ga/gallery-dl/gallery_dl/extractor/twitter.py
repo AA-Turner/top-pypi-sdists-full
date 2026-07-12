@@ -415,8 +415,23 @@ class TwitterExtractor(Extractor):
 
     def _extract_article_media(self, media, type):
         info = media["media_info"]
-        url = info["original_img_url"]
 
+        if "duration_millis" in info:
+            preview = info["preview_image"]
+            variant = max(info["variants"],
+                          key=lambda v: v.get("bit_rate", 0))
+            return {
+                "url"      : variant["url"],
+                "bitrate"  : variant.get("bit_rate"),
+                "duration" : info["duration_millis"] / 1000,
+                "width"    : preview["original_img_width"],
+                "height"   : preview["original_img_height"],
+                "media_id" : media["media_id"],
+                "media_key": media["media_key"],
+                "type"     : "article:video",
+            }
+
+        url = info["original_img_url"]
         if url[-4] == ".":
             base, _, fmt = url.rpartition(".")
             base = f"{base}?format={fmt}&name="

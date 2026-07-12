@@ -8,18 +8,21 @@ use super::*;
 /// spatial basis — center/knot selection, the thin-plate kernel evaluation, the
 /// kernel-constraint nullspace reparameterisation, the identifiability
 /// transform, and the penalty Grams — is a PURE FUNCTION of `(data, spec)`: it
-/// never reads the response. So the whole [`BasisBuildResult`] is identical
-/// across diseases sharing those exact predictor columns, yet the per-disease
-/// log shows it rebuilt + re-audited from scratch each time (~0.4–2.5 s each).
+/// never reads the response. Its dense-versus-lazy representation additionally
+/// depends on the workspace's storage-routing policy, which is part of the
+/// cache fingerprint below. Thus diseases sharing the same columns and policy
+/// can reuse the complete [`BasisBuildResult`] without crossing a caller's
+/// materialization boundary.
 ///
 /// This is a content-addressed, size-bounded, recomputable memo mirroring the
 /// FFI cross-disease column-encode cache (`encoded_column_cache` in
 /// `crates/gam-pyffi/src/manifold_and_posterior_ffi.rs`): the key is a 128-bit
-/// fingerprint of the data matrix CONTENT (shape + every element bit-pattern)
-/// plus the basis spec, so a different cohort / subsample (different rows) MISSES
-/// — preserving correctness — while the same columns across diseases HIT. A hit
-/// clones the cached `BasisBuildResult` (cheap `Arc`/ndarray clones vs. the
-/// kernel build + RRQR audit), so results are bit-identical to the miss path.
+/// fingerprint of the data matrix CONTENT (shape + every element bit-pattern),
+/// the basis spec, and the policy fields that select dense versus lazy storage.
+/// A different cohort, spec, or routing boundary therefore MISSES; matching
+/// diseases HIT. A hit clones the cached `BasisBuildResult` (cheap
+/// `Arc`/ndarray clones vs. the kernel build + RRQR audit), so results are
+/// bit-identical to the miss path.
 /// Eviction (LRU under a byte budget) only ever forfeits the perf benefit, never
 /// correctness, since every value is exactly recomputable from its key.
 type DuchonBasisCacheKey = (u64, u64);
@@ -70,10 +73,12 @@ fn duchon_basis_cache()
 /// — produces a different key and misses. The spec is hashed via its serialized
 /// form (the spec carries `serde` derives), capturing center strategy, power,
 /// length scale, nullspace order, anisotropy, identifiability, and operator
-/// penalty dials — every input the builder reads.
+/// penalty dials. The materialization cap and storage mode prevent a dense
+/// result built under a permissive policy from bypassing a later lazy route.
 fn duchon_basis_fingerprint(
     data: ArrayView2<'_, f64>,
     spec: &DuchonBasisSpec,
+    policy: &gam_runtime::resource::ResourcePolicy,
 ) -> Option<DuchonBasisCacheKey> {
     let spec_bytes = serde_json::to_vec(spec).ok()?;
     let mut lo = DefaultHasher::new();
@@ -99,6 +104,13 @@ fn duchon_basis_fingerprint(
     for h in [&mut lo, &mut hi] {
         spec_bytes.len().hash(h);
         spec_bytes.hash(h);
+        policy.max_single_materialization_bytes.hash(h);
+        let storage_mode = match policy.derivative_storage_mode {
+            gam_runtime::resource::DerivativeStorageMode::AnalyticOperatorRequired => 0_u8,
+            gam_runtime::resource::DerivativeStorageMode::MaterializeIfSmall => 1_u8,
+            gam_runtime::resource::DerivativeStorageMode::DiagnosticsOnly => 2_u8,
+        };
+        storage_mode.hash(h);
     }
     Some((lo.finish(), hi.finish()))
 }
@@ -108,7 +120,7 @@ pub fn build_duchon_basiswithworkspace(
     spec: &DuchonBasisSpec,
     workspace: &mut BasisWorkspace,
 ) -> Result<BasisBuildResult, BasisError> {
-    if let Some(key) = duchon_basis_fingerprint(data, spec) {
+    if let Some(key) = duchon_basis_fingerprint(data, spec, workspace.policy()) {
         if let Some(hit) = duchon_basis_cache().get(&key) {
             return Ok(hit.0);
         }
@@ -124,8 +136,33 @@ fn build_duchon_basis_uncached(
     spec: &DuchonBasisSpec,
     workspace: &mut BasisWorkspace,
 ) -> Result<BasisBuildResult, BasisError> {
-    if let Some((start, end, _period)) = spec.boundary.period() {
-        return build_cyclic_duchon_basis_1dwithworkspace(data, spec, start, end);
+    if let Some((_start, _end, period)) = spec.boundary.period() {
+        // A 1-D cyclic boundary is the formula-DSL spelling of periodicity.
+        // Normalize it onto `spec.periodic` so ALL periodic 1-D Duchon terms
+        // share the single Bernoulli Green's-function construction
+        // (`build_periodic_duchon_basis_1d`): the exact periodic kernel of
+        // `(d²/dx²)^m` with the exact RKHS Gram penalty `ω = zᵀK_centers z`.
+        // The former wrapped-min-distance kernel + coefficient-difference
+        // penalty path was both a SPEC 5 violation (penalty on coefficients,
+        // not the function) and a live forward/derivative desync: every
+        // derivative/jet consumer (`create_duchon_basis_1d_derivative_dense`,
+        // the log-κ derivative builders, the pyffi periodic jet) reconstructs
+        // the Bernoulli design, never the wrapped-distance one. Only the
+        // period LENGTH matters — the periodic kernel depends on cyclic
+        // distance mod period, so the boundary's absolute phase anchor is
+        // immaterial (the wrap anchor is re-derived deterministically from
+        // the frozen center set at fit and predict time alike).
+        if data.ncols() != 1 {
+            crate::bail_invalid_basis!(
+                "cyclic-boundary Duchon smooths require exactly one covariate"
+            );
+        }
+        let mut spec_periodic = spec.clone();
+        spec_periodic.boundary = crate::basis::OneDimensionalBoundary::Open;
+        spec_periodic.periodic = Some(vec![Some(period)]);
+        let centers = select_centers_by_strategy(data, &spec_periodic.center_strategy)?;
+        assert_spatial_centers_below_large_scale_cap(data.ncols(), centers.view())?;
+        return build_periodic_duchon_basis_1d(data, &spec_periodic, centers, workspace);
     }
     let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
     assert_spatial_centers_below_large_scale_cap(data.ncols(), centers.view())?;
@@ -213,8 +250,9 @@ fn build_duchon_basis_uncached(
     // predict / κ-trial rebuilds replay the exact fit-time rotated radial basis.
     // A FROZEN `V` (predict / κ-trial / replay) is folded into the constrained
     // kernel transform on EVERY path so the design stays consistent with the
-    // frozen penalty. A FRESH `V` is computed only on the dense cold path; the
-    // lazy/streaming cold path keeps the original constrained basis (`None`).
+    // frozen penalty. A FRESH `V` is computed on every cold path: the dense
+    // builder obtains its realized Gram from the materialized kernel block,
+    // while the lazy builder streams the same Gram through the chunked operator.
     let mut frozen_radial_reparam: Option<Array2<f64>> = None;
     if let Some(v) = spec.radial_reparam.as_ref() {
         if v.nrows() != kernel_transform.ncols() {
@@ -285,16 +323,29 @@ fn build_duchon_basis_uncached(
             coeffs.as_ref(),
             pure_poly_coeff.as_ref(),
         );
-        let base_design = if let Some(eta) = aniso.as_ref() {
-            let metric_weights = eta.iter().map(|&v| (2.0 * v).exp()).collect::<Vec<_>>();
+        // Build the same kernel evaluator for the raw-Gram pass and the final
+        // operator.  The evaluator owns its anisotropic metric weights, so the
+        // two streamed passes share the exact function without sharing mutable
+        // state or materialising the n×p design.
+        let make_kernel = || {
             let coeffs = coeffs.clone();
-            let kernel = move |data_row: &[f64], center_row: &[f64]| -> f64 {
-                let mut q = 0.0f64;
-                for axis in 0..data_row.len() {
-                    let delta = data_row[axis] - center_row[axis];
-                    q += metric_weights[axis] * delta * delta;
-                }
-                let r = q.sqrt();
+            let pure_poly_coeff = pure_poly_coeff;
+            let metric_weights = aniso.as_ref().map(|eta| {
+                eta.iter()
+                    .map(|&value| (2.0 * value).exp())
+                    .collect::<Vec<_>>()
+            });
+            Arc::new(move |data_row: &[f64], center_row: &[f64]| -> f64 {
+                let r = if let Some(weights) = metric_weights.as_ref() {
+                    let mut squared_radius = 0.0_f64;
+                    for axis in 0..data_row.len() {
+                        let delta = data_row[axis] - center_row[axis];
+                        squared_radius += weights[axis] * delta * delta;
+                    }
+                    squared_radius.sqrt()
+                } else {
+                    stable_euclidean_norm((0..d).map(|axis| data_row[axis] - center_row[axis]))
+                };
                 let raw = if let Some(ppc) = pure_poly_coeff {
                     ppc.eval(r)
                 } else {
@@ -309,103 +360,61 @@ fn build_duchon_basis_uncached(
                     .expect("validated Duchon inputs should not fail")
                 };
                 raw * kernel_amp
-            };
-            let kernel_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
+            }) as Arc<dyn crate::chunked_kernel_design::SpatialKernelEvaluator>
+        };
+        // The data-metric radial chart is a property of the represented kernel
+        // function, not of the isotropic special case.  Stream the raw
+        // constrained Gram for every cold lazy build, including anisotropic and
+        // operator-penalty configurations, then solve the same generalized
+        // eigenproblem as the dense path.  This keeps VᵀG_cV=I and
+        // VᵀΩ_cV=diag(μ) without ever allocating n×p.
+        if frozen_radial_reparam.is_none() {
+            let raw_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
                 kernel_transform.clone(),
             ]));
-            let base_op = ChunkedKernelDesignOperator::new(
+            let raw_op = ChunkedKernelDesignOperator::new(
                 shared_data.clone(),
                 Arc::new(centers.clone()),
-                kernel,
-                Some(kernel_gauge),
-                Some(Arc::new(poly_block.clone())),
-            )
-            .map_err(BasisError::InvalidInput)?;
-            DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(
-                base_op,
-            )))
-        } else {
-            let coeffs = coeffs.clone();
-            let make_kernel = || {
-                let coeffs = coeffs.clone();
-                let pure_poly_coeff = pure_poly_coeff;
-                Arc::new(move |data_row: &[f64], center_row: &[f64]| -> f64 {
-                    let r =
-                        stable_euclidean_norm((0..d).map(|axis| data_row[axis] - center_row[axis]));
-                    let raw = if let Some(ppc) = pure_poly_coeff {
-                        ppc.eval(r)
-                    } else {
-                        duchon_matern_kernel_general_from_distance(
-                            r,
-                            length_scale,
-                            p_order,
-                            s_order_int.expect("hybrid Duchon requires integer power"),
-                            d,
-                            coeffs.as_ref(),
-                        )
-                        .expect("validated Duchon inputs should not fail")
-                    };
-                    raw * kernel_amp
-                }) as Arc<dyn crate::chunked_kernel_design::SpatialKernelEvaluator>
-            };
-            let operators_active = matches!(
-                spec.operator_penalties.mass,
-                OperatorPenaltySpec::Active { .. }
-            ) || matches!(
-                spec.operator_penalties.tension,
-                OperatorPenaltySpec::Active { .. }
-            ) || matches!(
-                spec.operator_penalties.stiffness,
-                OperatorPenaltySpec::Active { .. }
-            );
-            if frozen_radial_reparam.is_none() && !operators_active {
-                let raw_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
-                    kernel_transform.clone(),
-                ]));
-                let raw_op = ChunkedKernelDesignOperator::new(
-                    shared_data.clone(),
-                    Arc::new(centers.clone()),
-                    make_kernel(),
-                    Some(raw_gauge),
-                    Some(Arc::new(poly_block.clone())),
-                )
-                .map_err(BasisError::InvalidInput)?;
-                let ones = Array1::<f64>::ones(raw_op.nrows());
-                let raw_gram = raw_op.diag_xtw_x(&ones).map_err(BasisError::InvalidInput)?;
-                let kernel_cols = kernel_transform.ncols();
-                let design_gram = symmetrize_penalty(
-                    &raw_gram.slice(s![..kernel_cols, ..kernel_cols]).to_owned(),
-                );
-                let omega_constrained = duchon_constrained_bending_penalty(
-                    centers.view(),
-                    spec.length_scale,
-                    spec.power,
-                    effective_nullspace_order,
-                    aniso.as_deref(),
-                    &kernel_transform,
-                )?;
-                let (v, _mu) =
-                    thin_plate_radial_reparam_data_metric(&omega_constrained, &design_gram)?;
-                if v.ncols() > 0 {
-                    kernel_transform = fast_ab(&kernel_transform, &v);
-                    frozen_radial_reparam = Some(v);
-                }
-            }
-            let kernel_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
-                kernel_transform.clone(),
-            ]));
-            let base_op = ChunkedKernelDesignOperator::new(
-                shared_data,
-                Arc::new(centers.clone()),
                 make_kernel(),
-                Some(kernel_gauge),
-                Some(Arc::new(poly_block)),
+                Some(raw_gauge),
+                Some(Arc::new(poly_block.clone())),
+                workspace.policy().material_policy(),
             )
             .map_err(BasisError::InvalidInput)?;
-            DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(
-                base_op,
-            )))
-        };
+            let ones = Array1::<f64>::ones(raw_op.nrows());
+            let raw_gram = raw_op.diag_xtw_x(&ones).map_err(BasisError::InvalidInput)?;
+            let kernel_cols = kernel_transform.ncols();
+            let design_gram =
+                symmetrize_penalty(&raw_gram.slice(s![..kernel_cols, ..kernel_cols]).to_owned());
+            let omega_constrained = duchon_constrained_bending_penalty(
+                centers.view(),
+                spec.length_scale,
+                spec.power,
+                effective_nullspace_order,
+                aniso.as_deref(),
+                &kernel_transform,
+            )?;
+            let (v, _mu) = thin_plate_radial_reparam_data_metric(&omega_constrained, &design_gram)?;
+            if v.ncols() > 0 {
+                kernel_transform = fast_ab(&kernel_transform, &v);
+                frozen_radial_reparam = Some(v);
+            }
+        }
+        let kernel_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
+            kernel_transform.clone(),
+        ]));
+        let base_op = ChunkedKernelDesignOperator::new(
+            shared_data,
+            Arc::new(centers.clone()),
+            make_kernel(),
+            Some(kernel_gauge),
+            Some(Arc::new(poly_block)),
+            workspace.policy().material_policy(),
+        )
+        .map_err(BasisError::InvalidInput)?;
+        let base_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+            Arc::new(base_op),
+        ));
         let identifiability_transform = spatial_identifiability_transform_from_design_matrix(
             data,
             &base_design,
@@ -1111,6 +1120,20 @@ pub(crate) fn kernel_constraint_nullspace_from_matrix(
     Ok(z)
 }
 
+/// Relative tolerance (against the data's squared radius) below which two
+/// farthest-point candidates' maximin — or centroid — distances are treated as
+/// *tied* and resolved by the rotation/permutation-invariant support-distance
+/// profile rather than by their exact floating-point ordering.
+///
+/// A generic (non-90°) rigid rotation of the covariates re-expresses every
+/// coordinate with ~1 ulp of round-off, so the squared distances that drive the
+/// farthest-point recursion differ from their exact rotation-invariant values by
+/// ~`ε·‖x‖²`. This tolerance is set several orders of magnitude above that
+/// round-off floor yet far below any genuine gap between geometrically-distinct
+/// candidates, so it absorbs the sub-ulp perturbation without altering the
+/// selection on data whose maximin values are genuinely separated.
+const KNOT_MAXIMIN_TIE_REL_TOL: f64 = 1e-9;
+
 /// Deterministically selects thin-plate knots via farthest-point sampling.
 ///
 /// This produces a space-filling subset without introducing RNG/state coupling.
@@ -1234,20 +1257,31 @@ pub fn select_thin_plate_knots(
         i < j
     };
 
-    // Seed = centroid-nearest row; equidistant ties resolved by the invariant
-    // support-distance profile so the seed is a deterministic, rotation- and
-    // permutation-invariant function of the data.
+    // Round-off-robust tie tolerance (#1818). The data's squared radius sets the
+    // scale of the maximin/centroid distances; a generic rigid rotation perturbs
+    // each of them by ~`ε·radius²`, so exact-equality tie-break gates let that
+    // round-off — rather than the intended rotation-invariant key — decide
+    // near-equidistant candidates, and a single flip cascades into a materially
+    // different knot set. `tie_tol` sits well above that round-off floor and far
+    // below any genuine maximin gap, so near-ties are consistently resolved by
+    // the invariant support-distance profile in every rotated frame.
+    let knot_scale2 = dist2_to_centroid
+        .iter()
+        .copied()
+        .fold(0.0_f64, f64::max)
+        .max(1.0);
+    let tie_tol = KNOT_MAXIMIN_TIE_REL_TOL * knot_scale2;
+
+    // Seed = centroid-nearest row; near-equidistant rows (within `tie_tol`) are
+    // resolved by the invariant support-distance profile so the seed is a
+    // deterministic, rotation- and permutation-invariant function of the data.
+    let seed_min = dist2_to_centroid
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
     let seed_idx = (0..n)
-        .into_par_iter()
-        .map(|i| (i, dist2_to_centroid[i]))
-        .reduce_with(|a, b| {
-            if b.1 < a.1 || (b.1 == a.1 && distance_profile_less(b.0, a.0)) {
-                b
-            } else {
-                a
-            }
-        })
-        .map(|(i, _)| i)
+        .filter(|&i| dist2_to_centroid[i] <= seed_min + tie_tol)
+        .reduce(|a, b| if distance_profile_less(a, b) { a } else { b })
         .unwrap_or(0);
 
     let mut selected = Vec::with_capacity(num_knots);
@@ -1268,33 +1302,46 @@ pub fn select_thin_plate_knots(
     min_dist2[seed_idx] = 0.0;
 
     while selected.len() < num_knots {
-        let best_idx = min_dist2
+        // Maximin: take the larger min-distance to the chosen set. Exact
+        // `min_dist2` ties — common on regular grids and, under a generic
+        // rotation, wherever round-off perturbs two near-equidistant candidates —
+        // are resolved by a rotation-invariant key first (the larger distance to
+        // the centroid, which spreads knots outward and is a pure function of the
+        // unordered value set), and only by the invariant support-distance profile
+        // for points that also tie there. Both the maximin and the centroid keys
+        // use `tie_tol` (not exact equality) so sub-ulp coordinate perturbation
+        // can never decide the selection; this keeps the knot SET invariant under
+        // both rigid rotation and row permutation of the data.
+        let max_val = min_dist2
             .par_iter()
             .enumerate()
             .filter(|(i, _)| !chosen[*i])
-            .map(|(i, &cand)| (i, cand))
-            .reduce_with(|a, b| {
-                // Maximin: take the larger min-distance to the chosen set.
-                // Exact `min_dist2` ties — common on regular grids and in float
-                // arithmetic — are resolved by a rotation-invariant key first
-                // (the larger distance to the centroid, which spreads knots
-                // outward and is a pure function of the unordered value set),
-                // and only by the invariant support-distance profile for points
-                // that also tie there.
-                // This keeps the selected knot set invariant under both rigid
-                // rotation and row permutation of the data.
-                let pick_b = b.1 > a.1
-                    || (b.1 == a.1
-                        && (dist2_to_centroid[b.0] > dist2_to_centroid[a.0]
-                            || (dist2_to_centroid[b.0] == dist2_to_centroid[a.0]
-                                && distance_profile_less(b.0, a.0))));
-                if pick_b { b } else { a }
-            })
-            .map(|(i, _)| i);
-        let next_idx = match best_idx {
-            Some(i) => i,
-            None => break,
-        };
+            .map(|(_, &cand)| cand)
+            .reduce(|| f64::NEG_INFINITY, f64::max);
+        if !max_val.is_finite() {
+            break;
+        }
+        // Candidates within round-off tolerance of the maximin extremum, in
+        // canonical (ascending) row order (parallel collect is index-ordered).
+        let mut candidates: Vec<usize> = (0..n)
+            .into_par_iter()
+            .filter(|&i| !chosen[i] && min_dist2[i] >= max_val - tie_tol)
+            .collect();
+        if candidates.is_empty() {
+            break;
+        }
+        // Secondary invariant key: farthest from the centroid, round-off-robust.
+        let cand_max_centroid = candidates
+            .iter()
+            .map(|&i| dist2_to_centroid[i])
+            .fold(f64::NEG_INFINITY, f64::max);
+        candidates.retain(|&i| dist2_to_centroid[i] >= cand_max_centroid - tie_tol);
+        // Tertiary invariant key: smallest support-distance profile (then row
+        // index, for genuinely interchangeable duplicate points).
+        let next_idx = candidates
+            .into_iter()
+            .reduce(|a, b| if distance_profile_less(a, b) { a } else { b })
+            .expect("candidate set is non-empty");
         selected.push(next_idx);
         chosen[next_idx] = true;
 

@@ -37,7 +37,6 @@ use crate::custom_family::{
     CustomFamilyJointDesignPairContribution, CustomFamilyJointPsiOperator,
     CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef, CustomFamilyWarmStart,
     ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
-    ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
     ExactNewtonOuterCurvature, FamilyChannelHessian, FamilyEvaluation, ParameterBlockSpec,
     ParameterBlockState, PenaltyMatrix, PsiDesignMap, build_rowwise_kronecker_psi_operator,
     evaluate_custom_family_joint_hyper, evaluate_custom_family_joint_hyper_efs,
@@ -45,7 +44,10 @@ use crate::custom_family::{
     weighted_crossprod_psi_maps,
 };
 
-use gam_problem::{DenseMatrixHyperOperator, HyperOperator};
+use gam_problem::{
+    DenseMatrixHyperOperator, ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms,
+    ExactNewtonJointPsiWorkspace, HyperOperator,
+};
 
 use gam_linalg::faer_ndarray::{
     FaerEigh, fast_atb_with_parallelism, fast_atv, fast_av, fast_xt_diag_x,
@@ -60,7 +62,7 @@ use crate::scale_design::{
     ScaleDeviationTransform, build_scale_deviation_operator, infer_non_intercept_start_design,
 };
 
-use crate::sigma_link::{EXP_NEG_STABLE_MAX_ARG, exp_sigma_inverse_from_eta_scalar};
+use crate::sigma_link::exp_sigma_inverse_from_eta_scalar;
 
 use crate::survival::{OffsetChannelCurvatures, OffsetChannelResiduals};
 
@@ -96,12 +98,12 @@ use crate::probability::erfcx_nonnegative;
 
 use crate::probability::{normal_cdf, normal_pdf};
 
-use gam_terms::smooth::{
-    SpatialLengthScaleOptimizationOptions, TermCollectionDesign, TermCollectionSpec,
-};
 use crate::fit_orchestration::drivers::{
     ExactJointHyperSetup, freeze_term_collection_from_design,
     optimize_spatial_length_scale_exact_joint, spatial_length_scale_term_indices,
+};
+use gam_terms::smooth::{
+    SpatialLengthScaleOptimizationOptions, TermCollectionDesign, TermCollectionSpec,
 };
 // #1521: relocated DOWN into gam_terms::smooth (was drivers::build_term_collection_design).
 use gam_terms::smooth::build_term_collection_design;

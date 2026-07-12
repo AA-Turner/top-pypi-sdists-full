@@ -99,6 +99,21 @@ class HumanNameOutputFormatTests(HumanNameTestBase):
         hn.nickname = ''
         self.assertEqual(str(hn), "Rev John A. Kenneth Doe III")
 
+    def test_name_containing_none_substring_with_none_empty_attribute_default(self) -> None:
+        # Regression for #254: with empty_attribute_default = None, __str__
+        # scrubbed the literal string 'None' from the formatted output,
+        # corrupting real name text containing that substring.
+        hn = HumanName("Nonez Smith", None)
+        hn.C.empty_attribute_default = None  # type: ignore[assignment]  # see test_constants.test_empty_attribute_default
+        self.assertEqual(str(hn), "Nonez Smith")
+
+    def test_name_none_as_literal_name_with_none_empty_attribute_default(self) -> None:
+        # Companion to the #254 regression: a name piece that is exactly
+        # 'None' must survive formatting in None-mode.
+        hn = HumanName("None Smith", None)
+        hn.C.empty_attribute_default = None  # type: ignore[assignment]  # see test_constants.test_empty_attribute_default
+        self.assertEqual(str(hn), "None Smith")
+
     def test_empty_field_drops_surrounding_whitespace(self) -> None:
         # issue #139: adjacent whitespace/punctuation should be dropped when a field is empty
         hn = HumanName("John Smith")
@@ -136,3 +151,27 @@ class HumanNameOutputFormatTests(HumanNameTestBase):
         self.m(hn.last, "Smith😊", hn)
         self.assertEqual(str(hn), "∫≜⩕ Smith😊")
         # test cleanup
+
+    def test_remove_bidi_control_chars(self) -> None:
+        # LRM/RLM and friends ride along with copy-pasted names and stick to
+        # the parts they surround. Covers every character in the bidi set.
+        for mark in ("\u200e", "\u200f", "\u061c", "\u202a", "\u202b",
+                     "\u202c", "\u202d", "\u202e", "\u2066", "\u2067",
+                     "\u2068", "\u2069"):
+            hn = HumanName(mark + "John" + mark + " Smith")
+            self.m(hn.first, "John", hn)
+            self.m(hn.last, "Smith", hn)
+
+    def test_bidi_stripped_name_compares_equal(self) -> None:
+        # The reported symptom: an invisible RLM around an RTL name makes the
+        # parsed part fail equality against the clean string (issue #266).
+        hn = HumanName("\u200fمحمد بن سلمان\u200f")
+        self.assertEqual(hn.first, "محمد")
+
+    def test_keep_bidi_control_chars(self) -> None:
+        from nameparser.config import Constants
+        constants = Constants()
+        constants.regexes.bidi = False  # type: ignore[assignment]
+        hn = HumanName("\u200fJohn\u200f Smith", constants)
+        self.m(hn.first, "\u200fJohn\u200f", hn)
+        self.m(hn.last, "Smith", hn)

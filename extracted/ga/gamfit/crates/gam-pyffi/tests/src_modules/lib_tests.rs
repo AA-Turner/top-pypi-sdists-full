@@ -59,76 +59,204 @@ fn pyffi_sources_use_canonical_gam_module_paths() {
 }
 
 #[test]
-fn sae_decoder_lsq_seed_honors_softmax_top_k_support_2132() {
-    let n = 4usize;
-    let k_atoms = 2usize;
-    let mut basis = ndarray::Array3::<f64>::zeros((k_atoms, n, 1));
-    for atom_idx in 0..k_atoms {
-        for row in 0..n {
-            basis[[atom_idx, row, 0]] = 1.0;
+fn sae_atom_construction_stays_in_gam_sae_2236() {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let binding_fragments = [
+        manifest.join("src/latent/latent_basis_and_sae_ffi.rs"),
+        manifest.join("src/latent/latent_basis_and_sae_ffi_tail.rs"),
+    ];
+    let forbidden_definitions = [
+        "struct SaeAtomBuildPlan",
+        "fn sae_build_atom_plans",
+        "fn sae_build_padded_basis_stacks",
+        "fn sae_build_periodic_atom",
+        "fn sae_build_sphere_atom",
+        "fn sae_build_torus_atom",
+        "fn sae_build_duchon_atom",
+        "fn sae_build_euclidean_atom_with_degree",
+        "fn sae_build_euclidean_atom",
+    ];
+
+    let mut hits = Vec::new();
+    for path in binding_fragments {
+        let source = std::fs::read_to_string(&path)
+            .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+        for definition in forbidden_definitions {
+            if source.contains(definition) {
+                hits.push(format!("{} defines {definition}", path.display()));
+            }
         }
     }
-    let z = array![[1.0], [1.0], [-1.0], [-1.0]];
-    // Deliberately MODERATE logits (±0.5): the dense softmax responsibilities are
-    // genuinely soft (≈[0.73, 0.27]), so every atom gets non-trivial weight on
-    // every row. That is what makes this a real regression: if the top_k support
-    // projection were a no-op, atoms 0 and 1 would remain coupled across all four
-    // rows and the joint LSQ would fit each decoder to coth(0.5) ≈ 2.16 (the
-    // symmetric dense solution), not ±1. Only projecting the responsibilities onto
-    // the top-1 support (rows 0,1 → atom 0, rows 2,3 → atom 1) decouples them so
-    // each atom fits exactly its two selected rows, giving ±1 (±the seed ridge,
-    // spectral_scale·1e-4). With near-hard logits (e.g. ±8) the dense and
-    // projected fits are indistinguishable, so such a test would pass even against
-    // a no-op projection — hence the moderate magnitude here.
-    let logits = array![[0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [-0.5, 0.5]];
 
-    let decoder = sae_decoder_lsq_init(
-        basis.view(),
-        &[1, 1],
-        z.view(),
-        logits.view(),
-        "softmax",
-        1.0,
-        1.0,
-        0.0,
-        Some(1),
+    assert!(
+        hits.is_empty(),
+        "SAE atom construction is core orchestration and must remain in gam-sae:\n{}",
+        hits.join("\n")
+    );
+}
+
+#[test]
+fn sae_fisher_metric_construction_stays_in_gam_sae_2236() {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let binding_fragments = [
+        manifest.join("src/latent/latent_basis_and_sae_ffi.rs"),
+        manifest.join("src/latent/latent_basis_and_sae_ffi_tail.rs"),
+    ];
+    let forbidden_orchestration = [
+        "fn row_metric_from_fisher_provenance",
+        "RowMetric::output_fisher(",
+        "RowMetric::output_fisher_downstream(",
+        "RowMetric::behavioral_fisher(",
+        "let mut u_flat",
+    ];
+
+    let mut hits = Vec::new();
+    for path in binding_fragments {
+        let source = std::fs::read_to_string(&path)
+            .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+        for pattern in forbidden_orchestration {
+            if source.contains(pattern) {
+                hits.push(format!("{} contains {pattern}", path.display()));
+            }
+        }
+    }
+
+    assert!(
+        hits.is_empty(),
+        "SAE Fisher validation, packing, and provenance are core orchestration and must remain in gam-sae:\n{}",
+        hits.join("\n")
+    );
+}
+
+#[test]
+fn manifold_sae_structured_metric_without_behavior_shard_is_loadable() {
+    let mut payload = crate::manifold::manifold_sae_payload::ManifoldSaePayload::from_json(
+        include_str!("../../../../tests/fixtures/manifold_sae/golden_full.json"),
     )
-    .expect("top-k softmax seed LSQ succeeds");
+    .expect("golden ManifoldSAE payload");
+    payload.fisher_factors = None;
+    payload.fisher_provenance = None;
+    payload.fisher_mass_residual = None;
+    payload.metric_provenance = "WhitenedStructured".to_string();
 
-    // Projected onto top-1 support each atom fits only its two selected rows,
-    // recovering ±1 up to the tiny mean-relative seed ridge (~1e-4).
     assert!(
-        (decoder[[0, 0, 0]] - 1.0).abs() < 1.0e-3,
-        "top_k=1 must fit atom 0 only on its selected positive rows (expected ≈1.0), got {}",
-        decoder[[0, 0, 0]]
-    );
-    assert!(
-        (decoder[[1, 0, 0]] + 1.0).abs() < 1.0e-3,
-        "top_k=1 must fit atom 1 only on its selected negative rows (expected ≈-1.0), got {}",
-        decoder[[1, 0, 0]]
+        manifold_sae_resident_fisher_metric(&payload)
+            .expect("structured fit without a behavioral shard is valid")
+            .is_none(),
+        "WhitenedStructured fit provenance must not fabricate a resident behavioral metric"
     );
 
-    // Baseline arm: the SAME data with no top-k cap (dense softmax) keeps the
-    // atoms coupled, so the decoders land far from ±1 (≈±2.16). This proves the
-    // projection is load-bearing on this fixture — the assertions above cannot be
-    // satisfied by a no-op that ignores `top_k`.
-    let decoder_dense = sae_decoder_lsq_init(
-        basis.view(),
-        &[1, 1],
-        z.view(),
-        logits.view(),
-        "softmax",
-        1.0,
-        1.0,
-        0.0,
-        None,
-    )
-    .expect("dense softmax seed LSQ succeeds");
+    payload.metric_provenance = "OutputFisher".to_string();
+    let error = manifold_sae_resident_fisher_metric(&payload)
+        .err()
+        .expect("behavioral provenance without retained factors must be rejected");
+    assert!(error.to_string().contains("requires retained fisher_factors"));
+}
+
+#[test]
+fn sae_fit_seed_construction_stays_in_gam_sae_2236() {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("src/latent/latent_basis_and_sae_ffi.rs");
+    let source = std::fs::read_to_string(&path)
+        .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+    let fit_inner = source
+        .split_once("fn sae_manifold_fit_inner")
+        .map(|(_, body)| body)
+        .expect("sae_manifold_fit_inner source");
+    let forbidden_orchestration = [
+        "term_from_padded_blocks_with_mode(",
+        "build_sae_basis_evaluators(",
+        "seed_reconstruction_dispersion(",
+        "SaeManifoldRho::new_shared_ard(",
+        "base_term.set_fit_config(",
+        "const SAE_SHARED_ARD_K_THRESHOLD",
+    ];
+    let hits = forbidden_orchestration
+        .into_iter()
+        .filter(|pattern| fit_inner.contains(pattern))
+        .collect::<Vec<_>>();
+
     assert!(
-        (decoder_dense[[0, 0, 0]] - 1.0).abs() > 0.5,
-        "dense (no top_k) softmax seed must stay coupled and miss ±1, got {}",
-        decoder_dense[[0, 0, 0]]
+        fit_inner.contains("build_sae_fit_seed(SaeFitSeedRequest"),
+        "sae_manifold_fit_inner must delegate seed construction to the typed gam-sae entry"
     );
+    assert!(
+        !source.contains("sae_promotion_align_min")
+            && !source.contains("beta_quantile")
+            && !source.contains("align_min_from_rank"),
+        "residual-promotion policy must be derived inside the typed gam-sae fit entry"
+    );
+    assert!(
+        hits.is_empty(),
+        "SAE seed construction/config/rho policy must remain in gam-sae; binding contains: {}",
+        hits.join(", ")
+    );
+}
+
+#[test]
+fn sae_fit_report_fields_are_marshaled_without_recomputation_2236() {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("src/latent/latent_basis_and_sae_ffi.rs");
+    let source = std::fs::read_to_string(&path)
+        .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+    let fit_inner = source
+        .split_once("fn sae_manifold_fit_inner")
+        .map(|(_, body)| body)
+        .expect("sae_manifold_fit_inner source");
+
+    assert!(!fit_inner.contains("let active_mask: Vec<bool>"));
+    assert!(!fit_inner.contains("let mut rss = 0.0_f64"));
+    assert!(!fit_inner.contains("let mut tss = 0.0_f64"));
+    assert!(fit_inner.contains("atom_active_mask\", active_mask"));
+    assert!(fit_inner.contains("reconstruction_r2\", reconstruction_r2"));
+}
+
+#[test]
+fn sae_sibling_fit_seeds_delegate_to_gam_sae_2236() {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let main = std::fs::read_to_string(manifest.join("src/latent/latent_basis_and_sae_ffi.rs"))
+        .expect("read main SAE binding fragment");
+    let tail =
+        std::fs::read_to_string(manifest.join("src/latent/latent_basis_and_sae_ffi_tail.rs"))
+            .expect("read SAE binding tail");
+    let minimal = tail
+        .split_once("fn sae_manifold_fit_minimal")
+        .and_then(|(_, body)| body.split_once("/// Out-of-sample inference"))
+        .map(|(body, _)| body)
+        .expect("minimal fit body");
+    let stagewise = main
+        .split_once("fn sae_manifold_fit_stagewise")
+        .and_then(|(_, body)| body.split_once("fn sae_manifold_fit_inner"))
+        .map(|(body, _)| body)
+        .expect("stagewise fit body");
+    let ibp = main
+        .split_once("fn sae_manifold_fit_ibp")
+        .and_then(|(_, body)| body.split_once("The full-batch arrow-Schur path"))
+        .map(|(body, _)| body)
+        .expect("IBP convenience fit body");
+    let forbidden = [
+        "sae_pca_seed_initial_coords(",
+        "sae_build_atom_plans(",
+        "sae_build_padded_basis_stacks(",
+        "sae_residual_seed_logits(",
+        "sae_decoder_lsq_init(",
+        "term_from_padded_blocks_with_mode(",
+        "seed_reconstruction_dispersion(",
+    ];
+
+    assert!(minimal.contains("build_sae_minimal_seed(SaeMinimalSeedRequest"));
+    assert!(stagewise.contains("build_sae_stagewise_seed(SaeStagewiseSeedRequest"));
+    assert!(ibp.contains("sae_manifold_fit("));
+    for pattern in forbidden {
+        assert!(
+            !minimal.contains(pattern),
+            "minimal binding contains {pattern}"
+        );
+        assert!(
+            !stagewise.contains(pattern),
+            "stagewise binding contains {pattern}"
+        );
+    }
 }
 
 #[test]
@@ -153,7 +281,7 @@ fn symmetric_curvature_solve_preserves_negative_modes() {
 /// drives it (`f"{target} ~ {rhs}"` with the tangent matrix supplied out-of-band).
 /// `r` is a placeholder LHS the materializer needs to parse the formula — the
 /// impl discards the materialized response and uses `y`.
-fn shared_tangent_formula_table() -> (Vec<String>, Vec<Vec<String>>, Array2<f64>) {
+fn shared_tangent_formula_dataset() -> (EncodedDataset, Array2<f64>) {
     let n = 80usize;
     let headers = vec![
         "r".to_string(),
@@ -161,7 +289,7 @@ fn shared_tangent_formula_table() -> (Vec<String>, Vec<Vec<String>>, Array2<f64>
         "z".to_string(),
         "w".to_string(),
     ];
-    let mut rows = Vec::with_capacity(n);
+    let mut rows = Vec::<csv::StringRecord>::with_capacity(n);
     let mut y = Array2::<f64>::zeros((n, 2));
     for row in 0..n {
         let t = (row as f64 - 39.5) / 20.0;
@@ -175,16 +303,18 @@ fn shared_tangent_formula_table() -> (Vec<String>, Vec<Vec<String>>, Array2<f64>
         // `r` is a non-constant placeholder LHS the materializer needs to parse
         // the formula; the impl discards the materialized response and uses `y`.
         // (It must vary — a constant Gaussian response is rejected up front.)
-        rows.push(vec![
+        rows.push(csv::StringRecord::from(vec![
             format!("{y0}"),
             format!("{x}"),
             format!("{z}"),
             format!("{w}"),
-        ]);
+        ]));
         y[[row, 0]] = y0;
         y[[row, 1]] = y1;
     }
-    (headers, rows, y)
+    let dataset = gam::data::encode_recordswith_inferred_schema(headers, rows)
+        .expect("encode shared-tangent formula dataset");
+    (dataset, y)
 }
 
 /// Regression for issue #381 adversarial review (flaw #2), carried into the
@@ -197,10 +327,9 @@ fn shared_tangent_formula_table() -> (Vec<String>, Vec<Vec<String>>, Array2<f64>
 /// residual df and biasing σ² low.
 #[test]
 fn shared_tangent_sigma2_pools_and_counts_unpenalized_columns() {
-    let (headers, rows, y) = shared_tangent_formula_table();
-    let fit = gaussian_reml_fit_formula_table_impl(
-        headers,
-        rows,
+    let (dataset, y) = shared_tangent_formula_dataset();
+    let fit = gaussian_reml_fit_formula_dataset_impl(
+        dataset,
         "r ~ x + z + s(w)".to_string(),
         y.view(),
         None,
@@ -258,10 +387,9 @@ fn shared_tangent_sigma2_pools_and_counts_unpenalized_columns() {
 /// surviving-block count so a dropped rank-0 block can never silently misalign.
 #[test]
 fn shared_tangent_lambda_edf_are_shared_per_smooth() {
-    let (headers, rows, y) = shared_tangent_formula_table();
-    let fit = gaussian_reml_fit_formula_table_impl(
-        headers,
-        rows,
+    let (dataset, y) = shared_tangent_formula_dataset();
+    let fit = gaussian_reml_fit_formula_dataset_impl(
+        dataset,
         "r ~ x + z + s(w)".to_string(),
         y.view(),
         None,
@@ -295,25 +423,23 @@ fn shared_tangent_lambda_edf_are_shared_per_smooth() {
 /// different angle than the Python end-to-end spherical test.
 #[test]
 fn shared_tangent_fit_is_output_rotation_equivariant() {
-    let (headers, rows, y) = shared_tangent_formula_table(); // D = 2 outputs
+    let (dataset, y) = shared_tangent_formula_dataset(); // D = 2 outputs
     // A genuine 2×2 rotation (orthogonal, det = 1) that mixes the two outputs.
     let theta = 0.6_f64;
     let (c, s) = (theta.cos(), theta.sin());
     let rot = array![[c, -s], [s, c]];
     let y_rot = y.dot(&rot.t());
 
-    let base = gaussian_reml_fit_formula_table_impl(
-        headers.clone(),
-        rows.clone(),
+    let base = gaussian_reml_fit_formula_dataset_impl(
+        dataset.clone(),
         "r ~ x + z + s(w)".to_string(),
         y.view(),
         None,
         None,
     )
     .expect("base shared-tangent fit");
-    let rotated = gaussian_reml_fit_formula_table_impl(
-        headers,
-        rows,
+    let rotated = gaussian_reml_fit_formula_dataset_impl(
+        dataset,
         "r ~ x + z + s(w)".to_string(),
         y_rot.view(),
         None,
@@ -412,13 +538,16 @@ fn response_geometry_parametric_only_rhs_fits_frechet_mean() {
     // matrix (a constant Gaussian LHS would be rejected up front, hence the
     // varying placeholder).
     let headers = vec!["r".to_string()];
-    let rows: Vec<Vec<String>> = (0..n).map(|i| vec![format!("{}", i as f64 + 1.0)]).collect();
+    let rows: Vec<csv::StringRecord> = (0..n)
+        .map(|i| csv::StringRecord::from(vec![format!("{}", i as f64 + 1.0)]))
+        .collect();
+    let dataset = gam::data::encode_recordswith_inferred_schema(headers, rows)
+        .expect("encode parametric shared-tangent formula dataset");
 
     // Before #2103 this returned Err("... requires at least one smoothing
     // penalty ..."); it must now succeed via the direct non-REML LSQ path.
-    let fit = gaussian_reml_fit_formula_table_impl(
-        headers,
-        rows,
+    let fit = gaussian_reml_fit_formula_dataset_impl(
+        dataset,
         "r ~ 1".to_string(),
         tangent.view(),
         None,
@@ -742,6 +871,7 @@ fn gaussian_reml_fit_blocks_forward_native(
         .collect::<Vec<_>>();
     let heuristic_lambdas = init_rhos.iter().map(|rho| rho.exp()).collect::<Vec<_>>();
     let opts = gam::solver::estimate::FitOptions {
+        resource_policy: gam_runtime::resource::ResourcePolicy::default_library(),
         latent_cloglog: None,
         mixture_link: None,
         optimize_mixture: false,
@@ -1457,222 +1587,6 @@ fn batched_state_round_trip_matches_refit() {
     for (a, b) in refit.grad_weights.iter().zip(from_fits.grad_weights.iter()) {
         assert!((a - b).abs() <= 1.0e-12);
     }
-}
-
-/// Regression test for issue #174: the joint LSQ seed for K=2 IBP-MAP
-/// must produce a non-zero decoder and a residual smaller than the
-/// trivial zero-decoder baseline. Without this seed the joint Newton
-/// driver collapses A → 0 before any data signal accumulates.
-#[test]
-fn sae_decoder_lsq_init_produces_nontrivial_seed() {
-    use ndarray::Array3;
-    let n = 50usize;
-    let p = 4usize;
-    let k = 2usize;
-    let m = 3usize;
-    let mut z = Array2::<f64>::zeros((n, p));
-    for i in 0..n {
-        let a = 2.0 * std::f64::consts::PI * (i as f64) / (n as f64);
-        // Every output column is a linear combination of {1, sin a, cos a} —
-        // exactly the column space the 3-column periodic seed basis spans. A
-        // second-harmonic component (sin 2a / cos 2a) is orthogonal to that
-        // basis over the full period and so is unreachable by any decoder built
-        // on it; planting it would cap the achievable R² at the first-harmonic
-        // energy fraction (0.5 here) and the "explain most of the signal"
-        // assertion below could never hold. The seed must be judged on signal
-        // it can actually represent.
-        z[[i, 0]] = a.sin();
-        z[[i, 1]] = a.cos();
-        z[[i, 2]] = 0.6 * a.sin() - 0.4 * a.cos();
-        z[[i, 3]] = 0.25 + 0.5 * a.cos();
-    }
-    // Build padded basis_values (K, N, M_max=m).
-    let mut basis = Array3::<f64>::zeros((k, n, m));
-    for atom_idx in 0..k {
-        let shift = (atom_idx as f64) * 0.21;
-        for i in 0..n {
-            let a = 2.0 * std::f64::consts::PI * ((i as f64) / (n as f64) + shift);
-            basis[[atom_idx, i, 0]] = 1.0;
-            basis[[atom_idx, i, 1]] = a.sin();
-            basis[[atom_idx, i, 2]] = a.cos();
-        }
-    }
-    let basis_sizes = vec![m; k];
-    let logits = Array2::<f64>::zeros((n, k));
-    let decoder = sae_decoder_lsq_init(
-        basis.view(),
-        &basis_sizes,
-        z.view(),
-        logits.view(),
-        "ibp_map",
-        1.0, // alpha (IBP concentration; canonical default)
-        0.7, // tau
-        0.0, // jumprelu_threshold (unused for ibp_map)
-        None,
-    )
-    .expect("LSQ seed must succeed");
-    assert_eq!(decoder.shape(), &[k, m, p]);
-    let mut max_abs = 0.0_f64;
-    for v in decoder.iter() {
-        assert!(v.is_finite());
-        if v.abs() > max_abs {
-            max_abs = v.abs();
-        }
-    }
-    assert!(
-        max_abs > 1.0e-3,
-        "LSQ-seeded decoder should be non-trivial; max |B| = {max_abs:.6}"
-    );
-
-    // The seeded reconstruction must explain most of Z under the SAME forward
-    // map the joint LSQ solved against: fitted[i,:] = Σ_k a_k · Phi_k[i,:] · B_k
-    // where a_k is the IBP-MAP activation of the initial (all-zero) logits. For
-    // zero logits the sigmoid gate is σ(0) = 0.5 and the truncated stick-breaking
-    // prior contributes π_k = (α/(α+1))^{k+1}, so a_k = 0.5 · 0.5^{k+1} — i.e.
-    // (0.25, 0.125) here, strictly decreasing in atom index, NOT a flat 0.5.
-    // Reconstructing with the true per-atom weights (rather than an imagined
-    // uniform gate) is what makes this a faithful check of the LSQ seed: the
-    // solver's design columns are a_k · Phi_k, so the fit it returns is only
-    // meaningful when scored back through the same a_k.
-    let a_init = gam::terms::sae::manifold::ibp_map_row(
-        ndarray::Array1::<f64>::zeros(k).view(),
-        0.7, // tau (matches the sae_decoder_lsq_init call above)
-        1.0, // alpha
-    );
-    let mut fitted = Array2::<f64>::zeros((n, p));
-    for i in 0..n {
-        for j in 0..p {
-            let mut acc = 0.0;
-            for atom_idx in 0..k {
-                let mut atom_out = 0.0;
-                for col in 0..m {
-                    atom_out += basis[[atom_idx, i, col]] * decoder[[atom_idx, col, j]];
-                }
-                acc += a_init[atom_idx] * atom_out;
-            }
-            fitted[[i, j]] = acc;
-        }
-    }
-    let mut ssr = 0.0;
-    let mut sst = 0.0;
-    for i in 0..n {
-        for j in 0..p {
-            let r = z[[i, j]] - fitted[[i, j]];
-            ssr += r * r;
-            sst += z[[i, j]] * z[[i, j]];
-        }
-    }
-    let r2 = 1.0 - ssr / sst.max(1.0e-12);
-    assert!(
-        r2 > 0.5,
-        "LSQ-seeded iter-0 reconstruction R² = {r2:.4} should explain most of the signal"
-    );
-}
-
-/// Regression test for issue #629: the cold-start residual seed must break
-/// the symmetric saddle of a uniform logit init by preferring, per row, the
-/// atom whose seed geometry best reconstructs that row. Planted: two
-/// periodic atoms with distinct seed frequencies driving disjoint output
-/// blocks with known one-hot routing. The seed logits must (a) not be uniform
-/// and (b) argmax-route most rows to their generating atom.
-#[test]
-fn sae_residual_seed_logits_breaks_symmetry_and_routes() {
-    use ndarray::Array3;
-    let n = 64usize;
-    let p = 4usize;
-    let k = 2usize;
-    let m = 3usize;
-    let two_pi = std::f64::consts::TAU;
-    // Distinct seed *frequency* per atom. A phase shift alone leaves the
-    // {1, sin, cos} column space invariant — sin/cos of a shifted argument are
-    // linear combinations of the unshifted pair — so two phase-shifted periodic
-    // atoms would span the identical subspace, the independent per-atom LSQ fits
-    // would produce bit-identical residuals, and the residual seed could not
-    // tell them apart (every logit collapses to exactly zero). Distinct
-    // harmonics give the atoms genuinely different geometries, so a row's
-    // generating atom reconstructs it strictly better than the off-atom whose
-    // basis cannot represent that frequency at all.
-    let harmonic = [1.0_f64, 2.0_f64];
-    // Deterministic pseudo-random latent + balanced shuffled routing.
-    let mut t = vec![0.0_f64; n];
-    let mut assign = vec![0usize; n];
-    let mut state = 0x1234_5678_9abc_def0_u64;
-    for i in 0..n {
-        state = state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        t[i] = ((state >> 11) as f64) * f64::from_bits(0x3CA0000000000000);
-        assign[i] = if i < n / 2 { 0 } else { 1 };
-    }
-    for i in (1..n).rev() {
-        state = state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let j = (state >> 33) as usize % (i + 1);
-        assign.swap(i, j);
-    }
-    // Per-atom seed basis (N, m) padded into (K, N, m).
-    let mut basis = Array3::<f64>::zeros((k, n, m));
-    for atom_idx in 0..k {
-        for i in 0..n {
-            let a = two_pi * harmonic[atom_idx] * t[i];
-            basis[[atom_idx, i, 0]] = 1.0;
-            basis[[atom_idx, i, 1]] = a.sin();
-            basis[[atom_idx, i, 2]] = a.cos();
-        }
-    }
-    // Disjoint decoder blocks: atom 0 -> cols [0,1], atom 1 -> cols [2,3].
-    let mut blocks = vec![Array2::<f64>::zeros((m, p)); k];
-    blocks[0][[1, 0]] = 1.5;
-    blocks[0][[2, 1]] = -1.2;
-    blocks[1][[1, 2]] = 1.3;
-    blocks[1][[2, 3]] = 0.9;
-    let mut z = Array2::<f64>::zeros((n, p));
-    for i in 0..n {
-        let kk = assign[i];
-        for j in 0..p {
-            let mut acc = 0.0;
-            for col in 0..m {
-                acc += basis[[kk, i, col]] * blocks[kk][[col, j]];
-            }
-            z[[i, j]] = acc;
-        }
-    }
-    let basis_sizes = vec![m; k];
-    let logits = sae_residual_seed_logits(basis.view(), &basis_sizes, z.view(), 4.0)
-        .expect("residual seed must succeed");
-    assert_eq!(logits.shape(), &[n, k]);
-    assert!(logits.iter().all(|v| v.is_finite()));
-
-    // (a) Symmetry must be broken: at least one row has a non-trivial gap.
-    let max_gap = (0..n)
-        .map(|i| (logits[[i, 0]] - logits[[i, 1]]).abs())
-        .fold(0.0_f64, f64::max);
-    assert!(
-        max_gap > 0.3,
-        "residual seed left a near-symmetric logit field (max gap {max_gap:.4}); \
-             the uniform saddle would not be escaped"
-    );
-
-    // (b) The seed must route most rows to their generating atom, up to
-    // the trivial atom-label permutation.
-    let mut acc_direct = 0usize;
-    for i in 0..n {
-        let winner = if logits[[i, 0]] >= logits[[i, 1]] {
-            0
-        } else {
-            1
-        };
-        if winner == assign[i] {
-            acc_direct += 1;
-        }
-    }
-    let acc = (acc_direct.max(n - acc_direct)) as f64 / n as f64;
-    assert!(
-        acc >= 0.9,
-        "residual seed routing accuracy {acc:.3} (up to permutation) is too low; \
-             the E-step seed should recover the planted one-hot assignment"
-    );
 }
 
 /// CV-fold partitioning contract used by the benchmark suite:

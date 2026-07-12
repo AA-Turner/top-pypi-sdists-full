@@ -23,12 +23,16 @@ class TranscoderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: JobTemplate = ...,
-                    jobTemplateId: str = ...,
+                    body: JobTemplate,
+                    jobTemplateId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobTemplateHttpRequest: ...
                 def delete(
-                    self, *, name: str, allowMissing: bool = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    allowMissing: bool | None = ...,
+                    **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -37,10 +41,10 @@ class TranscoderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListJobTemplatesResponseHttpRequest: ...
                 def list_next(
@@ -52,20 +56,24 @@ class TranscoderResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class JobsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: Job = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Job, **kwargs: typing.Any
                 ) -> JobHttpRequest: ...
                 def delete(
-                    self, *, name: str, allowMissing: bool = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    allowMissing: bool | None = ...,
+                    **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(self, *, name: str, **kwargs: typing.Any) -> JobHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListJobsResponseHttpRequest: ...
                 def list_next(

@@ -23,9 +23,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAutonomousDatabaseBackupsResponseHttpRequest: ...
                 def list_next(
@@ -42,9 +42,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAutonomousDatabaseCharacterSetsResponseHttpRequest: ...
                 def list_next(
@@ -59,39 +59,46 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: AutonomousDatabase = ...,
-                    autonomousDatabaseId: str = ...,
-                    requestId: str = ...,
+                    body: AutonomousDatabase,
+                    autonomousDatabaseId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def failover(
                     self,
                     *,
                     name: str,
-                    body: FailoverAutonomousDatabaseRequest = ...,
+                    body: FailoverAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def generateWallet(
                     self,
                     *,
                     name: str,
-                    body: GenerateAutonomousDatabaseWalletRequest = ...,
+                    body: GenerateAutonomousDatabaseWalletRequest,
                     **kwargs: typing.Any,
                 ) -> GenerateAutonomousDatabaseWalletResponseHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
                 ) -> AutonomousDatabaseHttpRequest: ...
+                def getRefreshableClones(
+                    self, *, name: str, **kwargs: typing.Any
+                ) -> AutonomousDatabaseRefreshableClonesHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAutonomousDatabasesResponseHttpRequest: ...
                 def list_next(
@@ -103,44 +110,51 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AutonomousDatabase = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: AutonomousDatabase,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    **kwargs: typing.Any,
+                ) -> OperationHttpRequest: ...
+                def refresh(
+                    self,
+                    *,
+                    name: str,
+                    body: RefreshAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restart(
                     self,
                     *,
                     name: str,
-                    body: RestartAutonomousDatabaseRequest = ...,
+                    body: RestartAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restore(
                     self,
                     *,
                     name: str,
-                    body: RestoreAutonomousDatabaseRequest = ...,
+                    body: RestoreAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def start(
                     self,
                     *,
                     name: str,
-                    body: StartAutonomousDatabaseRequest = ...,
+                    body: StartAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def stop(
                     self,
                     *,
                     name: str,
-                    body: StopAutonomousDatabaseRequest = ...,
+                    body: StopAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def switchover(
                     self,
                     *,
                     name: str,
-                    body: SwitchoverAutonomousDatabaseRequest = ...,
+                    body: SwitchoverAutonomousDatabaseRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -150,8 +164,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAutonomousDbVersionsResponseHttpRequest: ...
                 def list_next(
@@ -170,8 +184,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDbServersResponseHttpRequest: ...
                     def list_next(
@@ -184,24 +198,24 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ConfigureExascaleCloudExadataInfrastructureRequest = ...,
+                    body: ConfigureExascaleCloudExadataInfrastructureRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: CloudExadataInfrastructure = ...,
-                    cloudExadataInfrastructureId: str = ...,
-                    requestId: str = ...,
+                    body: CloudExadataInfrastructure,
+                    cloudExadataInfrastructureId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -211,10 +225,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListCloudExadataInfrastructuresResponseHttpRequest: ...
                 def list_next(
@@ -232,8 +246,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDbNodesResponseHttpRequest: ...
                     def list_next(
@@ -246,17 +260,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: CloudVmCluster = ...,
-                    cloudVmClusterId: str = ...,
-                    requestId: str = ...,
+                    body: CloudVmCluster,
+                    cloudVmClusterId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -266,9 +280,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListCloudVmClustersResponseHttpRequest: ...
                 def list_next(
@@ -284,9 +298,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDatabaseCharacterSetsResponseHttpRequest: ...
                 def list_next(
@@ -304,9 +318,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDatabasesResponseHttpRequest: ...
                 def list_next(
@@ -323,8 +337,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDbSystemInitialStorageSizesResponseHttpRequest: ...
                 def list_next(
@@ -339,9 +353,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDbSystemShapesResponseHttpRequest: ...
                 def list_next(
@@ -356,13 +370,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: DbSystem = ...,
-                    dbSystemId: str = ...,
-                    requestId: str = ...,
+                    body: DbSystem,
+                    dbSystemId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -371,10 +389,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDbSystemsResponseHttpRequest: ...
                 def list_next(
@@ -389,9 +407,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDbVersionsResponseHttpRequest: ...
                 def list_next(
@@ -406,8 +424,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListEntitlementsResponseHttpRequest: ...
                 def list_next(
@@ -424,8 +442,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDbNodesResponseHttpRequest: ...
                     def list_next(
@@ -438,13 +456,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ExadbVmCluster = ...,
-                    exadbVmClusterId: str = ...,
-                    requestId: str = ...,
+                    body: ExadbVmCluster,
+                    exadbVmClusterId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -453,10 +475,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListExadbVmClustersResponseHttpRequest: ...
                 def list_next(
@@ -468,16 +490,16 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ExadbVmCluster = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: ExadbVmCluster,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def removeVirtualMachine(
                     self,
                     *,
                     name: str,
-                    body: RemoveVirtualMachineExadbVmClusterRequest = ...,
+                    body: RemoveVirtualMachineExadbVmClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def dbNodes(self) -> DbNodesResource: ...
@@ -488,13 +510,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ExascaleDbStorageVault = ...,
-                    exascaleDbStorageVaultId: str = ...,
-                    requestId: str = ...,
+                    body: ExascaleDbStorageVault,
+                    exascaleDbStorageVaultId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -503,10 +529,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListExascaleDbStorageVaultsResponseHttpRequest: ...
                 def list_next(
@@ -523,9 +549,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListMinorVersionsResponseHttpRequest: ...
                     def list_next(
@@ -538,9 +564,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGiVersionsResponseHttpRequest: ...
                 def list_next(
@@ -558,13 +584,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoldengateConnectionAssignment = ...,
-                    goldengateConnectionAssignmentId: str = ...,
-                    requestId: str = ...,
+                    body: GoldengateConnectionAssignment,
+                    goldengateConnectionAssignmentId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -573,10 +603,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateConnectionAssignmentsResponseHttpRequest: ...
                 def list_next(
@@ -588,7 +618,7 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: TestGoldengateConnectionAssignmentRequest = ...,
+                    body: TestGoldengateConnectionAssignmentRequest,
                     **kwargs: typing.Any,
                 ) -> TestGoldengateConnectionAssignmentResponseHttpRequest: ...
 
@@ -598,9 +628,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateConnectionTypesResponseHttpRequest: ...
                 def list_next(
@@ -615,13 +645,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoldengateConnection = ...,
-                    goldengateConnectionId: str = ...,
-                    requestId: str = ...,
+                    body: GoldengateConnection,
+                    goldengateConnectionId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -630,10 +664,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateConnectionsResponseHttpRequest: ...
                 def list_next(
@@ -650,8 +684,8 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateDeploymentEnvironmentsResponseHttpRequest: ...
                 def list_next(
@@ -666,10 +700,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateDeploymentTypesResponseHttpRequest: ...
                 def list_next(
@@ -686,9 +720,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateDeploymentVersionsResponseHttpRequest: ...
                 def list_next(
@@ -703,13 +737,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoldengateDeployment = ...,
-                    goldengateDeploymentId: str = ...,
-                    requestId: str = ...,
+                    body: GoldengateDeployment,
+                    goldengateDeploymentId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -718,10 +756,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListGoldengateDeploymentsResponseHttpRequest: ...
                 def list_next(
@@ -733,14 +771,14 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: StartGoldengateDeploymentRequest = ...,
+                    body: StartGoldengateDeploymentRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def stop(
                     self,
                     *,
                     name: str,
-                    body: StopGoldengateDeploymentRequest = ...,
+                    body: StopGoldengateDeploymentRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -752,13 +790,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: OdbSubnet = ...,
-                        odbSubnetId: str = ...,
-                        requestId: str = ...,
+                        body: OdbSubnet,
+                        odbSubnetId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -767,10 +809,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListOdbSubnetsResponseHttpRequest: ...
                     def list_next(
@@ -783,13 +825,17 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: OdbNetwork = ...,
-                    odbNetworkId: str = ...,
-                    requestId: str = ...,
+                    body: OdbNetwork,
+                    odbNetworkId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -798,10 +844,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOdbNetworksResponseHttpRequest: ...
                 def list_next(
@@ -817,7 +863,7 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -830,10 +876,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -851,9 +897,9 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPluggableDatabasesResponseHttpRequest: ...
                 def list_next(
@@ -869,10 +915,10 @@ class OracleDatabaseResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
@@ -948,6 +994,14 @@ class AutonomousDatabaseHttpRequest(googleapiclient.http.HttpRequest):
         http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
         num_retries: int = 0,
     ) -> AutonomousDatabase: ...
+
+@typing.type_check_only
+class AutonomousDatabaseRefreshableClonesHttpRequest(googleapiclient.http.HttpRequest):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> AutonomousDatabaseRefreshableClones: ...
 
 @typing.type_check_only
 class CloudExadataInfrastructureHttpRequest(googleapiclient.http.HttpRequest):

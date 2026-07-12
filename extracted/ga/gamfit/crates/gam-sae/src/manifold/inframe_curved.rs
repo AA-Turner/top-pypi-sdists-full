@@ -21,8 +21,9 @@
 //! 3. **Curved REML, purely in-frame.** The curved chart is fit in the `r`-dim
 //!    in-frame coordinates `Z_g = R_g U_g`; the border is `Σ M_k·r`, the posterior
 //!    covariance is `(M·r)²`, and both are projected back to ambient ON DEMAND.
-//!    Each region pays a held-out `½·d_eff·log n_eff` deviance charge and the
-//!    accepted set is chosen by e-BH.
+//!    Each region pays a held-out `½·d_eff·log n_eff` deviance charge and is
+//!    selected descriptively when its BIC margin and lower confidence bound are
+//!    positive.
 //!
 //! The single evidence currency matches the joint REML gate
 //! (`crate::manifold::rank_charge_dof`); the frame's `r(p−r)` Grassmann degrees of
@@ -37,13 +38,13 @@
 
 use ndarray::{Array1, Array2, ArrayView2};
 
+use super::weight_frame_catalog::{WeightFrameCatalog, WeightFrameSource};
 use crate::frames::{
     GrassmannCrossMoment, GrassmannFrame, SAE_FRAME_ACTIVATION_MARGIN,
     SAE_FRAME_MIN_AUTO_OUTPUT_DIM, SAE_FRAME_RANK_CUTOFF,
 };
-use super::weight_frame_catalog::{WeightFrameCatalog, WeightFrameSource};
-use gam_linalg::faer_ndarray::{FaerEigh, FaerSvd, fast_ab, fast_abt};
 use faer::Side;
+use gam_linalg::faer_ndarray::{FaerEigh, FaerSvd, fast_ab, fast_abt};
 
 /// Bytes per `f64`, matching the streaming-plan ledger.
 const BYTES_PER_F64: usize = 8;
@@ -61,8 +62,6 @@ pub struct InFrameCurvedConfig {
     pub rank_cutoff: f64,
     /// Cross-fit folds for the held-out deviance estimate (`>= 2`).
     pub crossfit_folds: usize,
-    /// e-BH false-discovery level over regions, in `(0, 1]`.
-    pub alpha: f64,
     /// Minimum accepted held-out margin (deviance gain minus charge).
     pub min_effect: f64,
     /// Tikhonov ridge on the in-frame whitening covariance.
@@ -81,7 +80,6 @@ impl Default for InFrameCurvedConfig {
             frame_rank_max: 32,
             rank_cutoff: SAE_FRAME_RANK_CUTOFF,
             crossfit_folds: 4,
-            alpha: 0.10,
             min_effect: 0.0,
             whitening_ridge: 1.0e-8,
             min_rows: 32,
@@ -117,9 +115,9 @@ pub struct RegionEvidence {
     pub ci_low: f64,
     pub charge: f64,
     pub margin: f64,
-    pub log_e_value: f64,
-    pub accepted_pre_ebh: bool,
-    pub accepted: bool,
+    /// Descriptive held-out BIC model-selection verdict. This is not an
+    /// e-value, p-value, or FDR-controlled discovery.
+    pub selected_by_bic: bool,
 }
 
 /// Whether a chartable frame was occupied by this corpus slice.
@@ -160,7 +158,7 @@ pub struct RegionRecord {
 #[derive(Clone, Debug)]
 pub struct CascadeMemoryLedger {
     pub p: usize,
-    pub n_regions_accepted: usize,
+    pub n_regions_selected: usize,
     pub dense_border_coeffs: usize,
     pub inframe_border_coeffs: usize,
     pub dense_cov_bytes: usize,
@@ -191,11 +189,11 @@ impl CascadeMemoryLedger {
 /// Result of the in-frame curved cascade over a set of regions.
 #[derive(Clone, Debug)]
 pub struct InFrameCurvedResult {
-    /// Accepted curved atom images, stored in their `r`-dimensional frames.
+    /// BIC-selected curved atom images, stored in their `r`-dimensional frames.
     /// Ambient `N × p` materialization is intentionally lazy.
     pub curved_prediction: InFrameCurvedPrediction,
     pub records: Vec<RegionRecord>,
-    pub accepted_regions: Vec<usize>,
+    pub selected_regions: Vec<usize>,
     pub ledger: CascadeMemoryLedger,
 }
 
@@ -234,9 +232,7 @@ impl InFrameCurvedRegionPrediction {
     }
 
     pub fn ambient_entries_if_materialized(&self) -> usize {
-        self.rows
-            .len()
-            .saturating_mul(self.frame.output_dim())
+        self.rows.len().saturating_mul(self.frame.output_dim())
     }
 
     pub fn materialize_ambient(&self) -> Array2<f64> {
@@ -347,12 +343,10 @@ pub fn fit_inframe_curved_regions(
     if p == 0 {
         return Err("fit_inframe_curved_regions: residual must have p >= 1".to_string());
     }
-    if !(config.alpha > 0.0 && config.alpha <= 1.0) {
-        return Err("fit_inframe_curved_regions: alpha must be in (0, 1]".to_string());
-    }
     if config.frame_rank_min == 0 || config.frame_rank_max < config.frame_rank_min {
-        return Err("fit_inframe_curved_regions: require 1 <= frame_rank_min <= frame_rank_max"
-            .to_string());
+        return Err(
+            "fit_inframe_curved_regions: require 1 <= frame_rank_min <= frame_rank_max".to_string(),
+        );
     }
 
     let mut fits: Vec<Option<RegionFit>> = Vec::with_capacity(regions.len());
@@ -360,29 +354,11 @@ pub fn fit_inframe_curved_regions(
         fits.push(fit_one_region(residual, region, config)?);
     }
 
-    // e-BH selection over regions with a valid pre-gate acceptance.
-    let mut logs = Vec::new();
-    let mut refs = Vec::new();
-    for (i, fit) in fits.iter().enumerate() {
-        if let Some(f) = fit {
-            if f.evidence.accepted_pre_ebh && f.evidence.margin >= config.min_effect {
-                logs.push(f.evidence.log_e_value);
-                refs.push(i);
-            }
-        }
-    }
-    let keep = ebh(&logs, config.alpha);
-    for (&ok, &i) in keep.iter().zip(refs.iter()) {
-        if let Some(f) = fits[i].as_mut() {
-            f.evidence.accepted = ok;
-        }
-    }
-
     // Assemble lazy prediction records and the measured memory ledger. No `N × p`
     // curved image is formed here; accepted atom images remain `N_g × r_g`.
     let mut prediction_regions = Vec::new();
     let mut records = Vec::with_capacity(regions.len());
-    let mut accepted_regions = Vec::new();
+    let mut selected_regions = Vec::new();
     let mut dense_border = 0usize;
     let mut inframe_border = 0usize;
     let mut dense_cov = 0usize;
@@ -411,10 +387,10 @@ pub fn fit_inframe_curved_regions(
             inframe_border_coeffs,
             dense_border_coeffs,
         });
-        if !fit.evidence.accepted {
+        if !fit.evidence.selected_by_bic {
             continue;
         }
-        accepted_regions.push(i);
+        selected_regions.push(i);
         dense_border += dense_border_coeffs;
         inframe_border += inframe_border_coeffs;
         dense_cov += dense_border_coeffs
@@ -434,7 +410,7 @@ pub fn fit_inframe_curved_regions(
 
     let ledger = CascadeMemoryLedger {
         p,
-        n_regions_accepted: accepted_regions.len(),
+        n_regions_selected: selected_regions.len(),
         dense_border_coeffs: dense_border,
         inframe_border_coeffs: inframe_border,
         dense_cov_bytes: dense_cov,
@@ -445,7 +421,7 @@ pub fn fit_inframe_curved_regions(
     Ok(InFrameCurvedResult {
         curved_prediction: InFrameCurvedPrediction::new(residual.nrows(), p, prediction_regions),
         records,
-        accepted_regions,
+        selected_regions,
         ledger,
     })
 }
@@ -466,7 +442,9 @@ pub fn fit_inframe_curved_weight_frame_catalog(
 ) -> Result<InFrameCurvedResult, String> {
     let p = residual.ncols();
     if p == 0 {
-        return Err("fit_inframe_curved_weight_frame_catalog: residual must have p >= 1".to_string());
+        return Err(
+            "fit_inframe_curved_weight_frame_catalog: residual must have p >= 1".to_string(),
+        );
     }
     if catalog.output_dim() != p {
         return Err(format!(
@@ -474,12 +452,6 @@ pub fn fit_inframe_curved_weight_frame_catalog(
             catalog.output_dim()
         ));
     }
-    if !(config.alpha > 0.0 && config.alpha <= 1.0) {
-        return Err(
-            "fit_inframe_curved_weight_frame_catalog: alpha must be in (0, 1]".to_string(),
-        );
-    }
-
     let mut fits: Vec<Option<RegionFit>> = Vec::with_capacity(occupancies.len());
     let mut statuses = Vec::with_capacity(occupancies.len());
     for occupancy in occupancies {
@@ -508,26 +480,9 @@ pub fn fit_inframe_curved_weight_frame_catalog(
         statuses.push(status);
     }
 
-    let mut logs = Vec::new();
-    let mut refs = Vec::new();
-    for (i, fit) in fits.iter().enumerate() {
-        if let Some(f) = fit {
-            if f.evidence.accepted_pre_ebh && f.evidence.margin >= config.min_effect {
-                logs.push(f.evidence.log_e_value);
-                refs.push(i);
-            }
-        }
-    }
-    let keep = ebh(&logs, config.alpha);
-    for (&ok, &i) in keep.iter().zip(refs.iter()) {
-        if let Some(f) = fits[i].as_mut() {
-            f.evidence.accepted = ok;
-        }
-    }
-
     let mut prediction_regions = Vec::new();
     let mut records = Vec::with_capacity(occupancies.len());
-    let mut accepted_regions = Vec::new();
+    let mut selected_regions = Vec::new();
     let mut dense_border = 0usize;
     let mut inframe_border = 0usize;
     let mut dense_cov = 0usize;
@@ -536,7 +491,9 @@ pub fn fit_inframe_curved_weight_frame_catalog(
     let ln_n = (n_tokens_total.max(2) as f64).ln();
 
     for (i, occupancy) in occupancies.iter().enumerate() {
-        let entry = catalog.entry(occupancy.frame_index).expect("validated catalog index");
+        let entry = catalog
+            .entry(occupancy.frame_index)
+            .expect("validated catalog index");
         let r = entry.frame.rank();
         let m = occupancy.basis_size;
         let inframe_border_coeffs = m.saturating_mul(r);
@@ -561,10 +518,10 @@ pub fn fit_inframe_curved_weight_frame_catalog(
         let Some(fit) = fits[i].as_ref() else {
             continue;
         };
-        if !fit.evidence.accepted {
+        if !fit.evidence.selected_by_bic {
             continue;
         }
-        accepted_regions.push(i);
+        selected_regions.push(i);
         dense_border += dense_border_coeffs;
         inframe_border += inframe_border_coeffs;
         dense_cov += dense_border_coeffs
@@ -582,14 +539,14 @@ pub fn fit_inframe_curved_weight_frame_catalog(
         });
     }
 
-    let n_regions_accepted = accepted_regions.len();
+    let n_regions_selected = selected_regions.len();
     Ok(InFrameCurvedResult {
         curved_prediction: InFrameCurvedPrediction::new(residual.nrows(), p, prediction_regions),
         records,
-        accepted_regions,
+        selected_regions,
         ledger: CascadeMemoryLedger {
             p,
-            n_regions_accepted,
+            n_regions_selected,
             dense_border_coeffs: dense_border,
             inframe_border_coeffs: inframe_border,
             dense_cov_bytes: dense_cov,
@@ -824,9 +781,7 @@ fn empty_evidence(n_rows: usize, frame_rank: usize) -> RegionEvidence {
         ci_low: f64::NEG_INFINITY,
         charge: 0.0,
         margin: 0.0,
-        log_e_value: 0.0,
-        accepted_pre_ebh: false,
-        accepted: false,
+        selected_by_bic: false,
     }
 }
 
@@ -835,12 +790,16 @@ fn empty_evidence(n_rows: usize, frame_rank: usize) -> RegionEvidence {
 /// relative spectral cutoff clamped to the configured band. Returns `None` when
 /// no beneficial low-rank frame exists (rank fills the ambient width, so the
 /// region stays on the certified full-`p` path).
-fn learn_frame(r_g: &Array2<f64>, config: &InFrameCurvedConfig) -> Result<Option<GrassmannFrame>, String> {
+fn learn_frame(
+    r_g: &Array2<f64>,
+    config: &InFrameCurvedConfig,
+) -> Result<Option<GrassmannFrame>, String> {
     let (n_g, p) = r_g.dim();
     let (_u, sv, vt_opt) = r_g
         .svd(false, true)
         .map_err(|e| format!("inframe learn_frame: SVD failed: {e}"))?;
-    let vt = vt_opt.ok_or_else(|| "inframe learn_frame: SVD returned no right factor".to_string())?;
+    let vt =
+        vt_opt.ok_or_else(|| "inframe learn_frame: SVD returned no right factor".to_string())?;
     let max_sv = sv.iter().copied().fold(0.0_f64, f64::max);
     if !(max_sv > 0.0) {
         return Ok(None);
@@ -959,8 +918,6 @@ fn crossfit_evidence(
     let d_eff = (2 * r).max(1) as f64;
     let charge = 0.5 * d_eff * n_eff.max(2.0).ln();
     let margin = gain - charge;
-    // Both terms are nats now; the e-value exponent needs no per-unit rescale.
-    let log_e_value = margin.max(0.0);
     Ok(RegionEvidence {
         n_rows: n_g,
         n_effective: n_eff,
@@ -973,9 +930,7 @@ fn crossfit_evidence(
         ci_low,
         charge,
         margin,
-        log_e_value,
-        accepted_pre_ebh: margin >= config.min_effect && ci_low > 0.0,
-        accepted: false,
+        selected_by_bic: margin >= config.min_effect && ci_low > 0.0,
     })
 }
 
@@ -1033,8 +988,14 @@ impl Whitening {
         let (vals, eigvec) = cov
             .eigh(Side::Lower)
             .map_err(|e| format!("inframe whitening eigh failed: {e}"))?;
-        let max_eval = vals.iter().copied().fold(0.0, f64::max).max(1.0);
-        let floor = ridge.max(f64::EPSILON * max_eval);
+        if !(ridge.is_finite() && ridge >= 0.0) {
+            return Err(format!(
+                "inframe whitening ridge fraction must be finite and non-negative; got {ridge}"
+            ));
+        }
+        let max_eval = vals.iter().copied().fold(0.0, f64::max);
+        let spectral_scale = max_eval.max(f64::MIN_POSITIVE);
+        let floor = (ridge * spectral_scale).max(f64::EPSILON * spectral_scale);
         let scale = vals.iter().map(|&v| (v.max(0.0) + floor).sqrt()).collect();
         Ok(Self {
             mean,
@@ -1143,29 +1104,6 @@ fn radial_predict(train: &Array2<f64>, eval: &Array2<f64>) -> Array2<f64> {
         }
     }
     out
-}
-
-fn ebh(logs: &[f64], alpha: f64) -> Vec<bool> {
-    let m = logs.len();
-    let mut order: Vec<usize> = (0..m).collect();
-    order.sort_by(|&a, &b| {
-        logs[b]
-            .partial_cmp(&logs[a])
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    let mut k_star = 0usize;
-    for (rank0, &idx) in order.iter().enumerate() {
-        let rank = rank0 + 1;
-        let threshold = (m as f64 / (alpha * rank as f64)).ln();
-        if logs[idx] >= threshold {
-            k_star = rank;
-        }
-    }
-    let mut keep = vec![false; m];
-    for &idx in order.iter().take(k_star) {
-        keep[idx] = true;
-    }
-    keep
 }
 
 fn take_rows(x: ArrayView2<'_, f64>, rows: &[usize]) -> Array2<f64> {

@@ -32,8 +32,9 @@ pub use self::structure_analysis::{
 // (`spatial_optimization.rs`).
 mod term_design;
 pub use term_design::{
-    build_term_collection_derivative_design, build_term_collection_design,
-    build_term_collection_design_inner, orthogonality_relative_residual_for_design,
+    apply_smooth_transform_to_design, build_term_collection_derivative_design,
+    build_term_collection_design, build_term_collection_design_inner,
+    build_term_collection_design_with_policy, orthogonality_relative_residual_for_design,
     smooth_intrinsic_parametric_feature_cols, term_collection_has_one_sided_anchored_bspline,
 };
 

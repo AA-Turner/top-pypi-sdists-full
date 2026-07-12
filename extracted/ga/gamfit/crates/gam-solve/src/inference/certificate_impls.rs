@@ -2,7 +2,7 @@
 //! the gam-solve-tier certificate zoo (task #16; descended #1521).
 //!
 //! Two concerns live here, both gam-solve-tier: (a) the `impl Certificate for …`
-//! blocks for the gam-solve-owned certificate types ([`CriterionCertificate`],
+//! blocks for the gam-solve-owned certificate types ([`OuterCriterionCertificate`],
 //! [`CoresetCertificate`](crate::row_sampling_measure::CoresetCertificate),
 //! [`LogdetEnclosure`], [`CollapseEvent`](crate::structure_search::CollapseEvent)),
 //! and (b) the two pure margin-resolution helpers, whose only inputs are
@@ -18,7 +18,7 @@
 //! `CertificateInputs` — carry their own impls in `gam_sae::certificate_impls`.)
 
 use crate::logdet_bounds::{LogdetEnclosure, MarginVerdict};
-use crate::model_types::CriterionCertificate;
+use crate::model_types::OuterCriterionCertificate;
 use crate::row_sampling_measure::{CoresetCertificate, CoresetMarginVerdict};
 use crate::structure_search::{CollapseAction, CollapseEvent};
 use gam_problem::topology_certificates::{Certificate, Claim, Evidence, Verdict};
@@ -35,49 +35,55 @@ fn put_finite(evidence: &mut Evidence, key: &'static str, value: f64) {
 
 // ── 1. Outer-optimum first-order self-audit (#931/#934) ──────────────────────
 
-impl Certificate for CriterionCertificate {
+impl Certificate for OuterCriterionCertificate {
     fn claim(&self) -> Claim {
         Claim::new(
             "outer-optimality",
             concat!(
-                "the returned outer optimum is a genuine stationary point: the ", // fd-ok: FD-audit certificate, not in math path
-                "analytic gradient agrees with the finite-difference of the criterion ", // fd-ok: FD-audit certificate, not in math path
-                "value, the final Hessian is not indefinite, and no smoothing ",
-                "coordinate is railed at a box bound",
+                "the returned outer optimum is analytically KKT-stationary and ",
+                "its available exact curvature is not indefinite",
             ),
         )
     }
 
     fn evidence(&self) -> Evidence {
         let mut e = Evidence::new();
-        put_finite(&mut e, "grad_norm", self.grad_norm);
-        put_finite(&mut e, "analytic_directional", self.analytic_directional);
-        put_finite(&mut e, "fd_directional", self.fd_directional); // fd-ok: FD-audit certificate, not in math path
-        put_finite(&mut e, "fd_error", self.fd_error); // fd-ok: FD-audit certificate, not in math path
-        put_finite(&mut e, "agreement_z", self.agreement_z);
-        put_finite(&mut e, "fd_step", self.fd_step); // fd-ok: FD-audit certificate, not in math path
+        put_finite(
+            &mut e,
+            "stationarity_raw_norm",
+            self.stationarity.raw_norm(),
+        );
+        put_finite(
+            &mut e,
+            "stationarity_projected_norm",
+            self.stationarity.projected_norm(),
+        );
+        put_finite(&mut e, "stationarity_bound", self.stationarity.bound());
         e.insert(
-            "hessian_pd",
-            match self.hessian_pd {
-                Some(pd) => pd.into(),
+            "stationarity_kind",
+            if self.stationarity.is_fixed_point() {
+                "fixed_point"
+            } else {
+                "analytic_gradient"
+            }
+            .into(),
+        );
+        e.insert(
+            "hessian_psd",
+            match self.hessian_psd {
+                Some(psd) => psd.into(),
                 None => "n/a".into(),
             },
         );
         e.insert("lambdas_railed_count", self.lambdas_railed.len().into());
-        e.insert(
-            "first_order_consistent",
-            self.first_order_consistent().into(),
-        );
+        e.insert("stationary", self.is_stationary().into());
+        e.insert("curvature_admissible", self.curvature_admissible().into());
         e.insert("summary", self.summary().into());
         e
     }
 
     fn verdict(&self) -> Verdict {
-        // `is_clean()` is the unchanged decision rule: gradient↔objective
-        // consistent, no definiteness failure, no railed coordinate. A desync
-        // does not make the evidence absent — it is present and says "not
-        // clean" — so the verdict is `Insufficient`, never `Unavailable`.
-        if self.is_clean() {
+        if self.certifies() {
             Verdict::Certified
         } else {
             Verdict::Insufficient
@@ -237,32 +243,32 @@ mod tests {
     use gam_problem::topology_certificates::CertificateLedger;
 
     #[test]
-    fn criterion_clean_certifies_desync_is_insufficient() {
-        let clean = CriterionCertificate {
-            grad_norm: 1e-8,
-            analytic_directional: 1.0,
-            fd_directional: 1.0,
-            fd_error: 1e-6,
-            agreement_z: 0.0,
-            fd_step: 1e-4,
-            hessian_pd: Some(true),
+    fn criterion_stationarity_and_curvature_control_verdict() {
+        let clean = OuterCriterionCertificate {
+            stationarity: crate::model_types::OuterStationarityCertificate::AnalyticGradient {
+                grad_norm: 1e-8,
+                projected_grad_norm: 1e-8,
+                bound: 1e-6,
+            },
+            hessian_psd: Some(true),
             lambdas_railed: Vec::new(),
         };
         assert_eq!(clean.verdict(), Verdict::Certified);
         assert!(clean.verdict().is_certified());
 
-        let desync = CriterionCertificate {
-            analytic_directional: 1.0,
-            fd_directional: 5.0,
-            fd_error: 1e-6,
-            agreement_z: 4.0e6,
+        let nonstationary = OuterCriterionCertificate {
+            stationarity: crate::model_types::OuterStationarityCertificate::AnalyticGradient {
+                grad_norm: 1e-2,
+                projected_grad_norm: 1e-2,
+                bound: 1e-6,
+            },
             ..clean
         };
-        assert_eq!(desync.verdict(), Verdict::Insufficient);
-        assert!(!desync.verdict().is_certified());
+        assert_eq!(nonstationary.verdict(), Verdict::Insufficient);
+        assert!(!nonstationary.verdict().is_certified());
         // The claim id is stable and the summary rides the evidence.
-        assert_eq!(desync.claim().id, "outer-optimality");
-        assert!(desync.evidence().contains_key("summary"));
+        assert_eq!(nonstationary.claim().id, "outer-optimality");
+        assert!(nonstationary.evidence().contains_key("summary"));
     }
 
     #[test]
@@ -317,14 +323,13 @@ mod tests {
     #[test]
     fn ledger_rolls_up_to_weakest_member() {
         let mut ledger = CertificateLedger::new();
-        let clean = CriterionCertificate {
-            grad_norm: 1e-8,
-            analytic_directional: 1.0,
-            fd_directional: 1.0,
-            fd_error: 1e-6,
-            agreement_z: 0.0,
-            fd_step: 1e-4,
-            hessian_pd: Some(true),
+        let clean = OuterCriterionCertificate {
+            stationarity: crate::model_types::OuterStationarityCertificate::AnalyticGradient {
+                grad_norm: 1e-8,
+                projected_grad_norm: 1e-8,
+                bound: 1e-6,
+            },
+            hessian_psd: Some(true),
             lambdas_railed: Vec::new(),
         };
         let cert = CoresetCertificate::new(0.1, 0.0, 4, 32).expect("coreset");

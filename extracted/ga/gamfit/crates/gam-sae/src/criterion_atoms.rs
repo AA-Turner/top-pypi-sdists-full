@@ -18,7 +18,7 @@
 //!
 //! ```text
 //!   V(ρ) = [ loss.total() + extra_penalty_energy ]   (data-fit + priors)
-//!        + ½·log|H(θ̂(ρ),ρ)|                          (Laplace logdet)
+//!        + [½·log|H| − ½·log|H_tt| + rank_charge]   (Laplace complexity)
 //!        − occam(ρ)                                   (smoothing Occam)
 //! ```
 //!
@@ -40,8 +40,8 @@
 //! governed by the EXACT stationarity Jacobian `A = ∇²_θθ L` (with residual
 //! curvature, exact softmax entropy Hessian, exact periodic ARD curvature), NOT
 //! the surrogate `B`. The implicit correction therefore solves against `A`
-//! (`SaeManifoldTerm::solve_exact_stationarity`, a B⁻¹-preconditioned Neumann
-//! fixed point on `A = B + ΔC`), so the correction is not biased by `B⁻¹ − A⁻¹`.
+//! (`SaeManifoldTerm::solve_exact_stationarity`, a left-`B`-preconditioned GMRES
+//! solve on `A = B + ΔC`), so the correction is not biased by `B⁻¹ − A⁻¹`.
 //!
 //! # The atoms
 //!
@@ -49,7 +49,7 @@
 //! `(value, ρ-gradient)` **together** from the one cache the criterion forms.
 //! [`SaeCriterion::assemble`] is the only constructor: it runs the inner solve
 //! once, takes the single undamped factor, and hands every atom the SAME
-//! `loss`/`log_det`/`cache`/`components` so value and gradient are projections
+//! `loss`/Laplace-complexity/`cache`/`components` so value and gradient are projections
 //! of one factorization — the outer optimizer (see
 //! [`SaeCriterion::value`] / [`SaeCriterion::gradient`]) can no longer call a
 //! value path and a gradient path that don't share state. The implicit-state
@@ -285,14 +285,13 @@ pub enum SaeCriterionAtom {
         /// Explicit ∂/∂ρ of the data-fit + priors value.
         grad: Array1<f64>,
     },
-    /// `½·log|H(θ̂,ρ)|`, the Laplace normaliser, with `½·tr(H⁻¹ ∂H/∂ρ)`. The
-    /// logdet is defined on the criterion's H (the PSD-majorized assembly), and
-    /// the trace differentiates THE SAME object on the same smooth branch — the
-    /// #1006 landmine-1 single-source-of-truth contract.
-    LaplaceLogdet {
-        /// `½·log|H|`.
+    /// `½·log|H| − ½·log|H_tt| + rank_charge`, the realised-rank-adjusted
+    /// Laplace complexity. Its direct derivative differentiates the same joint
+    /// factor, coordinate factors, and hard-rank branch.
+    LaplaceComplexity {
+        /// Complete rank-adjusted Laplace-complexity value.
         value: f64,
-        /// `½·tr(H⁻¹ ∂H/∂ρ)`.
+        /// Direct derivative of the same complexity scalar.
         grad: Array1<f64>,
     },
     /// `−occam(ρ)`, the smoothing-penalty Occam term, with `−∂occam/∂ρ`.
@@ -322,7 +321,7 @@ impl SaeCriterionAtom {
     pub fn value(&self) -> f64 {
         match self {
             Self::DataFitPriors { value, .. }
-            | Self::LaplaceLogdet { value, .. }
+            | Self::LaplaceComplexity { value, .. }
             | Self::Occam { value, .. } => *value,
             Self::ImplicitStationarityCorrection { .. } => 0.0,
         }
@@ -333,7 +332,7 @@ impl SaeCriterionAtom {
     pub fn grad(&self) -> &Array1<f64> {
         match self {
             Self::DataFitPriors { grad, .. }
-            | Self::LaplaceLogdet { grad, .. }
+            | Self::LaplaceComplexity { grad, .. }
             | Self::Occam { grad, .. }
             | Self::ImplicitStationarityCorrection { grad } => grad,
         }
@@ -345,7 +344,7 @@ impl SaeCriterionAtom {
     pub fn label(&self) -> &'static str {
         match self {
             Self::DataFitPriors { .. } => "data_fit_priors",
-            Self::LaplaceLogdet { .. } => "laplace_logdet",
+            Self::LaplaceComplexity { .. } => "laplace_complexity",
             Self::Occam { .. } => "occam",
             Self::ImplicitStationarityCorrection { .. } => "implicit_stationarity_correction",
         }
@@ -364,17 +363,18 @@ pub struct SaeCriterion {
 
 impl SaeCriterion {
     /// Compose the criterion from the four atoms. All four are built from the
-    /// SAME `loss`/`log_det`/gradient-component emission so this is the only
+    /// SAME `loss`/Laplace-complexity/gradient-component emission so this is the only
     /// place the criterion's value-vs-gradient coherence is established.
     ///
     /// `data_fit_priors_value` is `loss.total() + extra_penalty_energy`;
-    /// `log_det` is `log|H|`; `occam` is the smoothing Occam term (the criterion
-    /// subtracts it). The gradient component arrays are the
+    /// `laplace_complexity_value` is the exact production scalar
+    /// `½log|H| − ½log|H_tt| + rank_charge`; `occam` is the smoothing Occam
+    /// term (the criterion subtracts it). The gradient component arrays are the
     /// `SaeOuterRhoGradientComponents` channels.
     #[must_use]
     pub fn assemble(
         data_fit_priors_value: f64,
-        log_det: f64,
+        laplace_complexity_value: f64,
         occam: f64,
         explicit: Array1<f64>,
         logdet_trace: Array1<f64>,
@@ -387,8 +387,8 @@ impl SaeCriterion {
                 value: data_fit_priors_value,
                 grad: explicit,
             },
-            SaeCriterionAtom::LaplaceLogdet {
-                value: 0.5 * log_det,
+            SaeCriterionAtom::LaplaceComplexity {
+                value: laplace_complexity_value,
                 grad: logdet_trace,
             },
             SaeCriterionAtom::Occam {
@@ -439,7 +439,7 @@ mod tests {
     fn sample_criterion() -> SaeCriterion {
         SaeCriterion::assemble(
             3.0,                       // data-fit + priors value
-            2.0,                       // log|H|
+            1.0,                       // rank-adjusted Laplace complexity
             0.5,                       // occam
             array![0.10, -0.20, 0.05], // explicit grad
             array![0.01, 0.02, -0.03], // logdet trace
@@ -449,11 +449,11 @@ mod tests {
     }
 
     /// The composite value is exactly the sum of the atom values, and matches
-    /// the hand-assembled `loss + ½log|H| − occam`.
+    /// the hand-assembled `loss + Laplace complexity − occam`.
     #[test]
     fn value_is_atom_sum() {
         let crit = sample_criterion();
-        let expected = 3.0 + 0.5 * 2.0 - 0.5;
+        let expected = 3.0 + 1.0 - 0.5;
         assert!((crit.value() - expected).abs() < 1e-12);
         // Atom-by-atom partition reproduces the total.
         let by_atom: f64 = crit.atoms().iter().map(SaeCriterionAtom::value).sum();
@@ -505,8 +505,7 @@ mod tests {
     #[test]
     fn residual_em_score_matches_hand_computation() {
         let x = array![[2.0, 1.0]];
-        let recon =
-            ndarray::Array3::from_shape_vec((1, 1, 2), vec![1.0, 0.0]).unwrap();
+        let recon = ndarray::Array3::from_shape_vec((1, 1, 2), vec![1.0, 0.0]).unwrap();
 
         for nonneg in [true, false] {
             let (code, relres) = residual_em_score(x.view(), recon.view(), nonneg);
@@ -518,7 +517,10 @@ mod tests {
             let g_q = array![[0.0]];
             let grad =
                 residual_em_score_vjp(x.view(), recon.view(), nonneg, g_c.view(), g_q.view());
-            assert!((grad[[0, 0, 0]] - (-2.0)).abs() < 1e-12, "dc/dr0 ({nonneg})");
+            assert!(
+                (grad[[0, 0, 0]] - (-2.0)).abs() < 1e-12,
+                "dc/dr0 ({nonneg})"
+            );
             assert!((grad[[0, 0, 1]] - 1.0).abs() < 1e-12, "dc/dr1 ({nonneg})");
 
             // Relative-residual channel only.
@@ -527,7 +529,10 @@ mod tests {
             let grad =
                 residual_em_score_vjp(x.view(), recon.view(), nonneg, g_c.view(), g_q.view());
             assert!((grad[[0, 0, 0]] - 0.0).abs() < 1e-12, "dq/dr0 ({nonneg})");
-            assert!((grad[[0, 0, 1]] - (-0.8)).abs() < 1e-12, "dq/dr1 ({nonneg})");
+            assert!(
+                (grad[[0, 0, 1]] - (-0.8)).abs() < 1e-12,
+                "dq/dr1 ({nonneg})"
+            );
         }
     }
 
@@ -538,22 +543,19 @@ mod tests {
     #[test]
     fn residual_em_score_clamp_kills_gradient_but_signed_survives() {
         let x = array![[2.0, 1.0]];
-        let recon =
-            ndarray::Array3::from_shape_vec((1, 1, 2), vec![-1.0, 0.0]).unwrap();
+        let recon = ndarray::Array3::from_shape_vec((1, 1, 2), vec![-1.0, 0.0]).unwrap();
         let g_c = array![[1.0]];
         let g_q = array![[1.0]];
 
         let (code_nn, _) = residual_em_score(x.view(), recon.view(), true);
         assert!((code_nn[[0, 0]] - 0.0).abs() < 1e-12, "clamped code is 0");
-        let grad_nn =
-            residual_em_score_vjp(x.view(), recon.view(), true, g_c.view(), g_q.view());
+        let grad_nn = residual_em_score_vjp(x.view(), recon.view(), true, g_c.view(), g_q.view());
         assert!(grad_nn[[0, 0, 0]].abs() < 1e-12, "clamped grad r0 = 0");
         assert!(grad_nn[[0, 0, 1]].abs() < 1e-12, "clamped grad r1 = 0");
 
         let (code_sg, _) = residual_em_score(x.view(), recon.view(), false);
         assert!((code_sg[[0, 0]] - (-2.0)).abs() < 1e-12, "signed code = -2");
-        let grad_sg =
-            residual_em_score_vjp(x.view(), recon.view(), false, g_c.view(), g_q.view());
+        let grad_sg = residual_em_score_vjp(x.view(), recon.view(), false, g_c.view(), g_q.view());
         // Signed coefficient is active, so the gradient is non-trivial.
         assert!(
             grad_sg[[0, 0, 0]].abs() + grad_sg[[0, 0, 1]].abs() > 1e-9,

@@ -1,9 +1,11 @@
 """Unit tests for the Victron MQTT Hub functionality."""
-# pyright: reportPrivateUsage=false
+# pyright: reportPrivateUsage=none
 
 import asyncio
+import datetime
 import json
 import logging
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +27,8 @@ from victron_mqtt.formula_common import LRSLastReading
 from victron_mqtt.formula_metric import FormulaMetric
 from victron_mqtt.hub import (
     CONNECT_MAX_FAILED_ATTEMPTS,
+    MINIMUM_FULLY_SUPPORTED_VERSION,
+    STALE_METRIC_TIMEOUT_SECONDS,
     AuthenticationError,
     CannotConnectError,
     Hub,
@@ -671,6 +675,73 @@ async def test_metric_keepalive_update_frequency_none(mock_time: MagicMock) -> N
 
 
 @pytest.mark.asyncio
+@patch("victron_mqtt.metric.time.monotonic")
+async def test_metric_goes_unavailable_when_source_stops_publishing(mock_time: MagicMock) -> None:
+    """Issue #454: a metric that stops being published while the broker stays connected
+    must become unavailable once it has been silent for longer than the stale timeout."""
+    mock_time.return_value = 0
+    hub: Hub = await create_mocked_hub()
+
+    mock_time.return_value = 10
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 10}', mock_time)
+    await finalize_injection(hub, disconnect=False, mock_time=mock_time)
+    # Staleness detection is only enabled on fully supported firmware.
+    hub._firmware_version = MINIMUM_FULLY_SUPPORTED_VERSION
+
+    device = hub.devices["grid_30"]
+    metric = device.get_metric("grid_energy_forward_l1")
+    assert metric is not None, "Metric should exist in the device"
+    assert metric.value == 10, f"Expected metric value to be 10, got {metric.value}"
+
+    magic_mock = MagicMock()
+    metric.on_update = magic_mock
+
+    # Well within the stale timeout -> metric stays available.
+    mock_time.return_value = 100
+    hub._keepalive_metrics(stale_timeout=STALE_METRIC_TIMEOUT_SECONDS)
+    await sleep_short(mock_time)
+    assert metric.value == 10, "Metric should remain available before the stale timeout elapses"
+
+    # Beyond the stale timeout with no new data and no broker disconnect -> unavailable.
+    mock_time.return_value = 10 + STALE_METRIC_TIMEOUT_SECONDS + 1
+    hub._keepalive_metrics(stale_timeout=STALE_METRIC_TIMEOUT_SECONDS)
+    await sleep_short(mock_time)
+    assert metric.value is None, "Metric should become unavailable when the source stops publishing"
+    magic_mock.assert_called_with(metric, None)
+
+    await hub_disconnect(hub, mock_time)
+
+
+@pytest.mark.asyncio
+@patch("victron_mqtt.metric.time.monotonic")
+async def test_metric_stays_available_when_source_keeps_publishing(mock_time: MagicMock) -> None:
+    """A metric that keeps being refreshed within the stale timeout stays available."""
+    mock_time.return_value = 0
+    hub: Hub = await create_mocked_hub()
+
+    mock_time.return_value = 10
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 10}', mock_time)
+    await finalize_injection(hub, disconnect=False, mock_time=mock_time)
+    hub._firmware_version = MINIMUM_FULLY_SUPPORTED_VERSION
+
+    device = hub.devices["grid_30"]
+    metric = device.get_metric("grid_energy_forward_l1")
+    assert metric is not None, "Metric should exist in the device"
+
+    # Source republishes its value, refreshing last_seen.
+    mock_time.return_value = 300
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 11}', mock_time)
+
+    # A stale check just under the timeout since the last update -> metric stays available.
+    mock_time.return_value = 300 + STALE_METRIC_TIMEOUT_SECONDS - 1
+    hub._keepalive_metrics(stale_timeout=STALE_METRIC_TIMEOUT_SECONDS)
+    await sleep_short(mock_time)
+    assert metric.value == 11, "Metric should stay available while the source keeps publishing"
+
+    await hub_disconnect(hub, mock_time)
+
+
+@pytest.mark.asyncio
 async def test_existing_installation_id():
     """Test that the Hub correctly updates its internal state based on MQTT messages."""
     hub: Hub = await create_mocked_hub(installation_id="123")
@@ -817,7 +888,7 @@ async def test_new_metric_system_callbacks_first():
 
     callback_device_ids: list[str] = []
 
-    def on_new_metric_mock(_hub: Hub, device: object, _metric: Metric) -> None:
+    def on_new_metric_mock(_hub: Hub, device: Device, _metric: Metric) -> None:
         callback_device_ids.append(str(device.unique_id))
 
     hub.on_new_metric = MagicMock(side_effect=on_new_metric_mock)
@@ -966,7 +1037,7 @@ async def test_gps_location_formula():
     assert gps_callbacks[0].latitude == 51.5074
 
     # Register on_update to track subsequent value changes
-    update_values: list[object] = []
+    update_values: list[GpsLocation] = []
     location_metric.on_update = lambda metric, value: update_values.append(value)
 
     # Update latitude only — formula should recalculate with new lat + old lon
@@ -1174,7 +1245,7 @@ async def test_empty_devices_not_notified():
 
     notified_device_ids: list[str] = []
 
-    def on_new_device_mock(_hub: Hub, device: object) -> None:
+    def on_new_device_mock(_hub: Hub, device: Device) -> None:
         notified_device_ids.append(str(device.unique_id))
 
     hub.on_new_device = MagicMock(side_effect=on_new_device_mock)
@@ -1206,7 +1277,7 @@ async def test_empty_parent_device_skipped_in_notifications():
 
     notified_device_ids: list[str] = []
 
-    def on_new_device_mock(_hub: Hub, device: object) -> None:
+    def on_new_device_mock(_hub: Hub, device: Device) -> None:
         notified_device_ids.append(str(device.unique_id))
 
     hub.on_new_device = MagicMock(side_effect=on_new_device_mock)
@@ -1787,6 +1858,31 @@ async def test_ev_charging_started_depends_on_charging_state_same_round():
 
     charging_started = device.get_metric("ev_charging_started")
     assert charging_started is not None, "Charging started metric should exist when ChargingState is present"
+    assert charging_started.value == datetime.datetime(2026, 6, 4, 12, 12, 7, tzinfo=datetime.UTC), (
+        "Charging started metric should be 2026-06-04 12:12:07 UTC"
+    )
+
+    await hub_disconnect(hub)
+
+
+@pytest.mark.asyncio
+async def test_ev_charging_started_depends_on_charging_state_na():
+    """Test that EV ChargingStarted resolves when ChargingState is present in the same publish round."""
+    hub: Hub = await create_mocked_hub(operation_mode=OperationMode.EXPERIMENTAL)
+
+    await inject_message(hub, "N/123/ev/40/ChargingState", '{"value": 3}')
+    await inject_message(hub, "N/123/ev/40/ChargingStarted", '{"value": null}')
+    await finalize_injection(hub)
+
+    assert len(hub.devices) == 1, f"Expected 1 EV device, got {len(hub.devices)}"
+    device = hub.devices["ev_40"]
+
+    charging_state = device.get_metric("ev_charging_state")
+    assert charging_state is not None, "Charging state metric should exist"
+
+    charging_started = device.get_metric("ev_charging_started")
+    assert charging_started is not None, "Charging started metric should exist when ChargingState is present"
+    assert charging_started.value == "N/A", "Charging started metric should be N/A value is null"
 
     await hub_disconnect(hub)
 
@@ -2111,8 +2207,8 @@ async def test_suppress_republish_still_creates_new_metrics():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _make_descriptor(**overrides) -> TopicDescriptor:
-    defaults = {
+def _make_descriptor(**overrides: Any) -> TopicDescriptor:
+    defaults: dict[str, Any] = {
         "topic": "N/{installation_id}/battery/{device_id}/Soc",
         "message_type": MetricKind.SENSOR,
         "short_id": "test_metric",
@@ -2124,7 +2220,11 @@ def _make_descriptor(**overrides) -> TopicDescriptor:
     return TopicDescriptor(**defaults)
 
 
-def _make_metric(descriptor=None, hub=None, **overrides) -> Metric:
+def _make_metric(
+    descriptor: TopicDescriptor | None = None,
+    hub: Hub | MagicMock | None = None,
+    **overrides: Any,
+) -> Metric:
     if descriptor is None:
         descriptor = _make_descriptor(**overrides)
     if hub is None:
@@ -2306,7 +2406,7 @@ class TestHubOnLog:
         with patch("victron_mqtt.hub.mqtt.Client"):
             hub = Hub("localhost", 1883, None, None, False)
         # Should not raise
-        hub._on_log(None, None, logging.DEBUG, "test message")
+        hub._on_log(MagicMock(spec=Client), None, logging.DEBUG, "test message")
 
 
 @pytest.mark.asyncio
@@ -2338,12 +2438,12 @@ class TestHubConnectionErrors:
             hub = Hub("localhost", 1883, None, None, False, installation_id="123")
             hub._client = mock_client
             hub._first_full_publish = False
-            with pytest.raises(CannotConnectError, match="Timeout"):
+            with (
+                pytest.raises(CannotConnectError, match="Timeout"),
+                patch.object(hub._first_refresh_event, "wait", side_effect=asyncio.TimeoutError),
+            ):
                 # Patch the event wait to timeout
-                import asyncio
-
-                with patch.object(hub._first_refresh_event, "wait", side_effect=asyncio.TimeoutError):
-                    await hub.wait_for_first_refresh()
+                await hub.wait_for_first_refresh()
 
 
 class TestHubOnConnectFail:
@@ -2444,6 +2544,38 @@ class TestMetricKeepalive:
         log = MagicMock()
         m._keepalive(force_invalidate=False, log_debug=log)
         log.assert_called()
+
+    def test_keepalive_invalidates_stale_metric(self):
+        """A metric not seen for longer than the timeout is reset to None (unavailable)."""
+        m = _make_metric()
+        m._value = 42.0
+        m._last_seen = 5.0
+        m._last_notified = 5.0
+        log = MagicMock()
+        with patch("victron_mqtt.metric.time.monotonic", return_value=100.0):
+            m._keepalive(force_invalidate=False, log_debug=log, stale_timeout=50.0)
+        assert m._value is None
+
+    def test_keepalive_keeps_fresh_metric(self):
+        """A metric seen within the timeout keeps its value."""
+        m = _make_metric()
+        m._value = 42.0
+        m._last_seen = 90.0
+        m._last_notified = 90.0
+        log = MagicMock()
+        with patch("victron_mqtt.metric.time.monotonic", return_value=100.0):
+            m._keepalive(force_invalidate=False, log_debug=log, stale_timeout=50.0)
+        assert m._value == 42.0
+
+    def test_keepalive_no_timeout_keeps_value(self):
+        """Without a timeout, an up-to-date metric is untouched (back-compat)."""
+        m = _make_metric()
+        m._value = 42.0
+        m._last_seen = 5.0
+        m._last_notified = 10.0
+        log = MagicMock()
+        m._keepalive(force_invalidate=False, log_debug=log)
+        assert m._value == 42.0
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2623,7 +2755,7 @@ class TestWritableFormulaMetricSet:
 
         desc = _make_descriptor(is_formula=True)
 
-        def write_func(value, depends_on, state):
+        def write_func(_value: object, _depends_on: dict[str, object], _state: object) -> None:
             return None
 
         wfm = WritableFormulaMetric.__new__(WritableFormulaMetric)
@@ -2666,7 +2798,7 @@ class TestFormulaMetricNoneReturn:
         desc = _make_descriptor(is_formula=True)
         log = MagicMock()
 
-        def formula_none(depends_on, state):
+        def formula_none(_depends_on: dict[str, object], _state: object) -> None:
             return None
 
         fm = FormulaMetric.__new__(FormulaMetric)

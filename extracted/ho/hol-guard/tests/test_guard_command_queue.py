@@ -26,7 +26,11 @@ from codex_plugin_scanner.guard.review_contracts import (
     validate_remote_approval_request_binding,
     validated_remote_approval_envelope,
 )
-from codex_plugin_scanner.guard.runtime import command_executors, command_queue, local_request_snapshots
+from codex_plugin_scanner.guard.runtime import (
+    command_executors,
+    command_queue,
+    local_request_snapshots,
+)
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
 from codex_plugin_scanner.guard.schemas.guard_event_v1 import GuardEventV1
 from codex_plugin_scanner.guard.store import GuardStore
@@ -123,48 +127,6 @@ class FakeStore:
         return []
 
 
-def test_live_sync_identity_context_includes_local_identity(tmp_path: Path) -> None:
-    store = FakeStore(tmp_path / "guard-home")
-
-    auth_context = command_queue._with_live_sync_identity(
-        store,
-        {
-            "access_token": "token-1",
-            "sync_url": "https://hol.test/api/guard/receipts/sync",
-        },
-    )
-
-    assert auth_context == {
-        "access_token": "token-1",
-        "machine_id": "machine-1",
-        "machine_installation_id": "22222222-2222-4222-8222-222222222222",
-        "sync_url": "https://hol.test/api/guard/receipts/sync",
-        "workspace_id": "workspace-1",
-    }
-
-
-def test_live_sync_identity_failure_remains_best_effort(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    store = FakeStore(tmp_path / "guard-home")
-
-    def fail_identity(
-        _store: FakeStore,
-        _auth_context: dict[str, object],
-    ) -> dict[str, object]:
-        raise RuntimeError("identity unavailable")
-
-    monkeypatch.setattr(command_queue, "_with_live_sync_identity", fail_identity)
-
-    command_queue._sync_live_requests_best_effort(
-        store,
-        {
-            "access_token": "token-1",
-            "sync_url": "https://hol.test/api/guard/receipts/sync",
-        },
-    )
-
 
 def _approval_request_row(
     request_id: str,
@@ -200,6 +162,8 @@ def _signed_remote_approval(
     *,
     decision: str = "allow_once",
     receipt_id: str = "cloud-receipt-1",
+    issued_at: datetime | None = None,
+    include_key_id: bool = True,
     scope: str | None = None,
 ) -> dict[str, object]:
     oauth = guard_review_oauth_metadata(store)
@@ -208,7 +172,7 @@ def _signed_remote_approval(
         oauth=oauth,
         store=store,
     )
-    issued_at = datetime.now(timezone.utc).replace(microsecond=0)
+    issued_at = issued_at or datetime.now(timezone.utc).replace(microsecond=0)
     expires_at = issued_at + timedelta(minutes=5)
     envelope = {
         "actionEnvelopeHash": claim["actionEnvelopeHash"],
@@ -227,7 +191,6 @@ def _signed_remote_approval(
         "nonce": f"{claim['nonce']}:{receipt_id}",
         "policyVersion": claim["policyVersion"],
         "projectIdentity": claim["projectIdentity"],
-        "keyId": REVIEW_SIGNING_KEY_ID,
         "receiptId": receipt_id,
         "reviewerRole": "workspace-owner",
         "reviewerUserId": "user-1",
@@ -240,6 +203,8 @@ def _signed_remote_approval(
         "verificationKeys": review_verification_keys(),
         "signatureAlgorithm": "rsa-pss-sha256",
     }
+    if include_key_id:
+        envelope["keyId"] = REVIEW_SIGNING_KEY_ID
     envelope["payloadHash"] = payload_hash_for_remote_approval_envelope(envelope)
     envelope["signature"] = sign_review_payload(envelope)
     return envelope
@@ -336,6 +301,23 @@ def _oauth_store(tmp_path: Path) -> GuardStore:
         now="2026-06-13T00:00:00+00:00",
     )
     return store
+
+
+def test_remote_approval_rejects_queue_admission_after_expiry(tmp_path: Path) -> None:
+    store = FakeStore(tmp_path / "guard-home")
+    request_row = _approval_request_row("request-expired")
+    envelope = _signed_remote_approval(
+        store,
+        request_row,
+        issued_at=datetime(2026, 6, 12, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(GuardReviewContractError, match="remote_approval_expired"):
+        validated_remote_approval_envelope(
+            envelope,
+            store=store,
+            admitted_at="2026-06-12T00:06:00+00:00",
+        )
 
 
 def test_guard_review_oauth_metadata_prefers_explicit_device_id(tmp_path: Path) -> None:
@@ -644,7 +626,7 @@ def test_local_request_snapshot_items_continues_when_request_claim_is_invalid(tm
     assert snapshot[0]["claim"] is None
 
 
-def test_local_request_snapshot_strips_command_when_redaction_is_full(tmp_path: Path) -> None:
+def test_local_request_snapshot_preserves_scrubbed_command_when_redaction_is_full(tmp_path: Path) -> None:
     class RequestStore(FakeStore):
         def list_approval_requests(
             self,
@@ -678,15 +660,17 @@ def test_local_request_snapshot_strips_command_when_redaction_is_full(tmp_path: 
     assert payload["redaction_enabled"] is True
     assert payload["redactionEnabled"] is True
     assert payload["raw_command_text"] is None
-    assert payload["command_text"] is None
+    assert isinstance(payload["command_text"], str)
+    assert payload["command_text"]
     assert payload["rawCommandText"] is None
-    assert payload["commandText"] is None
+    assert payload["commandText"] == payload["command_text"]
     assert payload["actionEnvelope"] == envelope
     assert payload["envelope_redacted"] == envelope
     assert payload["envelopeRedacted"] == envelope
     assert "raw_target_paths" not in payload
     assert "request_payload_json" not in payload
-    assert "command" not in envelope
+    assert isinstance(envelope["command"], str)
+    assert envelope["command"]
     assert envelope["operation"] == "run"
     assert envelope["target_class"] == "shell_command"
     assert envelope["targetClass"] == "shell_command"
@@ -694,7 +678,7 @@ def test_local_request_snapshot_strips_command_when_redaction_is_full(tmp_path: 
     assert envelope["targetCount"] == 0
 
 
-def test_local_request_snapshot_withholds_command_when_redaction_is_partial(tmp_path: Path) -> None:
+def test_local_request_snapshot_preserves_scrubbed_command_when_redaction_is_partial(tmp_path: Path) -> None:
     class RequestStore(FakeStore):
         def list_approval_requests(
             self,
@@ -730,10 +714,11 @@ def test_local_request_snapshot_withholds_command_when_redaction_is_partial(tmp_
     assert payload["redaction_enabled"] is True
     assert payload["redactionEnabled"] is True
     assert payload["raw_command_text"] is None
-    assert payload["command_text"] is None
+    assert isinstance(payload["command_text"], str)
+    assert "sk-test-token" not in payload["command_text"]
     assert payload["rawCommandText"] is None
-    assert payload["commandText"] is None
-    assert "command" not in envelope
+    assert payload["commandText"] == payload["command_text"]
+    assert envelope["command"] == "cat PRIVATE_KEY_FILE"
     assert "target_paths" not in envelope
     assert envelope["operation"] == "run"
     assert envelope["target_class"] == "shell_command"
@@ -2161,7 +2146,7 @@ def test_executor_returns_waiting_local_confirm_for_app_remove_without_surface(
     }
 
 
-def test_executor_resolves_local_approval_with_distinct_portal_routing_installation(tmp_path: Path) -> None:
+def test_executor_resolves_expired_approval_from_preexisting_queue(tmp_path: Path) -> None:
     class ApprovalStore(FakeStore):
         def __init__(self, guard_home: Path) -> None:
             super().__init__(guard_home)
@@ -2213,9 +2198,15 @@ def test_executor_resolves_local_approval_with_distinct_portal_routing_installat
             self.guard_events.append(event)
 
     store = ApprovalStore(tmp_path / "guard-home")
-    remote_approval = _signed_remote_approval(store, store.request_row)
+    remote_approval = _signed_remote_approval(
+        store,
+        store.request_row,
+        include_key_id=False,
+        issued_at=datetime(2026, 6, 12, tzinfo=timezone.utc),
+    )
     result = command_executors.execute_guard_command_job(
         {
+            "createdAt": "2026-06-11T00:02:00+00:00",
             "operation": "guard.approval.resolve",
             "targetMachineInstallationId": "portal-installation-routing-id",
             "payload": {
@@ -3259,6 +3250,7 @@ def test_executor_attaches_codex_resume_live_hook_metadata(
     assert data["codexResume"]["status"] == "pending"
     assert data["codex_resume"] == data["codexResume"]
     assert data["resumeStatus"] == "pending"
+    assert data["daemonAckStatus"] == "resolved_unconfirmed"
     assert "thread-secret" not in str(data)
 
 
@@ -3327,6 +3319,7 @@ def test_executor_attaches_codex_resume_retry_fallback(
     data = result["data"]
     assert data["codexResume"]["status"] == "sent"
     assert data["resumeStatus"] == "sent"
+    assert data["daemonAckStatus"] == "resolved"
     assert data["resumeCompletedAt"] == "2026-06-13T00:00:00+00:00"
     assert "thread-secret" not in str(data)
 
@@ -3404,6 +3397,7 @@ def test_executor_attaches_pi_harness_resume_without_token(tmp_path: Path) -> No
     assert data["harnessResume"]["status"] == "resumed"
     assert data["harness_resume"] == data["harnessResume"]
     assert data["resumeStatus"] == "resumed"
+    assert data["daemonAckStatus"] == "resolved"
     assert "codexResume" not in data
     assert "resume-token-secret" not in str(data)
     assert store.operation["status"] == "resumed"

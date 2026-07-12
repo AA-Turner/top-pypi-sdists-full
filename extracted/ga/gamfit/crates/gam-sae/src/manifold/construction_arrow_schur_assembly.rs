@@ -50,6 +50,32 @@ pub(super) fn ibp_psd_majorized_hdiag(
 }
 
 impl SaeManifoldTerm {
+    /// Build the per-row dense gate maps `a_{n,·}` at `rho` for all `n` rows.
+    ///
+    /// `try_assignments_row` is a pure read-only per-row computation
+    /// (softmax / IBP-MAP / TopK over that row's routing logits — no shared
+    /// mutable state, no faer GEMM), so the rows are independent. Above the
+    /// `SAE_LOSS_PARALLEL_ROW_MIN` floor (and when not already inside a rayon
+    /// worker) they are computed in parallel and collected in row order; the
+    /// order-preserving `collect` reproduces the serial push order bit-for-bit
+    /// (deterministic — each row computed exactly once, no cross-row reduction).
+    pub(crate) fn assignments_all_parallel(&self, n: usize) -> Result<Vec<Array1<f64>>, String> {
+        let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+        if parallel {
+            use rayon::prelude::*;
+            (0..n)
+                .into_par_iter()
+                .map(|row| self.assignment.try_assignments_row(row))
+                .collect::<Result<Vec<_>, String>>()
+        } else {
+            let mut assignments_all = Vec::with_capacity(n);
+            for row in 0..n {
+                assignments_all.push(self.assignment.try_assignments_row(row)?);
+            }
+            Ok(assignments_all)
+        }
+    }
+
     /// Assemble the enlarged `(logits, t)` row-local Arrow-Schur system.
     ///
     /// Full-batch entry point: a single chunk covering all rows, with the
@@ -169,17 +195,13 @@ impl SaeManifoldTerm {
                 ));
             }
         }
-        // Reparameterize each atom's roughness Gram into arc length at the
-        // current decoder/coordinates (issue #673). This is the single
-        // chokepoint for both the inner Newton assembly and the undamped
-        // evidence factorization, so freezing the pullback-metric weight here
-        // (lagged-diffusivity) keeps the smoothness value, gradient, Kronecker
-        // Hessian, and REML log-det mutually consistent within each assembly
-        // and makes the converged penalty — hence the topology evidence —
-        // gauge-invariant. Constant-speed (periodic) atoms are unaffected.
-        for atom in &mut self.atoms {
-            atom.refresh_intrinsic_smooth_penalty();
-        }
+        // `smooth_penalty` is fixed for the lifetime of this objective.  In
+        // particular it is not rebuilt from the current decoder/coordinates at
+        // an assembly boundary: doing so would optimize
+        // 1/2 lambda B' S(B,t) B while assembling only lambda S B and lambda S,
+        // silently dropping every derivative of S.  Basis reparameterizations
+        // transport the fixed operator explicitly; ordinary Newton/REML steps
+        // all differentiate the same quadratic form.
         // #1026 — freeze the decoder-repulsion collinearity gate at the SAME
         // assembly chokepoint as the smoothness Gram, so the repulsion's
         // gradient/curvature (assembled below) and its value (read by the
@@ -224,8 +246,19 @@ impl SaeManifoldTerm {
             .iter()
             .map(|&l| l * penalty_scale)
             .collect();
+        // #991 — the softmax/JumpReLU assignment prior's per-(row, atom) gradient
+        // (and, for JumpReLU/IBP, its curvature diagonal) is design-weighted by
+        // `w_i` here so `gt`/`htt` estimate the same target as the `√w`-weighted
+        // data likelihood. The softmax curvature written to `htt` below is the
+        // per-row Gershgorin/`row_psd_majorizer` block, weighted by folding
+        // `w_row` into its `scale` at each site (no double application on the
+        // gradient, which is already weighted here).
         let (assignment_grad, assignment_hdiag) =
-            assignment_prior_grad_hdiag(&self.assignment, rho)?;
+            crate::assignment::assignment_prior_grad_hdiag_weighted(
+                &self.assignment,
+                rho,
+                self.row_loss_weights.as_deref(),
+            )?;
 
         // #1038 softmax entropy: the exact per-row Hessian in logits is dense
         // (`H_kj = (λ/τ²) a_k[δ_kj(m−L_k−1)+a_j(L_k+L_j+1−2m)]`), not just the
@@ -402,10 +435,32 @@ impl SaeManifoldTerm {
                     // force-included by `from_jumprelu` via the `ungated` mask.
                     let routing = {
                         let mut m = Array2::<f64>::zeros((n, k_atoms));
-                        for row in 0..n {
-                            let r = self.assignment.routing_logits_row(row);
-                            for k in 0..k_atoms {
-                                m[[row, k]] = r[k];
+                        // Each row copies its own read-only routing-logit view into
+                        // its own `m` row — disjoint output rows, no reduction, so
+                        // the row-parallel fill is bit-identical to the serial copy.
+                        let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN
+                            && rayon::current_thread_index().is_none();
+                        if parallel {
+                            use rayon::prelude::*;
+                            const CHUNK: usize = 64;
+                            m.axis_chunks_iter_mut(ndarray::Axis(0), CHUNK)
+                                .into_par_iter()
+                                .enumerate()
+                                .for_each(|(chunk, mut block)| {
+                                    let start = chunk * CHUNK;
+                                    for local in 0..block.nrows() {
+                                        let r = self.assignment.routing_logits_row(start + local);
+                                        for k in 0..k_atoms {
+                                            block[[local, k]] = r[k];
+                                        }
+                                    }
+                                });
+                        } else {
+                            for row in 0..n {
+                                let r = self.assignment.routing_logits_row(row);
+                                for k in 0..k_atoms {
+                                    m[[row, k]] = r[k];
+                                }
                             }
                         }
                         m
@@ -451,11 +506,12 @@ impl SaeManifoldTerm {
                 // top-`k` projection is then a no-op at the optimum.
                 AssignmentMode::Softmax { .. } => match self.softmax_active_plan() {
                     Some((k_active_cap, relative_cutoff)) => {
-                        let mut assignments_all = Vec::with_capacity(n);
-                        for row in 0..n {
-                            assignments_all
-                                .push(self.assignment.try_assignments_row_for_rho(row, rho)?);
-                        }
+                        // Per-row gate maps are independent read-only computations
+                        // (`&self`, no shared mutable state, no GEMM), so the
+                        // order-preserving parallel collect is bit-identical to the
+                        // serial push (deterministic — each row computed once, no
+                        // cross-row reduction).
+                        let assignments_all = self.assignments_all_parallel(n)?;
                         Some(SaeRowLayout::from_dense_weights(
                             &assignments_all,
                             k_active_cap,
@@ -475,12 +531,10 @@ impl SaeManifoldTerm {
                             // Build per-row dense assignments once to derive the
                             // active set; the row loop re-derives `assignments`
                             // (cheap gate map at the same rho) and reuses these
-                            // active sets.
-                            let mut assignments_all = Vec::with_capacity(n);
-                            for row in 0..n {
-                                assignments_all
-                                    .push(self.assignment.try_assignments_row_for_rho(row, rho)?);
-                            }
+                            // active sets. Independent read-only per-row builds →
+                            // order-preserving parallel collect is bit-identical to
+                            // the serial push (deterministic).
+                            let assignments_all = self.assignments_all_parallel(n)?;
                             // #1414: pass the RELATIVE cutoff through;
                             // `from_dense_weights` applies it per row against that
                             // row's own peak `max_k |a_{n,k}|`, matching the
@@ -507,11 +561,9 @@ impl SaeManifoldTerm {
                     // no cutoff heuristics, no near-threshold population, and the
                     // per-token block is bounded at `k·(1+d)` BY CONSTRUCTION
                     // (the #2071 block-size contract holds with equality).
-                    let mut assignments_all = Vec::with_capacity(n);
-                    for row in 0..n {
-                        assignments_all
-                            .push(self.assignment.try_assignments_row_for_rho(row, rho)?);
-                    }
+                    // Independent read-only per-row builds → order-preserving
+                    // parallel collect is bit-identical to the serial push.
+                    let assignments_all = self.assignments_all_parallel(n)?;
                     Some(SaeRowLayout::from_dense_weights(
                         &assignments_all,
                         k,
@@ -608,38 +660,29 @@ impl SaeManifoldTerm {
             0
         };
         // Build the Arrow-Schur system: heterogeneous row dims when a compact
-        // layout is active, uniform `q` otherwise.
-        let mut sys = if let Some(ref layout) = row_layout {
-            let per_row_dims: Vec<usize> = (0..n).map(|row| layout.row_q_active(row)).collect();
-            if dense_beta_curvature {
-                let hbb_workspace = self.take_border_hbb_workspace(beta_dim);
-                ArrowSchurSystem::new_with_per_row_dims_and_hbb_and_htbeta_cols(
-                    per_row_dims,
-                    beta_dim,
-                    hbb_workspace,
-                    row_htbeta_dim,
-                )
-            } else {
-                self.border_hbb_workspace = Array2::<f64>::zeros((0, 0));
-                ArrowSchurSystem::new_with_per_row_dims_empty_hbb_and_htbeta_cols(
-                    per_row_dims,
-                    beta_dim,
-                    row_htbeta_dim,
-                )
-            }
-        } else if dense_beta_curvature {
-            let hbb_workspace = self.take_border_hbb_workspace(beta_dim);
-            ArrowSchurSystem::new_with_hbb_and_htbeta_cols(
-                n,
-                q,
-                beta_dim,
-                hbb_workspace,
-                row_htbeta_dim,
-            )
+        // layout is active, uniform `q` otherwise. Successive nonlinear
+        // iterations take the row/gradient allocations returned by the driver;
+        // `new_with_assembly_buffers` zeroes every numerical entry before this
+        // iterate refills it, so residency never becomes stale factor reuse.
+        let per_row_dims: Vec<usize> = match row_layout.as_ref() {
+            Some(layout) => (0..n).map(|row| layout.row_q_active(row)).collect(),
+            None => vec![q; n],
+        };
+        let hbb_workspace = if dense_beta_curvature {
+            self.take_border_hbb_workspace(beta_dim)
         } else {
             self.border_hbb_workspace = Array2::<f64>::zeros((0, 0));
-            ArrowSchurSystem::new_with_empty_hbb_and_htbeta_cols(n, q, beta_dim, row_htbeta_dim)
+            Array2::<f64>::zeros((0, 0))
         };
+        let (rows_workspace, gb_workspace) = self.take_arrow_assembly_buffers();
+        let mut sys = ArrowSchurSystem::new_with_assembly_buffers(
+            per_row_dims,
+            beta_dim,
+            row_htbeta_dim,
+            hbb_workspace,
+            rows_workspace,
+            gb_workspace,
+        );
         // Apply accumulated smoothness-penalty gradients into sys.gb.
         for (i, g) in smooth_grad_gb.iter().enumerate() {
             sys.gb[i] += g;
@@ -683,7 +726,12 @@ impl SaeManifoldTerm {
         // RAW channels: `ibp_psd_majorized_hdiag` and the source-`d` clamp below do
         // the max(·,0) themselves from the raw `w·s'`/`w·s·c`, so this must be the
         // un-majorized channel set.
-        let ibp_majorizer = ibp_assignment_third_channels(&self.assignment, rho, false)?;
+        let ibp_majorizer = ibp_assignment_third_channels_weighted(
+            &self.assignment,
+            rho,
+            false,
+            self.row_loss_weights.as_deref(),
+        )?;
         // Data-fit Gauss-Newton β-Hessian is block-diagonal across the `p`
         // output channels and identical in each: with the flat β layout
         // `β[μ·p + oc] = B[μ, oc]` (μ enumerating (atom, basis_col)) the GN
@@ -708,19 +756,6 @@ impl SaeManifoldTerm {
         type SaeGBlocks = std::collections::BTreeMap<(usize, usize), Array2<f64>>;
         let m_total: usize = self.atoms.iter().map(|a| a.basis_size()).sum();
         let mu_offsets: Vec<usize> = beta_offsets.iter().map(|&off| off / p).collect();
-        // Stick-breaking prior for IBP-MAP depends only on (k_atoms, alpha_eff)
-        // which are constant across rows for the current rho; precompute once.
-        let ibp_prior_vec = match self.assignment.mode {
-            AssignmentMode::IBPMap { .. } => {
-                let alpha = self
-                    .assignment
-                    .resolved_ibp_alpha(rho)
-                    .ok_or_else(|| "IBP assignment alpha resolution failed".to_string())?;
-                Some(ordered_geometric_shrinkage_prior(k_atoms, alpha).to_vec())
-            }
-            _ => None,
-        };
-        let ibp_prior_slice = ibp_prior_vec.as_deref();
         // #991 design honesty weights (mean-1 HT inclusion corrections); see
         // the seam comment at the per-row residual below.
         let row_loss_w = self.row_loss_weights.as_deref();
@@ -892,7 +927,7 @@ impl SaeManifoldTerm {
                         // #1557 — fill per-worker scratch (bit-identical to alloc path).
                         let a_scratch = assignments.as_slice_mut().expect("contiguous scratch");
                         self.assignment
-                            .try_assignments_row_for_rho_into(row, rho, a_scratch)?;
+                            .try_assignments_row_into(row, a_scratch)?;
                         // Reconstruction uses the row's active support: for the dense
                         // full-support layout this is all atoms (exact); for a compact
                         // layout the dropped atoms carry negligible `O(a)` reconstruction
@@ -999,13 +1034,11 @@ impl SaeManifoldTerm {
                                 fill_active_atom_logit_jvp(
                                     ActiveAtomLogitJvp {
                                         mode: self.assignment.mode,
-                                        k,
                                         logit_k: logits_row[k],
                                         a_k: assignments[k],
                                         // #1410: compact slot `j`, not global atom `k`.
                                         decoded_k: decoded.row(j),
                                         fitted: fitted.view(),
-                                        ibp_prior: ibp_prior_slice,
                                         compact_index: j,
                                         // #1026/#1033: a FIXED logit (ungated, or every
                                         // atom under frozen routing) has a constant gate
@@ -1046,7 +1079,6 @@ impl SaeManifoldTerm {
                                 assignments.view(),
                                 decoded.view(),
                                 fitted.view(),
-                                ibp_prior_slice,
                                 // #1026/#1033: zero logit-JVP rows for FIXED-logit atoms
                                 // (ungated, and all atoms under frozen routing).
                                 &self.assignment.fixed_logit_mask(),
@@ -1207,12 +1239,18 @@ impl SaeManifoldTerm {
                             let majorizer_log_mean: Option<f64> = softmax_dense
                                 .as_ref()
                                 .map(|_| softmax_majorizer_log_mean(assignments_slice));
+                            // #991 — the softmax majorizer curvature is a per-row
+                            // BLOCK (not sourced from the design-weighted
+                            // `assignment_hdiag` array), so fold this row's design
+                            // weight into its `scale` here; `gt` uses the already
+                            // `w`-weighted `assignment_grad`, so it is not touched.
+                            let w_row = row_loss_w.map_or(1.0, |w| w[row]);
                             for (j, &k) in active.iter().enumerate() {
                                 block.gt[j] += assignment_grad[assignment_base + k];
                                 match (softmax_dense.as_ref(), majorizer_log_mean) {
                                     (Some((_penalty, scale)), Some(m)) => {
-                                        block.htt[[j, j]] +=
-                                            active_softmax_gershgorin_majorizer_entry(
+                                        block.htt[[j, j]] += w_row
+                                            * active_softmax_gershgorin_majorizer_entry(
                                                 assignments_slice,
                                                 k,
                                                 m,
@@ -1271,7 +1309,13 @@ impl SaeManifoldTerm {
                                 let row_logits: Vec<f64> = (0..k_atoms)
                                     .map(|k| self.assignment.logits[[row, k]])
                                     .collect();
-                                let h_dense = penalty.row_psd_majorizer(&row_logits, *scale);
+                                // #991 — fold this row's design weight into the
+                                // majorizer strength (the block is not sourced from
+                                // the weighted `assignment_hdiag`); the θ-adjoint at
+                                // `row_psd_majorizer_logit_derivative` carries the
+                                // same `w_row` so value and adjoint stay on one branch.
+                                let w_row = row_loss_w.map_or(1.0, |w| w[row]);
+                                let h_dense = penalty.row_psd_majorizer(&row_logits, *scale * w_row);
                                 for ki in 0..assignment_dim {
                                     for kj in 0..assignment_dim {
                                         block.htt[[ki, kj]] += h_dense[[ki, kj]];
@@ -1434,12 +1478,7 @@ impl SaeManifoldTerm {
                                     // with the `√w_row` on the residual (β gradient =
                                     // `a·φ · M r` ⇒ w_row) and with itself (β Gram `G` and the
                                     // htbeta Kronecker capture ⇒ w_row). `1.0` when unweighted.
-                                    // #2022 — β data-fit Jacobian of exp(s)·a·Φ·B is
-                                    // exp(s)·a·Φ (∂/∂B). The coord Jacobian + residual
-                                    // already carry exp(s) via fill_decoded_*; this is the
-                                    // one inline site that needs it. exp(0)=1 ⇒ bit-for-bit
-                                    // when no amplitude is set.
-                                    let w = a_k * phi * sqrt_row_w * atom.log_amplitude.exp();
+                                    let w = a_k * phi * sqrt_row_w;
                                     a_phi.push((atom_beta_off + basis_col * p, w));
                                     wphi.push(w);
                                 }
@@ -1488,37 +1527,57 @@ impl SaeManifoldTerm {
                                 } else {
                                     None
                                 };
+                                let jac_rows: ArrayView2<'_, f64> = match &ljr_white {
+                                    Some(w_jac) => w_jac.view(),
+                                    None => local_jac_row.view(),
+                                };
                                 for &atom_idx in row_active {
                                     let atom = &self.atoms[atom_idx];
                                     let m = atom.basis_size();
                                     let a_k = assignments[atom_idx];
+                                    // The frame projection of the Jacobian rows is
+                                    // basis-column independent: hoist it to ONE
+                                    // `q×p · p×r` GEMM per (row, atom) and reduce the
+                                    // basis scan to rank-length axpys, instead of
+                                    // re-deriving it through m·q·p scalar
+                                    // `accumulate_output_project` calls (a top-two
+                                    // profile cost of the joint fit).
+                                    let projected =
+                                        frame_projection.project_jacobian_rows(atom_idx, jac_rows);
+                                    let rank = frame_projection.ranks[atom_idx];
                                     for basis_col in 0..m {
                                         let phi = atom.basis_values[[row, basis_col]];
-                                        // #2022 — β data-fit Jacobian of exp(s)·a·Φ·B is
-                                    // exp(s)·a·Φ (∂/∂B). The coord Jacobian + residual
-                                    // already carry exp(s) via fill_decoded_*; this is the
-                                    // one inline site that needs it. exp(0)=1 ⇒ bit-for-bit
-                                    // when no amplitude is set.
-                                    let w = a_k * phi * sqrt_row_w * atom.log_amplitude.exp();
+                                        let w = a_k * phi * sqrt_row_w;
                                         if w == 0.0 {
                                             continue;
                                         }
                                         let c_base = frame_projection.border_offsets[atom_idx]
-                                            + basis_col * frame_projection.ranks[atom_idx];
+                                            + basis_col * rank;
                                         for c in 0..q_row {
                                             let mut hrow = block.htbeta.row_mut(c);
                                             let hrow_slice = hrow
                                                 .as_slice_mut()
                                                 .expect("htbeta row is contiguous");
-                                            for out_col in 0..p {
-                                                let ljr = match &ljr_white {
-                                                    Some(w_jac) => w_jac[[c, out_col]],
-                                                    None => local_jac_row[[c, out_col]],
-                                                };
-                                                let value = ljr * w;
-                                                frame_projection.accumulate_output_project(
-                                                    atom_idx, c_base, out_col, value, hrow_slice,
-                                                );
+                                            match &projected {
+                                                Some(proj) => {
+                                                    let dst =
+                                                        &mut hrow_slice[c_base..c_base + rank];
+                                                    for (slot, &value) in
+                                                        dst.iter_mut().zip(proj.row(c).iter())
+                                                    {
+                                                        *slot += w * value;
+                                                    }
+                                                }
+                                                // Unframed atom: identity frame, the
+                                                // border block IS the raw output row.
+                                                None => {
+                                                    let dst = &mut hrow_slice[c_base..c_base + p];
+                                                    for (slot, &value) in
+                                                        dst.iter_mut().zip(jac_rows.row(c).iter())
+                                                    {
+                                                        *slot += w * value;
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1664,19 +1723,40 @@ impl SaeManifoldTerm {
                     // own ext-coord point, mirroring the full path's compact
                     // Riemannian block (htbeta is 0-width here, so skipped).
                     if !self.ext_coord_manifold().is_euclidean() {
-                        for row_idx in 0..n {
+                        // Each row rebuilds its own compact ext-manifold from
+                        // immutable `&self`/`layout` and writes ONLY its own
+                        // `sys.rows[row_idx].{gt,htt}` (disjoint), so the row-parallel
+                        // path is bit-identical to the serial sweep.
+                        let this = &*self;
+                        let project_fixed_row = |row_idx: usize, row: &mut ArrowRowBlock| {
                             let (manifold_i, point_i) =
-                                self.compact_row_ext_manifold_and_point(row_idx, layout);
+                                this.compact_row_ext_manifold_and_point(row_idx, layout);
                             let t_i = point_i.view();
-                            let gt_e = sys.rows[row_idx].gt.clone();
-                            let htt_e = sys.rows[row_idx].htt.clone();
-                            sys.rows[row_idx].gt =
-                                manifold_i.project_gradient_to_tangent(t_i, gt_e.view());
-                            sys.rows[row_idx].htt = manifold_i.riemannian_hessian_matrix(
+                            let gt_e = row.gt.clone();
+                            let htt_e = row.htt.clone();
+                            row.gt = manifold_i.project_gradient_to_tangent(t_i, gt_e.view());
+                            row.htt = manifold_i.riemannian_hessian_matrix(
                                 t_i,
                                 gt_e.view(),
                                 htt_e.view(),
                             );
+                        };
+                        let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN
+                            && rayon::current_thread_index().is_none();
+                        if parallel {
+                            use rayon::prelude::*;
+                            // #1557 — pin the projector's faer GEMM to Par::Seq.
+                            sys.rows
+                                .par_iter_mut()
+                                .enumerate()
+                                .for_each(|(row_idx, row)| {
+                                    with_nested_parallel(|| project_fixed_row(row_idx, row));
+                                });
+                        } else {
+                            for row_idx in 0..n {
+                                let row = &mut sys.rows[row_idx];
+                                project_fixed_row(row_idx, row);
+                            }
                         }
                     }
                 }
@@ -1687,7 +1767,7 @@ impl SaeManifoldTerm {
                     // #974 — see the main-path site: enable spectral discovery of
                     // the rank-deficient-metric-null `H_tt` directions on the
                     // fixed-decoder path too. No-op when the metric is full-rank.
-                    low_rank_whiten.then(|| ArrowRowGaugeDeflation::new(vec![Vec::new(); n]))
+                    low_rank_whiten.then(|| Self::empty_row_gauge_deflation(n))
                 })
             {
                 sys.set_row_gauge_deflation(deflation);
@@ -1727,29 +1807,56 @@ impl SaeManifoldTerm {
                     // a single reusable `col_buf` avoids the two dense (q × p) copies
                     // (flatten→Array2, project, unflatten→Vec) that previously fired
                     // per row. `t_buf` still holds the row's ext-coord vector.
-                    let mut t_buf = vec![0.0_f64; q];
-                    let mut col_buf = Array1::<f64>::zeros(q);
-                    for row_idx in 0..n {
-                        let ext_row = ext.row(row_idx);
-                        for (slot, &v) in t_buf.iter_mut().zip(ext_row.iter()) {
-                            *slot = v;
-                        }
-                        let t_i = ArrayView1::from(t_buf.as_slice());
-                        let raw_gt = raw_gt_rows[row_idx].view();
-                        let jac_flat = &mut kron_jac[row_idx];
-                        let q_row = jac_flat.len() / p;
-                        for j in 0..p {
-                            for c in 0..q_row {
-                                col_buf[c] = jac_flat[c * p + j];
+                    // Per-row Jacobian column projection: each row writes ONLY its own
+                    // `kron_jac[row_idx]` and reads immutable `ext`/`raw_gt_rows`/`manifold`,
+                    // so the row-parallel path is bit-identical to the serial sweep
+                    // (disjoint-writes determinism). Per-row `t_buf`/`col_buf` scratch.
+                    let project_row =
+                        |row_idx: usize,
+                         jac_flat: &mut Vec<f64>,
+                         t_buf: &mut [f64],
+                         col_buf: &mut Array1<f64>| {
+                            let ext_row = ext.row(row_idx);
+                            for (slot, &v) in t_buf.iter_mut().zip(ext_row.iter()) {
+                                *slot = v;
                             }
-                            let projected_col = manifold.project_vector_to_gradient_tangent(
-                                t_i,
-                                raw_gt.slice(ndarray::s![..q_row]),
-                                col_buf.slice(ndarray::s![..q_row]),
-                            );
-                            for c in 0..q_row {
-                                jac_flat[c * p + j] = projected_col[c];
+                            let t_i = ArrayView1::from(&*t_buf);
+                            let raw_gt = raw_gt_rows[row_idx].view();
+                            let q_row = jac_flat.len() / p;
+                            for j in 0..p {
+                                for c in 0..q_row {
+                                    col_buf[c] = jac_flat[c * p + j];
+                                }
+                                let projected_col = manifold.project_vector_to_gradient_tangent(
+                                    t_i,
+                                    raw_gt.slice(ndarray::s![..q_row]),
+                                    col_buf.slice(ndarray::s![..q_row]),
+                                );
+                                for c in 0..q_row {
+                                    jac_flat[c * p + j] = projected_col[c];
+                                }
                             }
+                        };
+                    let parallel =
+                        n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+                    if parallel {
+                        use rayon::prelude::*;
+                        // #1557 — pin the projector's faer GEMM to Par::Seq.
+                        kron_jac
+                            .par_iter_mut()
+                            .enumerate()
+                            .for_each(|(row_idx, jac_flat)| {
+                                with_nested_parallel(|| {
+                                    let mut t_buf = vec![0.0_f64; q];
+                                    let mut col_buf = Array1::<f64>::zeros(q);
+                                    project_row(row_idx, jac_flat, &mut t_buf, &mut col_buf);
+                                });
+                            });
+                    } else {
+                        let mut t_buf = vec![0.0_f64; q];
+                        let mut col_buf = Array1::<f64>::zeros(q);
+                        for row_idx in 0..n {
+                            project_row(row_idx, &mut kron_jac[row_idx], &mut t_buf, &mut col_buf);
                         }
                     }
                 }
@@ -1776,37 +1883,56 @@ impl SaeManifoldTerm {
                 // projector is the identity); we early-out so those rows stay
                 // byte-for-byte the historical compact path.
                 if !self.ext_coord_manifold().is_euclidean() {
-                    for row_idx in 0..n {
-                        let (manifold_i, point_i) =
-                            self.compact_row_ext_manifold_and_point(row_idx, layout);
+                    // Each row rebuilds its own compact ext-manifold from immutable
+                    // `&self`/`layout` and writes ONLY its own `sys.rows[row_idx]` (and,
+                    // on the matrix-free path, its own `kron_jac[row_idx]`) — both disjoint
+                    // per row — so the row-parallel path is bit-identical to the serial
+                    // sweep. The frames path touches `htbeta` (no `kron_jac`); the
+                    // matrix-free path touches `kron_jac` (0-width `htbeta` skipped), so
+                    // the two arms parallelize over exactly the live Vec(s).
+                    let this = &*self;
+                    let parallel =
+                        n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+                    // gt / htt projection shared by both arms, exactly as
+                    // `apply_riemannian_latent_geometry` does for dense uniform-q rows.
+                    // Returns the row's `(manifold_i, point_i, gt_e)` so the caller can
+                    // apply the htbeta / kron_jac leg with the SAME pre-projection state.
+                    let project_gt_htt =
+                        |row_idx: usize,
+                         row: &mut ArrowRowBlock|
+                         -> (LatentManifold, Array1<f64>, Array1<f64>) {
+                            let (manifold_i, point_i) =
+                                this.compact_row_ext_manifold_and_point(row_idx, layout);
+                            let t_i = point_i.view();
+                            let gt_e = row.gt.clone();
+                            let htt_e = row.htt.clone();
+                            row.gt = manifold_i.project_gradient_to_tangent(t_i, gt_e.view());
+                            row.htt = manifold_i.riemannian_hessian_matrix(
+                                t_i,
+                                gt_e.view(),
+                                htt_e.view(),
+                            );
+                            (manifold_i, point_i, gt_e)
+                        };
+                    // Frames arm: `htbeta` column projection with the SAME pre-projection
+                    // gradient `gt_e`.
+                    let frames_row = |row_idx: usize, row: &mut ArrowRowBlock| {
+                        let (manifold_i, point_i, gt_e) = project_gt_htt(row_idx, row);
                         let t_i = point_i.view();
-                        // gt / htt / htbeta on the compact ArrowRowBlock, exactly
-                        // as `apply_riemannian_latent_geometry` does for dense
-                        // uniform-q rows.
-                        let gt_e = sys.rows[row_idx].gt.clone();
-                        let htt_e = sys.rows[row_idx].htt.clone();
-                        sys.rows[row_idx].gt =
-                            manifold_i.project_gradient_to_tangent(t_i, gt_e.view());
-                        sys.rows[row_idx].htt =
-                            manifold_i.riemannian_hessian_matrix(t_i, gt_e.view(), htt_e.view());
-                        // #1406: only the frames path holds a real dense `htbeta`
-                        // slab; the matrix-free path leaves it 0-width (the
-                        // cross-block geometry is applied to `kron_jac` below), so
-                        // projecting a zero-column matrix is a no-op we skip.
-                        if frames_engaged {
-                            let htbeta_e = sys.rows[row_idx].htbeta.clone();
-                            sys.rows[row_idx].htbeta = manifold_i
-                                .project_matrix_columns_to_gradient_tangent(
-                                    t_i,
-                                    gt_e.view(),
-                                    htbeta_e.view(),
-                                );
-                        }
-                        // Kronecker local-Jacobian column projection (full-B path
-                        // only), using the SAME pre-projection gradient `gt_e` so
-                        // the cross-block geometry matches the dense branch.
-                        if !frames_engaged {
-                            let jac_flat = &mut kron_jac[row_idx];
+                        let htbeta_e = row.htbeta.clone();
+                        row.htbeta = manifold_i.project_matrix_columns_to_gradient_tangent(
+                            t_i,
+                            gt_e.view(),
+                            htbeta_e.view(),
+                        );
+                    };
+                    // Matrix-free arm: Kronecker local-Jacobian column projection with the
+                    // SAME pre-projection gradient `gt_e` so the cross-block geometry
+                    // matches the dense branch.
+                    let matrix_free_row =
+                        |row_idx: usize, row: &mut ArrowRowBlock, jac_flat: &mut Vec<f64>| {
+                            let (manifold_i, point_i, gt_e) = project_gt_htt(row_idx, row);
+                            let t_i = point_i.view();
                             let q_row = jac_flat.len() / p;
                             let mut col_buf = Array1::<f64>::zeros(q_row);
                             for j in 0..p {
@@ -1822,6 +1948,41 @@ impl SaeManifoldTerm {
                                     jac_flat[c * p + j] = projected_col[c];
                                 }
                             }
+                        };
+                    if frames_engaged {
+                        if parallel {
+                            use rayon::prelude::*;
+                            // #1557 — pin the projector's faer GEMM to Par::Seq.
+                            sys.rows
+                                .par_iter_mut()
+                                .enumerate()
+                                .for_each(|(row_idx, row)| {
+                                    with_nested_parallel(|| frames_row(row_idx, row));
+                                });
+                        } else {
+                            for row_idx in 0..n {
+                                frames_row(row_idx, &mut sys.rows[row_idx]);
+                            }
+                        }
+                    } else if parallel {
+                        use rayon::prelude::*;
+                        // Disjoint per-row writes to BOTH `sys.rows` and `kron_jac`;
+                        // zip the two indexed parallel iterators so each worker owns one
+                        // aligned `(row, jac_flat)` pair. #1557 GEMM guard as above.
+                        sys.rows
+                            .par_iter_mut()
+                            .zip(kron_jac.par_iter_mut())
+                            .enumerate()
+                            .for_each(|(row_idx, (row, jac_flat))| {
+                                with_nested_parallel(|| matrix_free_row(row_idx, row, jac_flat));
+                            });
+                    } else {
+                        for row_idx in 0..n {
+                            matrix_free_row(
+                                row_idx,
+                                &mut sys.rows[row_idx],
+                                &mut kron_jac[row_idx],
+                            );
                         }
                     }
                 }
@@ -2075,8 +2236,7 @@ impl SaeManifoldTerm {
                 );
                 (Arc::new(wop), None)
             } else {
-                let mut frame_blocks: Vec<FactoredFrameGBlock> =
-                    Vec::with_capacity(g_blocks.len());
+                let mut frame_blocks: Vec<FactoredFrameGBlock> = Vec::with_capacity(g_blocks.len());
                 for ((atom_i, atom_j), data) in g_blocks.into_iter() {
                     if data.iter().all(|&v| v == 0.0) {
                         continue;
@@ -2099,7 +2259,10 @@ impl SaeManifoldTerm {
                     basis_sizes.clone(),
                     frame_blocks,
                 )?;
-                (Arc::new(op) as Arc<dyn BetaPenaltyOp>, Some(device_frame_blocks))
+                (
+                    Arc::new(op) as Arc<dyn BetaPenaltyOp>,
+                    Some(device_frame_blocks),
+                )
             };
 
             // Smooth penalty in factored space: `λ S_k ⊗ I_{r_k}` at `off_C[k]`.
@@ -2209,7 +2372,8 @@ impl SaeManifoldTerm {
             // slab. On the isotropic path it is `Some`, keeping the device PCG.
             if !has_dense_beta_penalty {
                 if let Some(device_frame_blocks) = device_frame_blocks {
-                    let device = crate::frames::build_framed_device_sae_data(
+                    let recycled = self.arrow_assembly_workspace.device_sae_pcg.take();
+                    let device = crate::frames::build_framed_device_sae_data_reusing(
                         crate::frames::FramedDeviceArgs {
                             p,
                             border_dim,
@@ -2220,8 +2384,9 @@ impl SaeManifoldTerm {
                             frame_blocks: device_frame_blocks,
                             rows: &sys.rows,
                         },
+                        recycled,
                     );
-                    sys.set_device_sae_pcg_data(device);
+                    sys.set_device_sae_pcg_allocation(device);
                 }
             }
         } else if whitens_likelihood {
@@ -2316,15 +2481,18 @@ impl SaeManifoldTerm {
             // reduced-Schur matvec, which routes `H_ββ` through the composite op below
             // (rank-1 included). Healthy fits install no rank-1 and keep the device PCG.
             if sep_rank1.is_empty() {
-                sys.set_device_sae_pcg_data(DeviceSaePcgData {
-                    p,
-                    beta_dim,
-                    a_phi: device_a_phi,
-                    local_jac: device_local_jac,
-                    smooth_blocks: device_smooth_blocks,
-                    sparse_g_blocks: g_sparse_blocks.clone(),
-                    frame: None,
-                });
+                self.install_device_sae_pcg_data(
+                    &mut sys,
+                    DeviceSaePcgData {
+                        p,
+                        beta_dim,
+                        a_phi: device_a_phi,
+                        local_jac: device_local_jac,
+                        smooth_blocks: device_smooth_blocks,
+                        sparse_g_blocks: g_sparse_blocks.clone(),
+                        frame: None,
+                    },
+                );
             }
             let mut ops: Vec<Arc<dyn BetaPenaltyOp>> = smooth_ops;
             ops.push(Arc::new(SparseBlockKroneckerPenaltyOp {
@@ -2360,7 +2528,7 @@ impl SaeManifoldTerm {
                 // direction to unit stiffness (`log 1 = 0`, ρ-independent, so the
                 // evidence value and its ρ-adjoint stay consistent) instead of
                 // refusing the block. No-op when the metric is full-rank.
-                low_rank_whiten.then(|| ArrowRowGaugeDeflation::new(vec![Vec::new(); n]))
+                low_rank_whiten.then(|| Self::empty_row_gauge_deflation(n))
             })
         {
             sys.set_row_gauge_deflation(deflation);
@@ -2393,7 +2561,12 @@ impl SaeManifoldTerm {
         //     `active_atoms[row]`, so `global_t_index = sys.row_offsets[i] + pos`.
         //     Both pin the `U`-column convention bit-for-bit to the consumer's
         //     `ibp_logit_sites`/`row_vars_for_cache_row` slot mapping.
-        if let Some(channels) = ibp_assignment_third_channels(&self.assignment, rho, false)? {
+        if let Some(channels) = ibp_assignment_third_channels_weighted(
+            &self.assignment,
+            rho,
+            false,
+            self.row_loss_weights.as_deref(),
+        )? {
             let mut entries: Vec<(usize, usize, f64)> = Vec::with_capacity(n * k_atoms);
             for row in 0..n {
                 let start = row * k_atoms;

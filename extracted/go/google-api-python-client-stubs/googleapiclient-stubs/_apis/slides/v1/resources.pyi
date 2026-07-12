@@ -25,14 +25,16 @@ class SlidesResource(googleapiclient.discovery.Resource):
                 *,
                 presentationId: str,
                 pageObjectId: str,
-                thumbnailProperties_mimeType: typing_extensions.Literal["PNG"] = ...,
+                thumbnailProperties_mimeType: typing_extensions.Literal["PNG"]
+                | None = ...,
                 thumbnailProperties_thumbnailSize: typing_extensions.Literal[
                     "THUMBNAIL_SIZE_UNSPECIFIED",
                     "LARGE",
                     "MEDIUM",
                     "SMALL",
                     "WIDTH2000_PX",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ThumbnailHttpRequest: ...
 
@@ -40,11 +42,11 @@ class SlidesResource(googleapiclient.discovery.Resource):
             self,
             *,
             presentationId: str,
-            body: BatchUpdatePresentationRequest = ...,
+            body: BatchUpdatePresentationRequest,
             **kwargs: typing.Any,
         ) -> BatchUpdatePresentationResponseHttpRequest: ...
         def create(
-            self, *, body: Presentation = ..., **kwargs: typing.Any
+            self, *, body: Presentation, **kwargs: typing.Any
         ) -> PresentationHttpRequest: ...
         def get(
             self, *, presentationId: str, **kwargs: typing.Any

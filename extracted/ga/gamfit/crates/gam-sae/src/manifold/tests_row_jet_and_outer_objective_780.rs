@@ -81,14 +81,7 @@ pub(crate) fn sae_row_jet_program_matches_production_row_jets_on_converged_cache
                 .try_assignments_row(row)
                 .expect("assignments row");
             let jets = term
-                .row_jets_for_logdet(
-                    &rho,
-                    row,
-                    vars.clone(),
-                    assignments.view(),
-                    &second_jets,
-                    &border,
-                )
+                .row_jets_for_logdet(row, vars.clone(), assignments.view(), &second_jets, &border)
                 .expect("production row jets");
 
             // Primary layout exactly as the cache rows it: slot positions
@@ -260,112 +253,6 @@ pub(crate) fn sae_row_jet_program_matches_production_row_jets_on_converged_cache
     }
 }
 
-/// #932 revert oracle: the 4-row SIMD jet batch (`row_jets_for_logdet_batch4`,
-/// demoted off the production hot path) lane `i` must reproduce the production
-/// scalar `row_jets_for_logdet` — which is now the HAND closed form for the
-/// softmax gate — on row `i`, to ≤1e-9 across every channel
-/// (`first`/`second`/`beta`/`beta_deriv`/`beta_l_deriv`). This keeps the jet
-/// (the universal correctness oracle, retained not deleted) cross-checked
-/// against the reinstated hand arithmetic on a real converged cache, so the
-/// hand path stays guarded against the #736 forgotten-channel bug class.
-#[test]
-pub(crate) fn batch4_jet_lanes_match_scalar_hand_row_jets() {
-    use ndarray::Array1;
-    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    // #1625 — see `sae_row_jet_program_matches_production_row_jets_on_converged_cache`:
-    // the fixture's `-6.0` sparse floor leaves the undamped joint Hessian without a
-    // PD optimum, so `.expect("converged cache")` is unattainable. `-1.0` sits in
-    // the PD basin (fixed-state ρ-sweep: converges for every `log_lambda_sparse ≥ -2`)
-    // so the SIMD-lane vs scalar-hand oracle below reaches its real assertions.
-    // Setup fix, no tolerance weakened.
-    rho.log_lambda_sparse = -1.0;
-    let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
-        .expect("converged cache");
-    let second_jets = term.atom_second_jets().expect("second jets");
-    let border = term
-        .border_channels_for_cache(&cache)
-        .expect("border channels");
-    assert!(
-        term.n_obs() >= 4,
-        "fixture must have ≥4 rows to exercise the 4-row batch"
-    );
-
-    let rows = [0usize, 1, 2, 3];
-    let batch = term
-        .row_jets_for_logdet_batch4(&rho, rows, &cache, &second_jets, &border)
-        .expect("batch4 build")
-        .expect("softmax-aligned fixture rows must batch");
-
-    let maxabs = |xs: &[f64]| xs.iter().fold(0.0_f64, |m, &x| m.max(x.abs()));
-
-    for (lane, &row) in rows.iter().enumerate() {
-        let vars = term.row_vars_for_cache_row(row, &cache).expect("row vars");
-        let mut a = Array1::<f64>::zeros(term.k_atoms());
-        term.assignment
-            .try_assignments_row_for_rho_into(
-                row,
-                &rho,
-                a.as_slice_mut().expect("contiguous scratch"),
-            )
-            .expect("assignments row");
-        let hand = term
-            .row_jets_for_logdet(&rho, row, vars, a.view(), &second_jets, &border)
-            .expect("hand scalar row jets");
-        let jet = &batch[lane];
-
-        for (a_idx, (hf, jf)) in hand.first.iter().zip(jet.first.iter()).enumerate() {
-            let floor = maxabs(hf).max(1e-12);
-            for (c, (h, j)) in hf.iter().zip(jf.iter()).enumerate() {
-                assert!(
-                    (h - j).abs() <= 1e-9 * floor,
-                    "row {row} lane {lane} first[{a_idx}][{c}]: hand {h} vs jet {j}"
-                );
-            }
-        }
-        for (a_idx, (hrow, jrow)) in hand.second.iter().zip(jet.second.iter()).enumerate() {
-            for (b_idx, (hf, jf)) in hrow.iter().zip(jrow.iter()).enumerate() {
-                let floor = maxabs(hf).max(1e-12);
-                for (c, (h, j)) in hf.iter().zip(jf.iter()).enumerate() {
-                    assert!(
-                        (h - j).abs() <= 1e-9 * floor,
-                        "row {row} lane {lane} second[{a_idx}][{b_idx}][{c}]: hand {h} vs jet {j}"
-                    );
-                }
-            }
-        }
-        for (bp, (hf, jf)) in hand.beta.iter().zip(jet.beta.iter()).enumerate() {
-            let floor = maxabs(hf).max(1e-12);
-            for (c, (h, j)) in hf.iter().zip(jf.iter()).enumerate() {
-                assert!(
-                    (h - j).abs() <= 1e-9 * floor,
-                    "row {row} lane {lane} beta[{bp}][{c}]: hand {h} vs jet {j}"
-                );
-            }
-        }
-        for (pair, (hand_arr, jet_arr)) in [
-            (&hand.beta_deriv, &jet.beta_deriv),
-            (&hand.beta_l_deriv, &jet.beta_l_deriv),
-        ]
-        .iter()
-        .enumerate()
-        {
-            for (a_idx, (hrow, jrow)) in hand_arr.iter().zip(jet_arr.iter()).enumerate() {
-                for (bp, (hf, jf)) in hrow.iter().zip(jrow.iter()).enumerate() {
-                    let floor = maxabs(hf).max(1e-12);
-                    for (c, (h, j)) in hf.iter().zip(jf.iter()).enumerate() {
-                        assert!(
-                            (h - j).abs() <= 1e-9 * floor,
-                            "row {row} lane {lane} beta_deriv(pair {pair})[{a_idx}][{bp}][{c}]: \
-                             hand {h} vs jet {j}"
-                        );
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[test]
 pub(crate) fn ibp_map_outer_objective_advertises_analytic_gradient() {
     // The IBP-MAP empirical-π third channel (including the cross-row M_k
@@ -435,7 +322,7 @@ fn fixed_gate_probe_term() -> (SaeManifoldTerm, SaeManifoldRho) {
 #[test]
 pub(crate) fn frozen_ibp_row_program_gates_on_frozen_not_free_logit() {
     use ndarray::{Array1, Array4};
-    let (mut term, rho) = fixed_gate_probe_term();
+    let mut term = fixed_gate_probe_term().0;
     // Frozen routing = OPPOSITE extreme of the free logits [5, -5].
     let frozen = ndarray::Array2::from_shape_vec((1, 2), vec![-5.0, 5.0]).unwrap();
     term.assignment
@@ -459,7 +346,7 @@ pub(crate) fn frozen_ibp_row_program_gates_on_frozen_not_free_logit() {
     ];
     let second_jets = vec![Array4::<f64>::zeros((1, 1, 1, 1)); 2];
     let prog = term
-        .reconstruction_row_program_for_logdet(&rho, 0, &vars, assignments.view(), &second_jets)
+        .reconstruction_row_program_for_logdet(0, &vars, assignments.view(), &second_jets)
         .expect("row program");
 
     // The program reads the FROZEN logits, not the free ones.
@@ -488,7 +375,10 @@ pub(crate) fn frozen_ibp_row_program_gates_on_frozen_not_free_logit() {
     );
     // Value = Σ a_k·phi_k·dec_k with the frozen gates.
     let expected_v = 0.2 * 1.5 + 0.9 * -0.8;
-    assert!((col.v - expected_v).abs() < 1e-12, "frozen reconstruction value");
+    assert!(
+        (col.v - expected_v).abs() < 1e-12,
+        "frozen reconstruction value"
+    );
 }
 
 /// #1026 UNGATED-atom regression: an ungated atom's gate is pinned at 1.0 with a
@@ -497,7 +387,7 @@ pub(crate) fn frozen_ibp_row_program_gates_on_frozen_not_free_logit() {
 #[test]
 pub(crate) fn ungated_ibp_row_program_gates_at_unit_with_zero_logit_derivative() {
     use ndarray::{Array1, Array4};
-    let (mut term, rho) = fixed_gate_probe_term();
+    let mut term = fixed_gate_probe_term().0;
     // Atom 0 ungated (dense background tier), atom 1 gated. Not frozen. IBP-MAP
     // accepts ungated atoms (only Softmax rejects them; see `with_ungated`).
     term.assignment.ungated = vec![true, false];
@@ -516,7 +406,7 @@ pub(crate) fn ungated_ibp_row_program_gates_at_unit_with_zero_logit_derivative()
     ];
     let second_jets = vec![Array4::<f64>::zeros((1, 1, 1, 1)); 2];
     let prog = term
-        .reconstruction_row_program_for_logdet(&rho, 0, &vars, assignments.view(), &second_jets)
+        .reconstruction_row_program_for_logdet(0, &vars, assignments.view(), &second_jets)
         .expect("row program");
 
     // Not frozen ⇒ the program reads the FREE logits; only the ungated atom is a
@@ -530,7 +420,10 @@ pub(crate) fn ungated_ibp_row_program_gates_at_unit_with_zero_logit_derivative()
 
     let col = prog.reconstruction_column::<4>(0);
     // Ungated atom: zero logit derivative, coord derivative at gate 1.0.
-    assert_eq!(col.g[0], 0.0, "ungated atom logit derivative must be exactly 0");
+    assert_eq!(
+        col.g[0], 0.0,
+        "ungated atom logit derivative must be exactly 0"
+    );
     assert!(
         (col.g[2] - 1.0 * (2.0 * 1.5)).abs() < 1e-12,
         "ungated atom coord derivative must use gate 1.0: {}",

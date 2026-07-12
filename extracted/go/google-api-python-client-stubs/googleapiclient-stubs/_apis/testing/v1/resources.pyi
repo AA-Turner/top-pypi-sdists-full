@@ -18,8 +18,8 @@ class TestingResource(googleapiclient.discovery.Resource):
         def getApkDetails(
             self,
             *,
-            body: FileReference = ...,
-            bundleLocation_gcsPath: str = ...,
+            body: FileReference,
+            bundleLocation_gcsPath: str | None = ...,
             **kwargs: typing.Any,
         ) -> GetApkDetailsResponseHttpRequest: ...
 
@@ -31,11 +31,11 @@ class TestingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: CancelDeviceSessionRequest = ...,
+                body: CancelDeviceSessionRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def create(
-                self, *, parent: str, body: DeviceSession = ..., **kwargs: typing.Any
+                self, *, parent: str, body: DeviceSession, **kwargs: typing.Any
             ) -> DeviceSessionHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -44,9 +44,9 @@ class TestingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListDeviceSessionsResponseHttpRequest: ...
             def list_next(
@@ -58,8 +58,8 @@ class TestingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: DeviceSession = ...,
-                updateMask: str = ...,
+                body: DeviceSession,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> DeviceSessionHttpRequest: ...
 
@@ -72,8 +72,8 @@ class TestingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 projectId: str,
-                body: TestMatrix = ...,
-                requestId: str = ...,
+                body: TestMatrix,
+                requestId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> TestMatrixHttpRequest: ...
             def get(
@@ -96,8 +96,8 @@ class TestingResource(googleapiclient.discovery.Resource):
                 "PROVIDED_SOFTWARE",
                 "DEVICE_IP_BLOCKS",
             ],
-            includeViewableModels: bool = ...,
-            projectId: str = ...,
+            includeViewableModels: bool | None = ...,
+            projectId: str | None = ...,
             **kwargs: typing.Any,
         ) -> TestEnvironmentCatalogHttpRequest: ...
 

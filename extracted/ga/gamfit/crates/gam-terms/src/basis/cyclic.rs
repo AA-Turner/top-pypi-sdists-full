@@ -1,116 +1,18 @@
-//! Cyclic (periodic) B-spline basis and finite-difference penalty.
+//! Cyclic (periodic) B-spline basis and discrete ring operators.
 //!
 //! For a periodic covariate — angle, time-of-day, day-of-year — December must
-//! meet January without a seam. We bend the coefficient axis into a ring so
-//! the smooth has no endpoints to privilege: the last coefficient is the first
-//! one's neighbour, full stop.
+//! meet January without a seam. The basis evaluation, half-open period fold,
+//! and circular distance therefore share one periodic-domain convention.
 //!
 //! This module owns the self-contained periodic-domain math for 1-D cyclic
-//! smooths: the wrap-around finite-difference penalty `S = D'D`, the half-open
-//! period folding used by every periodic evaluator, the period-aware great-arc
-//! distance, the uniform cyclic knot vector, and the dense cyclic B-spline
-//! design assembly. Callers in `basis` handle term specs, streaming chunking,
-//! and downstream matrix wiring.
+//! smooths. Cyclic penalties are always the exact function roughness
+//! integral assembled from the represented basis
+//! ([`super::cyclic_bspline_derivative_penalty_matrix`]); there is no
+//! coefficient-difference operator here (SPEC 5: penalties act on the final
+//! function, never on model coefficients).
 
 use super::{BasisError, PeriodicBSplineBasisSpec, build_periodic_bspline_basis_1d};
-use gam_linalg::faer_ndarray::fast_ata;
 use ndarray::{Array1, Array2, ArrayView1};
-
-/// Creates a cyclic finite-difference penalty `S = D' D`.
-///
-/// Unlike the ordinary P-spline Reinsch penalty, every difference stencil wraps
-/// around the coefficient ring. For `order = 2`, each row is
-/// `β_i - 2β_{i+1} + β_{i+2}` modulo the number of coefficients, so the
-/// constant vector is the only null direction and no endpoint is privileged.
-pub fn create_cyclic_difference_penalty_matrix(
-    num_basis_functions: usize,
-    order: usize,
-) -> Result<Array2<f64>, BasisError> {
-    if order == 0 || order >= num_basis_functions {
-        return Err(BasisError::InvalidPenaltyOrder {
-            order,
-            num_basis: num_basis_functions,
-        });
-    }
-
-    let mut d = Array2::<f64>::eye(num_basis_functions);
-    for _ in 0..order {
-        let previous = d;
-        d = Array2::<f64>::zeros((num_basis_functions, num_basis_functions));
-        for i in 0..num_basis_functions {
-            let next = (i + 1) % num_basis_functions;
-            for j in 0..num_basis_functions {
-                d[[i, j]] = previous[[next, j]] - previous[[i, j]];
-            }
-        }
-    }
-    Ok(fast_ata(&d))
-}
-
-/// Creates the OPEN (non-wrapping) finite-difference penalty `S = D'D` over the
-/// same coefficient ring, but with the difference stencils truncated at the
-/// endpoints instead of closed across the seam.
-///
-/// This is the `γ = 0` (interval) end of the closure family: the constant *and*
-/// the low-order polynomial tails are unpenalised at the boundary, so the two
-/// ends are free to drift apart. `S_circle = S_open + S_wrap`, where `S_wrap`
-/// is the closing-edge contribution the cyclic penalty adds on top.
-pub fn create_open_difference_penalty_matrix(
-    num_basis_functions: usize,
-    order: usize,
-) -> Result<Array2<f64>, BasisError> {
-    if order == 0 || order >= num_basis_functions {
-        return Err(BasisError::InvalidPenaltyOrder {
-            order,
-            num_basis: num_basis_functions,
-        });
-    }
-    // Banded forward-difference operator with `num_basis - order` rows: the
-    // ordinary open P-spline Reinsch difference, no wrap.
-    let rows = num_basis_functions - order;
-    let mut d = Array2::<f64>::zeros((rows, num_basis_functions));
-    for i in 0..rows {
-        // Row i is the order-th forward difference centred at i:
-        // coefficients are the signed binomials (-1)^{order-j} C(order, j).
-        for j in 0..=order {
-            let sign = if (order - j) % 2 == 0 { 1.0 } else { -1.0 };
-            d[[i, i + j]] = sign * binomial(order, j);
-        }
-    }
-    Ok(fast_ata(&d))
-}
-
-/// The closure-aware difference penalty `S(γ) = S_open + c(γ)·S_wrap` and its
-/// first/second γ-derivatives, where `S_wrap = S_circle − S_open` is the
-/// seam-closing contribution and `c(γ)` is the boundary-conductance interpolant
-/// (`c(0)=0`, `c(1)=1`). At `γ = 1` this is exactly the cyclic penalty; at
-/// `γ = 0` it is exactly the open penalty. Returns `(S, ∂S/∂γ, ∂²S/∂γ²)`.
-///
-/// This is the penalty-moving MVP of the closure family (#1015); the
-/// support-moving period-extension basis lives in
-/// [`gam_geometry::closure_family`]. Both ride the same ψ-channel pattern as
-/// `M_κ` (#944).
-pub fn create_closure_difference_penalty_jet(
-    num_basis_functions: usize,
-    order: usize,
-    gamma: f64,
-) -> Result<(Array2<f64>, Array2<f64>, Array2<f64>), BasisError> {
-    let s_open = create_open_difference_penalty_matrix(num_basis_functions, order)?;
-    let s_circle = create_cyclic_difference_penalty_matrix(num_basis_functions, order)?;
-    let s_wrap = &s_circle - &s_open;
-    Ok(gam_geometry::conductance_penalty_jet(
-        &s_open, &s_wrap, gamma,
-    ))
-}
-
-/// Binomial coefficient `C(n, k)` for the small penalty orders used here.
-pub(crate) fn binomial(n: usize, k: usize) -> f64 {
-    let mut acc = 1.0_f64;
-    for i in 0..k {
-        acc = acc * (n - i) as f64 / (i + 1) as f64;
-    }
-    acc
-}
 
 #[inline]
 pub(crate) fn wrap_to_period(x: f64, start: f64, period: f64) -> f64 {
@@ -131,38 +33,33 @@ pub(crate) fn wrap_to_period(x: f64, start: f64, period: f64) -> f64 {
     }
 }
 
-#[inline]
-pub(crate) fn cyclic_distance_1d(x: f64, c: f64, period: f64) -> f64 {
-    let delta = (x - c).abs().rem_euclid(period);
-    delta.min(period - delta)
-}
-
-/// Seam-invariant knot anchor (#1593).
+/// Knot anchor for the uniform cyclic grid: the supplied domain origin.
 ///
-/// `period_start` is a pure GAUGE choice — it only declares where the wrap seam
-/// sits on the loop; the physical data are the same points on the same circle.
-/// Anchoring the uniform cyclic knot grid directly at `start` therefore made the
-/// spline FUNCTION SPACE rotate rigidly with the seam, so a sub-knot change of
-/// `period_start` selected a genuinely different (phase-shifted) basis and the
-/// fitted curve drifted (worst 2.07e-2 of range). The circulant penalty and the
-/// whole-knot rigid rotation are not enough on their own, because an arbitrary
-/// `period_start` lands the seam BETWEEN knots.
+/// Two symmetries compete here and are PROVABLY incompatible for any anchor
+/// that is a pure function of `(start, period)`:
 ///
-/// The cure is to anchor the knot grid to a canonical phase that does not depend
-/// on `start`: the largest knot-cell boundary at or below `start`,
-/// `anchor = start − start.rem_euclid(h)`. Every cyclic knot then lands on the
-/// fixed absolute grid `{ m·h : m ∈ ℤ }` (h = period / num_basis) regardless of
-/// where the user put the seam, so two `period_start` anchors describe the
-/// IDENTICAL set of periodic basis functions on the circle (up to a circulant
-/// relabel the penalty is invariant to) and the fit is genuinely gauge-invariant.
+/// * translation equivariance — shifting the data AND the declared domain by
+///   `c` must reproduce the identical design (the model cannot depend on the
+///   coordinate origin of the covariate, e.g. day-of-year vs days-since-epoch);
+/// * sub-knot seam invariance (#1593) — re-declaring `period_start` for FIXED
+///   data should leave the spanned function space unchanged.
+///
+/// Both transformations present to this function as the same input change
+/// (`start → start + c`), differing only in whether the data moved with it, so
+/// no data-independent anchor can satisfy both. The previous #1593 cure snapped
+/// the knots to the absolute lattice `{ m·h : m ∈ ℤ }` through the global zero
+/// — sub-knot seam invariant, but translation NON-equivariant: translating data
+/// and domain by a non-multiple of `h` (e.g. `0.37h`) left the knots pinned to
+/// the old lattice and changed the fitted function space (span residual ~12% of
+/// design energy). Translation equivariance is the property a regression basis
+/// must have, so the knots anchor at the DECLARED domain origin: `period_start`
+/// is an explicit gauge choice of the model specification, exactly like knot
+/// placement for an open spline. A whole-knot seam shift (`start → start + m·h`)
+/// remains an exact circulant relabel of the same basis.
 #[inline]
 pub(crate) fn cyclic_knot_anchor(start: f64, period: f64, num_basis: usize) -> (f64, f64) {
     let h = period / num_basis as f64;
-    // Snap `start` DOWN to the nearest multiple of the knot spacing `h` on the
-    // absolute grid through the origin. `rem_euclid` keeps the offset in
-    // `[0, h)` even for negative `start`, so `anchor <= start < anchor + h`.
-    let anchor = start - start.rem_euclid(h);
-    (anchor, h)
+    (start, h)
 }
 
 pub(crate) fn cyclic_uniform_knot_vector(
@@ -195,17 +92,12 @@ pub(crate) fn create_cyclic_bspline_basis_dense(
     let period = end - start;
     let knots = cyclic_uniform_knot_vector(start, end, degree, num_basis);
 
-    // Anchor the cardinal-basis phase to the SAME canonical grid the knot vector
-    // uses (#1593). `cyclic_uniform_knot_vector` snaps the knots to the absolute
-    // grid `{ m·h }` via `cyclic_knot_anchor`, so `start` is NOT where the knots
-    // sit — the anchor is. The periodic evaluator centers its cardinal functions
-    // at `origin + m·h`, so passing the raw `start` (not a knot for a sub-knot
-    // seam) phase-shifted the evaluated basis by `start − anchor` relative to the
-    // knot grid it is supposed to realize — an internal inconsistency that made
-    // the fitted function space rotate by a sub-knot amount with `period_start`
-    // (#1593 seam-gauge dependence). Feeding the canonical `anchor` as the origin
-    // pins the cardinals to the absolute grid, so two seam anchors describe the
-    // identical (up to a whole-column cyclic relabel) periodic function space.
+    // Anchor the cardinal-basis phase to the SAME grid the knot vector uses.
+    // `cyclic_uniform_knot_vector` places the knots via `cyclic_knot_anchor`;
+    // the periodic evaluator centers its cardinal functions at `origin + m·h`,
+    // so both must resolve the anchor through the one shared helper or the
+    // evaluated basis phase-shifts relative to the knot grid it is supposed to
+    // realize (the internal-inconsistency half of #1593).
     let (anchor, _h) = cyclic_knot_anchor(start, period, num_basis);
 
     // Evaluate the cyclic cardinal basis directly on the circle rather than
@@ -224,9 +116,10 @@ pub(crate) fn create_cyclic_bspline_basis_dense(
             num_basis,
             period,
             origin: anchor,
-            // The value evaluator does not use the penalty order; pass the
-            // standard cyclic smooth order so spec validation remains shared.
-            penalty_order: 2.min(num_basis - 1),
+            // The value evaluator does not use the penalty order. Supply a
+            // valid derivative order so shared spec validation still enforces
+            // the same Sobolev contract as fitted periodic splines.
+            penalty_order: degree.min(2),
         },
     )?;
     Ok((cyclic, knots))
@@ -290,113 +183,60 @@ mod closure_tests {
         );
     }
 
-    /// GUARD (#1593): the cyclic basis function SPACE must be seam-invariant.
-    /// Under ANY seam shift — including a SUB-knot shift that lands the seam
-    /// between knots — the column span of the cyclic design at the same physical
-    /// angles must be identical (the knot grid is canonically anchored, so the
-    /// basis is the same set of periodic functions, only relabeled). We measure
-    /// span equality by the relative residual of projecting one design onto the
-    /// other's column space.
+    /// GUARD: the cyclic basis must be translation EQUIVARIANT — shifting the
+    /// data AND the declared domain by the same offset `c` (including sub-knot
+    /// offsets like `0.37h`) must reproduce the identical design row-for-row,
+    /// because the model cannot depend on the coordinate origin of the
+    /// covariate. This is the symmetry the old absolute-lattice anchor
+    /// (`start − start.rem_euclid(h)`) broke: unless `c` was a multiple of the
+    /// knot spacing the knots stayed pinned to the old lattice while the data
+    /// moved, changing the fitted function space (~12% span residual at
+    /// `c = 0.37h`). It is mathematically incompatible with sub-knot
+    /// seam-shift invariance for a data-independent anchor (both present as
+    /// `start → start + c`), so `period_start` is an explicit gauge of the
+    /// model spec and the knots anchor at the declared domain origin.
     #[test]
-    fn cyclic_basis_span_invariant_to_subknot_seam_shift() {
-        use gam_linalg::faer_ndarray::{fast_ab, fast_ata};
+    fn cyclic_basis_translation_equivariant() {
         let degree = 3usize;
         let num_basis = 12usize;
         let period = std::f64::consts::TAU;
         let h = period / num_basis as f64;
         let thetas = Array1::from_iter((0..200).map(|i| (i as f64 + 0.123) / 200.0 * period));
-        let reference = {
-            let (b, _) =
-                create_cyclic_bspline_basis_dense(thetas.view(), 0.0, period, degree, num_basis)
+        let (reference, ref_knots) =
+            create_cyclic_bspline_basis_dense(thetas.view(), 0.0, period, degree, num_basis)
+                .unwrap();
+        for frac in [0.37_f64, 0.5, 0.81, 1.0, 1.5, 2.8, 1.0e6 + 0.37] {
+            let c = frac * h;
+            let shifted = thetas.mapv(|t| t + c);
+            let (bs, knots) =
+                create_cyclic_bspline_basis_dense(shifted.view(), c, c + period, degree, num_basis)
                     .unwrap();
-            b
-        };
-        // Orthonormal basis Q of the reference column span (via its Gram null
-        // complement is overkill; use the design columns directly with an
-        // economy projection through the normal equations).
-        let gram = fast_ata(&reference);
-        // Project each shifted design's columns onto span(reference) and measure
-        // the residual energy fraction; a seam-invariant space leaves ~0 residual.
-        for frac in [0.37_f64, 0.5, 0.81, 1.0, 1.5, 2.8] {
-            let seam = frac * h;
-            let (bs, _) = create_cyclic_bspline_basis_dense(
-                thetas.view(),
-                seam,
-                seam + period,
-                degree,
-                num_basis,
-            )
-            .unwrap();
-            // Least-squares fit of each shifted column by the reference columns:
-            // residual = bs - reference · (gram⁻¹ referenceᵀ bs).
-            let rtb = fast_ab(&reference.t().to_owned(), &bs);
-            let gram_inv = {
-                // Small (num_basis × num_basis) SPD inverse via solve.
-                use faer::Side;
-                use gam_linalg::faer_ndarray::FaerCholesky;
-                let chol = gram.cholesky(Side::Lower).unwrap();
-                let mut id = Array2::<f64>::eye(gram.nrows());
-                chol.solve_mat_in_place(&mut id);
-                id
-            };
-            let coef = fast_ab(&gram_inv, &rtb);
-            let approx = fast_ab(&reference, &coef);
-            let resid = &bs - &approx;
-            let rel = resid.iter().map(|v| v * v).sum::<f64>().sqrt()
-                / bs.iter().map(|v| v * v).sum::<f64>().sqrt().max(1e-300);
-            eprintln!("[cyclic-span] seam={seam:.4} (frac {frac}) span residual={rel:.3e}");
+            let mut maxerr = 0.0_f64;
+            for r in 0..reference.nrows() {
+                for j in 0..num_basis {
+                    maxerr = maxerr.max((bs[[r, j]] - reference[[r, j]]).abs());
+                }
+            }
+            let mut knot_err = 0.0_f64;
+            for (k_ref, k_new) in ref_knots.iter().zip(knots.iter()) {
+                knot_err = knot_err.max((k_new - (k_ref + c)).abs());
+            }
+            eprintln!(
+                "[cyclic-translate] c={c:.4} (frac {frac}) design err={maxerr:.3e} knot err={knot_err:.3e}"
+            );
+            // Round-off of `t + c` / `start + c` grows with |c|; allow only
+            // that representation error beyond the exact-arithmetic bound.
+            let ulp = 1e-9 * c.abs().max(1.0);
             assert!(
-                rel < 1e-9,
-                "cyclic basis span is NOT seam-invariant at sub-knot shift frac={frac}: \
-                 relative residual {rel:.3e} (the knot grid must anchor to a canonical phase, \
-                 #1593)"
+                maxerr < 1e-9 + ulp,
+                "cyclic basis is NOT translation equivariant at offset frac={frac}: \
+                 max row error {maxerr:.3e} (knots must anchor to the declared domain origin)"
+            );
+            assert!(
+                knot_err < 1e-9 + ulp,
+                "cyclic knots did not translate with the domain at offset frac={frac}: \
+                 max knot drift {knot_err:.3e}"
             );
         }
-    }
-
-    /// At `γ = 0` the closure penalty is the open penalty; at `γ = 1` it is the
-    /// cyclic penalty. The wrap piece carries the seam.
-    #[test]
-    pub(crate) fn closure_penalty_interpolates_open_to_cyclic() {
-        let n = 8;
-        let order = 2;
-        let s_open = create_open_difference_penalty_matrix(n, order).unwrap();
-        let s_circle = create_cyclic_difference_penalty_matrix(n, order).unwrap();
-
-        let (s0, _, _) = create_closure_difference_penalty_jet(n, order, 0.0).unwrap();
-        let (s1, _, _) = create_closure_difference_penalty_jet(n, order, 1.0).unwrap();
-        assert!((&s0 - &s_open).iter().all(|v| v.abs() < 1e-12));
-        assert!((&s1 - &s_circle).iter().all(|v| v.abs() < 1e-12));
-    }
-
-    /// The closure penalty's γ-derivative matches a finite difference of the
-    /// penalty matrix.
-    #[test]
-    pub(crate) fn closure_penalty_gamma_derivative_matches_fd() {
-        let n = 6;
-        let order = 2;
-        let g = 0.45;
-        let (_, ds, _) = create_closure_difference_penalty_jet(n, order, g).unwrap();
-        let h = 1e-6;
-        let (sp, _, _) = create_closure_difference_penalty_jet(n, order, g + h).unwrap();
-        let (sm, _, _) = create_closure_difference_penalty_jet(n, order, g - h).unwrap();
-        let fd = (&sp - &sm).mapv(|v| v / (2.0 * h));
-        assert!((&ds - &fd).iter().all(|v| v.abs() < 1e-6));
-    }
-
-    /// The open penalty leaves the constant vector and the linear ramp in its
-    /// null space (order-2 difference), while the cyclic penalty only leaves the
-    /// constant — the wrap piece is what penalises the boundary ramp.
-    #[test]
-    pub(crate) fn open_penalty_null_space_is_larger_than_cyclic() {
-        let n = 7;
-        let s_open = create_open_difference_penalty_matrix(n, 2).unwrap();
-        let ones = ndarray::Array1::<f64>::ones(n);
-        let ramp = ndarray::Array1::from_iter((0..n).map(|i| i as f64));
-        // Constant is in both null spaces; ramp is in the open null space.
-        let open_const = ones.dot(&s_open.dot(&ones));
-        let open_ramp = ramp.dot(&s_open.dot(&ramp));
-        assert!(open_const.abs() < 1e-10, "open S·1 ≠ 0: {open_const}");
-        assert!(open_ramp.abs() < 1e-8, "open S·ramp ≠ 0: {open_ramp}");
     }
 }

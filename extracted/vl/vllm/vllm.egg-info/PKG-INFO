@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.24.0
+Version: 0.25.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -54,7 +54,7 @@ Requires-Dist: partial-json-parser
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
-Requires-Dist: mistral_common[image]>=1.11.3
+Requires-Dist: mistral_common[image]>=1.11.5
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
@@ -82,16 +82,19 @@ Requires-Dist: numba==0.65.0
 Requires-Dist: torch==2.11.0
 Requires-Dist: torchaudio==2.11.0
 Requires-Dist: torchvision==0.26.0
-Requires-Dist: flashinfer-python==0.6.12
-Requires-Dist: flashinfer-cubin==0.6.12
+Requires-Dist: torchcodec>=0.14
+Requires-Dist: PyNvVideoCodec==2.0.4
+Requires-Dist: flashinfer-python==0.6.13
+Requires-Dist: flashinfer-cubin==0.6.13
 Requires-Dist: apache-tvm-ffi==0.1.9
 Requires-Dist: tilelang==0.1.9
 Requires-Dist: nvidia-cudnn-frontend>=1.19.1
+Requires-Dist: nvtx==0.2.15
 Requires-Dist: fastsafetensors>=0.3.2
 Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2
 Requires-Dist: quack-kernels>=0.3.3
-Requires-Dist: tokenspeed-mla==0.1.2
-Requires-Dist: humming-kernels[cu13]==0.1.6
+Requires-Dist: tokenspeed-mla==0.1.2; platform_system == "Linux"
+Requires-Dist: humming-kernels[cu13]==0.1.10
 Provides-Extra: zen
 Requires-Dist: zentorch==2.11.0.0; extra == "zen"
 Provides-Extra: bench

@@ -25,7 +25,7 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: CancelOperationRequest = ...,
+                        body: CancelOperationRequest,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def delete(
@@ -38,10 +38,10 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -58,8 +58,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListReservationTopicsResponseHttpRequest: ...
                         def list_next(
@@ -72,8 +72,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Reservation = ...,
-                        reservationId: str = ...,
+                        body: Reservation,
+                        reservationId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ReservationHttpRequest: ...
                     def delete(
@@ -86,8 +86,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListReservationsResponseHttpRequest: ...
                     def list_next(
@@ -99,8 +99,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Reservation = ...,
-                        updateMask: str = ...,
+                        body: Reservation,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ReservationHttpRequest: ...
                     def topics(self) -> TopicsResource: ...
@@ -111,9 +111,9 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Subscription = ...,
-                        skipBacklog: bool = ...,
-                        subscriptionId: str = ...,
+                        body: Subscription,
+                        skipBacklog: bool | None = ...,
+                        subscriptionId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> SubscriptionHttpRequest: ...
                     def delete(
@@ -126,8 +126,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSubscriptionsResponseHttpRequest: ...
                     def list_next(
@@ -139,15 +139,15 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Subscription = ...,
-                        updateMask: str = ...,
+                        body: Subscription,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> SubscriptionHttpRequest: ...
                     def seek(
                         self,
                         *,
                         name: str,
-                        body: SeekSubscriptionRequest = ...,
+                        body: SeekSubscriptionRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -159,8 +159,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListTopicSubscriptionsResponseHttpRequest: ...
                         def list_next(
@@ -173,8 +173,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Topic = ...,
-                        topicId: str = ...,
+                        body: Topic,
+                        topicId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TopicHttpRequest: ...
                     def delete(
@@ -190,8 +190,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListTopicsResponseHttpRequest: ...
                     def list_next(
@@ -203,8 +203,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Topic = ...,
-                        updateMask: str = ...,
+                        body: Topic,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TopicHttpRequest: ...
                     def subscriptions(self) -> SubscriptionsResource: ...
@@ -232,8 +232,8 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListPartitionCursorsResponseHttpRequest: ...
                         def list_next(
@@ -246,7 +246,7 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         subscription: str,
-                        body: CommitCursorRequest = ...,
+                        body: CommitCursorRequest,
                         **kwargs: typing.Any,
                     ) -> CommitCursorResponseHttpRequest: ...
                     def cursors(self) -> CursorsResource: ...
@@ -269,21 +269,21 @@ class PubsubLiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         topic: str,
-                        body: ComputeHeadCursorRequest = ...,
+                        body: ComputeHeadCursorRequest,
                         **kwargs: typing.Any,
                     ) -> ComputeHeadCursorResponseHttpRequest: ...
                     def computeMessageStats(
                         self,
                         *,
                         topic: str,
-                        body: ComputeMessageStatsRequest = ...,
+                        body: ComputeMessageStatsRequest,
                         **kwargs: typing.Any,
                     ) -> ComputeMessageStatsResponseHttpRequest: ...
                     def computeTimeCursor(
                         self,
                         *,
                         topic: str,
-                        body: ComputeTimeCursorRequest = ...,
+                        body: ComputeTimeCursorRequest,
                         **kwargs: typing.Any,
                     ) -> ComputeTimeCursorResponseHttpRequest: ...
 

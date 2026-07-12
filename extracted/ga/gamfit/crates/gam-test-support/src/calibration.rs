@@ -79,10 +79,7 @@ pub trait SbcModel {
 /// posterior ties occur with probability zero, so the strict comparison is the
 /// canonical SBC rank statistic.
 pub fn sbc_rank(truth: f64, posterior_draws: &[f64]) -> usize {
-    posterior_draws
-        .iter()
-        .filter(|&&draw| draw < truth)
-        .count()
+    posterior_draws.iter().filter(|&&draw| draw < truth).count()
 }
 
 /// Run the full SBC loop and return one rank per replication.
@@ -125,15 +122,27 @@ pub struct SbcUniformityVerdict {
 /// Bin SBC ranks into `bins` equal-width cells and test uniformity by Pearson
 /// chi-square against a fixed critical value.
 ///
+/// Under the SBC null the rank is uniform on the `L + 1` reachable ranks
+/// `{0, …, L}` (`L = posterior_draws_per_rep`), so the null probability of a
+/// bin is the fraction of reachable ranks that map into it — NOT `1 / bins`
+/// unless `bins` divides `L + 1` exactly. Expected counts are therefore
+/// computed per bin from the number of reachable ranks it receives; with
+/// `L = 2` and two bins the null is `(2/3, 1/3)`, and using `(1/2, 1/2)`
+/// would misfire in both directions.
+///
 /// The critical value is the Laurent–Massart (2000) upper tail bound for a
 /// chi-square with `bins - 1` degrees of freedom:
 /// `k + 2·√(k·x) + 2·x` with `x = ln(100)`, which bounds
 /// `P(χ²_k ≥ value) ≤ e^{-x} = 0.01`. This is a principled fixed 1%
-/// false-positive rate for a standing gate, not a tuned threshold.
+/// false-positive rate for a standing gate, not a tuned threshold. Unequal
+/// bin probabilities do not change the null distribution: Pearson's statistic
+/// is asymptotically `χ²_{bins-1}` for any fixed positive cell probabilities.
 ///
 /// # Panics
-/// Panics if `bins < 2`, or if any rank exceeds `posterior_draws_per_rep`
-/// (which would mean the caller mixed histograms of different resolutions).
+/// Panics if `bins < 2`, if `bins` exceeds the `L + 1` reachable ranks (some
+/// bin would have null probability zero), or if any rank exceeds
+/// `posterior_draws_per_rep` (which would mean the caller mixed histograms of
+/// different resolutions).
 pub fn audit_sbc_uniformity(
     ranks: &[usize],
     posterior_draws_per_rep: usize,
@@ -142,6 +151,10 @@ pub fn audit_sbc_uniformity(
     assert!(bins > 1, "uniformity test needs at least two bins");
     assert!(!ranks.is_empty(), "SBC produced no ranks");
     let reachable_ranks = posterior_draws_per_rep + 1;
+    assert!(
+        bins <= reachable_ranks,
+        "{bins} bins over {reachable_ranks} reachable ranks leaves an unreachable bin"
+    );
     let mut counts = vec![0usize; bins];
     for &rank in ranks {
         assert!(
@@ -154,10 +167,16 @@ pub fn audit_sbc_uniformity(
         counts[bin] += 1;
     }
 
-    let expected = ranks.len() as f64 / bins as f64;
+    // Reachable ranks landing in bin `b`: rank r maps to floor(r·bins/(L+1)),
+    // so bin b holds r ∈ [⌈b(L+1)/bins⌉, ⌈(b+1)(L+1)/bins⌉). The expected
+    // count is the total scaled by that bin's share of the reachable ranks.
+    let bin_lower = |b: usize| (b * reachable_ranks).div_ceil(bins);
     let chi_square = counts
         .iter()
-        .map(|&count| {
+        .enumerate()
+        .map(|(b, &count)| {
+            let ranks_in_bin = (bin_lower(b + 1) - bin_lower(b)) as f64;
+            let expected = ranks.len() as f64 * ranks_in_bin / reachable_ranks as f64;
             let residual = count as f64 - expected;
             residual * residual / expected
         })
@@ -327,7 +346,10 @@ impl CoverageVerdict {
 /// escaping `[0, 1]`), so the tolerance is derived from the binomial law of the
 /// replicate count — not a hand-picked coverage band.
 pub fn audit_coverage(hits: usize, replications: usize, nominal: f64) -> CoverageVerdict {
-    assert!(replications > 0, "coverage audit needs at least one replication");
+    assert!(
+        replications > 0,
+        "coverage audit needs at least one replication"
+    );
     assert!(
         nominal > 0.0 && nominal < 1.0,
         "nominal coverage must lie in (0, 1)"
@@ -374,12 +396,8 @@ pub trait CoverageModel {
 
     /// Simulate `y ~ p(y | truth)`, fit, and return the surface's `(lower,
     /// upper)` interval at nominal coverage `level ∈ (0, 1)`.
-    fn simulate_and_interval(
-        &self,
-        truth: f64,
-        level: f64,
-        rng: &mut CalibrationRng,
-    ) -> (f64, f64);
+    fn simulate_and_interval(&self, truth: f64, level: f64, rng: &mut CalibrationRng)
+    -> (f64, f64);
 }
 
 /// Run the coverage loop at one nominal level and return the hit count (the
@@ -436,8 +454,8 @@ impl ConjugateGaussianModel {
         let data_precision = self.n_obs as f64 * self.obs_sd.powi(-2);
         let posterior_precision = prior_precision + data_precision;
         let posterior_var = 1.0 / posterior_precision;
-        let posterior_mean = posterior_var
-            * (self.prior_mean * prior_precision + sum_y * self.obs_sd.powi(-2));
+        let posterior_mean =
+            posterior_var * (self.prior_mean * prior_precision + sum_y * self.obs_sd.powi(-2));
         (posterior_mean, posterior_var.sqrt())
     }
 }
@@ -632,12 +650,18 @@ pub struct FieldAudit {
 impl FieldAudit {
     /// A point-estimate / metadata field carrying no coverage claim.
     pub const fn point(field: &'static str) -> Self {
-        Self { field, disposition: FieldDisposition::NotUncertainty }
+        Self {
+            field,
+            disposition: FieldDisposition::NotUncertainty,
+        }
     }
 
     /// An uncertainty field audited by the registered target `target`.
     pub const fn audited(field: &'static str, target: &'static str) -> Self {
-        Self { field, disposition: FieldDisposition::AuditedBy(target) }
+        Self {
+            field,
+            disposition: FieldDisposition::AuditedBy(target),
+        }
     }
 }
 
@@ -684,7 +708,10 @@ pub fn assert_registry_well_formed(registry: &[CalibrationTarget]) {
             problems.push(format!("duplicate registry name `{}`", t.name));
         }
         if t.audited_by.is_empty() {
-            problems.push(format!("target `{}` names no gate (`audited_by` empty)", t.name));
+            problems.push(format!(
+                "target `{}` names no gate (`audited_by` empty)",
+                t.name
+            ));
         }
         let mode_ok = match t.kind {
             // SBC rank uniformity is the ideal posterior audit (it sees shape
@@ -823,11 +850,57 @@ mod tests {
     }
 
     #[test]
+    fn nondivisible_rank_bins_use_reachable_rank_null_probabilities() {
+        // L = 2 posterior draws per rep gives 3 reachable ranks {0, 1, 2};
+        // two bins split them 2:1 (ranks {0,1} vs {2}), so the null is
+        // (2/3, 1/3). A perfectly uniform rank histogram lands 2:1 across the
+        // bins and MUST pass — under the old equal-expected-count null it
+        // scored chi-square ≈ 22 against a critical value ≈ 14.5 and failed.
+        let mut ranks = Vec::new();
+        for _ in 0..67 {
+            ranks.push(0);
+            ranks.push(2);
+        }
+        for _ in 0..66 {
+            ranks.push(1);
+        }
+        let uniform = audit_sbc_uniformity(&ranks, 2, 2);
+        assert_eq!(uniform.counts, vec![133, 67]);
+        assert!(
+            uniform.passed,
+            "uniform ranks over a non-divisible bin layout must pass: \
+             chi_square={:.3} > critical_value={:.3}",
+            uniform.chi_square, uniform.critical_value
+        );
+
+        // Conversely, equal bin COUNTS (100/100) are far from rank-uniform
+        // under the (2/3, 1/3) null and must fail — the exact histogram the
+        // old equal-expected null would have scored as a perfect pass.
+        let mut skewed = Vec::new();
+        for _ in 0..100 {
+            skewed.push(0);
+            skewed.push(2);
+        }
+        let verdict = audit_sbc_uniformity(&skewed, 2, 2);
+        assert_eq!(verdict.counts, vec![100, 100]);
+        assert!(
+            !verdict.passed,
+            "equal bin counts are non-uniform under the (2/3, 1/3) null: \
+             chi_square={:.3} <= critical_value={:.3}",
+            verdict.chi_square, verdict.critical_value
+        );
+    }
+
+    #[test]
     fn normal_quantile_matches_known_values_and_is_symmetric() {
         use super::standard_normal_quantile;
         // Reference two-sided z at the classic levels (accurate to the
         // approximation's ~1e-9), and the symmetry Φ⁻¹(1−p) = −Φ⁻¹(p).
-        for (p, z) in [(0.975_f64, 1.959_963_985), (0.95, 1.644_853_627), (0.9, 1.281_551_566)] {
+        for (p, z) in [
+            (0.975_f64, 1.959_963_985),
+            (0.95, 1.644_853_627),
+            (0.9, 1.281_551_566),
+        ] {
             assert!(
                 (standard_normal_quantile(p) - z).abs() < 1e-6,
                 "Φ⁻¹({p}) = {} != {z}",
@@ -838,7 +911,10 @@ mod tests {
                 "quantile not antisymmetric at p={p}"
             );
         }
-        assert!(standard_normal_quantile(0.5).abs() < 1e-9, "median must be 0");
+        assert!(
+            standard_normal_quantile(0.5).abs() < 1e-9,
+            "median must be 0"
+        );
     }
 
     #[test]
@@ -862,9 +938,7 @@ mod tests {
 
     #[test]
     fn calibrated_conjugate_gaussian_passes_coverage_sweep() {
-        use super::{
-            COVERAGE_NOMINAL_LEVELS, COVERAGE_REPLICATIONS, audit_coverage, run_coverage,
-        };
+        use super::{COVERAGE_NOMINAL_LEVELS, COVERAGE_REPLICATIONS, audit_coverage, run_coverage};
         // Real end-to-end coverage: exact closed-form credible intervals cover at
         // nominal, so every level in the sweep must pass.
         let model = conjugate_model(1.0);
@@ -882,7 +956,7 @@ mod tests {
 
     #[test]
     fn narrowed_interval_fails_coverage_sweep() {
-        use super::{CoverageClass, COVERAGE_REPLICATIONS, audit_coverage, run_coverage};
+        use super::{COVERAGE_REPLICATIONS, CoverageClass, audit_coverage, run_coverage};
         // Teeth: intervals narrowed to half width (posterior_sd_scale = 0.5)
         // under-cover, so the gate must classify anti-conservative and fail. A
         // vacuous coverage check would let this pass.
@@ -894,7 +968,9 @@ mod tests {
             v.class,
             CoverageClass::AntiConservative,
             "narrowed interval must be flagged anti-conservative: empirical={:.4} CI=[{:.4},{:.4}]",
-            v.empirical, v.ci_lo, v.ci_hi
+            v.empirical,
+            v.ci_lo,
+            v.ci_hi
         );
         assert!(!v.passed, "narrowed interval must fail the coverage gate");
     }
@@ -919,7 +995,9 @@ mod tests {
         vec![
             CalibrationTarget {
                 name: "mean_credible_band",
-                kind: SurfaceKind::CredibleBand { smoothing_corrected: false },
+                kind: SurfaceKind::CredibleBand {
+                    smoothing_corrected: false,
+                },
                 mode: AuditMode::CoverageSweep,
                 guards: &[1870, 1871],
                 audited_by: "sbc_gaussian_smooth_band_coverage",
@@ -947,7 +1025,10 @@ mod tests {
 
         // Introduce a field auditing an UNREGISTERED surface — the exact
         // "recycled SE ships unaudited" failure the lint exists to block.
-        let orphaned = [FieldAudit::audited("observation_lower", "predictive_interval_gaussian")];
+        let orphaned = [FieldAudit::audited(
+            "observation_lower",
+            "predictive_interval_gaussian",
+        )];
         let caught = std::panic::catch_unwind(|| {
             assert_registry_covers_fields(&orphaned, &tiny_registry());
         });
@@ -971,12 +1052,18 @@ mod tests {
             audited_by: "somewhere",
         }];
         let caught = std::panic::catch_unwind(|| assert_registry_well_formed(&mis));
-        assert!(caught.is_err(), "test p-value on a coverage sweep must be flagged");
+        assert!(
+            caught.is_err(),
+            "test p-value on a coverage sweep must be flagged"
+        );
     }
 
     #[test]
     fn field_disposition_constructors_tag_correctly() {
-        assert_eq!(FieldAudit::point("eta").disposition, FieldDisposition::NotUncertainty);
+        assert_eq!(
+            FieldAudit::point("eta").disposition,
+            FieldDisposition::NotUncertainty
+        );
         assert_eq!(
             FieldAudit::audited("eta_lower", "band").disposition,
             FieldDisposition::AuditedBy("band")

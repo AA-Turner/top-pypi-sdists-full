@@ -20,13 +20,13 @@ class AdSensePlatformResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class EventsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: Event = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Event, **kwargs: typing.Any
                 ) -> EventHttpRequest: ...
 
             @typing.type_check_only
             class SitesResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: Site = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Site, **kwargs: typing.Any
                 ) -> SiteHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -38,8 +38,8 @@ class AdSensePlatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSitesResponseHttpRequest: ...
                 def list_next(
@@ -52,22 +52,18 @@ class AdSensePlatformResource(googleapiclient.discovery.Resource):
                 ) -> RequestSiteReviewResponseHttpRequest: ...
 
             def close(  # type: ignore[override]
-                self,
-                *,
-                name: str,
-                body: CloseAccountRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: CloseAccountRequest, **kwargs: typing.Any
             ) -> CloseAccountResponseHttpRequest: ...
             def create(
-                self, *, parent: str, body: Account = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Account, **kwargs: typing.Any
             ) -> AccountHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> AccountHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAccountsResponseHttpRequest: ...
             def list_next(
@@ -76,7 +72,11 @@ class AdSensePlatformResource(googleapiclient.discovery.Resource):
                 previous_response: ListAccountsResponse,
             ) -> ListAccountsResponseHttpRequest | None: ...
             def lookup(
-                self, *, parent: str, creationRequestId: str = ..., **kwargs: typing.Any
+                self,
+                *,
+                parent: str,
+                creationRequestId: str | None = ...,
+                **kwargs: typing.Any,
             ) -> LookupAccountResponseHttpRequest: ...
             def events(self) -> EventsResource: ...
             def sites(self) -> SitesResource: ...

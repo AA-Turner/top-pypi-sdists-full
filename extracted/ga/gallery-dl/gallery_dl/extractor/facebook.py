@@ -465,8 +465,8 @@ class FacebookSetExtractor(FacebookExtractor):
     pattern = (
         BASE_PATTERN +
         r"/(?:(?:media/set|photo)/?\?(?:[^&#]+&)*set=([^&#]+)"
-        r"[^/?#]*(?<!&setextract)$"
-        r"|[^/?#]+/posts/([^/?#]+)"
+        r"[^/?#]*(?<!&setextract)$"  # set_id
+        r"|([^/?#]+/posts/[^?#]+)"   # path aka '/USER/posts/SLUG/ID'
         r"|photo/\?(?:[^&#]+&)*fbid=([^/?&#]+)&set=([^/?&#]+)&setextract"
         r"|(?:groups/)?(?:[^/?#]+/)?(?:permalink|posts)(?:\.php)?"
         r"(?:/(\d+)|\?\w+=([^/?#]+))"

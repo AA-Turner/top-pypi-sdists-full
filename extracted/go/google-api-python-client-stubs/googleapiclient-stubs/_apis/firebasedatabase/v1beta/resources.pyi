@@ -23,9 +23,9 @@ class FirebaseRealtimeDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: DatabaseInstance = ...,
-                    databaseId: str = ...,
-                    validateOnly: bool = ...,
+                    body: DatabaseInstance,
+                    databaseId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> DatabaseInstanceHttpRequest: ...
                 def delete(
@@ -35,7 +35,7 @@ class FirebaseRealtimeDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: DisableDatabaseInstanceRequest = ...,
+                    body: DisableDatabaseInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> DatabaseInstanceHttpRequest: ...
                 def get(
@@ -45,9 +45,9 @@ class FirebaseRealtimeDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    showDeleted: bool = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    showDeleted: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDatabaseInstancesResponseHttpRequest: ...
                 def list_next(
@@ -59,14 +59,14 @@ class FirebaseRealtimeDatabaseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ReenableDatabaseInstanceRequest = ...,
+                    body: ReenableDatabaseInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> DatabaseInstanceHttpRequest: ...
                 def undelete(
                     self,
                     *,
                     name: str,
-                    body: UndeleteDatabaseInstanceRequest = ...,
+                    body: UndeleteDatabaseInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> DatabaseInstanceHttpRequest: ...
 

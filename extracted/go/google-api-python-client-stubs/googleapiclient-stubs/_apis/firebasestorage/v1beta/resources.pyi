@@ -18,19 +18,15 @@ class FirebasestorageResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class BucketsResource(googleapiclient.discovery.Resource):
             def addFirebase(
-                self,
-                *,
-                bucket: str,
-                body: AddFirebaseRequest = ...,
-                **kwargs: typing.Any,
+                self, *, bucket: str, body: AddFirebaseRequest, **kwargs: typing.Any
             ) -> BucketHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> BucketHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListBucketsResponseHttpRequest: ...
             def list_next(
@@ -39,17 +35,13 @@ class FirebasestorageResource(googleapiclient.discovery.Resource):
                 previous_response: ListBucketsResponse,
             ) -> ListBucketsResponseHttpRequest | None: ...
             def removeFirebase(
-                self,
-                *,
-                bucket: str,
-                body: RemoveFirebaseRequest = ...,
-                **kwargs: typing.Any,
+                self, *, bucket: str, body: RemoveFirebaseRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
 
         @typing.type_check_only
         class DefaultBucketResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: DefaultBucket = ..., **kwargs: typing.Any
+                self, *, parent: str, body: DefaultBucket, **kwargs: typing.Any
             ) -> DefaultBucketHttpRequest: ...
 
         def deleteDefaultBucket(

@@ -18,7 +18,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class ConversionSourcesResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: ConversionSource = ..., **kwargs: typing.Any
+                self, *, parent: str, body: ConversionSource, **kwargs: typing.Any
             ) -> ConversionSourceHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -30,9 +30,9 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                showDeleted: bool = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                showDeleted: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> ListConversionSourcesResponseHttpRequest: ...
             def list_next(
@@ -44,15 +44,15 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: ConversionSource = ...,
-                updateMask: str = ...,
+                body: ConversionSource,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ConversionSourceHttpRequest: ...
             def undelete(
                 self,
                 *,
                 name: str,
-                body: UndeleteConversionSourceRequest = ...,
+                body: UndeleteConversionSourceRequest,
                 **kwargs: typing.Any,
             ) -> ConversionSourceHttpRequest: ...
 

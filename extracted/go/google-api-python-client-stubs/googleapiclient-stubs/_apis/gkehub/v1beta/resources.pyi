@@ -23,8 +23,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListFleetsResponseHttpRequest: ...
                 def list_next(
@@ -47,42 +47,42 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Feature = ...,
-                    featureId: str = ...,
-                    requestId: str = ...,
+                    body: Feature,
+                    featureId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    returnPartialSuccess: bool = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> FeatureHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListFeaturesResponseHttpRequest: ...
                 def list_next(
@@ -94,30 +94,30 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Feature = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Feature,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
             @typing.type_check_only
             class FleetsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: Fleet = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Fleet, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -129,8 +129,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListFleetsResponseHttpRequest: ...
                 def list_next(
@@ -142,8 +142,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Fleet = ...,
-                    updateMask: str = ...,
+                    body: Fleet,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -155,8 +155,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: MembershipBinding = ...,
-                        membershipBindingId: str = ...,
+                        body: MembershipBinding,
+                        membershipBindingId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -169,9 +169,9 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListMembershipBindingsResponseHttpRequest: ...
                     def list_next(
@@ -183,8 +183,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: MembershipBinding = ...,
-                        updateMask: str = ...,
+                        body: MembershipBinding,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -194,8 +194,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: RBACRoleBinding = ...,
-                        rbacrolebindingId: str = ...,
+                        body: RBACRoleBinding,
+                        rbacrolebindingId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -205,8 +205,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: RBACRoleBinding = ...,
-                        rbacrolebindingId: str = ...,
+                        body: RBACRoleBinding,
+                        rbacrolebindingId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GenerateMembershipRBACRoleBindingYAMLResponseHttpRequest: ...
                     def get(
@@ -216,8 +216,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListMembershipRBACRoleBindingsResponseHttpRequest: ...
                     def list_next(
@@ -229,8 +229,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: RBACRoleBinding = ...,
-                        updateMask: str = ...,
+                        body: RBACRoleBinding,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -238,29 +238,29 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Membership = ...,
-                    membershipId: str = ...,
-                    requestId: str = ...,
+                    body: Membership,
+                    membershipId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def generateConnectManifest(
                     self,
                     *,
                     name: str,
-                    imagePullSecretContent: str = ...,
-                    isUpgrade: bool = ...,
-                    namespace: str = ...,
-                    proxy: str = ...,
-                    registry: str = ...,
-                    version: str = ...,
+                    imagePullSecretContent: str | None = ...,
+                    isUpgrade: bool | None = ...,
+                    namespace: str | None = ...,
+                    proxy: str | None = ...,
+                    registry: str | None = ...,
+                    version: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GenerateConnectManifestResponseHttpRequest: ...
                 def get(
@@ -270,17 +270,17 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListMembershipsResponseHttpRequest: ...
                 def list_next(
@@ -292,23 +292,23 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Membership = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Membership,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def bindings(self) -> BindingsResource: ...
@@ -320,7 +320,7 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -333,10 +333,10 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -351,8 +351,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: RolloutSequence = ...,
-                    rolloutSequenceId: str = ...,
+                    body: RolloutSequence,
+                    rolloutSequenceId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -365,9 +365,9 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListRolloutSequencesResponseHttpRequest: ...
                 def list_next(
@@ -379,35 +379,35 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: RolloutSequence = ...,
-                    updateMask: str = ...,
+                    body: RolloutSequence,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def upgrade(
                     self,
                     *,
                     name: str,
-                    body: UpgradeRolloutSequenceRequest = ...,
+                    body: UpgradeRolloutSequenceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
             @typing.type_check_only
             class RolloutsResource(googleapiclient.discovery.Resource):
                 def cancel(
+                    self, *, name: str, body: CancelRolloutRequest, **kwargs: typing.Any
+                ) -> OperationHttpRequest: ...
+                def delete(
                     self,
                     *,
                     name: str,
-                    body: CancelRolloutRequest = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
-                ) -> OperationHttpRequest: ...
-                def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def forceCompleteStage(
                     self,
                     *,
                     name: str,
-                    body: ForceCompleteRolloutStageRequest = ...,
+                    body: ForceCompleteRolloutStageRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -417,9 +417,9 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListRolloutsResponseHttpRequest: ...
                 def list_next(
@@ -428,18 +428,10 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     previous_response: ListRolloutsResponse,
                 ) -> ListRolloutsResponseHttpRequest | None: ...
                 def pause(
-                    self,
-                    *,
-                    name: str,
-                    body: PauseRolloutRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: PauseRolloutRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def resume(
-                    self,
-                    *,
-                    name: str,
-                    body: ResumeRolloutRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: ResumeRolloutRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
 
             @typing.type_check_only
@@ -450,8 +442,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Namespace = ...,
-                        scopeNamespaceId: str = ...,
+                        body: Namespace,
+                        scopeNamespaceId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -464,8 +456,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListScopeNamespacesResponseHttpRequest: ...
                     def list_next(
@@ -477,8 +469,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Namespace = ...,
-                        updateMask: str = ...,
+                        body: Namespace,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -488,8 +480,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: RBACRoleBinding = ...,
-                        rbacrolebindingId: str = ...,
+                        body: RBACRoleBinding,
+                        rbacrolebindingId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -502,8 +494,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListScopeRBACRoleBindingsResponseHttpRequest: ...
                     def list_next(
@@ -515,8 +507,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: RBACRoleBinding = ...,
-                        updateMask: str = ...,
+                        body: RBACRoleBinding,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -524,8 +516,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Scope = ...,
-                    scopeId: str = ...,
+                    body: Scope,
+                    scopeId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -538,15 +530,15 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListScopesResponseHttpRequest: ...
                 def list_next(
@@ -558,9 +550,9 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     scopeName: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBoundMembershipsResponseHttpRequest: ...
                 def listMemberships_next(
@@ -572,8 +564,8 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPermittedScopesResponseHttpRequest: ...
                 def listPermitted_next(
@@ -585,22 +577,22 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Scope = ...,
-                    updateMask: str = ...,
+                    body: Scope,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def namespaces(self) -> NamespacesResource: ...
@@ -613,10 +605,10 @@ class GKEHubResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

@@ -127,7 +127,7 @@ class SankakuTagExtractor(SankakuExtractor):
     def __init__(self, match):
         SankakuExtractor.__init__(self, match)
         query = text.parse_query(match[1])
-        self.tags = text.unquote(query.get("tags", "").replace("+", " "))
+        self.tags = query.get("tags", "")
 
         if "date:" in self.tags:
             # rewrite 'date:' tags (#1790)

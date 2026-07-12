@@ -16,7 +16,7 @@ class ApiKeysServiceResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class KeysResource(googleapiclient.discovery.Resource):
         def lookupKey(
-            self, *, keyString: str = ..., **kwargs: typing.Any
+            self, *, keyString: str | None = ..., **kwargs: typing.Any
         ) -> V2LookupKeyResponseHttpRequest: ...
 
     @typing.type_check_only
@@ -33,12 +33,12 @@ class ApiKeysServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: V2Key = ...,
-                    keyId: str = ...,
+                    body: V2Key,
+                    keyId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -50,9 +50,9 @@ class ApiKeysServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    showDeleted: bool = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    showDeleted: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> V2ListKeysResponseHttpRequest: ...
                 def list_next(
@@ -64,16 +64,12 @@ class ApiKeysServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: V2Key = ...,
-                    updateMask: str = ...,
+                    body: V2Key,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def undelete(
-                    self,
-                    *,
-                    name: str,
-                    body: V2UndeleteKeyRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: V2UndeleteKeyRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
 
             def keys(self) -> KeysResource: ...

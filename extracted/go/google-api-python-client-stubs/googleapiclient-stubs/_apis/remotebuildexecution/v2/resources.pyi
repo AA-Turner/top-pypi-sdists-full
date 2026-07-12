@@ -21,9 +21,9 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
             instanceName: str,
             hash: str,
             sizeBytes: str,
-            inlineOutputFiles: str | _list[str] = ...,
-            inlineStderr: bool = ...,
-            inlineStdout: bool = ...,
+            inlineOutputFiles: str | _list[str] | None = ...,
+            inlineStderr: bool | None = ...,
+            inlineStdout: bool | None = ...,
             **kwargs: typing.Any,
         ) -> BuildBazelRemoteExecutionV2ActionResultHttpRequest: ...
         def update(
@@ -32,8 +32,8 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
             instanceName: str,
             hash: str,
             sizeBytes: str,
-            body: BuildBazelRemoteExecutionV2ActionResult = ...,
-            resultsCachePolicy_priority: int = ...,
+            body: BuildBazelRemoteExecutionV2ActionResult,
+            resultsCachePolicy_priority: int | None = ...,
             **kwargs: typing.Any,
         ) -> BuildBazelRemoteExecutionV2ActionResultHttpRequest: ...
 
@@ -43,7 +43,7 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
             self,
             *,
             instanceName: str,
-            body: BuildBazelRemoteExecutionV2ExecuteRequest = ...,
+            body: BuildBazelRemoteExecutionV2ExecuteRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -53,21 +53,21 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
             self,
             *,
             instanceName: str,
-            body: BuildBazelRemoteExecutionV2BatchReadBlobsRequest = ...,
+            body: BuildBazelRemoteExecutionV2BatchReadBlobsRequest,
             **kwargs: typing.Any,
         ) -> BuildBazelRemoteExecutionV2BatchReadBlobsResponseHttpRequest: ...
         def batchUpdate(
             self,
             *,
             instanceName: str,
-            body: BuildBazelRemoteExecutionV2BatchUpdateBlobsRequest = ...,
+            body: BuildBazelRemoteExecutionV2BatchUpdateBlobsRequest,
             **kwargs: typing.Any,
         ) -> BuildBazelRemoteExecutionV2BatchUpdateBlobsResponseHttpRequest: ...
         def findMissing(
             self,
             *,
             instanceName: str,
-            body: BuildBazelRemoteExecutionV2FindMissingBlobsRequest = ...,
+            body: BuildBazelRemoteExecutionV2FindMissingBlobsRequest,
             **kwargs: typing.Any,
         ) -> BuildBazelRemoteExecutionV2FindMissingBlobsResponseHttpRequest: ...
         def getTree(
@@ -76,8 +76,8 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
             instanceName: str,
             hash: str,
             sizeBytes: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> BuildBazelRemoteExecutionV2GetTreeResponseHttpRequest: ...
         def getTree_next(
@@ -92,7 +92,7 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: BuildBazelRemoteExecutionV2WaitExecutionRequest = ...,
+            body: BuildBazelRemoteExecutionV2WaitExecutionRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
 

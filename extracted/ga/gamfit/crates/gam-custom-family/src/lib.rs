@@ -45,11 +45,11 @@ pub(crate) use gam_solve::active_set::{
 pub(crate) use gam_solve::estimate::reml::penalty_logdet::PenaltyPseudologdet;
 pub(crate) use gam_solve::estimate::reml::reml_outer_engine::{
     BlockCoupledOperator, CompositeHyperOperator, DenseSpectralOperator, DispersionHandling,
-    ExactJeffreysTerm, HessianDerivativeProvider, HessianOperator, MatrixFreeSpdOperator,
+    ExactJeffreysTerm, HessianDerivativeProvider, HessianFactorization, MatrixFreeSpdOperator,
     OuterHessianDerivativeKernel, PenaltySubspaceTrace, StochasticTraceState,
-    compute_block_penalty_logdet_derivs, compute_efs_update, compute_hybrid_efs_update,
-    exact_pseudo_logdet, hessian_operator_geometric_scale, positive_eigenvalue_threshold,
-    spectral_epsilon, spectral_regularize,
+    compute_block_penalty_logdet_derivs_with_prior_factors, compute_efs_update,
+    compute_hybrid_efs_update, exact_pseudo_logdet, hessian_factorization_geometric_scale,
+    positive_eigenvalue_threshold, spectral_epsilon, spectral_regularize,
 };
 // `ActiveLinearConstraintBlock`, `FitGeometry`, and `ProjectedKktResidual` are
 // the model-estimation contract types that still live in the (not-yet-carved)
@@ -92,14 +92,14 @@ pub(crate) use gam_problem::*;
 // gam-models' own `gam_model_api`/`gam_problem` globs — they do not introduce an
 // E0659 ambiguity in the gam-models facade.
 pub use gam_model_api::families::custom_family::{
-    BlockwiseFitOptions, CustomFamily, FamilyEvaluation, cost_gated_first_order_max_iter,
+    BlockwiseFitOptions, CustomFamily, FamilyEvaluation, OuterDerivativePilotSchedule,
     exact_newton_outer_geometry_supports_second_order_solver,
 };
 pub use gam_problem::{
     AdditiveBlockJacobian, BlockEffectiveJacobian, BlockGeometryDirectionalDerivative,
     BlockWorkingSet, CustomFamilyBlockPsiDerivative, CustomFamilyPsiDerivativeOperator,
-    ExactNewtonJointPsiTerms, ExactNewtonOuterObjective, FamilyLinearizationState,
-    ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
+    ExactNewtonOuterObjective, FamilyLinearizationState, ParameterBlockSpec, ParameterBlockState,
+    PenaltyMatrix,
 };
 
 // `whitened_spectrum` is a submodule hosted inside `joint_newton`; re-export it

@@ -325,7 +325,8 @@ pub fn dictionary_incoherence_report(term: &SaeManifoldTerm) -> Result<Certifica
     let dispersion = term.certificate_dispersion.ok_or_else(|| {
         "dictionary_incoherence_report: fitted reconstruction dispersion is unavailable".to_string()
     })?;
-    dictionary_incoherence_report_with_dispersion(term, dispersion)
+    let fitted = term.try_fitted()?;
+    dictionary_incoherence_report_with_dispersion(term, dispersion, fitted.view())
 }
 
 /// Build the empirical curved-dictionary certificate quantities from a fitted
@@ -343,10 +344,19 @@ pub fn dictionary_incoherence_report(term: &SaeManifoldTerm) -> Result<Certifica
 pub fn dictionary_incoherence_report_with_dispersion(
     term: &SaeManifoldTerm,
     dispersion: f64,
+    fitted: ArrayView2<'_, f64>,
 ) -> Result<CertificateInputs, String> {
     if !dispersion.is_finite() || dispersion <= 0.0 {
         return Err(format!(
             "dictionary_incoherence_report: dispersion must be finite and positive, got {dispersion}"
+        ));
+    }
+    if fitted.dim() != (term.n_obs(), term.output_dim()) {
+        return Err(format!(
+            "dictionary_incoherence_report: fitted {:?} != ({}, {})",
+            fitted.dim(),
+            term.n_obs(),
+            term.output_dim()
         ));
     }
     let mu_hat = dictionary_frame_incoherence(term)?;
@@ -379,7 +389,6 @@ pub fn dictionary_incoherence_report_with_dispersion(
         .iter()
         .copied()
         .fold(f64::INFINITY, f64::min);
-    let fitted = term.fitted();
     let signal_power = if fitted.is_empty() {
         0.0
     } else {
@@ -651,6 +660,56 @@ pub(crate) fn projected_perp_norm(vector: &[f64], tangent_frame: ArrayView2<'_, 
 #[cfg(test)]
 mod certificate_verdict_tests {
     use super::*;
+
+    /// Closed-form check of the extrinsic-curvature bound `κ̂`
+    /// ([`atom_curvature_bound_with_decoder`]): a planted radius-`r` circle
+    /// `m(θ) = r·(cos θ, sin θ)` has plane-curvature exactly `1/r`, and the
+    /// certificate's tangent-scaled second-fundamental-form norm
+    /// `κ̂ = ‖P_⊥ m''‖ / ‖m'‖²` must reproduce it to machine precision (and
+    /// scale as `1/r`, since a bigger circle bends less). This pins the
+    /// normalization — dividing the perp second-derivative by the SQUARED
+    /// tangent singular value, not the singular value — which the certified
+    /// tangent-graph budget `1 − C_κ·κ̂` depends on.
+    #[test]
+    fn atom_curvature_bound_recovers_circle_reciprocal_radius() {
+        use ndarray::{Array2, Array4};
+        let thetas = [0.0_f64, 0.3, 1.1, 2.7, 4.9];
+        for &r in &[0.5_f64, 1.0, 2.0, 7.5] {
+            let n = thetas.len();
+            let mut phi = Array2::<f64>::zeros((n, 2));
+            let mut jac = ndarray::Array3::<f64>::zeros((n, 2, 1));
+            let mut second = Array4::<f64>::zeros((n, 2, 1, 1));
+            for (i, &t) in thetas.iter().enumerate() {
+                phi[[i, 0]] = t.cos();
+                phi[[i, 1]] = t.sin();
+                jac[[i, 0, 0]] = -t.sin();
+                jac[[i, 1, 0]] = t.cos();
+                second[[i, 0, 0, 0]] = -t.cos();
+                second[[i, 1, 0, 0]] = -t.sin();
+            }
+            // Decoder m(θ) = r·(cos θ, sin θ): B = r·I₂ (basis rows → output).
+            let mut decoder = Array2::<f64>::zeros((2, 2));
+            decoder[[0, 0]] = r;
+            decoder[[1, 1]] = r;
+            let atom = SaeManifoldAtom::new(
+                "circle",
+                SaeAtomBasisKind::Periodic,
+                1,
+                phi,
+                jac,
+                decoder.clone(),
+                Array2::<f64>::eye(2),
+            )
+            .unwrap();
+            let kappa =
+                atom_curvature_bound_with_decoder(&atom, 0, second.view(), decoder.view()).unwrap();
+            let expected = 1.0 / r;
+            assert!(
+                (kappa - expected).abs() < 1.0e-9,
+                "circle radius {r}: κ̂ must be 1/r = {expected}, got {kappa}"
+            );
+        }
+    }
 
     /// A negative `snr_proxy` must NEVER certify. The bare `snr_factor =
     /// 1 − 1/snr_proxy > 0` check passes a negative proxy (`1 − (−) > 1`) and

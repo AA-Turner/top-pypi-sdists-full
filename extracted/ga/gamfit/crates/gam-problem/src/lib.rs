@@ -33,7 +33,6 @@ pub mod fisher_rao;
 pub mod gauge;
 pub mod identifiability_audit;
 pub mod joint_penalty;
-mod linalg_helpers;
 mod linear_constraints;
 pub mod monotone_root_error;
 pub mod outer_subsample;
@@ -62,29 +61,6 @@ pub mod types;
 pub use riemannian_retraction::LatentRetractionRegistry;
 pub use row_measure::RowSubsampleMask;
 
-mod gpu {
-    pub(crate) mod linalg_dispatch {
-        use ndarray::{Array2, ArrayView2};
-
-        pub(crate) fn try_fast_atb(
-            a: ArrayView2<'_, f64>,
-            b: ArrayView2<'_, f64>,
-        ) -> Option<Array2<f64>> {
-            let (n_a, p) = a.dim();
-            let (n_b, q) = b.dim();
-            assert_eq!(n_a, n_b, "A and B must have same number of rows");
-            if !crate::linalg_helpers::should_use_faer_matmul(p, q, n_a) {
-                return None;
-            }
-            Some(crate::linalg_helpers::fast_atb_with_parallelism(
-                &a,
-                &b,
-                crate::linalg_helpers::matmul_parallelism(p, q, n_a),
-            ))
-        }
-    }
-}
-
 pub use basis_error::BasisError;
 pub use block_count_error::BlockCountMismatch;
 pub use block_role::BlockRole;
@@ -103,7 +79,10 @@ pub use dispersion::Dispersion;
 pub use dispersion_cov::{
     DispersionExt, PhiScaledCovariance, UnscaledPrecision, se_from_covariance,
 };
-pub use estimation_error::EstimationError;
+pub use estimation_error::{
+    EstimationError, FixedLambdaCheckpoint, FixedLambdaResidualKind, FixedLambdaSolverStage,
+    FixedLambdaStallReason, FixedLambdaStationarityEvidence,
+};
 pub use execution_path::ExecutionPath;
 pub use family_options::{ExactNewtonOuterObjective, ExactOuterDerivativeOrder};
 pub use finite_validation::{
@@ -113,13 +92,13 @@ pub use finite_validation::{
 pub use fisher_rao::{
     FisherRaoDefiniteness, normalize_fisher_rao_blocks, normalize_fisher_rao_blocks_pd,
 };
+use gam_linalg::dense;
 pub use gam_linalg::faer_ndarray::{in_nested_parallel_region, with_nested_parallel};
 pub use gauge::Gauge;
 pub use identifiability_audit::{
     AliasedPair, BlockIdentity, DroppedColumn, IdentifiabilityAudit, MapUniquenessError,
 };
 pub use joint_penalty::{JointPenaltyBundle, JointPenaltyError, JointPenaltySpec};
-use linalg_helpers::{dense_bilinear, dense_matvec_into, dense_matvec_scaled_add_into};
 pub use linear_constraints::LinearInequalityConstraints;
 pub use monotone_root_error::MonotoneRootError;
 pub use penalty_coordinate::PenaltyCoordinate;
@@ -138,8 +117,9 @@ pub use row_metric::{MetricProvenance, RowMetric, WeightField, pack_probe_factor
 pub use schedule::{GumbelTemperatureSchedule, ScheduleKind, SearchStrategy};
 pub use seeding::{SeedConfig, SeedRiskProfile, clamp_seed_rho_to_bounds, normalize_seed_bounds};
 pub use solver_contract::{
-    DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval,
-    OuterHessianMaterialization, OuterHessianOperator, OuterStrategyError,
+    DeclaredHessianForm, Derivative, EfsEval, FixedPointCertificateEval,
+    FixedPointCoordinateCertificate, HessianMaterialization, HessianOperator, HessianValue,
+    ObjectiveEvalError, OuterEval, OuterStrategyError,
 };
 pub use types::*;
 
@@ -265,7 +245,7 @@ pub trait HyperOperator: Send + Sync {
     /// Compute the exact projected matrix `F^T B F`.
     fn projected_matrix(&self, factor: &Array2<f64>) -> Array2<f64> {
         let op_factor = self.mul_mat(factor);
-        crate::linalg_helpers::fast_atb(factor, &op_factor)
+        gam_linalg::faer_ndarray::fast_atb(factor, &op_factor)
     }
 
     /// Compute the exact projected matrix `F^T B F`, reusing caller-owned
@@ -280,7 +260,7 @@ pub trait HyperOperator: Send + Sync {
             Some(design_id) => {
                 let key = ProjectedFactorKey::from_factor_view(design_id, factor.view());
                 let projected = factor_cache.get_or_insert_with(key, || self.mul_mat(factor));
-                crate::linalg_helpers::fast_atb(factor, projected.as_ref())
+                gam_linalg::faer_ndarray::fast_atb(factor, projected.as_ref())
             }
             None => self.projected_matrix(factor),
         }
@@ -754,11 +734,11 @@ impl HyperOperator for DenseMatrixHyperOperator {
     }
 
     fn bilinear(&self, v: &Array1<f64>, u: &Array1<f64>) -> f64 {
-        dense_bilinear(&self.matrix, v.view(), u.view())
+        dense::bilinear(&self.matrix, v.view(), u.view())
     }
 
     fn bilinear_view(&self, v: ArrayView1<'_, f64>, u: ArrayView1<'_, f64>) -> f64 {
-        dense_bilinear(&self.matrix, v, u)
+        dense::bilinear(&self.matrix, v, u)
     }
 
     fn to_dense(&self) -> Array2<f64> {
@@ -800,7 +780,7 @@ impl HyperOperator for BlockLocalDrift {
         out.fill(0.0);
         let v_block = v.slice(ndarray::s![self.start..self.end]);
         let mut out_block = out.slice_mut(ndarray::s![self.start..self.end]);
-        dense_matvec_into(&self.local, v_block, out_block.view_mut());
+        dense::matvec_into(&self.local, v_block, out_block.view_mut());
     }
 
     fn scaled_add_mul_vec(
@@ -816,7 +796,7 @@ impl HyperOperator for BlockLocalDrift {
         }
         let v_block = v.slice(ndarray::s![self.start..self.end]);
         let out_block = out.slice_mut(ndarray::s![self.start..self.end]);
-        dense_matvec_scaled_add_into(&self.local, v_block, scale, out_block);
+        dense::matvec_scaled_add_into(&self.local, v_block, scale, out_block);
     }
 
     fn bilinear(&self, v: &Array1<f64>, u: &Array1<f64>) -> f64 {
@@ -828,7 +808,7 @@ impl HyperOperator for BlockLocalDrift {
         assert_eq!(u.len(), self.total_dim);
         let v_block = v.slice(ndarray::s![self.start..self.end]);
         let u_block = u.slice(ndarray::s![self.start..self.end]);
-        dense_bilinear(&self.local, v_block, u_block)
+        dense::bilinear(&self.local, v_block, u_block)
     }
 
     fn to_dense(&self) -> Array2<f64> {
@@ -951,12 +931,12 @@ impl HyperCoordDrift {
             return;
         }
         if let Some(dense) = &self.dense {
-            dense_matvec_scaled_add_into(dense, v, scale, out.view_mut());
+            dense::matvec_scaled_add_into(dense, v, scale, out.view_mut());
         }
         if let Some(bl) = &self.block_local {
             let v_block = v.slice(ndarray::s![bl.start..bl.end]);
             let out_block = out.slice_mut(ndarray::s![bl.start..bl.end]);
-            dense_matvec_scaled_add_into(&bl.local, v_block, scale, out_block);
+            dense::matvec_scaled_add_into(&bl.local, v_block, scale, out_block);
         }
         if let Some(op) = &self.operator {
             op.scaled_add_mul_vec(v, scale, out.view_mut());

@@ -21,9 +21,9 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListProductsResponseHttpRequest: ...
             def list_next(
@@ -38,7 +38,7 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: FindEligiblePromotionsRequest = ...,
+                body: FindEligiblePromotionsRequest,
                 **kwargs: typing.Any,
             ) -> FindEligiblePromotionsResponseHttpRequest: ...
             def findEligible_next(
@@ -50,9 +50,9 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListPromotionsResponseHttpRequest: ...
             def list_next(
@@ -69,8 +69,8 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: SubscriptionLineItem = ...,
-                    updateMask: str = ...,
+                    body: SubscriptionLineItem,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> SubscriptionLineItemHttpRequest: ...
 
@@ -78,29 +78,29 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: CancelSubscriptionRequest = ...,
+                body: CancelSubscriptionRequest,
                 **kwargs: typing.Any,
             ) -> CancelSubscriptionResponseHttpRequest: ...
             def create(
                 self,
                 *,
                 parent: str,
-                body: Subscription = ...,
-                subscriptionId: str = ...,
+                body: Subscription,
+                subscriptionId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SubscriptionHttpRequest: ...
             def entitle(
                 self,
                 *,
                 name: str,
-                body: EntitleSubscriptionRequest = ...,
+                body: EntitleSubscriptionRequest,
                 **kwargs: typing.Any,
             ) -> EntitleSubscriptionResponseHttpRequest: ...
             def extend(
                 self,
                 *,
                 name: str,
-                body: ExtendSubscriptionRequest = ...,
+                body: ExtendSubscriptionRequest,
                 **kwargs: typing.Any,
             ) -> ExtendSubscriptionResponseHttpRequest: ...
             def get(
@@ -110,33 +110,34 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: Subscription = ...,
-                cycleOptions_initialCycleDuration_count: int = ...,
+                body: Subscription,
+                cycleOptions_initialCycleDuration_count: int | None = ...,
                 cycleOptions_initialCycleDuration_unit: typing_extensions.Literal[
                     "UNIT_UNSPECIFIED", "MONTH", "DAY", "HOUR"
-                ] = ...,
-                subscriptionId: str = ...,
+                ]
+                | None = ...,
+                subscriptionId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SubscriptionHttpRequest: ...
             def resume(
                 self,
                 *,
                 name: str,
-                body: ResumeSubscriptionRequest = ...,
+                body: ResumeSubscriptionRequest,
                 **kwargs: typing.Any,
             ) -> ResumeSubscriptionResponseHttpRequest: ...
             def suspend(
                 self,
                 *,
                 name: str,
-                body: SuspendSubscriptionRequest = ...,
+                body: SuspendSubscriptionRequest,
                 **kwargs: typing.Any,
             ) -> SuspendSubscriptionResponseHttpRequest: ...
             def undoCancel(
                 self,
                 *,
                 name: str,
-                body: UndoCancelSubscriptionRequest = ...,
+                body: UndoCancelSubscriptionRequest,
                 **kwargs: typing.Any,
             ) -> UndoCancelSubscriptionResponseHttpRequest: ...
             def lineItems(self) -> LineItemsResource: ...
@@ -147,7 +148,7 @@ class PaymentsResellerSubscriptionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GenerateUserSessionRequest = ...,
+                body: GenerateUserSessionRequest,
                 **kwargs: typing.Any,
             ) -> GenerateUserSessionResponseHttpRequest: ...
 

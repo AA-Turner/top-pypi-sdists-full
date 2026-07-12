@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2023 Mike Fährmann
+# Copyright 2015-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -64,6 +64,8 @@ class BooruExtractor(BaseExtractor):
         pages = num // self.per_page
         self.page_start += pages
         return pages * self.per_page
+
+    skip_posts = skip_files
 
     def login(self):
         """Login and set necessary cookies"""

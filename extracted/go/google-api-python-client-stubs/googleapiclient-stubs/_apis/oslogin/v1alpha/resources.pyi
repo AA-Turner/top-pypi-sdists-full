@@ -21,7 +21,7 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudOsloginControlplaneRegionalV1alphaSignSshPublicKeyRequest = ...,
+                body: GoogleCloudOsloginControlplaneRegionalV1alphaSignSshPublicKeyRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOsloginControlplaneRegionalV1alphaSignSshPublicKeyResponseHttpRequest: ...
 
@@ -37,7 +37,7 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: SignSshPublicKeyRequest = ...,
+                    body: SignSshPublicKeyRequest,
                     **kwargs: typing.Any,
                 ) -> SignSshPublicKeyResponseHttpRequest: ...
 
@@ -47,7 +47,7 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: SignSshPublicKeyRequest = ...,
+                    body: SignSshPublicKeyRequest,
                     **kwargs: typing.Any,
                 ) -> SignSshPublicKeyResponseHttpRequest: ...
 
@@ -57,14 +57,15 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
                 name: str,
                 operatingSystemType: typing_extensions.Literal[
                     "OPERATING_SYSTEM_TYPE_UNSPECIFIED", "LINUX", "WINDOWS"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def provisionPosixAccount(
                 self,
                 *,
                 name: str,
-                body: ProvisionPosixAccountRequest = ...,
+                body: ProvisionPosixAccountRequest,
                 **kwargs: typing.Any,
             ) -> PosixAccountHttpRequest: ...
             def locations(self) -> LocationsResource: ...
@@ -73,7 +74,7 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class SshPublicKeysResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: SshPublicKey = ..., **kwargs: typing.Any
+                self, *, parent: str, body: SshPublicKey, **kwargs: typing.Any
             ) -> SshPublicKeyHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -85,8 +86,8 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: SshPublicKey = ...,
-                updateMask: str = ...,
+                body: SshPublicKey,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SshPublicKeyHttpRequest: ...
 
@@ -96,24 +97,27 @@ class CloudOSLoginResource(googleapiclient.discovery.Resource):
             name: str,
             operatingSystemType: typing_extensions.Literal[
                 "OPERATING_SYSTEM_TYPE_UNSPECIFIED", "LINUX", "WINDOWS"
-            ] = ...,
-            projectId: str = ...,
-            systemId: str = ...,
+            ]
+            | None = ...,
+            projectId: str | None = ...,
+            systemId: str | None = ...,
             view: typing_extensions.Literal[
                 "LOGIN_PROFILE_VIEW_UNSPECIFIED", "BASIC", "SECURITY_KEY"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> LoginProfileHttpRequest: ...
         def importSshPublicKey(
             self,
             *,
             parent: str,
-            body: SshPublicKey = ...,
-            projectId: str = ...,
-            regions: str | _list[str] = ...,
+            body: SshPublicKey,
+            projectId: str | None = ...,
+            regions: str | _list[str] | None = ...,
             view: typing_extensions.Literal[
                 "LOGIN_PROFILE_VIEW_UNSPECIFIED", "BASIC", "SECURITY_KEY"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> ImportSshPublicKeyResponseHttpRequest: ...
         def projects(self) -> ProjectsResource: ...

@@ -96,8 +96,10 @@ pub fn effective_global_parallelism() -> Par {
 /// codebase engineers its faer reductions to be parallelism-invariant
 /// (`tests_parallelism_invariance_1557` asserts byte-identical `Par::Seq` vs
 /// `Par::rayon` output), so collapsing to sequential is bit-for-bit neutral.
-static FAER_SEQ_STATE: std::sync::Mutex<FaerSeqState> =
-    std::sync::Mutex::new(FaerSeqState { depth: 0, saved: None });
+static FAER_SEQ_STATE: std::sync::Mutex<FaerSeqState> = std::sync::Mutex::new(FaerSeqState {
+    depth: 0,
+    saved: None,
+});
 
 struct FaerSeqState {
     depth: usize,
@@ -331,6 +333,12 @@ pub fn array2_to_matmut(array: &mut Array2<f64>) -> MatMut<'_, f64> {
     // ndarray's dimensions plus signed element strides describe every initialized
     // element of this uniquely borrowed Array2 for the returned MatMut lifetime.
     unsafe { MatMut::from_raw_parts_mut(array.as_mut_ptr(), rows, cols, s0, s1) }
+}
+
+/// Convert an ndarray matrix into row-major nested vectors for serialized
+/// payloads without exposing storage-layout assumptions to callers.
+pub fn array2_to_nested_vec(array: &Array2<f64>) -> Vec<Vec<f64>> {
+    array.rows().into_iter().map(|row| row.to_vec()).collect()
 }
 
 #[inline]
@@ -3226,7 +3234,11 @@ mod tests {
 
         // The convenience wrapper behaves identically and returns the body value.
         let observed = with_faer_sequential(|| faer::get_global_parallelism());
-        assert_eq!(observed, Par::Seq, "with_faer_sequential runs body under Seq");
+        assert_eq!(
+            observed,
+            Par::Seq,
+            "with_faer_sequential runs body under Seq"
+        );
         assert_eq!(
             faer::get_global_parallelism(),
             Par::rayon(4),

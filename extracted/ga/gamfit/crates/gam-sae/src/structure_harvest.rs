@@ -81,23 +81,27 @@ use std::sync::Arc;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
 
 use crate::atom_codes::SparseAtomCodes;
-use crate::frames::GrassmannFrame;
 use crate::basis::{
-    CylinderHarmonicEvaluator, EuclideanPatchEvaluator, PeriodicHarmonicEvaluator,
-    SaeBasisSecondJet, SphereChartEvaluator, TorusHarmonicEvaluator,
+    CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,
+    MobiusHarmonicEvaluator, PeriodicHarmonicEvaluator, SaeBasisSecondJet, SphereChartEvaluator,
+    TorusHarmonicEvaluator,
 };
+use crate::description_length::{BirthMdlPrescreen, predicted_birth_dl_bits};
+use crate::frames::GrassmannFrame;
 use crate::manifold::{
-    AssignmentMode, GraphStructureSelection, LearnedGraphAtom, OccupancyLaw, SaeAtomBasisKind,
-    SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm, amplitude_concentration_certificate,
-    classify_occupancy_interval,
+    AssignmentMode, AtlasSeamKind, GraphStructureSelection, LearnedGraphAtom, OccupancyLaw,
+    SaeAtomBasisKind, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm, SphereChartTransition,
+    UnitSpeedChartTransition, amplitude_concentration_certificate, classify_occupancy_interval,
 };
 use crate::migration_ledger::SaeMigrationLedger;
 use crate::null_sampler::{NULL_REPLICATES, coactivation_exceedance_for_pairs};
+use gam_linalg::faer_ndarray::FaerSvd;
 use gam_runtime::warm_start::Fingerprinter;
 use gam_solve::gaussian_reml::gaussian_reml_multi_closed_form;
 use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
 use gam_solve::structure_search::{
-    CollapseAction, MoveBudget, MoveProposal, SearchLedger, SearchOutcome, StructureMove, search,
+    ChartGlueOutcome, CollapseAction, MoveBudget, MoveProposal, SearchLedger, SearchOutcome,
+    StructureMove, search,
 };
 use gam_solve::{
     AutoTopologyKind, TopologyAutoFitEvidence, TopologyAutoSelector, TopologyScoreScale,
@@ -249,6 +253,58 @@ fn per_atom_max_mass(term: &SaeManifoldTerm) -> Array1<f64> {
     out
 }
 
+/// Participation ratio `(Σλ)²/Σλ²` of a non-negative spectrum — the effective
+/// number of significant directions (the #2233 span estimate `ŝ` when the spectrum
+/// is the residual factor-energy set). `1.0` for a single direction (or an
+/// all-but-one-zero spectrum); `0.0` for an empty / all-zero spectrum.
+fn participation_ratio(spectrum: &[f64]) -> f64 {
+    let sum: f64 = spectrum.iter().map(|&e| e.max(0.0)).sum();
+    let sum_sq: f64 = spectrum.iter().map(|&e| e.max(0.0) * e.max(0.0)).sum();
+    if sum_sq > 0.0 {
+        (sum * sum) / sum_sq
+    } else {
+        0.0
+    }
+}
+
+/// The curved topology `(d, m)` the #2233 pre-screen matches to an estimated
+/// ambient span `ŝ`, so the dictionary surcharge is priced against the realizable
+/// curved atom a span-`ŝ` residual would be raced into. The basis budgets mirror
+/// [`topology_candidates_for_dim`] (the downstream birth topology race), not a new
+/// menu: circle `2·1+1 = 3`, sphere chart `7`, torus `(2·2+1)² = 25`. The curved
+/// families top out at `d = 2`, so a span `≥ 4` residual is priced against the
+/// richest curved atom (the torus); the e-gate, never this map, owns acceptance.
+fn curved_topology_for_span(span: f64) -> (usize, usize) {
+    match span.round().max(1.0) as usize {
+        0 | 1 | 2 => (1, 3), // circle (PeriodicHarmonicEvaluator, 2·d+1 harmonics)
+        3 => (2, 7),         // sphere chart (SphereChartEvaluator)
+        _ => (2, 25),        // torus (TorusHarmonicEvaluator, (2H+1)² at H=2)
+    }
+}
+
+/// Mean active atoms per token `L0` — the support-budget denominator for the
+/// #2233 pre-screen's `log₂(G/L0)` term. An atom counts as active on a row by the
+/// SAME `ACTIVE_SUPPORT_REL_FLOOR / K` discrete-support threshold
+/// [`sparse_codes_from_term`] uses (no new constant), floored at `1.0` so the
+/// support term is well-defined even on a degenerate all-inactive round.
+fn mean_active_atoms(assignments: ArrayView2<'_, f64>) -> f64 {
+    let n = assignments.nrows();
+    let k = assignments.ncols();
+    if n == 0 || k == 0 {
+        return 1.0;
+    }
+    let floor = ACTIVE_SUPPORT_REL_FLOOR / k as f64;
+    let mut total_active = 0usize;
+    for row in 0..n {
+        for atom in 0..k {
+            if assignments[[row, atom]] > floor {
+                total_active += 1;
+            }
+        }
+    }
+    (total_active as f64 / n as f64).max(1.0)
+}
+
 /// The largest per-atom ARD log-precision (over the atom's axes), or `-inf` for
 /// an atom with native ARD disabled (empty block). A diverged precision on ANY
 /// axis collapses that coordinate, so the per-atom death trigger is the max.
@@ -288,14 +344,15 @@ fn post_move_structure_hash(term: &SaeManifoldTerm, mv: &StructureMove) -> u64 {
             fp.write_usize((*a).min(*b));
             fp.write_usize((*a).max(*b));
         }
-        StructureMove::Glue { a, b } => {
-            // A glue reaches the same POST-move dictionary shape as a fusion of
-            // the same pair (one atom folds into the other), so it shares the
-            // fusion tag: a fusion and a glue proposed on the same pair in one
-            // round are the same resulting structure and dedup against each
-            // other — the engine keeps only the canonically-first (fusion sorts
-            // ahead of glue), never applying both to the same pair.
-            fp.write_str("fusion");
+        StructureMove::Glue { a, b, outcome } => {
+            // A fuse reaches the same physical dictionary shape as Fusion and
+            // deliberately shares its tag.  Atlas registration is a different
+            // post-move structure: K local charts stay, while the pair becomes
+            // one semantic atom with a persisted transition cocycle.
+            fp.write_str(match outcome {
+                ChartGlueOutcome::Fuse => "fusion",
+                ChartGlueOutcome::RegisterAtlas => "atlas_register",
+            });
             fp.write_usize((*a).min(*b));
             fp.write_usize((*a).max(*b));
         }
@@ -361,6 +418,7 @@ fn basis_kind_tag(kind: &SaeAtomBasisKind) -> &str {
         SaeAtomBasisKind::EuclideanPatch => "euclidean_patch",
         SaeAtomBasisKind::Poincare => "poincare",
         SaeAtomBasisKind::Cylinder => "cylinder",
+        SaeAtomBasisKind::Mobius => "mobius",
         SaeAtomBasisKind::FiniteSet => "finite_set",
         SaeAtomBasisKind::Precomputed(_) => "precomputed",
     }
@@ -387,8 +445,20 @@ fn proposal(term: &SaeManifoldTerm, mv: StructureMove, trigger: f64) -> MoveProp
         // `Custom` — an ordered `(min,max)` key so `Glue{a,b}` and `Glue{b,a}`
         // dedup — rather than a new `ClaimKind` variant, to avoid a cross-crate
         // enum change whose exhaustive-match fallout the design does not need.
-        StructureMove::Glue { a, b } => ClaimKind::Custom {
-            label: format!("seam_glue:{}:{}", (*a).min(*b), (*a).max(*b)),
+        StructureMove::Glue { a, b, .. } => ClaimKind::Custom {
+            // Atom indices are only stable within one dictionary epoch.  A
+            // certified glue physically compacts the atom columns at the round
+            // boundary, so the next round's `(0, 1)` can denote a DIFFERENT
+            // pair than this round's `(0, 1)`.  Scope the running e-process by
+            // the proposal's stamped structural hash (which includes the
+            // current dictionary skeleton): contested seams in an unchanged
+            // dictionary still resume their evidence, while a compaction can
+            // never lend already-certified evidence to a newly re-indexed pair.
+            label: format!(
+                "seam_glue:{structure_hash:016x}:{}:{}",
+                (*a).min(*b),
+                (*a).max(*b)
+            ),
         },
     };
     MoveProposal {
@@ -531,15 +601,17 @@ pub fn harvest_move_proposals(
     // a d=1 periodic pair whose decoder AMBIENT spans align (small principal
     // angles via the Grassmann frame) and whose supports are disjoint is a
     // candidate. Acceptance is NOT decided here — the seam equivalence e-value
-    // (`glue_pair_evalue`) is carried on the proposal's trigger and the engine's
-    // Glue arm banks it against the churn null. The pre-screen only RANKS, so
-    // the budget spends its e-value evaluations on the most-aligned pairs; it
-    // carries no acceptance threshold of its own (magic-free).
+    // from `unit_speed_glue_certificate` is carried on the proposal's trigger and
+    // the engine's Glue arm banks it against the churn null. The pre-screen only
+    // RANKS, so the budget spends its e-value evaluations on the most-aligned
+    // pairs; it carries no acceptance threshold of its own (magic-free).
+    let mut certified_glues = Vec::new();
     let (glues_proposed, glue_candidates_screened) = harvest_glue_proposals(
         term,
         residuals,
         params.max_fusions,
         &mut proposals,
+        &mut certified_glues,
     );
 
     // --- Fission audits: absorption-suspect asymmetry, gated by the null ---
@@ -659,6 +731,9 @@ pub fn harvest_move_proposals(
     let assignments = term.assignment.assignments();
     let activity: Array1<f64> = (0..n).map(|r| assignments.row(r).sum()).collect();
     let mut births_proposed = 0usize;
+    let mut birth_predictions: Vec<(usize, f64)> = Vec::new();
+    let mut births_deferred = 0usize;
+    let mut deferred_predicted_bits = 0.0_f64;
     let mut birth_skipped_reason: Option<String> = None;
     if params.max_births > 0 && n > 0 && residuals.ncols() > 0 {
         let p = residuals.ncols();
@@ -670,20 +745,104 @@ pub fn harvest_move_proposals(
         }) {
             Ok(model) => {
                 let factor = model.factor();
+                let diagonal = model.diagonal();
                 let r = model.factor_rank();
-                // Rank each factor direction by its explained residual mass
-                // (column norm of Λ scaled by the mean activity); births are
-                // proposed in descending mass order, capped at `max_births`.
-                let mut dirs: Vec<(usize, f64)> = (0..r)
-                    .map(|j| {
-                        let mass = factor.column(j).iter().map(|v| v * v).sum::<f64>().sqrt();
-                        (j, mass)
-                    })
+                // #2233 closed-form MDL birth pre-screen. Every quantity below is
+                // read from the structured residual-factor fit already computed —
+                // no candidate refit runs here. Shared per-round crossover inputs:
+                //  * ŝ = participation ratio of the factor-energy spectrum,
+                //  * (d, m) = the curved topology matched to ŝ (basis surcharge),
+                //  * G = current dictionary size, L0 = mean active atoms/token,
+                //  * N = tokens, P = channels.
+                let energies: Vec<f64> = (0..r)
+                    .map(|j| factor.column(j).iter().map(|v| v * v).sum::<f64>())
                     .collect();
-                dirs.sort_by(|x, y| y.1.total_cmp(&x.1).then(x.0.cmp(&y.0)));
-                for &(candidate, mass) in dirs.iter().take(params.max_births) {
-                    proposals.push(proposal(term, StructureMove::Birth { candidate }, mass));
+                let span = participation_ratio(&energies);
+                let (intrinsic_dim, basis_size) = curved_topology_for_span(span);
+                let g_dict = term.k_atoms();
+                let l0 = mean_active_atoms(assignments.view());
+                let n_tokens = n as f64;
+                // Score every factor direction; a positive predicted ΔMDL rides as a
+                // proposal (ordered by the prediction), a non-positive one is
+                // DEFERRED (not proposed this round — a soft defer, never a kill).
+                let mut scored: Vec<(usize, f64)> = Vec::with_capacity(r);
+                for j in 0..r {
+                    let col = factor.column(j);
+                    let energy = energies[j];
+                    if !(energy > 0.0) {
+                        // A zero-energy direction carries no residual structure to
+                        // birth from — defer it (no finite prediction to bank).
+                        births_deferred += 1;
+                        continue;
+                    }
+                    let norm = energy.sqrt();
+                    // Per-direction idiosyncratic-noise floor δ_j = u_jᵀ D u_j (the
+                    // residual diagonal projected onto the unit birth direction) —
+                    // derived from the fitted noise model, not a hand-set floor.
+                    let mut noise_floor = 0.0_f64;
+                    for out in 0..p {
+                        let u = col[out] / norm;
+                        noise_floor += u * u * diagonal[out];
+                    }
+                    // ρ̂_j: fraction of tokens whose residual projects onto the unit
+                    // direction above that direction's noise floor.
+                    let mut active = 0usize;
+                    for row in 0..n {
+                        let res_row = residuals.row(row);
+                        let mut proj = 0.0_f64;
+                        for out in 0..p {
+                            proj += res_row[out] * col[out];
+                        }
+                        proj /= norm;
+                        if proj * proj > noise_floor {
+                            active += 1;
+                        }
+                    }
+                    let rho = active as f64 / n_tokens;
+                    let predicted = predicted_birth_dl_bits(&BirthMdlPrescreen {
+                        rho,
+                        span,
+                        intrinsic_dim,
+                        basis_size,
+                        signal_var: energy,
+                        noise_floor,
+                        n_tokens,
+                        p_out: p,
+                        g_dict,
+                        l0,
+                    });
+                    if predicted.is_finite() && predicted > 0.0 {
+                        scored.push((j, predicted));
+                    } else {
+                        births_deferred += 1;
+                        if predicted.is_finite() {
+                            deferred_predicted_bits += predicted;
+                        }
+                    }
+                }
+                // Order the survivors by predicted ΔMDL (descending), tie-break by
+                // index, and cap at `max_births`; the overflow is deferred too.
+                scored.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+                for &(candidate, predicted) in scored.iter().take(params.max_births) {
+                    proposals.push(proposal(
+                        term,
+                        StructureMove::Birth { candidate },
+                        predicted,
+                    ));
+                    birth_predictions.push((candidate, predicted));
                     births_proposed += 1;
+                }
+                for &(_, predicted) in scored.iter().skip(params.max_births) {
+                    births_deferred += 1;
+                    deferred_predicted_bits += predicted;
+                }
+                if births_deferred > 0 {
+                    log::debug!(
+                        "[structure-harvest] #2233 MDL pre-screen deferred {births_deferred} \
+                         birth(s) (total predicted ΔMDL {deferred_predicted_bits:.1} bits; span \
+                         ŝ={span:.2}, d={intrinsic_dim}, m={basis_size}); proposed {births_proposed} \
+                         ordered by predicted ΔMDL",
+                    );
                 }
             }
             Err(e) => {
@@ -702,9 +861,13 @@ pub fn harvest_move_proposals(
         fission_carve_unavailable_count,
         fission_carve_blocked_count,
         births_proposed,
+        birth_predictions,
+        births_deferred,
+        deferred_predicted_bits,
         birth_skipped_reason,
         glues_proposed,
         glue_candidates_screened,
+        certified_glues,
     })
 }
 
@@ -765,6 +928,30 @@ fn run_within_atom_carve(
     Some(carve(&input, WITHIN_ATOM_CARVE_ALPHA))
 }
 
+/// The exact geometric object which earned a chart-glue proposal's equivalence
+/// e-value.  Glue acceptance is based on that harvest-time certificate, so the
+/// round driver carries it unchanged to the adoption boundary instead of trying
+/// to infer the seam again from a proposal-scoring refit.
+#[derive(Clone, Debug)]
+enum CertifiedGlueTransition {
+    UnitSpeed {
+        transition: UnitSpeedChartTransition,
+        /// B's support at certification time.  A destructive fusion transplants
+        /// precisely these coordinates before B is physically removed.
+        rows_b: Vec<usize>,
+    },
+    Sphere(SphereChartTransition),
+}
+
+/// Harvest-time certificate paired one-to-one with an emitted glue proposal.
+#[derive(Clone, Debug)]
+struct CertifiedGlue {
+    a: usize,
+    b: usize,
+    outcome: ChartGlueOutcome,
+    transition: CertifiedGlueTransition,
+}
+
 /// The output of one [`harvest_move_proposals`] pass: the proposal stream plus
 /// the loud records of any degrade-to-skip path taken (no silent drops).
 #[derive(Clone, Debug)]
@@ -791,6 +978,20 @@ pub struct HarvestReport {
     pub fission_carve_blocked_count: usize,
     /// Number of residual-factor birth candidates proposed.
     pub births_proposed: usize,
+    /// #2233 closed-form MDL pre-screen: `(candidate index, predicted ΔMDL bits)`
+    /// for every residual-factor birth that was PROPOSED (predicted saving > 0).
+    /// The candidate index is the factor direction the birth seeds from — the same
+    /// index the [`StructureMove::Birth`] carries — so the round driver threads
+    /// each prediction into the unified [`SaeMigrationLedger`] record the post-refit
+    /// verdict fills in (the predicted-vs-realized calibration curve).
+    pub birth_predictions: Vec<(usize, f64)>,
+    /// #2233: number of residual-factor births DEFERRED this round — non-positive
+    /// predicted ΔMDL, so not proposed (a soft defer: they may return next round
+    /// once the residual changes; never a hard kill).
+    pub births_deferred: usize,
+    /// #2233: total predicted ΔMDL (bits) summed over the deferred births — the
+    /// round-cadence honesty figure logged alongside the deferred count.
+    pub deferred_predicted_bits: f64,
     /// If the birth channel could not run (empty residuals, evidence-ladder
     /// failure), why — so the absence of births is explained, not silent.
     pub birth_skipped_reason: Option<String>,
@@ -802,6 +1003,10 @@ pub struct HarvestReport {
     /// pre-screen) before ranking under budget — the loud denominator for the
     /// glues actually proposed.
     pub glue_candidates_screened: usize,
+    /// Exact seam transitions paired with the emitted glue proposals.  Private
+    /// because these are adoption capabilities, not an additional public
+    /// proposal/evidence surface.
+    certified_glues: Vec<CertifiedGlue>,
 }
 
 // ===========================================================================
@@ -818,12 +1023,6 @@ pub struct HarvestReport {
 // tolerance) against the churn-null scatter, NOT a fit-improvement gate (a
 // clean glue leaves EV tied, so a likelihood-ratio gate could never accept it).
 // ===========================================================================
-
-/// Number of full-period samples of each decoded curve for the nearest-point
-/// seam residual. Fixed structural resolution (magic-by-default): dense enough
-/// that the nearest-grid-point distance is dominated by genuine chart mismatch
-/// rather than grid quantization for the harmonic bases this lane runs on.
-const GLUE_CURVE_GRID: usize = 256;
 
 /// Fallback intrinsic period of a d=1 periodic atom's latent coordinate when the
 /// atom's `Circle { period }` manifold does not report one. The periodic
@@ -865,7 +1064,7 @@ pub struct ChartTransition {
 
 /// The geometric half of a chart glue (no e-value): the fitted sign + offset and
 /// the decoded seam clouds/curves, shared by the acceptance e-value
-/// ([`glue_pair_evalue`]) and the warm-start coordinate transplant
+/// ([`unit_speed_glue_certificate`]) and the warm-start coordinate transplant
 /// ([`transplant_glued_coords`]).
 struct SeamTransition {
     sign: f64,
@@ -877,8 +1076,10 @@ struct SeamTransition {
     points_a: Array2<f64>,
     rows_b: Vec<usize>,
     points_b: Array2<f64>,
-    curve_a: Array2<f64>,
-    curve_b: Array2<f64>,
+    /// A decoded exactly at the transition-mapped coordinates of B.
+    mapped_b_to_a: Array2<f64>,
+    /// B decoded exactly at the inverse-transition coordinates of A.
+    mapped_a_to_b: Array2<f64>,
 }
 
 /// Intrinsic period of a d=1 atom's latent coordinate, read from its
@@ -920,75 +1121,139 @@ fn decoded_points_at(atom: &SaeManifoldAtom, rows: &[usize]) -> Array2<f64> {
     phi_sub.dot(&atom.decoder_coefficients)
 }
 
-/// Sample the atom's full decoded curve over one period `[0, 2π)`:
-/// `γ_k(grid) = Φ_k(grid) · B_k` (`GLUE_CURVE_GRID × p`). Needs the basis
-/// evaluator (a caller-managed atom without one cannot be glued — returns
-/// `None`).
-fn full_period_curve(atom: &SaeManifoldAtom, period: f64) -> Option<Array2<f64>> {
-    let eval = atom.basis_evaluator.as_ref()?;
-    let mut coords = Array2::<f64>::zeros((GLUE_CURVE_GRID, 1));
-    for i in 0..GLUE_CURVE_GRID {
-        coords[[i, 0]] = period * i as f64 / GLUE_CURVE_GRID as f64;
-    }
-    let (phi, _jet) = eval.evaluate(coords.view()).ok()?;
-    if phi.ncols() != atom.decoder_coefficients.nrows() {
+/// Decode a standard periodic-harmonic coefficient block at explicit
+/// coordinates.  This evaluates the analytic family at the requested points;
+/// no sampled curve or nearest-grid approximation is involved.
+fn periodic_decoded_points(
+    decoder: ArrayView2<'_, f64>,
+    coordinates: &[f64],
+) -> Option<Array2<f64>> {
+    let m = decoder.nrows();
+    if m == 0 || m % 2 == 0 {
         return None;
     }
-    Some(phi.dot(&atom.decoder_coefficients))
-}
-
-/// Squared distance from `point` to its nearest sample on `curve`, and that
-/// sample's grid index (the nearest-point projection = the transition map).
-fn nearest_curve_sq(point: ArrayView1<'_, f64>, curve: &Array2<f64>) -> (usize, f64) {
-    let mut best = f64::INFINITY;
-    let mut best_i = 0usize;
-    for i in 0..curve.nrows() {
-        let mut s = 0.0;
-        for c in 0..curve.ncols() {
-            let d = point[c] - curve[[i, c]];
-            s += d * d;
-        }
-        if s < best {
-            best = s;
-            best_i = i;
+    let p = decoder.ncols();
+    let harmonics = (m - 1) / 2;
+    let mut points = Array2::<f64>::zeros((coordinates.len(), p));
+    for (row, &coordinate) in coordinates.iter().enumerate() {
+        for output in 0..p {
+            let mut value = decoder[[0, output]];
+            for harmonic in 1..=harmonics {
+                let angle = std::f64::consts::TAU * harmonic as f64 * coordinate;
+                value += angle.sin() * decoder[[2 * harmonic - 1, output]]
+                    + angle.cos() * decoder[[2 * harmonic, output]];
+            }
+            points[[row, output]] = value;
         }
     }
-    (best_i, best)
+    Some(points)
 }
 
-/// Fit the unit-speed transition `t_A = sign·t_B + c` from B's latent coords and
-/// the arc-length coords they project to on A's curve. Both signs are tried; the
-/// one whose offset residual is smaller (larger circular resultant length) wins
-/// — `sign = -1` is the orientation-reversing (Möbius / pole) detector.
-fn fit_sign_offset(t_b: &[f64], t_a_star: &[f64], period: f64) -> (f64, f64) {
-    let n = t_b.len().max(1) as f64;
-    let scale = std::f64::consts::TAU / period;
-    let mut best_sign = 1.0_f64;
-    let mut best_offset = 0.0_f64;
-    let mut best_r = -1.0_f64;
-    for &sign in &[1.0_f64, -1.0_f64] {
-        let (mut cs, mut sn) = (0.0_f64, 0.0_f64);
-        for i in 0..t_b.len() {
-            // Map the coordinate offset to an angle on the circle of the given
-            // period so the circular mean respects wrap-around.
-            let ang = (t_a_star[i] - sign * t_b[i]) * scale;
-            cs += ang.cos();
-            sn += ang.sin();
-        }
-        let r = (cs * cs + sn * sn).sqrt() / n;
-        if r > best_r {
-            best_r = r;
-            best_sign = sign;
-            best_offset = (sn.atan2(cs) / scale).rem_euclid(period);
+/// Decoder of A expressed in B's coordinate under
+/// `t_A = sign*t_B + offset`.  Harmonic addition identities make this action
+/// exact for every represented harmonic.
+fn periodic_decoder_under_transition(
+    decoder_a: ArrayView2<'_, f64>,
+    sign: i8,
+    offset: f64,
+) -> Option<Array2<f64>> {
+    if !matches!(sign, -1 | 1) || decoder_a.nrows() == 0 || decoder_a.nrows() % 2 == 0 {
+        return None;
+    }
+    let mut mapped = decoder_a.to_owned();
+    let harmonics = (decoder_a.nrows() - 1) / 2;
+    for harmonic in 1..=harmonics {
+        let angle = std::f64::consts::TAU * harmonic as f64 * offset;
+        let (cosine, sine) = (angle.cos(), angle.sin());
+        for output in 0..decoder_a.ncols() {
+            let a_sin = decoder_a[[2 * harmonic - 1, output]];
+            let a_cos = decoder_a[[2 * harmonic, output]];
+            if sign == 1 {
+                mapped[[2 * harmonic - 1, output]] = cosine * a_sin - sine * a_cos;
+                mapped[[2 * harmonic, output]] = sine * a_sin + cosine * a_cos;
+            } else {
+                mapped[[2 * harmonic - 1, output]] = -cosine * a_sin + sine * a_cos;
+                mapped[[2 * harmonic, output]] = sine * a_sin + cosine * a_cos;
+            }
         }
     }
-    (best_sign, best_offset)
+    Some(mapped)
+}
+
+/// Closed-form registration of two periodic harmonic decoders.  The first
+/// non-zero harmonic identifies a finite set of phase roots analytically for
+/// each of the only two unit-speed slopes (`+1`, `-1`); the complete coefficient
+/// block then chooses the root/sign by exact represented-function residual.
+/// There is no coordinate scan, optimizer, finite difference, or sampled
+/// nearest-point proxy.
+fn fit_periodic_transition_from_decoders(
+    decoder_a: ArrayView2<'_, f64>,
+    decoder_b: ArrayView2<'_, f64>,
+) -> Option<(i8, f64)> {
+    if decoder_a.dim() != decoder_b.dim() || decoder_a.nrows() < 3 || decoder_a.nrows() % 2 == 0 {
+        return None;
+    }
+    let dot = |left_row: usize, right_row: usize| -> f64 {
+        (0..decoder_a.ncols())
+            .map(|output| decoder_b[[left_row, output]] * decoder_a[[right_row, output]])
+            .sum()
+    };
+    let harmonics = (decoder_a.nrows() - 1) / 2;
+    let mut candidates = Vec::new();
+    for sign in [1_i8, -1_i8] {
+        for harmonic in 1..=harmonics {
+            let sin_row = 2 * harmonic - 1;
+            let cos_row = 2 * harmonic;
+            let (cos_score, sin_score) = if sign == 1 {
+                (
+                    dot(sin_row, sin_row) + dot(cos_row, cos_row),
+                    -dot(sin_row, cos_row) + dot(cos_row, sin_row),
+                )
+            } else {
+                (
+                    -dot(sin_row, sin_row) + dot(cos_row, cos_row),
+                    dot(sin_row, cos_row) + dot(cos_row, sin_row),
+                )
+            };
+            if cos_score.hypot(sin_score) > 0.0 {
+                let harmonic_phase = sin_score.atan2(cos_score).rem_euclid(std::f64::consts::TAU);
+                // `h*delta = harmonic_phase (mod 2π)` has exactly h roots.
+                for branch in 0..harmonic {
+                    let phase =
+                        (harmonic_phase + std::f64::consts::TAU * branch as f64) / harmonic as f64;
+                    candidates.push((sign, phase));
+                }
+                break;
+            }
+        }
+    }
+
+    candidates
+        .into_iter()
+        .filter_map(|(sign, angle)| {
+            let offset = angle / std::f64::consts::TAU;
+            let mapped = periodic_decoder_under_transition(decoder_a, sign, offset)?;
+            let residual = mapped
+                .iter()
+                .zip(decoder_b.iter())
+                .map(|(predicted, observed)| (predicted - observed).powi(2))
+                .sum::<f64>();
+            residual.is_finite().then_some((sign, offset, residual))
+        })
+        .min_by(|left, right| {
+            left.2.total_cmp(&right.2).then_with(|| {
+                // Exact ties are gauge-ambiguous; canonicalize to +1 so an
+                // isotropic circle is not spuriously called a half-twist.
+                right.0.cmp(&left.0)
+            })
+        })
+        .map(|(sign, offset, _)| (sign, offset))
 }
 
 /// Fit the geometric seam transition (sign + offset) between two d=1 charts and
 /// carry the decoded clouds/curves the e-value and transplant reuse. `None`
-/// unless both atoms are d=1 with a shared ambient dim, non-empty active
-/// supports, and available basis evaluators.
+/// unless both atoms are d=1 standard periodic-harmonic charts with the same
+/// period/width, a shared ambient dim, and non-empty active supports.
 fn fit_seam_transition(term: &SaeManifoldTerm, a: usize, b: usize) -> Option<SeamTransition> {
     let k = term.k_atoms();
     if a >= k || b >= k || a == b {
@@ -996,7 +1261,11 @@ fn fit_seam_transition(term: &SaeManifoldTerm, a: usize, b: usize) -> Option<Sea
     }
     let atom_a = &term.atoms[a];
     let atom_b = &term.atoms[b];
-    if atom_a.latent_dim != 1 || atom_b.latent_dim != 1 {
+    if atom_a.latent_dim != 1
+        || atom_b.latent_dim != 1
+        || !matches!(atom_a.basis_kind, SaeAtomBasisKind::Periodic)
+        || !matches!(atom_b.basis_kind, SaeAtomBasisKind::Periodic)
+    {
         return None;
     }
     let p = atom_a.decoder_coefficients.ncols();
@@ -1014,31 +1283,40 @@ fn fit_seam_transition(term: &SaeManifoldTerm, a: usize, b: usize) -> Option<Sea
     }
     let period_a = atom_axis_period(term, a);
     let period_b = atom_axis_period(term, b);
-    let curve_a = full_period_curve(atom_a, period_a)?;
-    let curve_b = full_period_curve(atom_b, period_b)?;
+    // `PeriodicHarmonicEvaluator` is exactly one-periodic in its stored raw
+    // coordinate.  A different retraction period does not describe this basis,
+    // so refuse rather than silently rescale or approximate it.
+    if period_a.to_bits() != 1.0_f64.to_bits() || period_b.to_bits() != period_a.to_bits() {
+        return None;
+    }
+    let decoder_a = atom_a.full_width_decoder();
+    let decoder_b = atom_b.full_width_decoder();
+    let (sign, offset) = fit_periodic_transition_from_decoders(decoder_a.view(), decoder_b.view())?;
     let points_a = decoded_points_at(atom_a, &rows_a);
     let points_b = decoded_points_at(atom_b, &rows_b);
-    // Project B's decoded points onto A's full curve (the transition map) and
-    // fit the sign + offset from the arc-length correspondence.
-    let mut t_b = Vec::with_capacity(rows_b.len());
-    let mut t_a_star = Vec::with_capacity(rows_b.len());
-    let grid_to_t = |gi: usize| -> f64 { period_a * gi as f64 / GLUE_CURVE_GRID as f64 };
-    for (i, &r) in rows_b.iter().enumerate() {
-        let (gi, _sq) = nearest_curve_sq(points_b.row(i), &curve_a);
-        t_a_star.push(grid_to_t(gi));
-        t_b.push(coords[b].row(r)[0]);
-    }
-    let (sign, offset) = fit_sign_offset(&t_b, &t_a_star, period_a);
+    let mapped_b_coords: Vec<f64> = rows_b
+        .iter()
+        .map(|&row| (sign as f64 * coords[b].row(row)[0] + offset).rem_euclid(period_a))
+        .collect();
+    let mapped_a_coords: Vec<f64> = rows_a
+        .iter()
+        .map(|&row| {
+            // Inverse of `t_a = sign*t_b + offset`; sign^{-1} = sign.
+            (sign as f64 * (coords[a].row(row)[0] - offset)).rem_euclid(period_a)
+        })
+        .collect();
+    let mapped_b_to_a = periodic_decoded_points(decoder_a.view(), &mapped_b_coords)?;
+    let mapped_a_to_b = periodic_decoded_points(decoder_b.view(), &mapped_a_coords)?;
     Some(SeamTransition {
-        sign,
+        sign: sign as f64,
         offset,
         period: period_a,
         rows_a,
         points_a,
         rows_b,
         points_b,
-        curve_a,
-        curve_b,
+        mapped_b_to_a,
+        mapped_a_to_b,
     })
 }
 
@@ -1046,16 +1324,15 @@ fn fit_seam_transition(term: &SaeManifoldTerm, a: usize, b: usize) -> Option<Sea
 /// curve AND vice versa, within the reconstruction band, beyond the pooled
 /// independent-scatter (churn-scatter reference null) scale?
 ///
-/// Per point the statistic is the Gaussian likelihood ratio `N(x; nearest point
-/// on the OTHER chart's curve, σ_band²) / N(x; pooled centroid, σ_pool²)`, both
-/// directions, summed to a log-e-value:
+/// Per point the statistic is the Gaussian likelihood ratio
+/// `N(x; other_chart(transition(t)), σ_band²) /
+/// N(x; pooled centroid, σ_pool²)`, both directions, summed to a log-e-value.
+/// The numerator is evaluated at the exact analytic affine transition, not at a
+/// nearest point on a sampled grid:
 ///
 /// * `σ_band²` — per-coordinate reconstruction noise floor (the isometry
 ///   TOLERANCE), the mean squared dictionary residual over the pair's rows,
-///   floored by the GRID QUANTIZATION variance below (a nearest-point residual
-///   cannot be resolved below half a curve-sample spacing, so a perfect glue's
-///   quantization residual must not be charged as tolerance violation — without
-///   this floor a near-exact glue is a FALSE REJECT).
+///   floored only at the representation's machine-resolution scale.
 /// * `σ_pool²` — per-coordinate scatter of the pooled decoded points about their
 ///   centroid (the reference-null currency: how far apart INDEPENDENT curves'
 ///   points sit). A pair whose pooled scatter is no larger than the band cannot
@@ -1079,19 +1356,88 @@ fn fit_seam_transition(term: &SaeManifoldTerm, a: usize, b: usize) -> Option<Sea
 /// each other's curve (`e_glue ~ σ_pool ≫ σ_band`) so the `−e_glue/(2σ_band²)`
 /// term drives the ratio large negative — the tied-EV-cannot-win property the
 /// issue requires.
-fn glue_pair_evalue(
+fn unit_speed_glue_certificate(
     term: &SaeManifoldTerm,
     residuals: ArrayView2<'_, f64>,
     a: usize,
     b: usize,
-) -> Option<ChartTransition> {
+) -> Option<(ChartTransition, CertifiedGlue)> {
     let seam = fit_seam_transition(term, a, b)?;
-    let p = seam.points_a.ncols();
-    if p == 0 || residuals.ncols() != p {
+    let log_e = seam_equivalence_log_e(
+        residuals,
+        &seam.rows_a,
+        &seam.points_a,
+        &seam.mapped_a_to_b,
+        &seam.rows_b,
+        &seam.points_b,
+        &seam.mapped_b_to_a,
+    )?;
+    let chart_transition = ChartTransition {
+        sign: seam.sign as i8,
+        offset: seam.offset,
+        log_e_value: log_e,
+    };
+    let outcome = if chart_transition.sign == 1 {
+        ChartGlueOutcome::Fuse
+    } else {
+        ChartGlueOutcome::RegisterAtlas
+    };
+    let transition = UnitSpeedChartTransition::new(
+        b,
+        a,
+        chart_transition.sign,
+        chart_transition.offset,
+        seam.period,
+        AtlasSeamKind::Regular,
+    )
+    .ok()?;
+    Some((
+        chart_transition,
+        CertifiedGlue {
+            a,
+            b,
+            outcome,
+            transition: CertifiedGlueTransition::UnitSpeed {
+                transition,
+                rows_b: seam.rows_b,
+            },
+        },
+    ))
+}
+
+/// The sample-split equivalence log-e-value shared by the 1-D
+/// ([`unit_speed_glue_certificate`]) and sphere ([`sphere_glue_pair_evalue`]) seam
+/// certifiers.  `points_*` are the decoded ambient clouds of each chart's active
+/// rows; `mapped_*` are the SAME points carried through the fitted transition to
+/// the other chart's coordinate; `rows_*` index `residuals` for the
+/// reconstruction band.
+///
+/// The reference-null centroid/scatter and the reconstruction band are estimated
+/// on the EVEN-indexed points and the per-point Gaussian likelihood ratio
+/// `N(x; other_chart(transition(t)), σ_band²) / N(x; pooled centroid, σ_pool²)`
+/// is scored ONLY on the ODD-indexed points, so under the isotropic churn-scatter
+/// reference null `E_null[∏ q/p] = 1` — a bona-fide e-value, not a plug-in LR.
+fn seam_equivalence_log_e(
+    residuals: ArrayView2<'_, f64>,
+    rows_a: &[usize],
+    points_a: &Array2<f64>,
+    mapped_a_to_b: &Array2<f64>,
+    rows_b: &[usize],
+    points_b: &Array2<f64>,
+    mapped_b_to_a: &Array2<f64>,
+) -> Option<f64> {
+    let p = points_a.ncols();
+    if p == 0 || residuals.ncols() != p || points_b.ncols() != p {
         return None;
     }
-    let na = seam.points_a.nrows();
-    let nb = seam.points_b.nrows();
+    let na = points_a.nrows();
+    let nb = points_b.nrows();
+    if na != rows_a.len() || nb != rows_b.len() {
+        return None;
+    }
+    if mapped_a_to_b.dim() != (na, p) || mapped_b_to_a.dim() != (nb, p) {
+        return None;
+    }
     // Sample split needs at least one estimation and one evaluation point on
     // each side (even/odd parity), so ≥ 2 active points per atom.
     if na < 2 || nb < 2 {
@@ -1111,26 +1457,25 @@ fn glue_pair_evalue(
     let mut mu = vec![0.0_f64; p];
     for &i in &a_est {
         for c in 0..p {
-            mu[c] += seam.points_a[[i, c]];
+            mu[c] += points_a[[i, c]];
         }
     }
     for &i in &b_est {
         for c in 0..p {
-            mu[c] += seam.points_b[[i, c]];
+            mu[c] += points_b[[i, c]];
         }
     }
     for c in 0..p {
         mu[c] /= n_est as f64;
     }
-    let point_null_sq = |pt: ArrayView1<'_, f64>| -> f64 {
-        (0..p).map(|c| (pt[c] - mu[c]).powi(2)).sum::<f64>()
-    };
+    let point_null_sq =
+        |pt: ArrayView1<'_, f64>| -> f64 { (0..p).map(|c| (pt[c] - mu[c]).powi(2)).sum::<f64>() };
     let mut pool_acc = 0.0_f64;
     for &i in &a_est {
-        pool_acc += point_null_sq(seam.points_a.row(i));
+        pool_acc += point_null_sq(points_a.row(i));
     }
     for &i in &b_est {
-        pool_acc += point_null_sq(seam.points_b.row(i));
+        pool_acc += point_null_sq(points_b.row(i));
     }
     let pool_sq = pool_acc / (n_est as f64 * p as f64);
     if !(pool_sq.is_finite() && pool_sq > 0.0) {
@@ -1141,14 +1486,14 @@ fn glue_pair_evalue(
     let mut band_acc = 0.0_f64;
     let mut band_rows = 0usize;
     for &i in &a_est {
-        let r = seam.rows_a[i];
+        let r = rows_a[i];
         for c in 0..p {
             band_acc += residuals[[r, c]].powi(2);
         }
         band_rows += 1;
     }
     for &i in &b_est {
-        let r = seam.rows_b[i];
+        let r = rows_b[i];
         for c in 0..p {
             band_acc += residuals[[r, c]].powi(2);
         }
@@ -1159,13 +1504,10 @@ fn glue_pair_evalue(
     } else {
         band_acc / (band_rows as f64 * p as f64)
     };
-    // Grid-quantization floor: a nearest-point residual to a curve sampled at
-    // `GLUE_CURVE_GRID` points cannot be resolved below ~half the mean sample
-    // spacing, so the per-coordinate band cannot honestly claim to be tighter.
-    // Derived from the curves' own arc lengths, never hardcoded.
-    let quant_full = curve_quantization_sq(&seam.curve_a).max(curve_quantization_sq(&seam.curve_b));
-    let quant_band = quant_full / p as f64;
-    let band_sq = band_raw.max(quant_band).max(pool_sq * 1.0e-12);
+    // The transition is analytic, so there is no discretization tolerance.  A
+    // perfect synthetic band still needs a positive normal density; the only
+    // floor is f64's own relative resolution at the observed pooled scale.
+    let band_sq = band_raw.max(pool_sq * f64::EPSILON);
     // A pooled scatter no larger than the band cannot separate "same manifold"
     // from "independent blob" — no e-value.
     if !(pool_sq > band_sq) {
@@ -1176,13 +1518,17 @@ fn glue_pair_evalue(
     let norm_term = (p as f64 / 2.0) * (pool_sq / band_sq).ln();
     let mut log_e = 0.0_f64;
     for &i in &b_eval {
-        let (_gi, e_glue) = nearest_curve_sq(seam.points_b.row(i), &seam.curve_a);
-        let e_null = point_null_sq(seam.points_b.row(i));
+        let e_glue: f64 = (0..p)
+            .map(|c| (points_b[[i, c]] - mapped_b_to_a[[i, c]]).powi(2))
+            .sum();
+        let e_null = point_null_sq(points_b.row(i));
         log_e += norm_term - e_glue / (2.0 * band_sq) + e_null / (2.0 * pool_sq);
     }
     for &i in &a_eval {
-        let (_gi, e_glue) = nearest_curve_sq(seam.points_a.row(i), &seam.curve_b);
-        let e_null = point_null_sq(seam.points_a.row(i));
+        let e_glue: f64 = (0..p)
+            .map(|c| (points_a[[i, c]] - mapped_a_to_b[[i, c]]).powi(2))
+            .sum();
+        let e_null = point_null_sq(points_a.row(i));
         log_e += norm_term - e_glue / (2.0 * band_sq) + e_null / (2.0 * pool_sq);
     }
     if !log_e.is_finite() {
@@ -1192,38 +1538,283 @@ fn glue_pair_evalue(
             GLUE_LOG_E_CLAMP
         };
     }
-    let log_e = log_e.clamp(-GLUE_LOG_E_CLAMP, GLUE_LOG_E_CLAMP);
-    Some(ChartTransition {
-        sign: seam.sign as i8,
-        offset: seam.offset,
-        log_e_value: log_e,
+    Some(log_e.clamp(-GLUE_LOG_E_CLAMP, GLUE_LOG_E_CLAMP))
+}
+
+// ===========================================================================
+// #1890 Increment 2 — SPHERE POLE seams (the d=2 register emitter).
+//
+// A sphere pole seam is TWO `SphereChartEvaluator` (lat/lon, `latent_dim = 2`)
+// charts covering ONE ambient sphere with their poles in each other's INTERIOR:
+// neither lat/lon chart alone covers both poles (`cos(lat) → 0` gauge collapse),
+// so the cover is irreducibly an atlas — a single chart cannot represent it.
+// The transition relating two such charts is an ambient rotation `R ∈ SO(3)` on
+// the intrinsic unit vector `u = [x, y, z]`, NOT a 1-D affine map; the 1-D seam
+// fit ([`fit_seam_transition`]) is structurally blind to it (it short-circuits
+// on non-`Periodic`, `latent_dim ≠ 1` atoms). This lane fits that rotation by
+// exact orthogonal Procrustes on the two decoders' linear `[x, y, z]` blocks,
+// classifies pole-vs-regular by whether each chart's pole falls strictly inside
+// the OTHER chart's active latitude span (data-driven, no magic angle), and
+// certifies the overlap with the SAME sample-split equivalence e-value the 1-D
+// lane uses. A pole seam always REGISTERS (keeps both charts as one
+// partition-of-unity atlas atom); a sphere is orientable, so its proper-rotation
+// transition carries `sign = +1` in the cocycle.
+// ===========================================================================
+
+/// The linear `[x, y, z]` decoder block of a `SphereChartEvaluator` atom: rows
+/// `1..4` of the `(7, p)` decoder (`[1, x, y, z, xy, yz, xz]`), returned as the
+/// `3 × p` ambient frame the sphere's unit vector maps through.
+fn sphere_linear_block(atom: &SaeManifoldAtom) -> Option<Array2<f64>> {
+    let decoder = atom.full_width_decoder();
+    if decoder.nrows() != 7 {
+        return None;
+    }
+    Some(decoder.slice(ndarray::s![1..4, ..]).to_owned())
+}
+
+/// Exact inverse of a `3×3` matrix (Cramer). `None` if singular.
+fn inverse_3x3(m: &[[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
+    let det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+        - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    if !det.is_finite() || det.abs() < 1e-12 {
+        return None;
+    }
+    let inv_det = 1.0 / det;
+    let mut inv = [[0.0; 3]; 3];
+    inv[0][0] = (m[1][1] * m[2][2] - m[1][2] * m[2][1]) * inv_det;
+    inv[0][1] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * inv_det;
+    inv[0][2] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * inv_det;
+    inv[1][0] = (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * inv_det;
+    inv[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * inv_det;
+    inv[1][2] = (m[0][2] * m[1][0] - m[0][0] * m[1][2]) * inv_det;
+    inv[2][0] = (m[1][0] * m[2][1] - m[1][1] * m[2][0]) * inv_det;
+    inv[2][1] = (m[0][1] * m[2][0] - m[0][0] * m[2][1]) * inv_det;
+    inv[2][2] = (m[0][0] * m[1][1] - m[0][1] * m[1][0]) * inv_det;
+    Some(inv)
+}
+
+/// Nearest orthogonal matrix to `m` (the orthogonal polar factor `U Vᵀ` of its
+/// SVD) via Higham's polar iteration `Q ← ½(Q + Q⁻ᵀ)`.  This is the orthogonal
+/// Procrustes solution `argmin_{QᵀQ=I} ‖Q − M‖_F`; convergence is quadratic once
+/// near the factor, so a few dozen iterations reach machine precision.  `None`
+/// if any iterate is singular (a degenerate, non-invertible frame product).
+fn nearest_orthogonal_3x3(m: [[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
+    let mut q = m;
+    for _ in 0..128 {
+        let inv = inverse_3x3(&q)?;
+        let mut next = [[0.0; 3]; 3];
+        let mut diff = 0.0;
+        for i in 0..3 {
+            for j in 0..3 {
+                // inv transpose: (Q⁻ᵀ)[i][j] = inv[j][i].
+                next[i][j] = 0.5 * (q[i][j] + inv[j][i]);
+                diff += (next[i][j] - q[i][j]).abs();
+            }
+        }
+        q = next;
+        if diff < 1e-15 {
+            break;
+        }
+    }
+    if q.iter().flatten().any(|x| !x.is_finite()) {
+        return None;
+    }
+    Some(q)
+}
+
+/// Decode a sphere chart's `(7, p)` decoder at explicit intrinsic unit vectors
+/// `u = [x, y, z]` (on `S²`), evaluating the analytic basis
+/// `[1, x, y, z, xy, yz, xz]` — no sampled-grid nearest-point proxy.
+fn sphere_decoded_points_at_units(
+    decoder: ArrayView2<'_, f64>,
+    units: &[[f64; 3]],
+) -> Option<Array2<f64>> {
+    if decoder.nrows() != 7 {
+        return None;
+    }
+    let p = decoder.ncols();
+    let mut points = Array2::<f64>::zeros((units.len(), p));
+    for (row, &[x, y, z]) in units.iter().enumerate() {
+        let phi = [1.0, x, y, z, x * y, y * z, x * z];
+        for output in 0..p {
+            let mut value = 0.0;
+            for (basis, &phi_b) in phi.iter().enumerate() {
+                value += phi_b * decoder[[basis, output]];
+            }
+            points[[row, output]] = value;
+        }
+    }
+    Some(points)
+}
+
+/// A fitted sphere pole-seam transition: the ambient rotation `R` (`b -> a`, so
+/// `u_a = R u_b`), its pole-vs-regular classification, and the decoded /
+/// rotation-mapped point clouds the shared equivalence e-value scores.
+struct SphereSeamTransition {
+    rotation: [[f64; 3]; 3],
+    seam_kind: AtlasSeamKind,
+    rows_a: Vec<usize>,
+    points_a: Array2<f64>,
+    rows_b: Vec<usize>,
+    points_b: Array2<f64>,
+    /// A decoded at the rotation-mapped unit vectors of B's active rows.
+    mapped_b_to_a: Array2<f64>,
+    /// B decoded at the inverse-rotation-mapped unit vectors of A's active rows.
+    mapped_a_to_b: Array2<f64>,
+}
+
+/// The intrinsic unit vector `[x, y, z]` of a sphere atom's active row, read from
+/// its already-evaluated basis values (`phi = [1, x, y, z, ...]`).
+fn sphere_row_unit(atom: &SaeManifoldAtom, row: usize) -> [f64; 3] {
+    [
+        atom.basis_values[[row, 1]],
+        atom.basis_values[[row, 2]],
+        atom.basis_values[[row, 3]],
+    ]
+}
+
+/// Apply a `3×3` rotation to a unit vector.
+fn rotate_unit(r: &[[f64; 3]; 3], u: [f64; 3]) -> [f64; 3] {
+    [
+        r[0][0] * u[0] + r[0][1] * u[1] + r[0][2] * u[2],
+        r[1][0] * u[0] + r[1][1] * u[1] + r[1][2] * u[2],
+        r[2][0] * u[0] + r[2][1] * u[1] + r[2][2] * u[2],
+    ]
+}
+
+/// Whether two atoms are both `SphereChartEvaluator` local charts.
+fn is_sphere_pair(term: &SaeManifoldTerm, a: usize, b: usize) -> bool {
+    let k = term.k_atoms();
+    if a >= k || b >= k || a == b {
+        return false;
+    }
+    let sa = &term.atoms[a];
+    let sb = &term.atoms[b];
+    sa.latent_dim == 2
+        && sb.latent_dim == 2
+        && matches!(sa.basis_kind, SaeAtomBasisKind::Sphere)
+        && matches!(sb.basis_kind, SaeAtomBasisKind::Sphere)
+}
+
+/// Fit the ambient-rotation seam transition between two sphere charts and
+/// classify pole-vs-regular. `None` unless both atoms are `latent_dim = 2` sphere
+/// charts with a shared ambient dim, non-empty active supports, and an invertible
+/// frame product.
+fn fit_sphere_seam_transition(
+    term: &SaeManifoldTerm,
+    a: usize,
+    b: usize,
+) -> Option<SphereSeamTransition> {
+    if !is_sphere_pair(term, a, b) {
+        return None;
+    }
+    let atom_a = &term.atoms[a];
+    let atom_b = &term.atoms[b];
+    let p = atom_a.decoder_coefficients.ncols();
+    if p == 0 || p != atom_b.decoder_coefficients.ncols() {
+        return None;
+    }
+    let l_a = sphere_linear_block(atom_a)?;
+    let l_b = sphere_linear_block(atom_b)?;
+    // Orthogonal Procrustes: R = argmin ‖L_a − R L_b‖ ⇒ R is the orthogonal
+    // factor of M = L_a L_bᵀ (3×3). Then u_a = R u_b matches the ambient images.
+    let m_prod = l_a.dot(&l_b.t());
+    let mut m = [[0.0_f64; 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            m[i][j] = m_prod[[i, j]];
+        }
+    }
+    let rotation = nearest_orthogonal_3x3(m)?;
+    let rows_a = atom_active_rows(term, a);
+    let rows_b = atom_active_rows(term, b);
+    if rows_a.is_empty() || rows_b.is_empty() {
+        return None;
+    }
+    // Active latitudes (asin z) of each chart, and each chart's pole mapped into
+    // the OTHER chart's coordinate: pole-vs-regular is decided by whether the
+    // mapped pole falls strictly inside the other chart's active latitude span.
+    let lat_of = |u: [f64; 3]| -> f64 { u[2].clamp(-1.0, 1.0).asin() };
+    let (mut a_lat_lo, mut a_lat_hi) = (f64::INFINITY, f64::NEG_INFINITY);
+    for &r in &rows_a {
+        let lat = lat_of(sphere_row_unit(atom_a, r));
+        a_lat_lo = a_lat_lo.min(lat);
+        a_lat_hi = a_lat_hi.max(lat);
+    }
+    let (mut b_lat_lo, mut b_lat_hi) = (f64::INFINITY, f64::NEG_INFINITY);
+    for &r in &rows_b {
+        let lat = lat_of(sphere_row_unit(atom_b, r));
+        b_lat_lo = b_lat_lo.min(lat);
+        b_lat_hi = b_lat_hi.max(lat);
+    }
+    // B's north pole u_b = [0,0,1] into A's coordinate; A's north pole into B's.
+    let b_pole_in_a = lat_of(rotate_unit(&rotation, [0.0, 0.0, 1.0]));
+    let inv_rotation = inverse_3x3(&rotation)?;
+    let a_pole_in_b = lat_of(rotate_unit(&inv_rotation, [0.0, 0.0, 1.0]));
+    let b_pole_interior_to_a = b_pole_in_a > a_lat_lo && b_pole_in_a < a_lat_hi;
+    let a_pole_interior_to_b = a_pole_in_b > b_lat_lo && a_pole_in_b < b_lat_hi;
+    let seam_kind = if b_pole_interior_to_a && a_pole_interior_to_b {
+        AtlasSeamKind::Pole
+    } else {
+        AtlasSeamKind::Regular
+    };
+    // Decoded clouds + rotation-mapped clouds for the equivalence e-value.
+    let units_a: Vec<[f64; 3]> = rows_a.iter().map(|&r| sphere_row_unit(atom_a, r)).collect();
+    let units_b: Vec<[f64; 3]> = rows_b.iter().map(|&r| sphere_row_unit(atom_b, r)).collect();
+    let points_a = sphere_decoded_points_at_units(atom_a.full_width_decoder().view(), &units_a)?;
+    let points_b = sphere_decoded_points_at_units(atom_b.full_width_decoder().view(), &units_b)?;
+    // B's rows carried into A: rotate u_b -> u_a, decode through A.
+    let mapped_b_units: Vec<[f64; 3]> =
+        units_b.iter().map(|&u| rotate_unit(&rotation, u)).collect();
+    let mapped_b_to_a =
+        sphere_decoded_points_at_units(atom_a.full_width_decoder().view(), &mapped_b_units)?;
+    // A's rows carried into B: rotate u_a by R⁻¹ -> u_b, decode through B.
+    let mapped_a_units: Vec<[f64; 3]> = units_a
+        .iter()
+        .map(|&u| rotate_unit(&inv_rotation, u))
+        .collect();
+    let mapped_a_to_b =
+        sphere_decoded_points_at_units(atom_b.full_width_decoder().view(), &mapped_a_units)?;
+    Some(SphereSeamTransition {
+        rotation,
+        seam_kind,
+        rows_a,
+        points_a,
+        rows_b,
+        points_b,
+        mapped_b_to_a,
+        mapped_a_to_b,
     })
 }
 
-/// Grid-quantization squared-distance floor for a periodic decoded curve: the
-/// worst-case nearest-sample residual for a query point lying on the curve is
-/// about half the mean sample spacing (chord length), because the curve is only
-/// known at [`GLUE_CURVE_GRID`] samples. Returned as a FULL-vector squared
-/// distance (summed over ambient coordinates), derived from the curve's own arc
-/// length — the geometry sets the floor, not a constant.
-fn curve_quantization_sq(curve: &Array2<f64>) -> f64 {
-    let g = curve.nrows();
-    let p = curve.ncols();
-    if g < 2 || p == 0 {
-        return 0.0;
+/// The sphere pole-seam equivalence certificate (#1890 Increment 2). Returns the
+/// exact ambient-rotation transition (`b -> a`) plus its equivalence log-e-value,
+/// or `None` if the pair is not an identifiable pole seam.  Only genuine POLE
+/// seams (each pole interior to the other chart) are certified for registration;
+/// a regular sphere overlap has no register/fuse outcome wired in this lane and
+/// yields `None`.
+fn sphere_glue_pair_evalue(
+    term: &SaeManifoldTerm,
+    residuals: ArrayView2<'_, f64>,
+    a: usize,
+    b: usize,
+) -> Option<(SphereChartTransition, f64)> {
+    let seam = fit_sphere_seam_transition(term, a, b)?;
+    if !matches!(seam.seam_kind, AtlasSeamKind::Pole) {
+        return None;
     }
-    let mut arc_len = 0.0_f64;
-    for i in 0..g {
-        let j = (i + 1) % g; // closed loop: the curve is one period
-        let mut seg = 0.0_f64;
-        for c in 0..p {
-            let d = curve[[j, c]] - curve[[i, c]];
-            seg += d * d;
-        }
-        arc_len += seg.sqrt();
-    }
-    let mean_spacing = arc_len / g as f64;
-    (0.5 * mean_spacing).powi(2)
+    let log_e = seam_equivalence_log_e(
+        residuals,
+        &seam.rows_a,
+        &seam.points_a,
+        &seam.mapped_a_to_b,
+        &seam.rows_b,
+        &seam.points_b,
+        &seam.mapped_b_to_a,
+    )?;
+    let transition = SphereChartTransition::new(b, a, seam.rotation, AtlasSeamKind::Pole).ok()?;
+    Some((transition, log_e))
 }
 
 /// Emit the chart-gluing proposal lane (#1890) into `proposals`, ranked under
@@ -1242,6 +1833,7 @@ fn harvest_glue_proposals(
     residuals: ArrayView2<'_, f64>,
     budget: usize,
     proposals: &mut Vec<MoveProposal>,
+    certified_glues: &mut Vec<CertifiedGlue>,
 ) -> (usize, usize) {
     let k = term.k_atoms();
     if k < 2 || budget == 0 {
@@ -1254,7 +1846,11 @@ fn harvest_glue_proposals(
     }
     let floor = ACTIVE_SUPPORT_REL_FLOOR / k as f64;
     let supports: Vec<Vec<bool>> = (0..k)
-        .map(|atom| (0..n_rows).map(|r| assignments[[r, atom]] > floor).collect())
+        .map(|atom| {
+            (0..n_rows)
+                .map(|r| assignments[[r, atom]] > floor)
+                .collect()
+        })
         .collect();
     let support_sizes: Vec<usize> = supports
         .iter()
@@ -1284,6 +1880,12 @@ fn harvest_glue_proposals(
             continue;
         }
         for b in (a + 1)..k {
+            // A registered pair is already one semantic atom.  Re-proposing its
+            // seam would double-bank the same geometric fact and, worse, could
+            // later route it through the destructive fuse outcome.
+            if term.charts_share_atlas(a, b) {
+                continue;
+            }
             let fb = match &frames[b] {
                 Some(f) => f,
                 None => continue,
@@ -1314,16 +1916,71 @@ fn harvest_glue_proposals(
             candidates.push((a, b, alignment));
         }
     }
-    candidates.sort_by(|x, y| {
-        y.2.total_cmp(&x.2)
-            .then(x.0.cmp(&y.0))
-            .then(x.1.cmp(&y.1))
-    });
+    candidates.sort_by(|x, y| y.2.total_cmp(&x.2).then(x.0.cmp(&y.0)).then(x.1.cmp(&y.1)));
 
     let mut proposed = 0usize;
     for &(a, b, _score) in candidates.iter().take(budget) {
-        if let Some(tr) = glue_pair_evalue(term, residuals, a, b) {
-            proposals.push(proposal(term, StructureMove::Glue { a, b }, tr.log_e_value));
+        if let Some((tr, certificate)) = unit_speed_glue_certificate(term, residuals, a, b) {
+            proposals.push(proposal(
+                term,
+                StructureMove::Glue {
+                    a,
+                    b,
+                    outcome: certificate.outcome,
+                },
+                tr.log_e_value,
+            ));
+            certified_glues.push(certificate);
+            proposed += 1;
+        }
+    }
+
+    // --- Sphere POLE-seam pass (#1890 Increment 2, the d=2 register emitter) ---
+    // Two `SphereChartEvaluator` charts whose poles sit in each other's interior
+    // are an irreducible atlas; the transition is an ambient rotation the 1-D
+    // lane cannot see. Screened with the SAME disjoint-support gate (over-tiling
+    // charts anti-correlate), certified by the ambient-rotation pole e-value, and
+    // always REGISTERED (a pole seam is never single-chart-coverable).
+    let mut sphere_candidates: Vec<(usize, usize)> = Vec::new();
+    for a in 0..k {
+        if support_sizes[a] == 0 || !matches!(term.atoms[a].basis_kind, SaeAtomBasisKind::Sphere) {
+            continue;
+        }
+        for b in (a + 1)..k {
+            if support_sizes[b] == 0
+                || !matches!(term.atoms[b].basis_kind, SaeAtomBasisKind::Sphere)
+                || term.charts_share_atlas(a, b)
+            {
+                continue;
+            }
+            let inter = (0..n_rows)
+                .filter(|&r| supports[a][r] && supports[b][r])
+                .count();
+            let expected = support_sizes[a] as f64 * support_sizes[b] as f64 / n_rows as f64;
+            if inter as f64 > expected {
+                continue;
+            }
+            sphere_candidates.push((a, b));
+        }
+    }
+    for &(a, b) in sphere_candidates.iter().take(budget) {
+        screened += 1;
+        if let Some((transition, log_e)) = sphere_glue_pair_evalue(term, residuals, a, b) {
+            proposals.push(proposal(
+                term,
+                StructureMove::Glue {
+                    a,
+                    b,
+                    outcome: ChartGlueOutcome::RegisterAtlas,
+                },
+                log_e,
+            ));
+            certified_glues.push(CertifiedGlue {
+                a,
+                b,
+                outcome: ChartGlueOutcome::RegisterAtlas,
+                transition: CertifiedGlueTransition::Sphere(transition),
+            });
             proposed += 1;
         }
     }
@@ -1331,30 +1988,53 @@ fn harvest_glue_proposals(
 }
 
 /// Warm the glued atom `a`'s chart to cover the union of both arcs by
-/// transplanting `b`'s per-row latent coordinate through the fitted seam
+/// transplanting `b`'s per-row latent coordinate through the certified seam
 /// transition `t_a = sign·t_b + offset` (mod `2π`), so the joint refit starts
 /// from a full-manifold chart rather than re-discovering `b`'s arc cold.
-fn transplant_glued_coords(term: &mut SaeManifoldTerm, a: usize, b: usize, seam: &SeamTransition) {
+fn transplant_glued_coords(
+    term: &mut SaeManifoldTerm,
+    a: usize,
+    b: usize,
+    transition: &UnitSpeedChartTransition,
+    rows_b: &[usize],
+) -> Result<(), String> {
+    if transition.from_chart != b || transition.to_chart != a {
+        return Err(format!(
+            "transplant_glued_coords: transition {}->{} does not match glue ({a},{b})",
+            transition.from_chart, transition.to_chart
+        ));
+    }
     let coords = &mut term.assignment.coords;
     if a >= coords.len() || b >= coords.len() {
-        return;
+        return Err(format!(
+            "transplant_glued_coords: glue ({a},{b}) outside {} coordinate blocks",
+            coords.len()
+        ));
     }
     let da = coords[a].latent_dim();
     let db = coords[b].latent_dim();
     if da < 1 || db < 1 || coords[a].n_obs() != coords[b].n_obs() {
-        return;
+        return Err(format!(
+            "transplant_glued_coords: incompatible coordinate blocks for glue ({a},{b})"
+        ));
     }
     // Read B's flat coords, then write A's transplanted rows through the fitted
     // transition. The read is cloned first, so the mutable borrow of A's coords
     // never aliases B's.
     let flat_b = coords[b].as_flat().to_owned();
     let mut flat_a = coords[a].as_flat().to_owned();
-    for &r in &seam.rows_b {
+    let n = coords[b].n_obs();
+    for &r in rows_b {
+        if r >= n {
+            return Err(format!(
+                "transplant_glued_coords: certified row {r} outside n={n} for glue ({a},{b})"
+            ));
+        }
         let t_b = flat_b[r * db];
-        let t_a = (seam.sign * t_b + seam.offset).rem_euclid(seam.period);
-        flat_a[r * da] = t_a;
+        flat_a[r * da] = transition.apply(t_b);
     }
     coords[a].set_flat(flat_a.view());
+    Ok(())
 }
 
 /// Apply one [`StructureMove`] to a fitted term + ρ, returning the warm child
@@ -1392,22 +2072,83 @@ pub fn apply_structure_move(
             fold_atom_into(&mut child, *a, *b)?;
             Ok((child, rho.clone()))
         }
-        StructureMove::Glue { a, b } => {
-            // #1890 fuse outcome (Increment 1): a d=1 chart glue that a SINGLE
-            // periodic atom can cover reassembles the tiling by folding `b`'s
-            // routing into `a` (the disjoint-support union: `a` now routes over
-            // BOTH arcs) exactly like a fusion, THEN transplanting `b`'s per-row
-            // latent coordinate into `a`'s chart through the fitted seam
-            // transition `t_a = s·t_b + c` so `a`'s warm chart already covers the
-            // whole manifold before the joint refit reconciles the merged atom.
-            // The atlas-register outcome (orientation-reversing s = −1, sphere
-            // poles / Möbius, which need a new multi-chart atom representation)
-            // is Increment 2 and lives with the atom/construction types this lane
-            // does not own; see `fit_seam_transition`'s recorded sign.
+        StructureMove::Glue { a, b, outcome } => {
+            // Sphere pole seam (d=2): the transition is an ambient rotation, not a
+            // 1-D affine map. Register it (keep both charts) — a pole seam has no
+            // destructive fuse outcome, since neither lat/lon chart covers both
+            // poles alone.
+            if is_sphere_pair(term, *a, *b) {
+                let mut child = term.clone();
+                match outcome {
+                    ChartGlueOutcome::RegisterAtlas => {
+                        let seam = fit_sphere_seam_transition(term, *a, *b).ok_or_else(|| {
+                            format!(
+                                "apply_structure_move: sphere seam ({a},{b}) is no longer identifiable"
+                            )
+                        })?;
+                        if !matches!(seam.seam_kind, AtlasSeamKind::Pole) {
+                            return Err(format!(
+                                "apply_structure_move: sphere seam ({a},{b}) is not a pole seam"
+                            ));
+                        }
+                        child.register_sphere_chart_transition(SphereChartTransition::new(
+                            *b,
+                            *a,
+                            seam.rotation,
+                            AtlasSeamKind::Pole,
+                        )?)?;
+                    }
+                    ChartGlueOutcome::Fuse => {
+                        return Err(format!(
+                            "apply_structure_move: sphere pole seam ({a},{b}) cannot be destructively fused"
+                        ));
+                    }
+                }
+                return Ok((child, rho.clone()));
+            }
+            let seam = fit_seam_transition(term, *a, *b).ok_or_else(|| {
+                format!("apply_structure_move: chart seam ({a},{b}) is no longer identifiable")
+            })?;
             let mut child = term.clone();
-            fold_atom_into(&mut child, *a, *b)?;
-            if let Some(seam) = fit_seam_transition(term, *a, *b) {
-                transplant_glued_coords(&mut child, *a, *b, &seam);
+            match outcome {
+                ChartGlueOutcome::Fuse => {
+                    if seam.sign != 1.0 {
+                        return Err(format!(
+                            "apply_structure_move: refusing to fuse orientation-reversing seam ({a},{b})"
+                        ));
+                    }
+                    // Index-stable within the round: fold/demote now, physically
+                    // excise at [`compact_glued_atoms`] before polish.
+                    let transition = UnitSpeedChartTransition::new(
+                        *b,
+                        *a,
+                        1,
+                        seam.offset,
+                        seam.period,
+                        AtlasSeamKind::Regular,
+                    )?;
+                    fold_atom_into(&mut child, *a, *b)?;
+                    transplant_glued_coords(&mut child, *a, *b, &transition, &seam.rows_b)?;
+                }
+                ChartGlueOutcome::RegisterAtlas => {
+                    if seam.sign != -1.0 {
+                        return Err(format!(
+                            "apply_structure_move: atlas registration requires an orientation-reversing seam, got sign {}",
+                            seam.sign
+                        ));
+                    }
+                    // Keep both numerical charts. Their existing routing masses
+                    // are exactly atlas activation × partition-of-unity; only the
+                    // semantic quotient and transition cocycle are new state.
+                    child.register_chart_transition(UnitSpeedChartTransition::new(
+                        *b,
+                        *a,
+                        -1,
+                        seam.offset,
+                        seam.period,
+                        AtlasSeamKind::Regular,
+                    )?)?;
+                }
             }
             Ok((child, rho.clone()))
         }
@@ -1558,6 +2299,339 @@ fn fold_atom_into(term: &mut SaeManifoldTerm, a: usize, b: usize) -> Result<(), 
     Ok(())
 }
 
+/// Physically REMOVE the atoms in `remove` from `term`/`rho` — the TRUE-FUSION
+/// tail that a demotion alone cannot deliver. A [`fold_atom_into`] combines the
+/// folded atom's routing mass into its survivor and drops its logit column to
+/// [`DEMOTE_LOGIT`], but a demoted-not-removed atom keeps a full decoder at ~0
+/// mass, and the joint refit's #976/#1003 active-mass guard
+/// ([`SaeManifoldTerm::enforce_active_mass_guard`]) runs at fit ENTRY after
+/// `collapse_events` is cleared: it reads that atom's max gate as below the trust
+/// floor and RESEEDS its logits to per-row winner parity, resurrecting the atom
+/// the glue just retired (the effective atom count never falls, #1890). So for a
+/// certified glue we excise the folded atoms outright — decoder atom,
+/// routing-logit column, latent coordinate block, per-atom `ungated`/frozen slot,
+/// and per-atom ρ (smoothness + ARD) blocks — so BOTH the raw and the active
+/// dictionary size fall, no zero-mass atom survives for the guard to revive, and
+/// each survivor is forced to carry the absorbed arc through the refit.
+///
+/// Every atom is dropped in ONE pass (a shared keep-mask), so removing several
+/// atoms needs no descending-index bookkeeping. Each survivor must already hold
+/// its folded partner's mass (call this AFTER the folds); any per-atom diagnostic
+/// caches are reset so the post-glue refit rebuilds them against the reduced
+/// dictionary rather than indexing a stale length-`K`.
+fn remove_atoms(
+    term: &mut SaeManifoldTerm,
+    rho: &mut SaeManifoldRho,
+    remove: &std::collections::BTreeSet<usize>,
+) -> Result<(), String> {
+    let k = term.k_atoms();
+    if let Some(&bad) = remove.iter().find(|&&j| j >= k) {
+        return Err(format!("remove_atoms: atom {bad} out of range (K={k})"));
+    }
+    if remove.len() >= k {
+        return Err("remove_atoms: cannot remove every atom".to_string());
+    }
+    if remove.is_empty() {
+        return Ok(());
+    }
+    // Validate every atom-indexed container BEFORE mutating any of them.  The
+    // normal constructors maintain these invariants, but this function is the
+    // variable-K boundary and must return a useful error rather than partially
+    // compacting a malformed warm state and then panicking on an indexed gather.
+    let n = term.assignment.logits.nrows();
+    if term.assignment.logits.ncols() != k
+        || term.assignment.coords.len() != k
+        || term.assignment.ungated.len() != k
+    {
+        return Err(format!(
+            "remove_atoms: atom-indexed assignment shape mismatch: atoms={k}, \
+             logits={:?}, coords={}, ungated={}",
+            term.assignment.logits.dim(),
+            term.assignment.coords.len(),
+            term.assignment.ungated.len()
+        ));
+    }
+    if let Some(frozen) = term.assignment.frozen_logits.as_ref() {
+        if frozen.dim() != (n, k) {
+            return Err(format!(
+                "remove_atoms: frozen logits shape {:?} must equal ({n}, {k})",
+                frozen.dim()
+            ));
+        }
+    }
+    if rho.log_lambda_smooth.len() != k || rho.log_ard.len() != k {
+        return Err(format!(
+            "remove_atoms: rho per-atom lengths (smooth {}, ard {}) must equal K={k}",
+            rho.log_lambda_smooth.len(),
+            rho.log_ard.len()
+        ));
+    }
+    let keep: Vec<usize> = (0..k).filter(|j| !remove.contains(j)).collect();
+    // Registered atlas endpoints are atom indices.  A seam-bearing chart may
+    // never be deleted by ordinary compaction; surviving atlases are remapped
+    // through the same keep permutation before the atom arrays move.
+    let mut old_to_new = vec![None; k];
+    for (new, &old) in keep.iter().enumerate() {
+        old_to_new[old] = Some(new);
+    }
+    term.remap_chart_atlases(&old_to_new)?;
+    // Rebuild the atom list, coord blocks, ungated flags, and ρ blocks keeping
+    // only the surviving indices (descending removal on the Vecs would also work,
+    // but the keep-mask keeps atoms/coords/logits/ρ provably in lock-step).
+    term.atoms = keep.iter().map(|&j| term.atoms[j].clone()).collect();
+    // `ndarray::select(Axis(1), ..)` may retain a column-major/non-standard
+    // stride layout. The Newton driver updates logits row-wise and requires each
+    // row to be a contiguous mutable slice, so materialize the compacted router
+    // explicitly in row-major order at this variable-K boundary.
+    let compacted_logits = Array2::from_shape_fn((n, keep.len()), |(row, new_atom)| {
+        term.assignment.logits[[row, keep[new_atom]]]
+    });
+    term.assignment.logits = compacted_logits;
+    term.assignment.coords = keep
+        .iter()
+        .map(|&j| term.assignment.coords[j].clone())
+        .collect();
+    term.assignment.ungated = keep.iter().map(|&j| term.assignment.ungated[j]).collect();
+    // A frozen router was trained against the old dictionary.  Merely slicing
+    // its columns would not encode the fold's log-sum-exp mass transfer and
+    // would keep routing permanently frozen to an invalid model.  The reduced
+    // dictionary must refit its routing from the physically folded logits.
+    term.assignment.frozen_logits = None;
+    // Per-atom ρ blocks (the block-relevance `log_lambda_block` is per-output-block,
+    // not per-atom, so it is untouched).
+    rho.log_lambda_smooth = keep.iter().map(|&j| rho.log_lambda_smooth[j]).collect();
+    rho.log_ard = keep.iter().map(|&j| rho.log_ard[j].clone()).collect();
+    // Drop every K-dependent cache and optimization ledger.  Compaction changes
+    // both the column order and the quotient dimension, so retaining any of the
+    // old assembly layout, frozen pair gates, evidence-deflation anchor, or
+    // per-atom diagnostic reports would make the polish refit interpret old-K
+    // state as if it described the reduced dictionary.
+    term.collapse_events.clear();
+    term.last_row_layout = None;
+    term.last_frames_active = false;
+    term.fixed_decoder_assembly = false;
+    term.border_hbb_workspace = Array2::<f64>::zeros((0, 0));
+    term.decoder_repulsion_gate = None;
+    term.barrier_coactivation_gate = None;
+    term.streaming_gates_frozen = false;
+    term.curvature_walk_report = None;
+    term.expected_evidence_gauge_deflated_directions = None;
+    term.evidence_gauge_deflation_reanchors = 0;
+    term.evidence_gauge_deflation_last_delta_sign = 0;
+    term.dictionary_cocollapse_reseeds = 0;
+    term.structural_cocollapse_reseeds = 0;
+    term.atom_inner_fits = None;
+    term.oos_linear_images = None;
+    term.hybrid_split_report = None;
+    term.best_cocollapse_incumbent = None;
+    term.best_fit_incumbent = None;
+    // A cap equal to or wider than the reduced K is no longer an active-set cap.
+    // Re-normalize it through the canonical setter after K has changed.
+    let softmax_active_cap = term.softmax_active_cap;
+    term.set_softmax_active_cap(softmax_active_cap);
+    Ok(())
+}
+
+/// Round-boundary chart-glue adoption (#1890).  A glue is a harvest-certified
+/// equivalence move, not a likelihood-scored numerical candidate: the exact seam
+/// transition which earned its e-value is carried in `certified_glues`, and the
+/// search defers materializing the move until its index-sensitive proposal chain
+/// is complete.  This boundary then applies every accepted certificate exactly
+/// once: an orientation-preserving seam folds/transplants/removes B, while an
+/// irreducible reversing or pole seam registers both charts as one atlas atom.
+///
+/// The whole accepted matching and all proposal/certificate pairings are checked
+/// before mutation.  Materialization runs on a cloned child and commits only on
+/// success, so malformed resumed/direct ledgers cannot leave half-folded state.
+/// The search engine's `touched` guard guarantees accepted glues share no atom;
+/// checking it again here makes that adoption contract explicit.  No accepted
+/// glue is a no-op.
+fn compact_glued_atoms(
+    term: &mut SaeManifoldTerm,
+    rho: &mut SaeManifoldRho,
+    round_ledger: &SearchLedger,
+    certified_glues: &[CertifiedGlue],
+) -> Result<usize, String> {
+    use gam_solve::structure_search::MoveVerdict;
+    let accepted_glues: Vec<(usize, usize, ChartGlueOutcome)> = round_ledger
+        .moves
+        .iter()
+        .filter_map(|rec| {
+            if let (StructureMove::Glue { a, b, outcome }, MoveVerdict::Accepted { .. }) =
+                (&rec.mv, &rec.verdict)
+            {
+                Some((*a, *b, *outcome))
+            } else {
+                None
+            }
+        })
+        .collect();
+    if accepted_glues.is_empty() {
+        return Ok(0);
+    }
+    // Validate the whole accepted matching before the first fold.  The search
+    // engine enforces this through its `touched` set; checking again here keeps
+    // the variable-K boundary transactional even for resumed/deserialized or
+    // directly-constructed ledgers.
+    let k = term.k_atoms();
+    let mut touched = std::collections::BTreeSet::new();
+    for &(a, b, _) in &accepted_glues {
+        if a >= k || b >= k || a == b {
+            return Err(format!(
+                "compact_glued_atoms: accepted glue ({a},{b}) out of range or self-gluing (K={k})"
+            ));
+        }
+        if !touched.insert(a) || !touched.insert(b) {
+            return Err(format!(
+                "compact_glued_atoms: accepted glues are not an atom-disjoint matching; \
+                 atom reused by ({a},{b})"
+            ));
+        }
+    }
+
+    // Pair every accepted ledger record with exactly one harvest certificate.
+    // A proposal without its geometric object cannot be adopted: trying to
+    // reconstruct it here from a scoring/polish-mutated state is precisely the
+    // ordering bug this boundary forbids.
+    let mut adopted: Vec<CertifiedGlue> = Vec::with_capacity(accepted_glues.len());
+    for &(a, b, outcome) in &accepted_glues {
+        let mut matches = certified_glues
+            .iter()
+            .filter(|certificate| certificate.a == a && certificate.b == b);
+        let certificate = matches.next().ok_or_else(|| {
+            format!("compact_glued_atoms: accepted glue ({a},{b}) has no harvest-time certificate")
+        })?;
+        if matches.next().is_some() {
+            return Err(format!(
+                "compact_glued_atoms: accepted glue ({a},{b}) has duplicate harvest-time certificates"
+            ));
+        }
+        if certificate.outcome != outcome {
+            return Err(format!(
+                "compact_glued_atoms: accepted glue ({a},{b}) outcome {outcome:?} does not match certified {:?}",
+                certificate.outcome
+            ));
+        }
+        match (&certificate.transition, outcome) {
+            (CertifiedGlueTransition::UnitSpeed { transition, .. }, ChartGlueOutcome::Fuse)
+                if transition.from_chart == b
+                    && transition.to_chart == a
+                    && transition.sign == 1
+                    && matches!(transition.seam_kind, AtlasSeamKind::Regular) => {}
+            (
+                CertifiedGlueTransition::UnitSpeed { transition, .. },
+                ChartGlueOutcome::RegisterAtlas,
+            ) if transition.from_chart == b
+                && transition.to_chart == a
+                && transition.sign == -1
+                && matches!(transition.seam_kind, AtlasSeamKind::Regular) => {}
+            (CertifiedGlueTransition::Sphere(transition), ChartGlueOutcome::RegisterAtlas)
+                if transition.from_chart == b
+                    && transition.to_chart == a
+                    && matches!(transition.seam_kind, AtlasSeamKind::Pole) => {}
+            _ => {
+                return Err(format!(
+                    "compact_glued_atoms: accepted glue ({a},{b}) is incompatible with its certified transition"
+                ));
+            }
+        }
+        adopted.push(certificate.clone());
+    }
+
+    let mut child_term = term.clone();
+    let mut child_rho = rho.clone();
+    let mut to_remove: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+    for certificate in adopted {
+        let (a, b) = (certificate.a, certificate.b);
+        match certificate.transition {
+            CertifiedGlueTransition::UnitSpeed { transition, rows_b }
+                if matches!(certificate.outcome, ChartGlueOutcome::Fuse) =>
+            {
+                fold_atom_into(&mut child_term, a, b)?;
+                transplant_glued_coords(&mut child_term, a, b, &transition, &rows_b)?;
+                to_remove.insert(b);
+            }
+            CertifiedGlueTransition::UnitSpeed { transition, .. } => {
+                child_term.register_chart_transition(transition)?;
+            }
+            CertifiedGlueTransition::Sphere(transition) => {
+                child_term.register_sphere_chart_transition(transition)?;
+            }
+        }
+    }
+    remove_atoms(&mut child_term, &mut child_rho, &to_remove)?;
+    *term = child_term;
+    *rho = child_rho;
+    Ok(to_remove.len())
+}
+
+/// Refit every production-registered seam on terminal polished charts. Atlas
+/// state is persisted model state, so after a genuinely numerical move it must
+/// describe the returned fit rather than the pre-polish warm start. A seam that
+/// ceases to be identifiable or changes kind/orientation is a structural-fit
+/// failure: returning a stale atlas would be worse than failing loudly. Pure
+/// registration rounds never call this function because they do not polish.
+fn refresh_registered_atlas_transitions(term: &mut SaeManifoldTerm) -> Result<(), String> {
+    let registered: Vec<UnitSpeedChartTransition> = term
+        .chart_atlases()
+        .iter()
+        .flat_map(|atlas| atlas.transitions().iter().copied())
+        .filter(|transition| matches!(transition.seam_kind, AtlasSeamKind::Regular))
+        .collect();
+    for transition in registered {
+        // `fit_seam_transition(a,b)` returns the map b -> a.
+        let seam = fit_seam_transition(term, transition.to_chart, transition.from_chart)
+            .ok_or_else(|| {
+                format!(
+                    "terminal atlas seam {}->{} is no longer identifiable",
+                    transition.from_chart, transition.to_chart
+                )
+            })?;
+        if seam.sign as i8 != transition.sign {
+            return Err(format!(
+                "terminal atlas seam {}->{} changed orientation ({} -> {})",
+                transition.from_chart, transition.to_chart, transition.sign, seam.sign as i8
+            ));
+        }
+        term.refresh_chart_transition(UnitSpeedChartTransition::new(
+            transition.from_chart,
+            transition.to_chart,
+            transition.sign,
+            seam.offset,
+            seam.period,
+            transition.seam_kind,
+        )?)?;
+    }
+    let registered_spheres: Vec<SphereChartTransition> = term
+        .chart_atlases()
+        .iter()
+        .flat_map(|atlas| atlas.sphere_transitions().iter().copied())
+        .collect();
+    for transition in registered_spheres {
+        // `fit_sphere_seam_transition(a,b)` likewise returns the map b -> a.
+        let seam = fit_sphere_seam_transition(term, transition.to_chart, transition.from_chart)
+            .ok_or_else(|| {
+                format!(
+                    "terminal sphere atlas seam {}->{} is no longer identifiable",
+                    transition.from_chart, transition.to_chart
+                )
+            })?;
+        if seam.seam_kind != transition.seam_kind {
+            return Err(format!(
+                "terminal sphere atlas seam {}->{} changed kind ({:?} -> {:?})",
+                transition.from_chart, transition.to_chart, transition.seam_kind, seam.seam_kind
+            ));
+        }
+        term.refresh_sphere_chart_transition(SphereChartTransition::new(
+            transition.from_chart,
+            transition.to_chart,
+            seam.rotation,
+            transition.seam_kind,
+        )?)?;
+    }
+    Ok(())
+}
+
 /// Append a child cloned from atom `parent`: identical basis, decoder, and
 /// coordinates, with the parent's routing split evenly between parent and child
 /// (the parent's logit dropped by `ln 2` on every row, the child seeded equal).
@@ -1632,11 +2706,7 @@ fn duplicate_atom(
     coords.push(term.assignment.coords[parent].clone());
     let assignment =
         crate::manifold::SaeAssignment::with_mode(logits, coords, term.assignment.mode)?;
-    let mut child = SaeManifoldTerm::new(atoms, assignment)?;
-    // Score the child on the parent's evidence-charge convention (see the note in
-    // `born_circle_atom`): `SaeManifoldTerm::new` resets `rank_charge_evidence`,
-    // and a birth/split gate must compare like-for-like Laplace complexity.
-    child.set_rank_charge_evidence(term.rank_charge_evidence());
+    let child = SaeManifoldTerm::new(atoms, assignment)?;
 
     let mut child_rho = rho.clone();
     if parent < child_rho.log_ard.len() {
@@ -2415,6 +3485,702 @@ fn race_spec_set(
     Ok(Some(winner.fit_handle.clone()))
 }
 
+/// A primary-atom topology choice discovered by the fit-entry evidence race
+/// (#2238/#2239): the basis kind the seed dictionary should build for the atom
+/// and the latent dimension that kind carries.
+pub struct PrimaryTopologyChoice {
+    pub basis_kind: SaeAtomBasisKind,
+    pub latent_dim: usize,
+    /// Evidence-selected harmonic resolution for a periodic (circle) winner
+    /// (#2243): the number of Fourier harmonics the seed circle carries, chosen
+    /// by REML marginal likelihood rather than the historical fixed budget.
+    /// `None` for every non-periodic kind, whose chart resolution is not a
+    /// harmonic count (sphere/torus/möbius carry fixed charts; flat winners
+    /// carry data-scaled Duchon centers).
+    pub n_harmonics: Option<usize>,
+    /// Evidence-selected thin-plate center count for a Duchon-sheet winner
+    /// (#2240, the #2243 resolution-growth pattern lifted to 2-D): the number
+    /// of Duchon centers the seeded sheet should carry, chosen by the same
+    /// REML marginal likelihood the topology race scores with. `None` for
+    /// every other kind (including a flat `EuclideanPatch` winner, which is
+    /// installed as a duchon seed at the builder's default center budget).
+    pub n_duchon_centers: Option<usize>,
+}
+
+/// Per-atom topology discovery for the PRIMARY seed dictionary (#2238/#2239).
+///
+/// [`race_birth_topology`] adjudicates topology by evidence, but it only ever
+/// runs on residual births — the K primary atoms created at fit entry kept the
+/// pinned default (a 1-D circle), hard-capping every intrinsically 2-D factor
+/// at R² ≈ 0.5. This lifts the SAME evidence race to fit entry: each atom
+/// races a circle, a torus, a sphere and a flat 2-D patch — every candidate
+/// seeded with its own NATURAL chart of the atom's cluster (phase angles for
+/// the periodic forms, (lat, lon) for the sphere, standardized principal
+/// projections for the patch) so no candidate is handicapped by a chart built
+/// for a rival — and the proper REML marginal likelihood picks the winner.
+///
+/// `labels` assigns each observation to its seed cluster (the same
+/// output-energy labels the periodic seed refinement uses); the race for atom
+/// `k` weights exactly its cluster's rows. `max_dims[k]` caps the intrinsic
+/// dimension enrolled for atom `k`, so `d_atom = 1` keeps the race
+/// one-dimensional. Auto discovery is an explicit contract: every requested
+/// atom must produce an evidence-backed winner. Invalid inputs, undersupported
+/// clusters, or numerical failures are returned to the caller instead of
+/// silently substituting a different topology.
+pub fn discover_primary_atom_topologies(
+    target: ArrayView2<'_, f64>,
+    labels: &[usize],
+    k_atoms: usize,
+    max_dims: &[usize],
+) -> Result<Vec<PrimaryTopologyChoice>, String> {
+    let n_obs = target.nrows();
+    let p_out = target.ncols();
+    if labels.len() != n_obs {
+        return Err(format!(
+            "discover_primary_atom_topologies: labels must have N={n_obs} entries; got {}",
+            labels.len()
+        ));
+    }
+    if max_dims.len() != k_atoms {
+        return Err(format!(
+            "discover_primary_atom_topologies: max_dims must have K={k_atoms} entries; got {}",
+            max_dims.len()
+        ));
+    }
+    if p_out < 2 {
+        return Err(format!(
+            "discover_primary_atom_topologies: evidence racing needs at least two output dimensions; got P={p_out}"
+        ));
+    }
+    (0..k_atoms)
+        .map(|atom_idx| -> Result<PrimaryTopologyChoice, String> {
+            let rows: Vec<usize> =
+                (0..n_obs).filter(|&row| labels[row] == atom_idx).collect();
+            // Too few rows to score a 2-candidate race honestly.
+            if rows.len() < 16 {
+                return Err(format!(
+                    "discover_primary_atom_topologies: auto atom {atom_idx} has only {} seed-cluster rows; at least 16 are required for an evidence race (name an explicit topology when discovery is not identifiable)",
+                    rows.len()
+                ));
+            }
+            // Cluster-local principal frame: up to 4 components of the atom's
+            // rows, then every observation projected into that frame (the race
+            // weights select the cluster; out-of-cluster rows carry weight 0).
+            let mut mean = vec![0.0_f64; p_out];
+            for &row in &rows {
+                for col in 0..p_out {
+                    mean[col] += target[[row, col]];
+                }
+            }
+            let inv_count = 1.0 / rows.len() as f64;
+            for value in &mut mean {
+                *value *= inv_count;
+            }
+            let mut local = Array2::<f64>::zeros((rows.len(), p_out));
+            for (out_row, &src_row) in rows.iter().enumerate() {
+                for col in 0..p_out {
+                    local[[out_row, col]] = target[[src_row, col]] - mean[col];
+                }
+            }
+            let (_u, _s, vt_opt) = local.svd(false, true).map_err(|error| {
+                format!(
+                    "discover_primary_atom_topologies: SVD failed for auto atom {atom_idx}: {error}"
+                )
+            })?;
+            let vt = vt_opt.ok_or_else(|| {
+                format!(
+                    "discover_primary_atom_topologies: SVD returned no right-singular frame for auto atom {atom_idx}"
+                )
+            })?;
+            let n_pcs = vt.nrows().min(4);
+            if n_pcs < 2 {
+                return Err(format!(
+                    "discover_primary_atom_topologies: auto atom {atom_idx} has principal rank {n_pcs}; at least two directions are required"
+                ));
+            }
+            let mut proj = Array2::<f64>::zeros((n_obs, n_pcs));
+            for row in 0..n_obs {
+                for pc in 0..n_pcs {
+                    let mut acc = 0.0_f64;
+                    for col in 0..p_out {
+                        acc += (target[[row, col]] - mean[col]) * vt[[pc, col]];
+                    }
+                    proj[[row, pc]] = acc;
+                }
+            }
+            // In-cluster standard deviation per component (the projections are
+            // already centered at the cluster mean), so the flat patch sees
+            // O(1) coordinates.
+            let cluster_sd = |pc: usize| -> f64 {
+                let mut acc = 0.0_f64;
+                for &row in &rows {
+                    acc += proj[[row, pc]] * proj[[row, pc]];
+                }
+                (acc * inv_count).sqrt().max(1e-12)
+            };
+            let phase = |a: f64, b: f64| -> f64 {
+                let frac = b.atan2(a) / std::f64::consts::TAU;
+                frac - frac.floor()
+            };
+            let mut specs: Vec<TopologyCandidateSpec> = Vec::with_capacity(4);
+            // Circle: phase of the leading principal pair (unit-period
+            // convention, matching the periodic seed refinement). The phase
+            // coordinate is retained so that, if the circle wins the topology
+            // race, its harmonic RESOLUTION can be selected by evidence (#2243)
+            // on the same coordinate the topology race discriminated on.
+            let circle_coords = {
+                let mut coords = Array2::<f64>::zeros((n_obs, 1));
+                for row in 0..n_obs {
+                    coords[[row, 0]] = phase(proj[[row, 0]], proj[[row, 1]]);
+                }
+                let n_harmonics = 3;
+                let evaluator = PeriodicHarmonicEvaluator::new(n_harmonics).map_err(|error| {
+                    format!(
+                        "discover_primary_atom_topologies: circle evaluator failed for auto atom {atom_idx}: {error}"
+                    )
+                })?;
+                specs.push(TopologyCandidateSpec {
+                    kind: AutoTopologyKind::Circle,
+                    basis_kind: SaeAtomBasisKind::Periodic,
+                    manifold: LatentManifold::Circle { period: 1.0 },
+                    latent_dim: 1,
+                    evaluator: Arc::new(evaluator),
+                    coords: coords.clone(),
+                });
+                coords
+            };
+            let mut sheet_coords: Option<Array2<f64>> = None;
+            if max_dims[atom_idx] >= 2 {
+                // Flat 2-D patch: standardized leading principal projections.
+                let (sd0, sd1) = (cluster_sd(0), cluster_sd(1));
+                let mut coords = Array2::<f64>::zeros((n_obs, 2));
+                for row in 0..n_obs {
+                    coords[[row, 0]] = proj[[row, 0]] / sd0;
+                    coords[[row, 1]] = proj[[row, 1]] / sd1;
+                }
+                let evaluator = EuclideanPatchEvaluator::new(2, 2).map_err(|error| {
+                    format!(
+                        "discover_primary_atom_topologies: flat evaluator failed for auto atom {atom_idx}: {error}"
+                    )
+                })?;
+                specs.push(TopologyCandidateSpec {
+                    kind: AutoTopologyKind::Euclidean,
+                    basis_kind: SaeAtomBasisKind::EuclideanPatch,
+                    manifold: LatentManifold::Euclidean,
+                    latent_dim: 2,
+                    evaluator: Arc::new(evaluator),
+                    coords: coords.clone(),
+                });
+                // #2240 — flexible thin-plate (Duchon) sheet over the SAME
+                // standardized 2-PC chart, with adaptive in-cluster centers:
+                // the rich 2-D candidate for swiss-roll-class factors a
+                // degree-2 patch cannot follow. It races as its OWN kind
+                // (`DuchonSheet`): it is not a fixed constant-curvature form,
+                // so the #944 Euclidean/Sphere fusion cannot absorb it —
+                // without it, any race that also carried a sphere candidate
+                // fused the flat patch away and left a rolled sheet NO
+                // admissible chart at all. A cluster too small to identify the
+                // thin-plate nullspace simply skips the candidate (the flat
+                // patch above stays as the sheet fallback).
+                if let Some(centers) =
+                    duchon_sheet_centers(&coords, &rows, duchon_sheet_race_center_budget(rows.len()))
+                {
+                    let evaluator = DuchonCoordinateEvaluator::new(centers, DUCHON_SHEET_M)
+                        .map_err(|error| {
+                            format!(
+                                "discover_primary_atom_topologies: duchon-sheet evaluator failed for auto atom {atom_idx}: {error}"
+                            )
+                        })?;
+                    specs.push(TopologyCandidateSpec {
+                        kind: AutoTopologyKind::DuchonSheet,
+                        basis_kind: SaeAtomBasisKind::Duchon,
+                        manifold: LatentManifold::Euclidean,
+                        latent_dim: 2,
+                        evaluator: Arc::new(evaluator),
+                        coords: coords.clone(),
+                    });
+                }
+                sheet_coords = Some(coords);
+                if n_pcs >= 3 {
+                    // Sphere: (lat, lon) of the unit-normalized leading 3-frame.
+                    let mut coords = Array2::<f64>::zeros((n_obs, 2));
+                    for row in 0..n_obs {
+                        let (x, y, z) = (proj[[row, 0]], proj[[row, 1]], proj[[row, 2]]);
+                        let norm = (x * x + y * y + z * z).sqrt().max(1e-12);
+                        coords[[row, 0]] = (z / norm).clamp(-1.0, 1.0).asin();
+                        coords[[row, 1]] = y.atan2(x);
+                    }
+                    specs.push(TopologyCandidateSpec {
+                        kind: AutoTopologyKind::Sphere,
+                        basis_kind: SaeAtomBasisKind::Sphere,
+                        manifold: LatentManifold::Product(vec![
+                            LatentManifold::Interval {
+                                lo: -std::f64::consts::FRAC_PI_2,
+                                hi: std::f64::consts::FRAC_PI_2,
+                            },
+                            LatentManifold::Circle {
+                                period: std::f64::consts::TAU,
+                            },
+                        ]),
+                        latent_dim: 2,
+                        evaluator: Arc::new(SphereChartEvaluator),
+                        coords,
+                    });
+                }
+                if n_pcs >= 3 {
+                    // Möbius band (#2240): recover one fundamental domain of the
+                    // period-two double cover plus the SIGNED band width from the
+                    // radial/transverse half-angle vector. The deck-invariant basis
+                    // makes width-odd structure carry half-period angular factors —
+                    // the non-orientable signature no other candidate can express.
+                    if let (Ok(coords), Ok(evaluator)) = (
+                        crate::manifold::mobius_double_cover_coords_from_projection(
+                            proj.view(),
+                            &rows,
+                        ),
+                        MobiusHarmonicEvaluator::new(3, 2),
+                    ) {
+                        specs.push(TopologyCandidateSpec {
+                            kind: AutoTopologyKind::Mobius,
+                            basis_kind: SaeAtomBasisKind::Mobius,
+                            manifold: LatentManifold::Product(vec![
+                                LatentManifold::Circle { period: 2.0 },
+                                LatentManifold::Interval { lo: -1.0, hi: 1.0 },
+                            ]),
+                            latent_dim: 2,
+                            evaluator: Arc::new(evaluator),
+                            coords,
+                        });
+                    }
+                }
+                if n_pcs >= 4 {
+                    // Torus: independent phases of the two leading principal
+                    // pairs (fraction-of-period convention on both axes).
+                    let mut coords = Array2::<f64>::zeros((n_obs, 2));
+                    for row in 0..n_obs {
+                        coords[[row, 0]] = phase(proj[[row, 0]], proj[[row, 1]]);
+                        coords[[row, 1]] = phase(proj[[row, 2]], proj[[row, 3]]);
+                    }
+                    let evaluator = TorusHarmonicEvaluator::new(2, 2).map_err(|error| {
+                        format!(
+                            "discover_primary_atom_topologies: torus evaluator failed for auto atom {atom_idx}: {error}"
+                        )
+                    })?;
+                    specs.push(TopologyCandidateSpec {
+                        kind: AutoTopologyKind::Torus,
+                        basis_kind: SaeAtomBasisKind::Torus,
+                        manifold: LatentManifold::Product(vec![
+                            LatentManifold::Circle { period: 1.0 },
+                            LatentManifold::Circle { period: 1.0 },
+                        ]),
+                        latent_dim: 2,
+                        evaluator: Arc::new(evaluator),
+                        coords,
+                    });
+                }
+            }
+            if specs.is_empty() {
+                return Err(format!(
+                    "discover_primary_atom_topologies: auto atom {atom_idx} produced no realizable candidates"
+                ));
+            }
+            let mut weights = Array1::<f64>::zeros(n_obs);
+            for &row in &rows {
+                weights[row] = 1.0;
+            }
+            let fit = race_spec_set(specs, target, weights.view()).map_err(|error| {
+                format!(
+                    "discover_primary_atom_topologies: evidence race failed for auto atom {atom_idx}: {error}"
+                )
+            })?;
+            let fit = fit.ok_or_else(|| {
+                format!(
+                    "discover_primary_atom_topologies: evidence race returned no winner for auto atom {atom_idx}"
+                )
+            })?;
+            // #2243 — for a circle winner, GROW the harmonic resolution by the
+            // same REML evidence: the topology race ran the circle at a fixed low
+            // budget only to discriminate topology, but a genuinely 1-D factor's
+            // fidelity is capped by that budget. Every other kind carries a chart
+            // whose resolution is not a harmonic count, so it selects none.
+            let n_harmonics = if fit.basis_kind == SaeAtomBasisKind::Periodic {
+                Some(select_periodic_resolution(
+                    circle_coords.view(),
+                    target,
+                    weights.view(),
+                    rows.len(),
+                )?)
+            } else {
+                None
+            };
+            // #2240 — for a Duchon-sheet winner, GROW the center count by the
+            // same REML evidence (the #2243 pattern lifted from harmonics to
+            // thin-plate centers): the race ran the sheet at the seed-economy
+            // budget only to discriminate topology; a tightly rolled sheet's
+            // fidelity is capped by that budget.
+            let n_duchon_centers = if fit.basis_kind == SaeAtomBasisKind::Duchon {
+                let coords = sheet_coords.as_ref().ok_or_else(|| {
+                    format!(
+                        "discover_primary_atom_topologies: duchon-sheet winner without a 2-D chart for auto atom {atom_idx}"
+                    )
+                })?;
+                Some(select_duchon_sheet_resolution(
+                    coords,
+                    target,
+                    weights.view(),
+                    &rows,
+                )?)
+            } else {
+                None
+            };
+            Ok(PrimaryTopologyChoice {
+                basis_kind: fit.basis_kind,
+                latent_dim: fit.latent_dim,
+                n_harmonics,
+                n_duchon_centers,
+            })
+        })
+        .collect()
+}
+
+/// Evidence-driven harmonic resolution for a periodic (circle) primary atom
+/// (#2243). The historical seed budget (`2·d_atom + 1` harmonics, i.e. 2
+/// harmonics at the default `d_atom = 2`) under-resolves genuinely 1-D factors
+/// with real high-frequency content, capping reconstruction below the fidelity
+/// the data supports even once the topology is right. This selects the harmonic
+/// count by the SAME proper closed-form REML marginal likelihood the topology
+/// race scores with (`fit_topology_candidate` → `raw_reml`, already complexity-
+/// priced through `log|H| − log|λS|₊` + profiled dispersion, so lower is better):
+/// it takes the GLOBAL evidence minimum over the candidate resolutions rather
+/// than stopping at the first non-improving rung, because the angular spectrum
+/// can have gaps (a fundamental plus a higher harmonic with nothing between), so
+/// the evidence is not guaranteed unimodal in resolution.
+///
+/// Two hard, data-derived bounds keep the search finite and free of any tuned
+/// resolution constant:
+///
+/// * the identifiability limit `2H + 1 < n_cluster` — the weighted REML cannot
+///   be identified with more basis columns than the cluster has observations;
+/// * a spectral bandwidth — the largest harmonic whose weighted periodogram
+///   energy exceeds a machine-precision fraction (`1e-12`) of the peak
+///   single-harmonic energy. Harmonics above the bandwidth carry no
+///   reconstructible signal, only basis columns the complexity term would
+///   charge for, so they can never be the evidence optimum. The `1e-12` is a
+///   numerical-zero guard (a harmonic that small is indistinguishable from
+///   absent), NOT a smoothing/energy threshold.
+///
+/// The REML argmin then chooses the complexity-optimal resolution within the
+/// band. `n_cluster` too small for even a single harmonic, or a target with no
+/// angular energy, returns an error (the caller surfaces it as a discovery
+/// failure rather than silently pinning a resolution).
+/// Duchon nullspace order `m` for the raced 2-D thin-plate sheet (#2240) —
+/// DERIVED (identity with the seed builder): mirrors the FFI seed path's
+/// `sae_duchon_atom_m(dim) = dim/2 + 2`, i.e. `m = 3` (degree-2 polynomial
+/// nullspace) at `dim = 2`, so the race scores the same function space the
+/// winning seed will build.
+const DUCHON_SHEET_M: usize = 3;
+
+/// Polynomial-nullspace dimension of the `DUCHON_SHEET_M` thin-plate sheet in
+/// 2-D — DERIVED: monomials of total degree ≤ 2 in two variables, `C(2+2, 2) =
+/// 6`. The center count must clear this for the kernel block to have positive
+/// rank.
+const DUCHON_SHEET_NULLSPACE_DIM: usize = 6;
+
+/// Race-time center budget for the 2-D Duchon-sheet candidate (#2240) —
+/// mirrors the seed builder's economy band (`sae_build_atom_plans`: floor
+/// `nullspace + d + 1`, dense ceiling 32) so the race scores the exact chart a
+/// default seed would build; the evidence ladder
+/// ([`select_duchon_sheet_resolution`]) then grows a WINNER past this budget.
+/// Returns 0 (no realizable candidate) when the cluster cannot identify the
+/// thin-plate nullspace.
+fn duchon_sheet_race_center_budget(n_cluster: usize) -> usize {
+    let floor = DUCHON_SHEET_NULLSPACE_DIM + 2 + 1;
+    if n_cluster <= floor {
+        return 0;
+    }
+    n_cluster.min(32).max(floor)
+}
+
+/// Deterministic adaptive centers for the Duchon-sheet candidate: `n_centers`
+/// evenly-strided IN-CLUSTER rows of the standardized 2-PC chart, so the
+/// thin-plate kernel is anchored where the factor's data actually lies
+/// (knot-at-data placement). `None` when the cluster cannot supply the
+/// requested count (the candidate is skipped, not degraded).
+fn duchon_sheet_centers(
+    coords: &Array2<f64>,
+    rows: &[usize],
+    n_centers: usize,
+) -> Option<Array2<f64>> {
+    if n_centers == 0 || rows.len() < n_centers {
+        return None;
+    }
+    let mut centers = Array2::<f64>::zeros((n_centers, 2));
+    for i in 0..n_centers {
+        // Even stride over the cluster's rows; i·len/n is strictly increasing
+        // in i for n ≤ len, so the selected rows are distinct.
+        let row = rows[i * rows.len() / n_centers];
+        centers[[i, 0]] = coords[[row, 0]];
+        centers[[i, 1]] = coords[[row, 1]];
+    }
+    Some(centers)
+}
+
+/// Evidence-driven center count for a Duchon-sheet primary winner (#2240 — the
+/// #2243 resolution-growth pattern lifted from circle harmonics to thin-plate
+/// centers). The topology race scored the sheet at the seed-economy budget
+/// only to discriminate topology; a swiss-roll-class factor's fidelity is
+/// capped by that budget, so the winner's center count is selected by the SAME
+/// proper closed-form REML marginal likelihood the race scores with
+/// (`fit_topology_candidate` → `raw_reml`, complexity-priced, lower is
+/// better), taking the GLOBAL evidence minimum over a dyadic ladder — the
+/// evidence need not be unimodal in resolution.
+///
+/// The ladder is bounded by two hard, data-derived limits (no tuned
+/// resolution constant): the seed-economy floor below and the identifiability
+/// ceiling `n_centers < n_cluster` (the Duchon design has one column per
+/// center, and a weighted REML cannot be identified with as many columns as
+/// the cluster has observations). The ceiling rung is always included so a
+/// near-noiseless factor can reach full resolution.
+fn select_duchon_sheet_resolution(
+    sheet_coords: &Array2<f64>,
+    target: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+    rows: &[usize],
+) -> Result<usize, String> {
+    let floor = duchon_sheet_race_center_budget(rows.len());
+    if floor == 0 {
+        return Err(
+            "select_duchon_sheet_resolution: cluster too small to identify the thin-plate nullspace"
+                .to_string(),
+        );
+    }
+    let ceiling = rows.len().saturating_sub(1).max(floor);
+    let mut ladder: Vec<usize> = Vec::new();
+    let mut c = floor;
+    while c < ceiling {
+        ladder.push(c);
+        c = c.saturating_mul(2);
+    }
+    ladder.push(ceiling);
+    let mut best_c = 0usize;
+    let mut best_score = f64::INFINITY;
+    for &n_centers in &ladder {
+        let Some(centers) = duchon_sheet_centers(sheet_coords, rows, n_centers) else {
+            continue;
+        };
+        let evaluator = match DuchonCoordinateEvaluator::new(centers, DUCHON_SHEET_M) {
+            Ok(evaluator) => evaluator,
+            Err(_) => continue,
+        };
+        let spec = TopologyCandidateSpec {
+            kind: AutoTopologyKind::DuchonSheet,
+            basis_kind: SaeAtomBasisKind::Duchon,
+            manifold: LatentManifold::Euclidean,
+            latent_dim: 2,
+            evaluator: Arc::new(evaluator),
+            coords: sheet_coords.clone(),
+        };
+        // `raw_reml` is the proper REML evidence (lower is better) on a common
+        // `n_obs`, so comparing it directly selects the same resolution the
+        // race machinery would (see `select_periodic_resolution`).
+        let score = match fit_topology_candidate(&spec, target, weights) {
+            Ok(evidence) => evidence.raw_reml,
+            Err(_) => continue,
+        };
+        if score.is_finite() && score < best_score {
+            best_score = score;
+            best_c = n_centers;
+        }
+    }
+    if best_c == 0 {
+        return Err(
+            "select_duchon_sheet_resolution: no fittable center count for the duchon-sheet winner"
+                .to_string(),
+        );
+    }
+    Ok(best_c)
+}
+
+fn select_periodic_resolution(
+    circle_coords: ArrayView2<'_, f64>,
+    target: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+    n_cluster: usize,
+) -> Result<usize, String> {
+    let n_obs = target.nrows();
+    let p_out = target.ncols();
+    // 2H + 1 basis columns must stay strictly below the cluster sample count for
+    // the weighted REML to be identifiable.
+    let ident_ceiling = (n_cluster.saturating_sub(2) / 2).max(1);
+    // Weighted angular periodogram energy per harmonic, over the cluster rows the
+    // weights select. Harmonics beyond the highest with non-numerical-zero energy
+    // are pruned from the (potentially expensive) REML ladder below.
+    let mut peak_energy = 0.0_f64;
+    let mut energies = Vec::with_capacity(ident_ceiling);
+    for h in 1..=ident_ceiling {
+        let mut energy = 0.0_f64;
+        for col in 0..p_out {
+            let (mut re, mut im) = (0.0_f64, 0.0_f64);
+            for row in 0..n_obs {
+                let w = weights[row];
+                if w == 0.0 {
+                    continue;
+                }
+                let angle = std::f64::consts::TAU * h as f64 * circle_coords[[row, 0]];
+                re += w * target[[row, col]] * angle.cos();
+                im += w * target[[row, col]] * angle.sin();
+            }
+            energy += re * re + im * im;
+        }
+        peak_energy = peak_energy.max(energy);
+        energies.push(energy);
+    }
+    if !(peak_energy > 0.0) {
+        return Err(
+            "select_periodic_resolution: the circle winner carries no angular energy".to_string(),
+        );
+    }
+    let energy_floor = peak_energy * 1e-12;
+    let bandwidth = energies
+        .iter()
+        .rposition(|&energy| energy > energy_floor)
+        .map(|idx| idx + 1)
+        .unwrap_or(1);
+    let ceiling = bandwidth.min(ident_ceiling).max(1);
+    let mut best_h = 0usize;
+    let mut best_score = f64::INFINITY;
+    for h in 1..=ceiling {
+        let evaluator = match PeriodicHarmonicEvaluator::new(h) {
+            Ok(evaluator) => evaluator,
+            Err(_) => continue,
+        };
+        let spec = TopologyCandidateSpec {
+            kind: AutoTopologyKind::Circle,
+            basis_kind: SaeAtomBasisKind::Periodic,
+            manifold: LatentManifold::Circle { period: 1.0 },
+            latent_dim: 1,
+            evaluator: Arc::new(evaluator),
+            coords: circle_coords.to_owned(),
+        };
+        // `raw_reml` is the proper REML evidence (lower is better); with a common
+        // `n_obs` and no null-space term it is monotone in the per-observation
+        // `tk_normalized_score` the topology race ranks on, so comparing it
+        // directly selects the same resolution the race machinery would.
+        let score = match fit_topology_candidate(&spec, target, weights) {
+            Ok(evidence) => evidence.raw_reml,
+            Err(_) => continue,
+        };
+        if score.is_finite() && score < best_score {
+            best_score = score;
+            best_h = h;
+        }
+    }
+    if best_h == 0 {
+        return Err(
+            "select_periodic_resolution: no fittable harmonic resolution for the circle winner"
+                .to_string(),
+        );
+    }
+    Ok(best_h)
+}
+
+/// Resolve every `"auto"` entry of a primary seed dictionary to the concrete
+/// basis-kind string + latent dimension the fit-entry evidence race selects
+/// (#2238/#2239). This is the SINGLE place the auto policy lives — the FFI
+/// layer only plumbs arrays through (SPEC: pyffi stays thin). Policy:
+///
+/// * torus / sphere winners keep their kind and carry `latent_dim = 2`;
+/// * a flat 2-D winner builds the expressive thin-plate (`duchon`) chart
+///   rather than the degree-2 patch the race scored with — same topology,
+///   strictly richer basis for the seeded atom;
+/// * a Duchon-sheet winner (#2240, the rich swiss-roll-class chart raced as
+///   its own candidate) installs as `duchon` and carries its evidence-selected
+///   center count in the returned per-atom override vector, so the seed
+///   builder grows the thin-plate resolution REML picked rather than its
+///   fixed economy budget;
+/// * a circle winner carries the harmonic resolution the fit-entry evidence
+///   race selected (#2243), installed as the periodic atom's `d_atom` (the seed
+///   builder's harmonic-count knob) so discovery grows resolution rather than
+///   pinning the caller's default budget;
+/// * any discovery failure is returned. Auto mode never silently substitutes
+///   the old periodic default; callers that require a fixed topology must name
+///   that topology explicitly.
+///
+/// Returns the per-atom Duchon center-count overrides (aligned with
+/// `atom_basis`; `None` everywhere except Duchon-sheet winners), for the seed
+/// plan builder to honor.
+pub fn resolve_auto_primary_atoms(
+    target: ArrayView2<'_, f64>,
+    labels: &[usize],
+    atom_basis: &mut [String],
+    atom_dim: &mut [usize],
+) -> Result<Vec<Option<usize>>, String> {
+    let k_atoms = atom_basis.len();
+    if atom_dim.len() != k_atoms {
+        return Err(format!(
+            "resolve_auto_primary_atoms: atom_basis and atom_dim must both have K={k_atoms} entries; atom_dim has {}",
+            atom_dim.len()
+        ));
+    }
+    let mut duchon_center_overrides: Vec<Option<usize>> = vec![None; k_atoms];
+    if !atom_basis.iter().any(|basis| basis == "auto") {
+        return Ok(duchon_center_overrides);
+    }
+    let choices = discover_primary_atom_topologies(target, labels, k_atoms, atom_dim)?;
+    for atom_idx in 0..k_atoms {
+        if atom_basis[atom_idx] != "auto" {
+            continue;
+        }
+        let choice = &choices[atom_idx];
+        match choice.basis_kind {
+            SaeAtomBasisKind::Torus => {
+                atom_basis[atom_idx] = "torus".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+            }
+            SaeAtomBasisKind::Sphere => {
+                atom_basis[atom_idx] = "sphere".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+            }
+            SaeAtomBasisKind::Mobius => {
+                atom_basis[atom_idx] = "mobius".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+            }
+            SaeAtomBasisKind::EuclideanPatch => {
+                atom_basis[atom_idx] = "duchon".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+            }
+            SaeAtomBasisKind::Duchon => {
+                // #2240 — the rich thin-plate sheet won the race outright.
+                // Install as a duchon seed and carry the evidence-selected
+                // center count so the seed builder grows the resolution REML
+                // picked (the #2243 pattern in 2-D).
+                atom_basis[atom_idx] = "duchon".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+                duchon_center_overrides[atom_idx] = choice.n_duchon_centers;
+            }
+            SaeAtomBasisKind::Periodic => {
+                atom_basis[atom_idx] = "periodic".to_string();
+                // #2243 — install the evidence-selected harmonic resolution as
+                // the periodic atom's `d_atom` (the seed builder routes `d_atom`
+                // into the Fourier harmonic count for a periodic basis), so the
+                // seeded circle carries the resolution REML picked rather than
+                // the caller's default budget. `None` cannot occur for a
+                // periodic winner (discovery always selects a resolution), but a
+                // missing value conservatively leaves the caller's budget.
+                if let Some(n_harmonics) = choice.n_harmonics {
+                    atom_dim[atom_idx] = n_harmonics;
+                }
+            }
+            ref unexpected => {
+                return Err(format!(
+                    "resolve_auto_primary_atoms: evidence race selected unsupported primary basis {unexpected:?} for auto atom {atom_idx}"
+                ));
+            }
+        }
+    }
+    Ok(duchon_center_overrides)
+}
+
 /// A small neutral routing logit a born atom is seeded at: large enough that the
 /// refit can grow it if the residual-factor direction is real, small relative to
 /// the established atoms so it does not perturb the current routing.
@@ -2576,11 +4342,7 @@ fn born_atom(
     coords.push(born_coord_block);
     let assignment =
         crate::manifold::SaeAssignment::with_mode(logits, coords, term.assignment.mode)?;
-    let mut child = SaeManifoldTerm::new(atoms, assignment)?;
-    // Score the child on the parent's evidence-charge convention (see the note in
-    // `born_circle_atom`): `SaeManifoldTerm::new` resets `rank_charge_evidence`,
-    // and a birth gate must compare like-for-like Laplace complexity.
-    child.set_rank_charge_evidence(term.rank_charge_evidence());
+    let child = SaeManifoldTerm::new(atoms, assignment)?;
 
     let mut child_rho = rho.clone();
     // The born atom inherits the template atom's ARD block shape (disabled if
@@ -2717,16 +4479,7 @@ pub(crate) fn born_circle_atom(
     coords.push(born_coord_block);
     let assignment =
         crate::manifold::SaeAssignment::with_mode(logits, coords, term.assignment.mode)?;
-    let mut child = SaeManifoldTerm::new(atoms, assignment)?;
-    // Propagate the evidence-charge convention from the parent. `SaeManifoldTerm::
-    // new` resets `rank_charge_evidence` to its default (false); if the incumbent
-    // dictionary is scored on the occupancy-aware BIC rank charge, the born
-    // candidate MUST be scored the same way, or the birth gate compares two REML
-    // values on different Laplace-complexity scales (the raw per-row coordinate
-    // log-det ½log|H_tt| grows ≈ O(n) per atom with no occam offset, so a
-    // htt-charged candidate looks arbitrarily worse than a rank-charged incumbent
-    // and every good birth is rejected at large n).
-    child.set_rank_charge_evidence(term.rank_charge_evidence());
+    let child = SaeManifoldTerm::new(atoms, assignment)?;
 
     let mut child_rho = rho.clone();
     let inherited = child_rho
@@ -2850,9 +4603,27 @@ impl StructureSearchResult {
         rho: SaeManifoldRho,
         rounds: Vec<SearchLedger>,
     ) -> Self {
+        Self::from_rounds_with_predictions(term, rho, rounds, &[])
+    }
+
+    /// Assemble a result AND thread the #2233 closed-form birth pre-screen
+    /// predictions into the unified ledger. `birth_predictions[i]` maps a birth
+    /// candidate index to its predicted ΔMDL (bits) for round `i` (parallel to
+    /// `rounds`; a missing / short entry is treated as "no predictions"), so each
+    /// proposed residual-factor birth's `predicted_dl_bits` sits on the same
+    /// migration record its post-refit verdict fills in.
+    #[must_use]
+    pub fn from_rounds_with_predictions(
+        term: SaeManifoldTerm,
+        rho: SaeManifoldRho,
+        rounds: Vec<SearchLedger>,
+        birth_predictions: &[std::collections::HashMap<usize, f64>],
+    ) -> Self {
         let mut migration = SaeMigrationLedger::new();
+        let empty = std::collections::HashMap::new();
         for (round_idx, round_ledger) in rounds.iter().enumerate() {
-            migration.record_search_round(round_idx, round_ledger);
+            let preds = birth_predictions.get(round_idx).unwrap_or(&empty);
+            migration.record_search_round(round_idx, round_ledger, preds);
         }
         Self {
             term,
@@ -3002,6 +4773,10 @@ pub fn run_structure_search_rounds(
     } = config;
     let split = estimation_eval_split(target, n_shards);
     let mut rounds: Vec<SearchLedger> = Vec::new();
+    // #2233: per-round birth-pre-screen predictions (candidate index → predicted
+    // ΔMDL bits), pushed in lock-step with `rounds` so the unified ledger can pair
+    // each proposed birth's prediction with its post-refit verdict.
+    let mut round_predictions: Vec<std::collections::HashMap<usize, f64>> = Vec::new();
     // Hysteresis ledger for the curl/flatten pair — persists across rounds so a
     // just-curled atom-set (or just-flattened one) is silenced for a few rounds
     // and the two moves cannot chase each other (INTEGRATION_PLAN risk #5).
@@ -3009,9 +4784,13 @@ pub fn run_structure_search_rounds(
 
     for _ in 0..max_rounds {
         // Harvest from the current fitted state. Residuals R = target − fitted.
-        let fitted = term.try_fitted()?;
+        let fitted = term.try_fitted_target_aware(target, None)?;
         let residuals = &target.to_owned() - &fitted;
         let mut report = harvest_move_proposals(&term, &rho, residuals.view(), &harvest_params)?;
+        // Capture the pre-screen predictions before `report.proposals` is consumed
+        // by the search; curl births (appended below) carry no prediction.
+        let birth_predictions: std::collections::HashMap<usize, f64> =
+            report.birth_predictions.iter().copied().collect();
 
         // #993 item 3: BANK the within-atom carve binding evidence in the
         // ledger. The carve ran on each `d = 2` product-atom fission candidate
@@ -3086,23 +4865,33 @@ pub fn run_structure_search_rounds(
                 moves: Vec::new(),
                 collapse_events: term.collapse_events().to_vec(),
             });
+            round_predictions.push(birth_predictions);
             break;
         }
 
-        // The search state threads (term, rho) together. apply_move restructures
-        // both AND refits the candidate on the estimation rows so it is the
-        // predictable plug-in the held-out shards are evaluated against.
+        // The search state threads (term, rho) together. Numerical moves are
+        // restructured and refit on the estimation rows so they are predictable
+        // plug-ins for held-out scoring. Glue is different: its trigger already
+        // IS the sample-split equivalence e-value, and the engine never consults
+        // a fit-improvement score for that arm. Keep its state index-stable and
+        // materialize the harvest-certified transition exactly once at the round
+        // boundary after the proposal chain is complete.
         type State = (SaeManifoldTerm, SaeManifoldRho);
         let collapse_events = term.collapse_events().to_vec();
         let decoders = birth_seeds;
         let estimation_rows = split.estimation_rows.clone();
+        let certified_glues = std::mem::take(&mut report.certified_glues);
+        let proposals = std::mem::take(&mut report.proposals);
         let outcome: SearchOutcome<State> = search(
             (term, rho),
-            report.proposals,
+            proposals,
             &split.shards,
             &budget,
             ledger,
             |state: &State, mv: &StructureMove| {
+                if matches!(mv, StructureMove::Glue { .. }) {
+                    return Ok(state.clone());
+                }
                 let (cand_term, cand_rho) =
                     apply_structure_move_seeded(&state.0, &state.1, mv, &decoders)?;
                 // Refit the restructured candidate on the estimation rows only.
@@ -3124,6 +4913,20 @@ pub fn run_structure_search_rounds(
                 gam_solve::structure_search::MoveVerdict::Accepted { .. }
                     | gam_solve::structure_search::MoveVerdict::Demoted { .. }
             )
+        });
+        // A certified Glue is an exact geometric quotient, whether it registers
+        // an atlas or physically removes an over-tile: the carried transition
+        // transplants the removed chart and the fold preserves routing mass.
+        // Re-optimizing a glue-only round would turn an evidence-certified image
+        // equivalence into a new numerical fit on only the estimation split.
+        // Mixed rounds still polish because their non-Glue moves are numerical.
+        let requires_polish = round_ledger.moves.iter().any(|record| {
+            let fired = matches!(
+                record.verdict,
+                gam_solve::structure_search::MoveVerdict::Accepted { .. }
+                    | gam_solve::structure_search::MoveVerdict::Demoted { .. }
+            );
+            fired && !matches!(record.mv, StructureMove::Glue { .. })
         });
         // Record the atom-sets any APPLIED curl / flatten move fired on into the
         // cooldown ledger, then advance one round — so the inverse move cannot
@@ -3153,21 +4956,38 @@ pub fn run_structure_search_rounds(
             cooldown.tick();
         }
         rounds.push(round_ledger);
+        round_predictions.push(birth_predictions);
 
         if applied {
-            // The adopted winner reached its restructured form through the cheap
-            // capped-iteration SCORING refit; re-refit it at the full inner
-            // budget (same estimation-row weighting) before it becomes the next
-            // round's parent and the returned dictionary, so the cap is a
-            // scoring-only economy and the adopted state matches a direct
-            // full-iter refit (the inner solve is convergent; the capped score
-            // was only a worse starting iterate). When no move landed, the state
-            // is byte-identical to the unrefit pre-search parent and needs no
-            // polish.
-            let (polished_term, polished_rho) =
-                finalize_round(next_term, next_rho, &split.estimation_rows);
-            term = polished_term;
-            rho = polished_rho;
+            // #1890 — adopt each accepted harvest certificate exactly once, now
+            // that the search's index-sensitive chain is complete. Destructive
+            // glues physically compact their partner before polish; atlas glues
+            // register an image-exact quotient and retain both numerical charts.
+            let (mut next_term, mut next_rho) = (next_term, next_rho);
+            compact_glued_atoms(
+                &mut next_term,
+                &mut next_rho,
+                rounds.last().expect("round ledger pushed above"),
+                &certified_glues,
+            )?;
+            if requires_polish {
+                // Numerical winners reached their restructured form through the
+                // cheap capped scoring refit. Refit at the full inner budget and
+                // then refresh any registered regular seams against that terminal
+                // numerical state.
+                let (mut polished_term, polished_rho) =
+                    finalize_round(next_term, next_rho, &split.estimation_rows);
+                refresh_registered_atlas_transitions(&mut polished_term)?;
+                term = polished_term;
+                rho = polished_rho;
+            } else {
+                // A pure certified-Glue round is already terminal: optimizer work
+                // here would violate the carried quotient's image-equivalence
+                // contract (and would fit only the estimation split after the
+                // sample-split verdict).
+                term = next_term;
+                rho = next_rho;
+            }
         } else {
             term = next_term;
             rho = next_rho;
@@ -3177,7 +4997,12 @@ pub fn run_structure_search_rounds(
 
     // Fold the per-round e-process verdicts into the ONE unified migration
     // currency (Increment 3): a read-out, not a second gate.
-    Ok(StructureSearchResult::from_rounds(term, rho, rounds))
+    Ok(StructureSearchResult::from_rounds_with_predictions(
+        term,
+        rho,
+        rounds,
+        &round_predictions,
+    ))
 }
 
 /// Build the per-round residual-factor decoder list the birth apply-move indexes
@@ -3620,7 +5445,7 @@ fn eval_log_lik(term: &SaeManifoldTerm, shard: &RowBlockShard) -> f64 {
     // The fitted reconstruction at the shard's held-out rows, scored against the
     // full target. The term's per-row routing/basis covers all N rows, so the
     // reconstruction at a held-out row is the model's prediction for it.
-    let fitted = match term.try_fitted() {
+    let fitted = match term.try_fitted_target_aware(shard.target.view(), None) {
         Ok(f) => f,
         Err(_) => return f64::NEG_INFINITY,
     };
@@ -3862,12 +5687,26 @@ pub fn run_production_structure_search(
         // Full-iter POLISH of each round's adopted winner before it becomes the
         // next round's parent / the returned dictionary, so the cap is a
         // scoring-only economy and the adopted state matches a full-iter refit.
-        move |adopted_term, adopted_rho, estimation_rows| {
+        //
+        // #1890 — the polish refits on ALL rows, NOT the held-out estimation
+        // split the per-candidate scoring uses. The estimation/eval split is
+        // CONTIGUOUS (`estimation_rows = 0..n_est`), and a disjoint-support
+        // dictionary (e.g. the over-tiled / orientation-reversing arcs of the
+        // chart-glue fixtures) can place an entire atom's support inside the
+        // held-out shard. Refitting the polish on estimation-only then weights
+        // that atom's rows at ~0, leaving its decoder UNCONSTRAINED: it drifts
+        // or blows up (the reversing pin's `try_fitted()` diverges to ~1.9) or is
+        // demoted for lack of support (the over-tile partner). The held-out split
+        // exists solely so the per-candidate SCORING refit is an honest
+        // predictable plug-in for the e-process; the adopted winner's polish is
+        // the RETURNED dictionary and must fit every row it will be evaluated on.
+        move |adopted_term, adopted_rho, _estimation_rows| {
+            let all_rows: Vec<usize> = (0..n).collect();
             refit_at(
                 full_target_polish.view(),
                 adopted_term,
                 adopted_rho,
-                estimation_rows,
+                &all_rows,
                 full_iters,
             )
         },
@@ -3942,6 +5781,263 @@ mod tests {
     const ON: f64 = 6.0;
     const OFF: f64 = -6.0;
 
+    /// #2238/#2239 — `auto` is an evidence-discovery request, not an alias for
+    /// the old periodic default. An undersupported cluster must fail loudly and
+    /// leave the caller's unresolved state untouched.
+    #[test]
+    fn auto_primary_topology_never_falls_back_on_race_failure_2238_2239() {
+        let target = Array2::<f64>::zeros((15, 2));
+        let labels = vec![0usize; 15];
+        let mut basis = vec!["auto".to_string()];
+        let mut dims = vec![2usize];
+
+        let error = resolve_auto_primary_atoms(target.view(), &labels, &mut basis, &mut dims)
+            .expect_err("an undersupported automatic race must be rejected");
+
+        assert!(error.contains("auto atom 0"), "unexpected error: {error}");
+        assert!(error.contains("at least 16"), "unexpected error: {error}");
+        assert_eq!(basis, vec!["auto"], "failure must not install a fallback");
+        assert_eq!(dims, vec![2], "failure must not rewrite latent dimension");
+    }
+
+    /// #2238 — a genuinely two-dimensional primary factor must not be pinned to
+    /// the old one-dimensional circle. A full 8x8 planar grid is represented
+    /// exactly by the flat 2-D candidate, while phase alone discards radius.
+    #[test]
+    fn auto_primary_topology_selects_two_dimensional_factor_2238() {
+        let side = 8usize;
+        let target = Array2::<f64>::from_shape_fn((side * side, 2), |(row, col)| {
+            let i = row / side;
+            let j = row % side;
+            if col == 0 {
+                i as f64 - 0.5 * (side - 1) as f64
+            } else {
+                j as f64 - 0.5 * (side - 1) as f64
+            }
+        });
+        let labels = vec![0usize; target.nrows()];
+        let choices = discover_primary_atom_topologies(target.view(), &labels, 1, &[2])
+            .expect("the supported planar race must produce a winner");
+
+        assert_eq!(choices.len(), 1);
+        assert_eq!(choices[0].latent_dim, 2);
+        assert_eq!(choices[0].basis_kind, SaeAtomBasisKind::EuclideanPatch);
+    }
+
+    /// #2238/#2239 — a genuinely CURVED 2-D primary factor (a 2-sphere) must be
+    /// discovered by the fit-entry evidence race as a d=2 sphere chart, not
+    /// pinned to the 1-D circle default. This is the manifold-zoo plateau and
+    /// its fix in one test: the circle chart is a function of longitude alone,
+    /// so it structurally discards latitude and caps the recovery near the
+    /// observed plateau, while the raced sphere chart reconstructs the planted
+    /// factor almost exactly. The race both SELECTS the curved chart (over the
+    /// circle and the flat patch) and, fitted, strictly BEATS the circle-pinned
+    /// recovery — the two claims the companion issues turn on.
+    #[test]
+    fn auto_primary_topology_selects_curved_sphere_and_beats_circle_2238_2239() {
+        use crate::basis::SphereChartEvaluator;
+        use gam_solve::AutoTopologyKind;
+        use ndarray::Array1;
+
+        // Deterministic (lat, lon) grid on the OPEN sphere (poles excluded so no
+        // chart row is degenerate), embedded as the unit 2-sphere in R³.
+        let (n_lat, n_lon) = (12usize, 14usize);
+        let n = n_lat * n_lon;
+        let mut lat = Vec::with_capacity(n);
+        let mut lon = Vec::with_capacity(n);
+        let mut target = Array2::<f64>::zeros((n, 3));
+        for i in 0..n_lat {
+            let theta = -std::f64::consts::FRAC_PI_2
+                + std::f64::consts::PI * (i as f64 + 1.0) / (n_lat as f64 + 1.0);
+            for j in 0..n_lon {
+                let phi = std::f64::consts::TAU * j as f64 / n_lon as f64;
+                let row = i * n_lon + j;
+                target[[row, 0]] = theta.cos() * phi.cos();
+                target[[row, 1]] = theta.cos() * phi.sin();
+                target[[row, 2]] = theta.sin();
+                lat.push(theta);
+                lon.push(phi);
+            }
+        }
+
+        // The primary-atom race (single cluster) must pick the d=2 sphere chart.
+        let labels = vec![0usize; n];
+        let choices = discover_primary_atom_topologies(target.view(), &labels, 1, &[2])
+            .expect("the supported sphere race must produce a winner");
+        assert_eq!(choices.len(), 1);
+        assert_eq!(
+            choices[0].basis_kind,
+            SaeAtomBasisKind::Sphere,
+            "the curved 2-sphere factor must be discovered as a sphere chart, not a circle/patch"
+        );
+        assert_eq!(choices[0].latent_dim, 2, "a sphere is intrinsically 2-D");
+
+        // Reconstruction proof of "beats the circle-pinned recovery": fit the
+        // circle chart (longitude only) and the sphere chart (lat, lon) to the
+        // SAME planted factor through the same REML candidate fitter the race
+        // uses, and compare the explained variance each achieves.
+        let weights = Array1::<f64>::ones(n);
+        let recon_r2 = |spec: &TopologyCandidateSpec| -> f64 {
+            let fit = fit_topology_candidate(spec, target.view(), weights.view())
+                .expect("candidate fit")
+                .fit_handle;
+            let recon = fit.phi.dot(&fit.decoder);
+            let mut means = [0.0_f64; 3];
+            for col in 0..3 {
+                let mut acc = 0.0;
+                for row in 0..n {
+                    acc += target[[row, col]];
+                }
+                means[col] = acc / n as f64;
+            }
+            let (mut ss_res, mut ss_tot) = (0.0_f64, 0.0_f64);
+            for row in 0..n {
+                for col in 0..3 {
+                    let r = target[[row, col]] - recon[[row, col]];
+                    ss_res += r * r;
+                    let c = target[[row, col]] - means[col];
+                    ss_tot += c * c;
+                }
+            }
+            1.0 - ss_res / ss_tot.max(1e-12)
+        };
+
+        let mut circle_coords = Array2::<f64>::zeros((n, 1));
+        for row in 0..n {
+            circle_coords[[row, 0]] = lon[row] / std::f64::consts::TAU;
+        }
+        let circle_spec = TopologyCandidateSpec {
+            kind: AutoTopologyKind::Circle,
+            basis_kind: SaeAtomBasisKind::Periodic,
+            manifold: LatentManifold::Circle { period: 1.0 },
+            latent_dim: 1,
+            evaluator: Arc::new(PeriodicHarmonicEvaluator::new(3).expect("periodic evaluator")),
+            coords: circle_coords,
+        };
+
+        let mut sphere_coords = Array2::<f64>::zeros((n, 2));
+        for row in 0..n {
+            sphere_coords[[row, 0]] = lat[row];
+            sphere_coords[[row, 1]] = lon[row];
+        }
+        let sphere_spec = TopologyCandidateSpec {
+            kind: AutoTopologyKind::Sphere,
+            basis_kind: SaeAtomBasisKind::Sphere,
+            manifold: LatentManifold::Product(vec![
+                LatentManifold::Interval {
+                    lo: -std::f64::consts::FRAC_PI_2,
+                    hi: std::f64::consts::FRAC_PI_2,
+                },
+                LatentManifold::Circle {
+                    period: std::f64::consts::TAU,
+                },
+            ]),
+            latent_dim: 2,
+            evaluator: Arc::new(SphereChartEvaluator),
+            coords: sphere_coords,
+        };
+
+        let circle_r2 = recon_r2(&circle_spec);
+        let sphere_r2 = recon_r2(&sphere_spec);
+        eprintln!(
+            "[topology-2238] planted 2-sphere R²: circle-pinned={circle_r2:.4} sphere-chart={sphere_r2:.4}"
+        );
+        assert!(
+            sphere_r2 > 0.9,
+            "the discovered sphere chart must recover the planted 2-sphere (R²={sphere_r2:.4})"
+        );
+        assert!(
+            circle_r2 < 0.75,
+            "the 1-D circle default structurally caps the 2-sphere recovery (R²={circle_r2:.4})"
+        );
+        assert!(
+            sphere_r2 > circle_r2 + 0.2,
+            "discovery must strictly beat the circle-pinned recovery (sphere={sphere_r2:.4} vs circle={circle_r2:.4})"
+        );
+    }
+
+    /// #2243 — a circle winner's harmonic RESOLUTION is grown by evidence, not
+    /// pinned to the historical fixed budget (2 harmonics at the default
+    /// `d_atom = 2`). The planted 1-D factor carries energy at the fundamental
+    /// AND the 4th harmonic with a GAP between (harmonics 2, 3 are absent), which
+    /// (a) the 2-harmonic default structurally cannot represent — half the energy
+    /// lives at 4f — and (b) defeats a naive "stop at the first non-improving
+    /// resolution" rule, exercising the global-argmin robustness of the selector.
+    #[test]
+    fn select_periodic_resolution_grows_past_default_over_harmonic_gap_2243() {
+        use gam_solve::AutoTopologyKind;
+        use ndarray::Array1;
+
+        // Angular signal in R⁴: fundamental in (col0, col1), 4th harmonic in
+        // (col2, col3), nothing at harmonics 2 or 3.
+        let n = 240usize;
+        let mut coords = Array2::<f64>::zeros((n, 1));
+        let mut target = Array2::<f64>::zeros((n, 4));
+        for row in 0..n {
+            let t = row as f64 / n as f64;
+            let angle = std::f64::consts::TAU * t;
+            coords[[row, 0]] = t;
+            target[[row, 0]] = angle.cos();
+            target[[row, 1]] = angle.sin();
+            target[[row, 2]] = (4.0 * angle).cos();
+            target[[row, 3]] = (4.0 * angle).sin();
+        }
+        let weights = Array1::<f64>::ones(n);
+
+        let selected = select_periodic_resolution(coords.view(), target.view(), weights.view(), n)
+            .expect("resolution selection must succeed on a supported periodic signal");
+        assert!(
+            selected >= 4,
+            "the 4th-harmonic content (past a gap) requires at least 4 harmonics; the fixed \
+             2-harmonic default under-resolves it (selected={selected})"
+        );
+
+        // Reconstruction: the selected resolution recovers the whole signal while
+        // the historical 2-harmonic default cannot touch the 4f half of the energy.
+        let circle_r2 = |h: usize| -> f64 {
+            let spec = TopologyCandidateSpec {
+                kind: AutoTopologyKind::Circle,
+                basis_kind: SaeAtomBasisKind::Periodic,
+                manifold: LatentManifold::Circle { period: 1.0 },
+                latent_dim: 1,
+                evaluator: Arc::new(PeriodicHarmonicEvaluator::new(h).expect("periodic evaluator")),
+                coords: coords.clone(),
+            };
+            let fit = fit_topology_candidate(&spec, target.view(), weights.view())
+                .expect("candidate fit")
+                .fit_handle;
+            let recon = fit.phi.dot(&fit.decoder);
+            let (mut ss_res, mut ss_tot) = (0.0_f64, 0.0_f64);
+            for col in 0..4 {
+                let mut mean = 0.0;
+                for row in 0..n {
+                    mean += target[[row, col]];
+                }
+                mean /= n as f64;
+                for row in 0..n {
+                    let r = target[[row, col]] - recon[[row, col]];
+                    ss_res += r * r;
+                    let c = target[[row, col]] - mean;
+                    ss_tot += c * c;
+                }
+            }
+            1.0 - ss_res / ss_tot.max(1e-12)
+        };
+        let default_r2 = circle_r2(2);
+        let selected_r2 = circle_r2(selected);
+        eprintln!(
+            "[resolution-2243] circle R²: default(2 harmonics)={default_r2:.4} selected({selected})={selected_r2:.4}"
+        );
+        assert!(
+            selected_r2 > 0.99,
+            "the evidence-selected resolution must recover the signal (R²={selected_r2:.4})"
+        );
+        assert!(
+            default_r2 < 0.75,
+            "the 2-harmonic default cannot represent the 4th-harmonic half of the energy (R²={default_r2:.4})"
+        );
+    }
+
     /// Deterministic low-discrepancy sequence on `[0, 1)` (van der Corput, base
     /// 2) for RNG-free synthetic birth targets.
     fn vdc(n: usize) -> Vec<f64> {
@@ -3988,12 +6084,15 @@ mod tests {
         assert!(kinds.contains(&AutoTopologyKind::Euclidean), "{kinds:?}");
         // No key collision: each promoted kind appears once.
         assert_eq!(kinds.len(), promoted.len());
-        let expected_radial = standardized_log_birth_amplitudes(birth_row_amplitudes(disk.view()).view())
-            .expect("disk log-amplitude spread");
-        for spec in promoted
-            .iter()
-            .filter(|spec| matches!(spec.kind, AutoTopologyKind::Cylinder | AutoTopologyKind::Euclidean))
-        {
+        let expected_radial =
+            standardized_log_birth_amplitudes(birth_row_amplitudes(disk.view()).view())
+                .expect("disk log-amplitude spread");
+        for spec in promoted.iter().filter(|spec| {
+            matches!(
+                spec.kind,
+                AutoTopologyKind::Cylinder | AutoTopologyKind::Euclidean
+            )
+        }) {
             for row in 0..n {
                 assert!(
                     (spec.coords[[row, 1]] - expected_radial[row]).abs() < 1.0e-12,
@@ -4516,6 +6615,516 @@ mod tests {
             "independent atom supports must not produce fusion proposals; got {:?}",
             report.proposals.iter().map(|p| &p.mv).collect::<Vec<_>>()
         );
+    }
+
+    /// #1890 verification fixture: plant ONE circle tiled into `k` arc atoms with
+    /// DISJOINT supports. Row `r` (of `n`) sits at circle phase `2π·r/n`; arc atom
+    /// `j` owns the contiguous row block `[j·n/k, (j+1)·n/k)` (routed ON there,
+    /// OFF elsewhere). Every atom shares the SAME periodic basis and a unit-circle
+    /// decoder (harmonic cols 1,2 → ambient dims 0,1) scaled by `decoder_scale[j]`,
+    /// so a shared scale makes all arcs decode onto ONE closed curve — the
+    /// over-tiling signature the co-activation fusion lane is structurally blind to
+    /// (disjoint supports ⇒ anti-correlated codes). A per-atom scale plants a
+    /// CONCENTRIC circle of a different radius (a genuinely distinct manifold —
+    /// the negative control).
+    fn tiled_circle_term(
+        n: usize,
+        k: usize,
+        decoder_scale: &[f64],
+    ) -> (SaeManifoldTerm, SaeManifoldRho) {
+        assert_eq!(decoder_scale.len(), k, "one decoder scale per arc atom");
+        let p = 4usize;
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+        let m = phi.ncols();
+        let mut atoms = Vec::with_capacity(k);
+        let mut coord_blocks = Vec::with_capacity(k);
+        for (j, &scale) in decoder_scale.iter().enumerate() {
+            // Unit-circle decoder: first cos/sin harmonic → ambient {0,1}, radius
+            // `scale`. Shared scale ⇒ ONE circle (glue); distinct scale ⇒ a
+            // concentric distinct circle (no glue).
+            let mut decoder = Array2::<f64>::zeros((m, p));
+            decoder[[1, 0]] = scale;
+            decoder[[2, 1]] = scale;
+            let atom = SaeManifoldAtom::new(
+                format!("arc_{j}"),
+                SaeAtomBasisKind::Periodic,
+                1,
+                phi.clone(),
+                jet.clone(),
+                decoder,
+                Array2::<f64>::eye(m),
+            )
+            .unwrap()
+            .with_basis_second_jet(evaluator.clone());
+            atoms.push(atom);
+            coord_blocks.push(coords.clone());
+        }
+        let mut logits = Array2::<f64>::zeros((n, k));
+        for row in 0..n {
+            let owner = (row * k) / n; // contiguous arc ownership
+            for j in 0..k {
+                logits[[row, j]] = if j == owner { ON } else { OFF };
+            }
+        }
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            coord_blocks,
+            vec![LatentManifold::Circle { period: 1.0 }; k],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); k]);
+        (term, rho)
+    }
+
+    /// #1890 negative control (type-I): two CONCENTRIC circles of different radii —
+    /// a shared plane (so the frames align and the geometric pre-screen DOES
+    /// nominate the pair), disjoint adjacent arc supports, but a NON-isometric
+    /// transition onto a genuinely distinct manifold. Because the pair is screened,
+    /// this exercises the seam EQUIVALENCE e-value itself, not the pre-screen: it
+    /// must REJECT (negative log-e), so the engine's positive-evidence e-gate never
+    /// accepts the glue. Clusters that DON'T glue must not be forced together.
+    #[test]
+    fn distinct_concentric_circles_do_not_glue() {
+        let n = 40usize;
+        let (term, rho) = tiled_circle_term(n, 2, &[1.0, 2.0]); // radius 1 vs radius 2
+        let residuals = Array2::<f64>::zeros((n, 4));
+        let params = HarvestParams {
+            max_fusions: 4,
+            max_fissions: 4,
+            max_births: 0,
+        };
+        let report = harvest_move_proposals(&term, &rho, residuals.view(), &params).unwrap();
+
+        // No co-activation fusion (disjoint supports), same as the tiling case.
+        assert!(
+            !report
+                .proposals
+                .iter()
+                .any(|p| matches!(p.mv, StructureMove::Fusion { .. })),
+            "disjoint supports must yield no co-activation fusion"
+        );
+
+        // The shared plane aligns the frames, so the pair IS screened — this is a
+        // genuine test of the equivalence e-value, which must reject the distinct
+        // manifold.
+        assert!(
+            report.glue_candidates_screened >= 1,
+            "the shared-plane pair must be geometrically screened"
+        );
+        let (e_distinct, _) = unit_speed_glue_certificate(&term, residuals.view(), 0, 1)
+            .expect("the aligned pair yields a seam e-value and transition certificate");
+        assert!(
+            e_distinct.log_e_value < 0.0,
+            "distinct concentric circles must NOT glue (negative log-e), got {}",
+            e_distinct.log_e_value
+        );
+
+        // Any emitted glue proposal therefore carries negative evidence — rejected
+        // by the engine's e-gate (which certifies only positive log-e).
+        for p in &report.proposals {
+            if matches!(p.mv, StructureMove::Glue { .. }) {
+                assert!(
+                    p.trigger < 0.0,
+                    "the distinct-circle glue must carry negative evidence, got {}",
+                    p.trigger
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closed_form_transition_uses_first_nonzero_harmonic_without_scanning() {
+        let mut decoder_a = Array2::<f64>::zeros((5, 3));
+        decoder_a[[3, 0]] = 2.0;
+        decoder_a[[4, 1]] = 1.0;
+        decoder_a[[0, 2]] = 0.25;
+        let decoder_b = periodic_decoder_under_transition(decoder_a.view(), -1, 0.125).unwrap();
+        let (sign, offset) =
+            fit_periodic_transition_from_decoders(decoder_a.view(), decoder_b.view()).unwrap();
+        assert_eq!(sign, -1);
+        let recovered = periodic_decoder_under_transition(decoder_a.view(), sign, offset).unwrap();
+        for (actual, expected) in recovered.iter().zip(decoder_b.iter()) {
+            assert!((actual - expected).abs() < 32.0 * f64::EPSILON);
+        }
+    }
+
+    /// An orientation-reversing seam is a valid equivalence, but it is NOT a
+    /// license to erase either local chart.  The production proposal must select
+    /// the atlas-register outcome, and applying it must preserve the numerical
+    /// chart count and fitted image while reducing the semantic atom count.
+    #[test]
+    fn orientation_reversing_seam_registers_atlas_without_destructive_fusion() {
+        let n = 40usize;
+        let (mut term, rho) = tiled_circle_term(n, 2, &[1.0, 1.0]);
+        // `sin` changes sign under t -> -t; `cos` does not.  B therefore traces
+        // exactly A's image with the orientation-reversing transition t_A=-t_B.
+        term.atoms[1].decoder_coefficients[[1, 0]] = -1.0;
+        let residuals = Array2::<f64>::zeros((n, 4));
+        let (transition, _) = unit_speed_glue_certificate(&term, residuals.view(), 0, 1)
+            .expect("reflected charts have an exact certified seam");
+        assert_eq!(transition.sign, -1);
+        assert!(transition.log_e_value > 5.0);
+
+        let report = harvest_move_proposals(
+            &term,
+            &rho,
+            residuals.view(),
+            &HarvestParams {
+                max_fusions: 4,
+                max_fissions: 0,
+                max_births: 0,
+            },
+        )
+        .unwrap();
+        let mv = report
+            .proposals
+            .iter()
+            .find_map(|proposal| match proposal.mv {
+                StructureMove::Glue {
+                    a,
+                    b,
+                    outcome: ChartGlueOutcome::RegisterAtlas,
+                } => Some(StructureMove::Glue {
+                    a,
+                    b,
+                    outcome: ChartGlueOutcome::RegisterAtlas,
+                }),
+                _ => None,
+            })
+            .expect("negative seam must propose atlas registration");
+
+        let fitted_before = term.try_fitted().unwrap();
+        let (registered, _) = apply_structure_move(&term, &rho, &mv, &[]).unwrap();
+        assert_eq!(registered.k_atoms(), 2, "both local charts must survive");
+        assert_eq!(registered.semantic_atom_count(), 1);
+        assert_eq!(registered.chart_atlases().len(), 1);
+        assert_eq!(registered.chart_atlases()[0].transitions()[0].sign, -1);
+        assert_eq!(
+            registered.try_fitted().unwrap(),
+            fitted_before,
+            "atlas registration is an image-exact quotient"
+        );
+
+        let assignments = registered.assignment.assignments();
+        for row in 0..n {
+            let (activation, partition) = registered
+                .atlas_partition_of_unity(0, assignments.row(row))
+                .unwrap();
+            assert!((partition.sum() - 1.0).abs() < 8.0 * f64::EPSILON);
+            for (slot, &chart) in registered.chart_atlases()[0].charts().iter().enumerate() {
+                assert!(
+                    (activation * partition[slot] - assignments[[row, chart]]).abs()
+                        < 8.0 * f64::EPSILON
+                );
+            }
+        }
+    }
+
+    /// #1890 over-birth reassembly — the PHYSICAL-excision resurrection fix, on the
+    /// private primitives the `chart_gluing_1890.rs` integration test cannot reach.
+    /// A circle over-tiled into 4 disjoint arcs proposes a spanning set of glues
+    /// (each arc pair lies on ONE circle, so `unit_speed_glue_certificate`
+    /// certifies with large positive log-e) with ZERO co-activation fusions. A
+    /// round that accepts a matching of those glues then EXCISES the folded
+    /// partners for real ([`compact_glued_atoms`]): folding + demoting alone leaves
+    /// a zero-mass atom the #976/#1003 active-mass guard revives on the next refit,
+    /// so the effective count never falls; removal drops both the raw and active
+    /// size, and the wider-arc survivors STILL glue — the round sequence converges
+    /// toward the single reassembled chart K=1.
+    #[test]
+    fn over_tiling_physical_excision_reduces_k_toward_one() {
+        use gam_solve::structure_search::{MoveRecord, MoveVerdict};
+
+        let n = 32usize;
+        let (mut term, mut rho) = tiled_circle_term(n, 4, &[1.0; 4]);
+        assert_eq!(term.k_atoms(), 4);
+
+        // The primitive certifies every arc pair as ONE circle (large positive
+        // log-e), and the co-activation lane stays silent on the disjoint supports.
+        let residuals0 = Array2::<f64>::zeros((n, 4));
+        let (e_arc, _) = unit_speed_glue_certificate(&term, residuals0.view(), 0, 2)
+            .expect("a d=1 aligned disjoint pair yields a certified seam e-value");
+        assert!(
+            e_arc.log_e_value > 5.0,
+            "e_glue must certify two arcs of one circle, got {}",
+            e_arc.log_e_value
+        );
+        let params0 = HarvestParams {
+            max_fusions: 16,
+            max_fissions: 0,
+            max_births: 0,
+        };
+        let report0 = harvest_move_proposals(&term, &rho, residuals0.view(), &params0).unwrap();
+        assert!(
+            !report0
+                .proposals
+                .iter()
+                .any(|p| matches!(p.mv, StructureMove::Fusion { .. })),
+            "disjoint tiling must yield no co-activation fusion"
+        );
+        assert!(
+            report0.glues_proposed >= 3,
+            "a spanning set (≥ k−1 = 3 edges) must reassemble the 4 arcs, got {}",
+            report0.glues_proposed
+        );
+        let first_epoch_glue_claims: Vec<ClaimKind> = report0
+            .proposals
+            .iter()
+            .filter(|proposal| matches!(proposal.mv, StructureMove::Glue { .. }))
+            .map(|proposal| proposal.claim.clone())
+            .collect();
+        assert!(!first_epoch_glue_claims.is_empty());
+
+        // Seed old-K state that MUST NOT survive a physical dictionary resize.
+        // These are all legitimate transient states immediately after a fit;
+        // the compactor owns invalidating them before the reduced-K polish.
+        term.assignment.frozen_logits = Some(term.assignment.logits.clone());
+        term.last_frames_active = true;
+        term.fixed_decoder_assembly = true;
+        term.border_hbb_workspace = Array2::<f64>::ones((3, 3));
+        term.decoder_repulsion_gate = Some(vec![(0, 1, 1.0)]);
+        term.streaming_gates_frozen = true;
+        term.expected_evidence_gauge_deflated_directions = Some(7);
+        term.evidence_gauge_deflation_reanchors = 2;
+        term.evidence_gauge_deflation_last_delta_sign = -1;
+        term.dictionary_cocollapse_reseeds = 3;
+        term.structural_cocollapse_reseeds = 4;
+        term.softmax_active_cap = Some(3);
+        let accepted_glue = |a: usize, b: usize| MoveRecord {
+            mv: StructureMove::Glue {
+                a,
+                b,
+                outcome: ChartGlueOutcome::Fuse,
+            },
+            trigger: 40.0,
+            structure_hash: 0,
+            claim: ClaimKind::Custom {
+                label: format!("seam_glue:{a}:{b}"),
+            },
+            verdict: MoveVerdict::Accepted { log_e: 40.0 },
+        };
+        // A matching (shares no atom) of disjoint glues — the within-round `touched`
+        // guard admits exactly this shape in one round.
+        let ledger = SearchLedger {
+            alpha: 0.05,
+            moves: vec![accepted_glue(0, 1), accepted_glue(2, 3)],
+            collapse_events: Vec::new(),
+        };
+        let removed =
+            compact_glued_atoms(&mut term, &mut rho, &ledger, &report0.certified_glues).unwrap();
+        assert_eq!(
+            removed, 2,
+            "both folded partners must be physically excised"
+        );
+        assert_eq!(
+            term.k_atoms(),
+            2,
+            "physical excision must reduce K from 4 to 2 (no active-mass resurrection)"
+        );
+        assert!(
+            term.assignment
+                .logits
+                .rows()
+                .into_iter()
+                .all(|row| row.as_slice().is_some()),
+            "compaction must materialize a row-contiguous router for the polish refit"
+        );
+        assert_eq!(
+            rho.log_ard.len(),
+            2,
+            "ρ ARD blocks must fall in lock-step with the atoms"
+        );
+        assert_eq!(
+            rho.log_lambda_smooth.len(),
+            2,
+            "ρ smoothness blocks must fall in lock-step with the atoms"
+        );
+        assert!(
+            term.assignment.frozen_logits.is_none(),
+            "an old-K frozen router cannot survive compaction"
+        );
+        assert!(!term.last_frames_active);
+        assert!(!term.fixed_decoder_assembly);
+        assert_eq!(term.border_hbb_workspace.dim(), (0, 0));
+        assert!(term.decoder_repulsion_gate.is_none());
+        assert!(!term.streaming_gates_frozen);
+        assert_eq!(term.expected_evidence_gauge_deflated_directions, None);
+        assert_eq!(term.evidence_gauge_deflation_reanchors, 0);
+        assert_eq!(term.evidence_gauge_deflation_last_delta_sign, 0);
+        assert_eq!(term.dictionary_cocollapse_reseeds, 0);
+        assert_eq!(term.structural_cocollapse_reseeds, 0);
+        assert_eq!(
+            term.softmax_active_cap, None,
+            "a width-3 cap is inert after compaction to K=2"
+        );
+
+        // The two survivors each now cover a half-circle and STILL glue — the round
+        // sequence converges toward the single reassembled chart (K=1).
+        let residuals = Array2::<f64>::zeros((n, 4));
+        let params = HarvestParams {
+            max_fusions: 4,
+            max_fissions: 0,
+            max_births: 0,
+        };
+        let report2 = harvest_move_proposals(&term, &rho, residuals.view(), &params).unwrap();
+        assert!(
+            report2.glues_proposed >= 1,
+            "the two reassembled half-circle survivors must still glue toward K=1"
+        );
+        for proposal in report2
+            .proposals
+            .iter()
+            .filter(|proposal| matches!(proposal.mv, StructureMove::Glue { .. }))
+        {
+            assert!(
+                !first_epoch_glue_claims.contains(&proposal.claim),
+                "a reduced dictionary must not reuse old atom-index evidence: {:?}",
+                proposal.claim
+            );
+        }
+    }
+
+    /// The compactor must adopt the transition measured while the retired chart
+    /// still had live support. Folding first demotes B and makes seam fitting
+    /// impossible, so the harvest certificate carries both the transition and
+    /// B's certified support rows to the round boundary.
+    #[test]
+    fn physical_excision_transplants_coords_from_the_live_seam() {
+        use gam_solve::structure_search::{MoveRecord, MoveVerdict};
+
+        let (mut term, mut rho) = tiled_circle_term(32, 2, &[1.0; 2]);
+        assert!(term.assignment.frozen_logits.is_none());
+        let seam = fit_seam_transition(&term, 0, 1).expect("live pair has a seam");
+        let residuals = Array2::<f64>::zeros((32, 4));
+        let (_, certificate) = unit_speed_glue_certificate(&term, residuals.view(), 0, 1)
+            .expect("live pair has a harvest-time glue certificate");
+        let da = term.assignment.coords[0].latent_dim();
+        let db = term.assignment.coords[1].latent_dim();
+        let flat_b = term.assignment.coords[1].as_flat().to_owned();
+        let expected: Vec<(usize, f64)> = seam
+            .rows_b
+            .iter()
+            .map(|&row| {
+                let mapped = (seam.sign * flat_b[row * db] + seam.offset).rem_euclid(seam.period);
+                (row, mapped)
+            })
+            .collect();
+        // Poison only A's INACTIVE coordinates on B's rows.  A correct
+        // transplant overwrites every sentinel through the measured seam.
+        let mut flat_a = term.assignment.coords[0].as_flat().to_owned();
+        for &(row, mapped) in &expected {
+            flat_a[row * da] = (mapped + 0.37).rem_euclid(seam.period);
+        }
+        term.assignment.coords[0].set_flat(flat_a.view());
+        // Simulate the scoring-refit drift that caused #1890's production red:
+        // the terminal state can no longer identify a decoder transition.  The
+        // accepted structural object is nevertheless fully specified by the
+        // live harvest certificate above and must not be inferred again here.
+        term.atoms[1].decoder_coefficients.fill(0.0);
+        assert!(
+            fit_seam_transition(&term, 0, 1).is_none(),
+            "post-harvest fixture must make seam re-fitting impossible"
+        );
+
+        let ledger = SearchLedger {
+            alpha: 0.05,
+            moves: vec![MoveRecord {
+                mv: StructureMove::Glue {
+                    a: 0,
+                    b: 1,
+                    outcome: ChartGlueOutcome::Fuse,
+                },
+                trigger: 40.0,
+                structure_hash: 0,
+                claim: ClaimKind::Custom {
+                    label: "test-live-seam".to_string(),
+                },
+                verdict: MoveVerdict::Accepted { log_e: 40.0 },
+            }],
+            collapse_events: Vec::new(),
+        };
+        compact_glued_atoms(&mut term, &mut rho, &ledger, &[certificate]).unwrap();
+
+        assert_eq!(term.k_atoms(), 1);
+        let survivor = term.assignment.coords[0].as_flat();
+        for (row, mapped) in expected {
+            assert!(
+                (survivor[row * da] - mapped).abs() < 1.0e-12,
+                "row {row}: survivor coordinate {} != seam-mapped {mapped}",
+                survivor[row * da]
+            );
+        }
+    }
+
+    /// Variable-K compaction is transactional: malformed paired ρ state returns
+    /// an error before changing the term, instead of panicking halfway through a
+    /// gather and leaving atom/assignment arrays at different widths.
+    #[test]
+    fn physical_excision_validation_is_transactional() {
+        use gam_solve::structure_search::{MoveRecord, MoveVerdict};
+
+        let (mut term, mut rho) = tiled_circle_term(16, 3, &[1.0; 3]);
+        let atoms_before = term.k_atoms();
+        let logits_before = term.assignment.logits.clone();
+        rho.log_ard.pop();
+        let remove = std::collections::BTreeSet::from([1usize]);
+
+        let err = remove_atoms(&mut term, &mut rho, &remove).unwrap_err();
+        assert!(
+            err.contains("rho per-atom lengths"),
+            "unexpected error: {err}"
+        );
+        assert_eq!(term.k_atoms(), atoms_before);
+        assert_eq!(term.assignment.logits, logits_before);
+
+        // Restore ρ and feed an impossible overlapping matching.  The compactor
+        // must reject the whole ledger before the first fold mutates any logit.
+        rho.log_ard.push(Array1::zeros(1));
+        let accepted = |a: usize, b: usize| MoveRecord {
+            mv: StructureMove::Glue {
+                a,
+                b,
+                outcome: ChartGlueOutcome::Fuse,
+            },
+            trigger: 40.0,
+            structure_hash: 0,
+            claim: ClaimKind::Custom {
+                label: format!("test-glue:{a}:{b}"),
+            },
+            verdict: MoveVerdict::Accepted { log_e: 40.0 },
+        };
+        let overlapping = SearchLedger {
+            alpha: 0.05,
+            moves: vec![accepted(0, 1), accepted(1, 2)],
+            collapse_events: Vec::new(),
+        };
+        let err = compact_glued_atoms(&mut term, &mut rho, &overlapping, &[]).unwrap_err();
+        assert!(
+            err.contains("not an atom-disjoint matching"),
+            "unexpected error: {err}"
+        );
+        assert_eq!(term.k_atoms(), atoms_before);
+        assert_eq!(term.assignment.logits, logits_before);
+
+        // A structurally valid accepted record without its harvest certificate
+        // is also rejected transactionally.  Re-fitting a replacement seam at
+        // this boundary would recreate the scoring/adoption ordering bug.
+        let missing_certificate = SearchLedger {
+            alpha: 0.05,
+            moves: vec![accepted(0, 1)],
+            collapse_events: Vec::new(),
+        };
+        let err = compact_glued_atoms(&mut term, &mut rho, &missing_certificate, &[]).unwrap_err();
+        assert!(
+            err.contains("no harvest-time certificate"),
+            "unexpected error: {err}"
+        );
+        assert_eq!(term.k_atoms(), atoms_before);
+        assert_eq!(term.assignment.logits, logits_before);
     }
 
     /// Oracle (#997 death trigger): a diverged ARD precision yields a DEATH
@@ -5089,7 +7698,7 @@ mod tests {
         let mut decoder = Array2::<f64>::zeros((m, p));
         decoder[[1, 0]] = 0.9;
         decoder[[2, 1]] = -0.6;
-        let (mut born, born_rho) = apply_structure_move(
+        let (mut born, _born_rho) = apply_structure_move(
             &term,
             &rho,
             &StructureMove::Birth { candidate: 0 },
@@ -5103,7 +7712,7 @@ mod tests {
         // penalized inner Hessian for EVERY atom, born included).
         let target = born.try_fitted().expect("born term reconstructs");
         let dispersion = 1.0e-2_f64;
-        born.set_atom_inner_fits(target.view(), &born_rho, dispersion)
+        born.set_atom_inner_fits(target.view(), dispersion)
             .expect("inner fits build");
 
         // The pre-search Schur factor only covered the SEED atoms: emulate the
@@ -5746,10 +8355,6 @@ mod tests {
         });
         let flatten = crate::manifold::flatten_verdict(radii.view(), angles.view()).unwrap();
         assert!(flatten.recommend_flatten, "diameter must flatten");
-        assert_eq!(
-            flatten.residual_rank, 1,
-            "diameter must flatten to rank 1"
-        );
+        assert_eq!(flatten.residual_rank, 1, "diameter must flatten to rank 1");
     }
-
 }

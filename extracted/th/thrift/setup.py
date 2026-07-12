@@ -108,7 +108,7 @@ def run_setup(with_binary):
     twisted_deps = ['twisted>=24.3.0', 'zope.interface>=6.1']
 
     setup(name='thrift',
-          version='0.23.0',
+          version='0.24.0',
           description='Python bindings for the Apache Thrift RPC system',
           long_description=read_file("README.md"),
           long_description_content_type="text/markdown",
@@ -144,10 +144,7 @@ def run_setup(with_binary):
 
 
 try:
-    with_binary = True
-    run_setup(with_binary)
-    sys.exit(0)
-
+    run_setup(with_binary=True)
 except BuildFailed:
     print()
     print('*' * 80)
@@ -155,17 +152,6 @@ except BuildFailed:
     print("Attempting to build without the extension now")
     print('*' * 80)
     print()
-
-# Retry but without the binary
-try:
-    run_setup(False)
-    sys.exit(0)
-
-except BuildFailed:
-    print()
-    print('*' * 80)
-    print("An error occurred while trying to compile without the C extension enabled")
-    print("Build failed")
-    print('*' * 80)
-    print()
-    sys.exit(1)
+    # Fall back to the pure-Python build. If this also fails, let the
+    # exception propagate so the build backend reports the real error.
+    run_setup(with_binary=False)

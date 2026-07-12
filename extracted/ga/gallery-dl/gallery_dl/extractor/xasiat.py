@@ -10,7 +10,8 @@ from .common import Extractor, Message
 from .. import text
 import time
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?xasiat\.com((?:/fr|/ja)?/albums"
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?xasiat\.com((?:/fr|/ja)?"
+ALBUM_PATTERN = BASE_PATTERN + r"/albums"
 
 
 class XasiatExtractor(Extractor):
@@ -25,7 +26,7 @@ class XasiatExtractor(Extractor):
             yield Message.Queue, url, data
 
     def posts(self):
-        return self._pagination(self.groups[0])
+        return self._pagination(*self.groups)
 
     def _pagination(self, path, pnum=1):
         url = f"{self.root}{path}/"
@@ -45,14 +46,14 @@ class XasiatExtractor(Extractor):
             yield from find_posts(page)
 
             if "<span>Next</span>" in page:
-                return
+                break
 
             pnum += 1
 
 
 class XasiatAlbumExtractor(XasiatExtractor):
     subcategory = "album"
-    pattern = BASE_PATTERN + r"/(\d+)/[^/?#]+)"
+    pattern = ALBUM_PATTERN + r"/(\d+)/[^/?#]+)"
     example = "https://www.xasiat.com/albums/12345/TITLE/"
 
     def items(self):
@@ -87,17 +88,51 @@ class XasiatAlbumExtractor(XasiatExtractor):
 
 class XasiatTagExtractor(XasiatExtractor):
     subcategory = "tag"
-    pattern = BASE_PATTERN + r"/tags/[^/?#]+)"
+    pattern = ALBUM_PATTERN + r"/tags/[^/?#]+)"
     example = "https://www.xasiat.com/albums/tags/TAG/"
 
 
 class XasiatCategoryExtractor(XasiatExtractor):
     subcategory = "category"
-    pattern = BASE_PATTERN + r"/categories/[^/?#]+)"
+    pattern = ALBUM_PATTERN + r"/categories/[^/?#]+)"
     example = "https://www.xasiat.com/albums/categories/CATEGORY/"
 
 
 class XasiatModelExtractor(XasiatExtractor):
     subcategory = "model"
-    pattern = BASE_PATTERN + r"/models/[^/?#]+)"
+    pattern = ALBUM_PATTERN + r"/models/[^/?#]+)"
     example = "https://www.xasiat.com/albums/models/MODEL/"
+
+
+class XasiatSearchExtractor(XasiatExtractor):
+    subcategory = "search"
+    pattern = BASE_PATTERN + r"/search/)([^/?#]+)"
+    example = "https://www.xasiat.com/search/QUERY/"
+
+    def _pagination(self, path, query, pnum=1):
+        url = f"{self.root}{path}{query}/"
+        headers = {
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        params = {
+            "mode": "async",
+            "function": "get_block",
+            "block_id": "list_albums_albums_list_search_result",
+            "q": text.unquote(query),
+            "category_ids": "",
+            "sort_by": "",
+        }
+
+        find_posts = text.re(r'class="item  ">\s*<a href="([^"]+)').findall
+        while True:
+            params["from_videos"] = pnum
+            params["from_albums"] = pnum
+            params["_"] = int(time.time() * 1000),
+
+            page = self.request(url, headers=headers, params=params).text
+            yield from find_posts(page)
+
+            if "<span>Next</span>" in page:
+                break
+
+            pnum += 1

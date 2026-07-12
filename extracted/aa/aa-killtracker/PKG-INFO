@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-killtracker
-Version: 2.0.0
+Version: 2.0.1
 Summary: An app for running killmail trackers with Alliance Auth and Discord.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.10
@@ -10,7 +10,6 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: End Users/Desktop
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -30,7 +29,7 @@ Requires-Dist: coverage ; extra == "test"
 Requires-Dist: factory_boy ; extra == "test"
 Requires-Dist: pook ; extra == "test"
 Requires-Dist: django-webtest ; extra == "test"
-Project-URL: Home, https://gitlab.com/ErikKalkoken/aa-killtracker
+Project-URL: Home, https://github.com/AllianceAuth-Apps/aa-killtracker
 Provides-Extra: test
 
 # Killtracker
@@ -40,9 +39,9 @@ An app for running killmail trackers with Alliance Auth and Discord.
 [![release](https://img.shields.io/pypi/v/aa-killtracker?label=release)](https://pypi.org/project/aa-killtracker/)
 [![python](https://img.shields.io/pypi/pyversions/aa-killtracker)](https://pypi.org/project/aa-killtracker/)
 [![django](https://img.shields.io/pypi/djversions/aa-killtracker?label=django)](https://pypi.org/project/aa-killtracker/)
-[![pipeline](https://gitlab.com/ErikKalkoken/aa-killtracker/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/aa-killtracker/-/pipelines)
-[![codecov](https://codecov.io/gl/ErikKalkoken/aa-killtracker/branch/master/graph/badge.svg?token=ZTGEX30YIN)](https://codecov.io/gl/ErikKalkoken/aa-killtracker)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/aa-killtracker/-/blob/master/LICENSE)
+[![CI/CD Pipeline](https://github.com/AllianceAuth-Apps/aa-killtracker/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/AllianceAuth-Apps/aa-killtracker/actions/workflows/ci-cd.yaml)
+[![codecov](https://codecov.io/github/AllianceAuth-Apps/aa-killtracker/graph/badge.svg?token=gERQsrIq4L)](https://codecov.io/github/AllianceAuth-Apps/aa-killtracker)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/AllianceAuth-Apps/aa-killtracker#MIT-1-ov-file)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/mevDXbxp4R)

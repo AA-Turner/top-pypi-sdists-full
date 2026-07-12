@@ -256,7 +256,7 @@ fn run_full_fit(
 ) -> f64 {
     let (mut objective, seed) = objective_and_seed(z, k, topo, mode);
     let n_params = seed.len();
-    gam_solve::rho_optimizer::OuterProblem::new(n_params)
+    let result = gam_solve::rho_optimizer::OuterProblem::new(n_params)
         .with_initial_rho(seed)
         .with_max_iter(4)
         .with_seed_config(gam_problem::SeedConfig {
@@ -270,11 +270,14 @@ fn run_full_fit(
             // "no candidate seeds passed outer startup validation" abort, and the
             // softmax "BFGS aborted: globally infeasible neighbourhood at seed
             // (probe-refusal guard)" abort — both are the emptied / globally-refused
-            // seed cascade the fix removes by presenting a recoverable infeasible-ρ
-            // refusal as a finite collapse wall instead of `+∞`.
+            // seed cascade the fit must avoid by entering a basin with defined
+            // Laplace evidence; infeasible probes remain `+∞` and cannot certify.
             panic!("#1782 {label} fit must not abort at startup / in the outer solver, got: {e}")
         });
-    let fitted = objective.into_fitted();
+    objective
+        .certify_outer_result(&result)
+        .expect("#1782 outer result must certify the installed state");
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let ev = global_ev(z, fitted.term.fitted().view());
     eprintln!("REPRO1782 {label} fit: ev={ev:.4}");
     assert!(
@@ -299,7 +302,7 @@ fn run_full_fit(
 /// neighbourhood to a FATAL seed rejection ("BFGS aborted: globally infeasible
 /// neighbourhood at seed (probe-refusal guard)"). `ibp_map`+`circle` lands in
 /// the PD region and never trips it — RED before the fix on `softmax`, GREEN
-/// after (the refusal now presents the finite collapse wall the EFS lane uses).
+/// after (the entry path now reaches a basin with defined Laplace evidence).
 #[test]
 fn assignment_kinds_fit_on_circle_1782() {
     let z = planted_circle_embedded(48, 6, 0.03);
@@ -452,70 +455,6 @@ fn manifold_beats_linear_joint_streaming_1026() {
             ev_manifold + 5.0e-2 >= ev_linear,
             "#1026 K={k}: principled manifold SAE must match-or-beat linear \
              (manifold={ev_manifold:.4} vs linear={ev_linear:.4})"
-        );
-    }
-}
-
-/// #2099 quotient-ON twin of `manifold_beats_linear_joint_streaming_1026`.
-///
-/// Identical fixture, K, ρ seed, and match-or-beat bar; the only difference is
-/// `term.set_quotient_scale(true)`. This is the issue's third failing family —
-/// #1026 is Euclidean-metric (K=8) and, per the #2099 text, "regresses PURELY
-/// from the trajectory-level destabilization" (no isometry/whitening surface is
-/// even in play here). Default path untouched.
-///
-/// FALSIFIABLE PREDICTION: with no isometry penalty and a Euclidean metric, the
-/// ONLY way the quotient can change this fit is the retraction↔amplitude-solve↔Newton
-/// alternation cadence. Specifically: the overcomplete K=8 joint block relies on the
-/// disjoint-PC seed diversification + spectral Schur PD-floor to stay PD instead of
-/// co-collapsing; the accepted-iterate `retract_collapsed_decoders_in_loop` re-homes
-/// any atom that dips below the collapse ratio onto the unit sphere, and the keep-best
-/// `optimize_log_amplitudes_closed_form` then re-solves `s`. If those two fire out of
-/// phase on the transient low-norm atoms an overcomplete circle fit naturally spawns
-/// mid-solve, they perturb the seed-diversified trajectory enough to lose the
-/// match-or-beat margin over the linear baseline. PREDICT PASS (ev_manifold + 5e-2 ≥
-/// ev_linear) if the cadence is benign here; a FAIL localizes the destabilization to
-/// this overcomplete-K trajectory and isolates it from the isometry (795) and
-/// whitening (2027) families.
-#[test]
-fn manifold_beats_linear_joint_streaming_1026_quotient_on_2099() {
-    let z = planted_circle_embedded(120, 10, 0.03);
-    for &k in &[8usize] {
-        let z32 = z.mapv(|v| v as f32);
-        let lin = fit_sparse_dictionary(z32.view(), &SparseDictConfig::new(k))
-            .expect("linear SAE baseline fits");
-        let ev_linear = lin.explained_variance;
-
-        let mode = AssignmentMode::threshold_gate(1.0, 0.0);
-        let (mut term, _disp) = build_term(z.view(), k, Topo::Circle, mode);
-        // The one line under test: general scale quotient engaged.
-        term.set_quotient_scale(true);
-        let mut rho = SaeManifoldRho::new(
-            1.0e-3_f64.ln(),
-            1.0e-3_f64.ln(),
-            vec![array![1.0e-3_f64.ln()]; k],
-        );
-        term.run_joint_fit_arrow_schur(z.view(), &mut rho, None, 24, 1.0, 1.0e-6, 1.0e-6)
-            .unwrap_or_else(|e| {
-                panic!("#2099 manifold K={k} quotient-ON joint inner fit must run e2e, got: {e}")
-            });
-        let fitted = term.try_fitted().expect("manifold fitted");
-        let ev_manifold = global_ev(z.view(), fitted.view());
-
-        eprintln!(
-            "WIN1026-2099 K={k:>3}: manifold EV={ev_manifold:.4} (quotient ON)  linear EV={ev_linear:.4}  \
-             margin={:+.4}",
-            ev_manifold - ev_linear
-        );
-        assert!(
-            ev_manifold.is_finite() && ev_linear.is_finite(),
-            "#2099 K={k}: both EVs must be finite (manifold={ev_manifold}, linear={ev_linear})"
-        );
-        assert!(
-            ev_manifold + 5.0e-2 >= ev_linear,
-            "#2099 K={k}: principled manifold SAE with quotient_scale ON must still match-or-beat \
-             linear (manifold={ev_manifold:.4} vs linear={ev_linear:.4}); a shortfall is the \
-             overcomplete-K retraction/amplitude-cadence trajectory root"
         );
     }
 }

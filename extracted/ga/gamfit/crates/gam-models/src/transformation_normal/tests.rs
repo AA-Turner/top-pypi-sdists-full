@@ -257,8 +257,9 @@ pub(crate) fn toy_probe_vector(p_total: usize, seed: u64) -> Array1<f64> {
     }))
 }
 
-pub(crate) fn toy_family_and_derivatives(
+fn toy_family_and_derivatives_with_penalty_mode(
     psi: &Array1<f64>,
+    include_response_penalties: bool,
 ) -> (
     TransformationNormalFamily,
     Vec<Vec<CustomFamilyBlockPsiDerivative>>,
@@ -266,7 +267,10 @@ pub(crate) fn toy_family_and_derivatives(
     ParameterBlockSpec,
 ) {
     let response = array![-1.0, -0.2, 0.6, 1.3];
-    let (val_basis, deriv_basis, knots, transform, p_resp) = toy_response_basis(&response);
+    let config = toy_scop_ctn_config();
+    let (val_basis, deriv_basis, response_penalties, knots, transform) =
+        build_response_basis(&response, &config).expect("toy response basis builds");
+    let p_resp = val_basis.ncols();
     let weights = Array1::from_elem(response.len(), 1.0);
     let offset = Array1::zeros(response.len());
     let (cov_design, cov_derivs) = toy_covariate_design_and_derivs(psi);
@@ -276,7 +280,11 @@ pub(crate) fn toy_family_and_derivatives(
         &response,
         val_basis,
         deriv_basis,
-        vec![],
+        if include_response_penalties {
+            response_penalties
+        } else {
+            vec![]
+        },
         knots,
         toy_scop_ctn_config().response_degree,
         transform,
@@ -317,6 +325,28 @@ pub(crate) fn toy_family_and_derivatives(
     };
     let spec = family.block_spec();
     (family, derivative_blocks, state, spec)
+}
+
+pub(crate) fn toy_family_and_derivatives(
+    psi: &Array1<f64>,
+) -> (
+    TransformationNormalFamily,
+    Vec<Vec<CustomFamilyBlockPsiDerivative>>,
+    ParameterBlockState,
+    ParameterBlockSpec,
+) {
+    toy_family_and_derivatives_with_penalty_mode(psi, false)
+}
+
+fn toy_penalized_family_and_derivatives(
+    psi: &Array1<f64>,
+) -> (
+    TransformationNormalFamily,
+    Vec<Vec<CustomFamilyBlockPsiDerivative>>,
+    ParameterBlockState,
+    ParameterBlockSpec,
+) {
+    toy_family_and_derivatives_with_penalty_mode(psi, true)
 }
 
 #[test]
@@ -1634,17 +1664,16 @@ pub(crate) fn ctn_inner_and_outer_hvp_capabilities_are_advertised() {
 
     let rho_dim = spec.initial_log_lambdas.len();
     let psi_dim = derivative_blocks[0].len();
-    let outer_plan =
-        gam_solve::rho_optimizer::plan(&gam_solve::rho_optimizer::OuterCapability {
-            gradient,
-            hessian,
-            n_params: rho_dim + psi_dim,
-            psi_dim,
-            fixed_point_available: false,
-            barrier_config: None,
-            prefer_gradient_only: false,
-            disable_fixed_point: true,
-        });
+    let outer_plan = gam_solve::rho_optimizer::plan(&gam_solve::rho_optimizer::OuterCapability {
+        gradient,
+        hessian,
+        n_params: rho_dim + psi_dim,
+        psi_dim,
+        fixed_point_available: false,
+        barrier_config: None,
+        prefer_gradient_only: false,
+        disable_fixed_point: true,
+    });
     assert_eq!(outer_plan.solver, gam_solve::rho_optimizer::Solver::Arc);
     assert_eq!(
         outer_plan.hessian_source,

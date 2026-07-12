@@ -21,8 +21,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: OrderTrackingSignal = ...,
-                orderTrackingSignalId: str = ...,
+                body: OrderTrackingSignal,
+                orderTrackingSignalId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OrderTrackingSignalHttpRequest: ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-filter
-Version: 25.2
+Version: 26.1
 Summary: Django-filter is a reusable Django application for allowing users to filter querysets dynamically.
 Author-email: Alex Gaynor <alex.gaynor@gmail.com>
 Maintainer-email: Carlton Gibson <carlton.gibson@noumenal.es>
@@ -14,12 +14,14 @@ Classifier: Operating System :: OS Independent
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: Django>=5.2
 Requires-Dist: djangorestframework ; extra == "drf"
 Project-URL: Bug Tracker, https://github.com/carltongibson/django-filter/issues

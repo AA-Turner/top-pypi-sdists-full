@@ -74,7 +74,7 @@ impl BinomialLocationScalePredictor {
         let pairs: Result<Vec<(f64, f64)>, EstimationError> = (0..n)
             .into_par_iter()
             .map(|i| {
-                let jet = gam::solver::mixture_link::inverse_link_jet_for_inverse_link(
+                let jet = gam_solve::mixture_link::inverse_link_jet_for_inverse_link(
                     &self.inverse_link,
                     eta[i],
                 )?;
@@ -141,8 +141,22 @@ impl BinomialLocationScalePredictor {
             for i in 0..rows_in_chunk {
                 let dphi = dmu_chunk[i];
                 let scale = dq_dq0[i];
-                let dprob_deta_t = dphi * scale * (-1.0 / sigma_chunk[i]);
-                let dprob_deta_s = dphi * scale * (eta_t_chunk[i] / sigma_chunk[i]);
+                // The predicted value is built from the CLAMPED standardized
+                // argument (see `compute_q0_and_sigma`), so the differentiated
+                // function is `q0 = clamp(-eta_t/sigma, ±C)`. Where the clamp is
+                // active the value is locally constant in both linear predictors
+                // and the chain factor `dq0/deta` is exactly zero; reporting the
+                // unclamped `-1/sigma` / `eta_t/sigma` factors there would make
+                // the delta-method SE describe a different function than the
+                // reported probability.
+                let raw_q0 = -eta_t_chunk[i] / sigma_chunk[i];
+                let dclamp = if raw_q0.abs() < SURVIVAL_STANDARDIZED_ARG_CLAMP {
+                    1.0
+                } else {
+                    0.0
+                };
+                let dprob_deta_t = dphi * scale * dclamp * (-1.0 / sigma_chunk[i]);
+                let dprob_deta_s = dphi * scale * dclamp * (eta_t_chunk[i] / sigma_chunk[i]);
                 for j in 0..p_t {
                     grad[[i, j]] = dprob_deta_t * x_t[[i, j]];
                 }
@@ -275,7 +289,7 @@ impl BinomialLocationScalePredictor {
                             |eta_threshold, eta_log_sigma| {
                                 let q0 = -eta_threshold * (-eta_log_sigma).exp();
                                 let jet =
-                                    gam::solver::mixture_link::inverse_link_jet_for_inverse_link(
+                                    gam_solve::mixture_link::inverse_link_jet_for_inverse_link(
                                         &self.inverse_link,
                                         q0,
                                     )?;
@@ -358,7 +372,7 @@ impl BinomialLocationScalePredictor {
                             covw_cond[[r, c]] -= k0[r] * suv_t[c] + k1[r] * suv_ls[c];
                         }
                     }
-                    gam::quadrature::normal_expectation_2d_adaptive_result(
+                    gam_solve::quadrature::normal_expectation_2d_adaptive_result(
                         quadctx,
                         [eta_t[i], eta_s[i]],
                         [[var_t, cov_tls], [cov_tls, var_ls]],
@@ -377,7 +391,7 @@ impl BinomialLocationScalePredictor {
                                     varw += xr * covw_cond[[r, c]] * xw[c];
                                 }
                             }
-                            let jet = gam::quadrature::integrated_inverse_link_jetwith_state(
+                            let jet = gam_solve::quadrature::integrated_inverse_link_jetwith_state(
                                 quadctx,
                                 self.inverse_link.link_function(),
                                 meanw,
@@ -412,8 +426,8 @@ impl BinomialLocationScalePredictor {
         Ok(LinearState {
             eta,
             mean,
-            eta_se: Some(eta_se),
-            mean_se: None,
+            eta_se: Some(eta_se.clone()),
+            mean_se: Some(eta_se),
             covariance_corrected_used: false,
         })
     }

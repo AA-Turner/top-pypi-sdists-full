@@ -16,21 +16,17 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class OrganizationsResource(googleapiclient.discovery.Resource):
         def get(
-            self, *, name: str, organizationId: str = ..., **kwargs: typing.Any
+            self, *, name: str, organizationId: str | None = ..., **kwargs: typing.Any
         ) -> OrganizationHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListOrganizationsResponseHttpRequest: ...
         def list_next(
@@ -39,21 +35,17 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: ListOrganizationsResponse,
         ) -> ListOrganizationsResponseHttpRequest | None: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def update(
-            self, *, name: str, body: Organization = ..., **kwargs: typing.Any
+            self, *, name: str, body: Organization, **kwargs: typing.Any
         ) -> OrganizationHttpRequest: ...
 
     @typing.type_check_only
@@ -61,8 +53,8 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: Project = ...,
-            useLegacyStack: bool = ...,
+            body: Project,
+            useLegacyStack: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ProjectHttpRequest: ...
         def delete(
@@ -72,25 +64,17 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             self, *, projectId: str, **kwargs: typing.Any
         ) -> ProjectHttpRequest: ...
         def getAncestry(
-            self,
-            *,
-            projectId: str,
-            body: GetAncestryRequest = ...,
-            **kwargs: typing.Any,
+            self, *, projectId: str, body: GetAncestryRequest, **kwargs: typing.Any
         ) -> GetAncestryResponseHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListProjectsResponseHttpRequest: ...
         def list_next(
@@ -99,28 +83,20 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: ListProjectsResponse,
         ) -> ListProjectsResponseHttpRequest | None: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def undelete(
-            self,
-            *,
-            projectId: str,
-            body: UndeleteProjectRequest = ...,
-            **kwargs: typing.Any,
+            self, *, projectId: str, body: UndeleteProjectRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def update(
-            self, *, projectId: str, body: Project = ..., **kwargs: typing.Any
+            self, *, projectId: str, body: Project, **kwargs: typing.Any
         ) -> ProjectHttpRequest: ...
 
     def new_batch_http_request(

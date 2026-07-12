@@ -415,7 +415,7 @@ class _RenderTablesMixin:
         attribute, keyed by `data-dz-tab-target` → panel id. Replaces the
         Alpine activeTab island (x-data/:class/x-show)."""
         multi = len(tabs) > 1
-        parts = ['<div class="dz-tabs">']
+        parts = ['<div class="dz-tabs" data-dz-tabs>']
         if multi:
             buttons = "".join(
                 f'<button type="button" class="dz-tabs__tab"'
@@ -1057,6 +1057,9 @@ class _RenderTablesMixin:
         # there. The legacy trailing space on the non-clickable `dz-list-row `
         # class is preserved as a class suffix.
         tbody_rows = []
+        pane = bool(getattr(lst, "master_detail_pane", False))
+        pane_target = ctx.escape_attr(str(getattr(lst, "master_detail_target", "") or ""))
+        first_pane_link_done = False
         for i, row in enumerate(lst.rows):
             cells_html = "".join(
                 f"<td>{ctx.escape(cell)}</td>"
@@ -1079,13 +1082,32 @@ class _RenderTablesMixin:
                 else ""
             )
             url = lst.row_links[i] if lst.row_links else None
+            class_extra = " "
+            auto_load = False
+            if url:
+                if pane:
+                    class_extra = " is-clickable dz-master-detail__item"
+                    if not first_pane_link_done:
+                        auto_load = True
+                        first_pane_link_done = True
+                else:
+                    class_extra = " is-clickable"
             tbody_rows.append(
                 assemble_list_row(
                     archetype=ARCHETYPE_LIST_REGION,
                     cells_html=cells_html,
                     actions_cell=actions_cell,
-                    class_extra=" is-clickable" if url else " ",
-                    drill_attrs=drill_row_attrs(ctx.escape_attr(url)) if url else "",
+                    class_extra=class_extra,
+                    drill_attrs=(
+                        drill_row_attrs(
+                            ctx.escape_attr(url),
+                            pane=pane,
+                            auto_load=auto_load,
+                            pane_target=pane_target,
+                        )
+                        if url
+                        else ""
+                    ),
                 )
             )
         tbody = f"<tbody>{''.join(tbody_rows)}</tbody>"

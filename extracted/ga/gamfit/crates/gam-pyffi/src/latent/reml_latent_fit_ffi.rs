@@ -1,3 +1,80 @@
+/// Preserve the core SAE fit error taxonomy at the Python boundary.
+///
+/// In particular, a completed-but-nonstationary outer search is not an input
+/// error: it is a typed REML convergence failure whose full `OuterResult`
+/// remains the resume/evidence payload.  Keep that distinction instead of
+/// flattening `SaeFitError` through `Display` into `GamError`.
+fn sae_fit_error_to_pyerr(
+    py: Python<'_>,
+    err: gam::terms::sae::manifold::SaeFitError,
+) -> PyErr {
+    use gam::terms::sae::manifold::SaeFitError;
+
+    let message = err.to_string();
+    match err {
+        SaeFitError::Fit(_) => py_value_error(message),
+        SaeFitError::OuterRun { stage, source } => {
+            let exc = estimation_error_to_pyerr(source);
+            let bound = exc.value(py);
+            if let Err(attach_err) = bound.setattr("stage", stage.to_string()) {
+                attach_err.write_unraisable(py, Some(&bound));
+            }
+            exc
+        }
+        SaeFitError::OuterDidNotConverge { stage, result } => {
+            let exc = RemlConvergenceError::new_err(message);
+            let bound = exc.value(py);
+            let attach_result: PyResult<()> = (|| {
+                bound.setattr("stage", stage.to_string())?;
+                bound.setattr("converged", false)?;
+                bound.setattr("rho_checkpoint", result.rho.clone().into_pyarray(py))?;
+                bound.setattr("final_value", result.final_value)?;
+                bound.setattr("iterations", result.iterations)?;
+                match result.final_grad_norm {
+                    Some(value) => bound.setattr("final_grad_norm", value)?,
+                    None => bound.setattr("final_grad_norm", py.None())?,
+                }
+                match result.final_gradient.as_ref() {
+                    Some(value) => {
+                        bound.setattr("final_gradient", value.clone().into_pyarray(py))?
+                    }
+                    None => bound.setattr("final_gradient", py.None())?,
+                }
+                match result.final_hessian.as_ref() {
+                    Some(value) => {
+                        bound.setattr("final_hessian", value.clone().into_pyarray(py))?
+                    }
+                    None => bound.setattr("final_hessian", py.None())?,
+                }
+                bound.setattr("plan", result.plan_used.to_string())?;
+                bound.setattr(
+                    "operator_stop_reason",
+                    result
+                        .operator_stop_reason
+                        .as_ref()
+                        .map(|reason| format!("{reason:?}")),
+                )?;
+                match result.operator_trust_radius {
+                    Some(value) => bound.setattr("operator_trust_radius", value)?,
+                    None => bound.setattr("operator_trust_radius", py.None())?,
+                }
+                bound.setattr(
+                    "criterion_certificate",
+                    result
+                        .criterion_certificate
+                        .as_ref()
+                        .map(|certificate| format!("{certificate:?}")),
+                )?;
+                Ok(())
+            })();
+            if let Err(attach_err) = attach_result {
+                attach_err.write_unraisable(py, Some(&bound));
+            }
+            exc
+        }
+    }
+}
+
 #[pyfunction(signature = (
     t,
     y,
@@ -21,6 +98,7 @@
     sigma_eff_mode = "profiled".to_string(),
     max_iter = 200,
     grad_tol = 1.0e-8,
+    stationarity_reference = None,
     trust_radius = 1.0,
     max_radius = 1.0e6,
     n_restarts = 1,
@@ -53,6 +131,7 @@ fn gaussian_reml_optimize_latent<'py>(
     sigma_eff_mode: String,
     max_iter: usize,
     grad_tol: f64,
+    stationarity_reference: Option<f64>,
     trust_radius: f64,
     max_radius: f64,
     n_restarts: usize,
@@ -76,6 +155,33 @@ fn gaussian_reml_optimize_latent<'py>(
     let sigma_eff_mode = SigmaEffMode::parse(&sigma_eff_mode).map_err(py_value_error)?;
     if n_restarts == 0 {
         return Err(py_value_error("n_restarts must be at least 1".to_string()));
+    }
+    if !(grad_tol.is_finite() && grad_tol > 0.0) {
+        return Err(py_value_error(format!(
+            "grad_tol must be finite and positive; got {grad_tol}"
+        )));
+    }
+    if let Some(reference) = stationarity_reference {
+        if !(reference.is_finite() && reference >= 0.0) {
+            return Err(py_value_error(format!(
+                "stationarity_reference must be finite and non-negative; got {reference}"
+            )));
+        }
+    }
+    if !(trust_radius.is_finite() && trust_radius > 0.0) {
+        return Err(py_value_error(format!(
+            "trust_radius must be finite and positive; got {trust_radius}"
+        )));
+    }
+    if !(max_radius.is_finite() && max_radius >= trust_radius) {
+        return Err(py_value_error(format!(
+            "max_radius must be finite and at least trust_radius ({trust_radius}); got {max_radius}"
+        )));
+    }
+    if !(restart_scale.is_finite() && restart_scale > 0.0) {
+        return Err(py_value_error(format!(
+            "restart_scale must be finite and positive; got {restart_scale}"
+        )));
     }
     let expected = n_obs
         .checked_mul(latent_dim)
@@ -162,13 +268,13 @@ fn gaussian_reml_optimize_latent<'py>(
     // Restart 0 starts from `base_start` (the spectral seed, or the caller's `t`
     // when `init="caller"`); further restarts perturb it in the tangent space and
     // retract back onto the manifold, then we keep the lowest-score latent.
-    let (best_t, best_value) = py
-        .detach(|| -> Result<(Array1<f64>, f64), String> {
+    let (best_t, best_value, best_start_grad_norm, best_restart) = py
+        .detach(|| -> Result<(Array1<f64>, f64, f64, usize), String> {
             let manifold_ref: &dyn gam::geometry::RiemannianManifold = manifold_box.as_ref();
-            let normal = rand_distr::Normal::new(0.0, restart_scale.abs().max(f64::MIN_POSITIVE))
-                .map_err(|err| err.to_string())?;
+            let normal =
+                rand_distr::Normal::new(0.0, restart_scale).map_err(|err| err.to_string())?;
             let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-            let mut best: Option<(Array1<f64>, f64)> = None;
+            let mut best: Option<(Array1<f64>, f64, f64, usize)> = None;
             for restart in 0..n_restarts {
                 let start = if restart == 0 {
                     base_start.clone()
@@ -182,14 +288,35 @@ fn gaussian_reml_optimize_latent<'py>(
                         .retract(base_start.view(), tangent.view())
                         .map_err(|err| err.to_string())?
                 };
+                // Every manifold accepted by `build_latent_outer_manifold`
+                // carries the induced ambient metric. Its Riemannian gradient
+                // is therefore the tangent projection and its norm is the
+                // Euclidean norm in ambient coordinates. Record the scale at
+                // THIS restart's initial point: the winning restart must be
+                // certified against the same reference its optimizer used.
+                let (_, start_gradient) = problem.value_and_grad(start.view(), true);
+                let start_gradient = start_gradient.ok_or_else(|| {
+                    format!("restart {restart} did not produce an initial latent gradient")
+                })?;
+                let start_projected = manifold_ref
+                    .riemannian_gradient(start.view(), start_gradient.view())
+                    .map_err(|err| err.to_string())?;
+                let start_grad_norm = start_projected
+                    .iter()
+                    .map(|value| value * value)
+                    .sum::<f64>()
+                    .sqrt();
                 let mut objective = LatentOuterObjective { problem: &problem };
                 let optimized = trust_region
                     .minimize(manifold_ref, &mut objective, start.view())
                     .map_err(|err| err.to_string())?;
                 let (value, _) = problem.value_and_grad(optimized.view(), false);
-                let improved = best.as_ref().map(|(_, b)| value < *b).unwrap_or(true);
+                let improved = best
+                    .as_ref()
+                    .map(|(_, incumbent, _, _)| value < *incumbent)
+                    .unwrap_or(true);
                 if improved {
-                    best = Some((optimized, value));
+                    best = Some((optimized, value, start_grad_norm, restart));
                 }
             }
             best.ok_or_else(|| "no restart produced a latent".to_string())
@@ -206,37 +333,20 @@ fn gaussian_reml_optimize_latent<'py>(
     // identity, so this leaves that path byte-identical.
     let (_, final_grad) = problem.value_and_grad(best_t.view(), true);
     let grad_t_norm = match final_grad.as_ref() {
-        Some(g) => {
-            let projected = manifold_box
+        Some(gradient) => {
+            let riemannian = manifold_box
                 .as_ref()
-                .project_tangent(best_t.view(), g.view())
-                .unwrap_or_else(|_| g.clone());
-            projected.iter().map(|v| v * v).sum::<f64>().sqrt()
+                .riemannian_gradient(best_t.view(), gradient.view())
+                .map_err(|err| py_value_error(err.to_string()))?;
+            riemannian.iter().map(|value| value * value).sum::<f64>().sqrt()
         }
         None => f64::INFINITY,
     };
-    // Gradient norm at the INITIAL iterate (`base_start`: the spectral seed, or
-    // the caller's `t` under `init="caller"`), measured in the SAME projected
-    // (Riemannian) metric as `grad_t_norm`. This is the scale anchor of the
-    // shift-invariant relative-stationarity test below — the FFI analogue of the
-    // optimizer's own `grad0_norm` (`relative_stationarity` in optimizer.rs),
-    // which records the gradient norm at the first iterate of each `minimize`.
-    // The restarts all perturb `base_start` in its tangent space, so its
-    // gradient norm is the representative initial scale for the chosen latent.
-    // A non-finite (degenerate) initial gradient maps to `0`, which the `max(·,
-    // 1)` floor below turns into the bare absolute test — matching the optimizer
-    // adapter, which sanitises a degenerate point to a zero gradient.
-    let (_, init_grad) = problem.value_and_grad(base_start.view(), true);
-    let grad0_norm = match init_grad.as_ref() {
-        Some(g) => {
-            let projected = manifold_box
-                .as_ref()
-                .project_tangent(base_start.view(), g.view())
-                .unwrap_or_else(|_| g.clone());
-            projected.iter().map(|v| v * v).sum::<f64>().sqrt()
-        }
-        None => 0.0,
-    };
+    // The winning restart carries its own initial-gradient scale. A resumed
+    // solve may supply the original scale explicitly so the convergence test
+    // remains the same test across process/wall boundaries instead of silently
+    // renormalizing at the checkpoint.
+    let grad0_norm = stationarity_reference.unwrap_or(best_start_grad_norm);
     // Latent spread: a genuine collapse (all rows retract to one latent
     // coordinate, the issue #876 failure mode) leaves `latent_t_std ≈ 0`, which
     // distinguishes it from a healthy fit whose latent gradient merely failed to
@@ -283,7 +393,49 @@ fn gaussian_reml_optimize_latent<'py>(
     // test. Anchoring to `‖∇ₜ f(t₀)‖` is both shift-invariant (the gradient does
     // not depend on `C`) and scale-invariant.
     let grad_t_norm_scaled = latent_relative_stationarity(grad_t_norm, grad0_norm);
-    let converged = grad_t_norm_scaled <= grad_tol;
+    if !(grad_t_norm_scaled.is_finite() && grad_t_norm_scaled <= grad_tol) {
+        // SPEC 20 — a fit object must only ever come from a converged
+        // optimization. The chosen latent failed the shift-invariant relative
+        // stationarity test, so no fit is rebuilt or returned: the caller gets
+        // a typed `RemlConvergenceError` carrying the available numerical
+        // evidence plus the best latent as a one-dimensional resume checkpoint,
+        // exactly matching the public API's `t` input.
+        let err = RemlConvergenceError::new_err(format!(
+            "gaussian_reml_optimize_latent did not reach latent stationarity: relative \
+             gradient {grad_t_norm_scaled:.6e} did not satisfy grad_tol {grad_tol:.6e} with a \
+             budget of {max_iter} iteration(s) x {n_restarts} restart(s) (projected gradient {grad_t_norm:.6e}, \
+             seed gradient {grad0_norm:.6e}, objective {best_value:.9e}, latent spread \
+             {latent_t_std:.6e}). No fit is minted from a non-converged optimization; \
+             resume from the exception's `checkpoint_t` and \
+             `checkpoint_stationarity_reference` attributes with `init=\"caller\"`, or loosen \
+             grad_tol if this stationarity precision is not required."
+        ));
+        // Attach the structured evidence + checkpoint as instance attributes
+        // (same best-effort pattern as `ColumnNotFoundError` in ffi_errors.rs):
+        // the typed class + message remain the primary contract if a setattr
+        // ever fails.
+        let bound = err.value(py);
+        let attach_result: PyResult<()> = (|| {
+            bound.setattr("grad_t_norm", grad_t_norm)?;
+            bound.setattr("grad_t_norm_init", grad0_norm)?;
+            bound.setattr("grad_t_norm_scaled", grad_t_norm_scaled)?;
+            bound.setattr("grad_tol", grad_tol)?;
+            bound.setattr("latent_t_std", latent_t_std)?;
+            bound.setattr("objective_value", best_value)?;
+            bound.setattr("max_iter", max_iter)?;
+            bound.setattr("n_restarts", n_restarts)?;
+            bound.setattr("restart_index", best_restart)?;
+            bound.setattr("init", init.as_str())?;
+            bound.setattr("checkpoint_t", best_t.into_pyarray(py))?;
+            bound.setattr("checkpoint_shape", (n_obs, latent_dim))?;
+            bound.setattr("checkpoint_stationarity_reference", grad0_norm)?;
+            Ok(())
+        })();
+        if let Err(attach_err) = attach_result {
+            attach_err.write_unraisable(py, Some(&bound));
+        }
+        return Err(err);
+    }
 
     // Rebuild the full fit dictionary at the converged latent so callers get the
     // identical schema [`gaussian_reml_fit_latent`] returns, then echo `t`. The
@@ -383,7 +535,6 @@ fn gaussian_reml_optimize_latent<'py>(
     out.set_item("grad_t_norm", grad_t_norm)?;
     out.set_item("grad_t_norm_init", grad0_norm)?;
     out.set_item("grad_t_norm_scaled", grad_t_norm_scaled)?;
-    out.set_item("converged", converged)?;
     out.set_item("latent_t_std", latent_t_std)?;
     out.set_item("response_r2", response_r2)?;
     out.set_item("response_residual_norm", response_residual_norm)?;
@@ -1414,13 +1565,12 @@ struct BatchedPositionGaussianRemlBackwardResult {
 ///
 /// One full Gaussian GAM is fitted per tangent coordinate (matching the
 /// documented `response_geometry` contract: "one scalar Gaussian GAM is fitted
-/// for each tangent coordinate"), but all coordinates are estimated jointly so
-/// that an optional cross-coordinate Fisher-Rao precision metric can couple
-/// their residuals. The fit routes through the *general* multi-penalty REML
-/// driver (`fit_gamwith_heuristic_lambdas`) — the very solver `gamfit.fit`
-/// uses — so smooth terms (`s()`, `te()`, `duchon()`, ...) that expand to
-/// several penalty blocks (wiggle + null-space ridge) are fully supported.
-/// Each tangent coordinate carries its own per-block smoothing parameters.
+/// for each tangent coordinate"), but all coordinates are estimated jointly
+/// under one smoothing parameter per formula smooth shared across every
+/// coordinate, and an optional cross-coordinate Fisher-Rao precision metric
+/// couples their residuals. The numerical engine is
+/// `gam::families::response_geometry::fit_shared_tangent_reml`; this FFI layer
+/// only marshals the formula artifacts into its typed request.
 struct TangentRemlMultiResult {
     /// Per-output coefficients, shape `(K, D)`.
     coefficients: Array2<f64>,
@@ -1440,563 +1590,95 @@ struct TangentRemlMultiResult {
     reml_score: f64,
 }
 
-fn gaussian_reml_fit_formula_table_impl(
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+/// Marshaling-vs-engine error split for the shared-tangent formula fit. The
+/// engine's typed `EstimationError` must reach `estimation_error_to_pyerr`
+/// unflattened so a non-converged outer search keeps its
+/// `RemlConvergenceError` class identity and structured resume evidence.
+#[derive(Debug)]
+enum SharedTangentFfiError {
+    Spec(String),
+    Engine(EstimationError),
+}
+
+fn gaussian_reml_fit_formula_dataset_impl(
+    dataset: EncodedDataset,
     formula: String,
     y: ArrayView2<'_, f64>,
     config_json: Option<&str>,
     fisher_rao_w: Option<ArrayView3<'_, f64>>,
-) -> Result<TangentRemlMultiResult, String> {
-    let dataset = dataset_with_inferred_schema(headers, rows)?;
-    let (mut fit_config, _training_table_kind) = parse_fit_config(config_json)?;
+) -> Result<TangentRemlMultiResult, SharedTangentFfiError> {
+    let mut fit_config = parse_fit_config(config_json).map_err(SharedTangentFfiError::Spec)?;
     fit_config.family = Some("gaussian".to_string());
     fit_config.link = Some("identity".to_string());
-    let materialized = materialize(&formula, &dataset, &fit_config)?;
+    let materialized = materialize(&formula, &dataset, &fit_config)
+        .map_err(|err| SharedTangentFfiError::Spec(err.to_string()))?;
     let standard = match materialized.request {
         FitRequest::Standard(request) => request,
         _ => {
-            return Err(
+            return Err(SharedTangentFfiError::Spec(
                 "shared-tangent Gaussian REML fitting requires a standard Gaussian formula"
                     .to_string(),
-            );
+            ));
         }
     };
     if !standard.family.is_gaussian_identity() {
-        return Err("shared-tangent Gaussian REML fitting requires Gaussian identity".to_string());
+        return Err(SharedTangentFfiError::Spec(
+            "shared-tangent Gaussian REML fitting requires Gaussian identity".to_string(),
+        ));
     }
     if standard.wiggle.is_some() {
-        return Err(
+        return Err(SharedTangentFfiError::Spec(
             "shared-tangent Gaussian REML fitting does not support link wiggle".to_string(),
-        );
+        ));
     }
     if standard.offset.iter().any(|value| value.abs() > 0.0) {
-        return Err("shared-tangent Gaussian REML fitting does not support offsets".to_string());
+        return Err(SharedTangentFfiError::Spec(
+            "shared-tangent Gaussian REML fitting does not support offsets".to_string(),
+        ));
     }
+    // Build the formula design and hand the joint problem to the core
+    // shared-tangent REML engine. The engine consumes the design through
+    // bounded row chunks and streams exact joint sufficient statistics, so the
+    // stacked `(N·D) × (K·D)` system and the `Sᵇ ⊗ I_D` Kronecker penalties are
+    // never materialized on this side of the boundary; all remaining input
+    // validation (shapes, finiteness, weight signs, metric shape/PD) is owned
+    // by the engine's typed request preparation.
     let design =
         gam::terms::smooth::build_term_collection_design(standard.data.view(), &standard.spec)
-            .map_err(|err| format!("failed to build formula design matrix: {err}"))?;
-    let x = design
-        .design
-        .try_to_dense_by_chunks("shared_tangent_gaussian_reml design")?;
-    let n = x.nrows();
-    let k = x.ncols();
-    if y.nrows() != n {
-        return Err(format!(
-            "shared-tangent Gaussian REML response row mismatch: formula design has {} rows but Y has {}",
-            n,
-            y.nrows()
-        ));
-    }
-    let d = y.ncols();
-    if d == 0 {
-        return Err(
-            "shared-tangent Gaussian REML requires at least one tangent output".to_string(),
-        );
-    }
-    if k == 0 {
-        return Err(
-            "shared-tangent Gaussian REML requires a design with at least one column".to_string(),
-        );
-    }
-    if y.iter().any(|value| !value.is_finite()) {
-        return Err("shared-tangent Gaussian REML response must be finite".to_string());
-    }
-
-    let weights = standard.weights.view();
-    if weights.len() != n {
-        return Err(format!(
-            "shared-tangent Gaussian REML weight length mismatch: expected {n}, got {}",
-            weights.len()
-        ));
-    }
-    if weights.iter().any(|v| !v.is_finite() || *v < 0.0) {
-        return Err(
-            "shared-tangent Gaussian REML weights must be finite and non-negative".to_string(),
-        );
-    }
-    if let Some(w) = fisher_rao_w.as_ref() {
-        validate_dense_fisher_w(n, d, *w)?;
-    }
-
-    // Fit in the response's own principal-axis frame so the shared-λ tangent fit
-    // is EXACTLY output-rotation equivariant (issue #967), not just equivariant
-    // to the REML optimizer's flat-valley convergence slop.
-    //
-    // At a FIXED smoothing parameter the joint system's hat operator is
-    // `H_X(λ) ⊗ I_D`, which commutes with any output rotation `I_n ⊗ R`, so the
-    // coefficients are already exactly equivariant. The one non-equivariant step
-    // is REML λ-selection: the two frame-related responses `Y` and `Y Rᵀ` feed
-    // the multi-start optimizer arrays that differ at the float epsilon, so it
-    // can settle at different points on the (near-flat) LAML valley — a ≈1e-5
-    // wander in λ that shows up as ≈1e-6 in the coefficients even though the
-    // objective `tr(Yᵀ M(λ) Y)` is analytically rotation-invariant.
-    //
-    // Remove the frame dependence at the source: rotate `Y` (and any Fisher–Rao
-    // metric) into the eigenbasis `V` of the pooled output Gram
-    // `G = Σ_row w_row · y_row y_rowᵀ`, run the identical fit there, then rotate
-    // the coefficients back by `Vᵀ`. Under `Y ↦ Y Rᵀ` the Gram maps
-    // `G ↦ R G Rᵀ`, so its eigenbasis maps `V ↦ R V` (the per-vector sign is
-    // pinned frame-covariantly below), hence the canonical response `Y V` is
-    // frame-invariant to the float floor and every downstream quantity — the
-    // multi-start seeds, the λ optimum, the coefficients — is identical for the
-    // two frames. `V` is orthogonal, so this is an EXACT reparameterization: it
-    // does not change the fit for any single frame, it only makes the numerics
-    // frame-stable (`B(Y·Rᵀ) = B(Y)·Rᵀ` to ~1e-12).
-    let mut gram = Array2::<f64>::zeros((d, d));
-    let mut mean_dir = Array1::<f64>::zeros(d);
-    for row in 0..n {
-        let w = weights[row];
-        for a in 0..d {
-            mean_dir[a] += w * y[[row, a]];
-            for b in 0..d {
-                gram[[a, b]] += w * y[[row, a]] * y[[row, b]];
-            }
-        }
-    }
-    // Eigenvectors of the symmetric PSD Gram via its SVD: for a symmetric PSD
-    // matrix the left singular vectors ARE the eigenvectors, already ordered by
-    // descending eigenvalue.
-    let (u_opt, svals, _vt) = gram
-        .svd(true, false)
-        .map_err(|err| format!("shared-tangent output-frame SVD failed: {err}"))?;
-    let mut v_rot = u_opt.ok_or_else(|| {
-        "shared-tangent output-frame SVD returned no left singular vectors".to_string()
-    })?;
-    // Eigenvector directions are only well-conditioned when consecutive
-    // eigenvalues are separated by more than the sqrt(ε) resolvability floor:
-    // the perturbation of an eigenvector scales as ‖ΔG‖ / gap, so a gap near the
-    // float noise leaves `V` defined only up to an internal rotation of the
-    // (near-)degenerate eigenspace, and the frame-covariance `V(R G Rᵀ) = R·V(G)`
-    // that this rewrite relies on can silently fail there. In exactly that
-    // regime the response is rotationally symmetric within the degenerate
-    // subspace, so output-frame equivariance is ill-defined and the frame choice
-    // cannot matter for a well-posed target. Fall back to the identity (fit in
-    // the caller's original frame — an exact no-op reparameterization) rather
-    // than risk an unstable rotation. `svals` are sorted descending by the SVD.
-    let s_max = svals.iter().copied().fold(0.0_f64, f64::max);
-    let gap_floor = f64::EPSILON.sqrt() * s_max.max(1.0);
-    let well_separated = (1..d).all(|j| svals[j - 1] - svals[j] > gap_floor);
-    if well_separated {
-        // Pin each eigenvector's sign frame-COVARIANTLY: make its projection on
-        // the pooled mean output direction non-negative. Both the eigenvector and
-        // the mean direction rotate by `R` under `Y ↦ Y Rᵀ`, so this
-        // inner-product sign is preserved and `V ↦ R V` holds exactly,
-        // cancelling the SVD's arbitrary per-column sign.
-        for j in 0..d {
-            let mut dot = 0.0;
-            for a in 0..d {
-                dot += v_rot[[a, j]] * mean_dir[a];
-            }
-            if dot < 0.0 {
-                for a in 0..d {
-                    v_rot[[a, j]] = -v_rot[[a, j]];
-                }
-            }
-        }
-    } else {
-        v_rot = Array2::<f64>::eye(d);
-    }
-    // Canonical (frame-invariant) response `Y V` and metric `Vᵀ M V`. Shadow the
-    // originals so the whole fit below runs in the canonical frame; the
-    // coefficients and fitted values are rotated back by `Vᵀ` at each return.
-    let y_canon_owned = y.dot(&v_rot);
-    let fisher_canon_owned: Option<Array3<f64>> = fisher_rao_w.as_ref().map(|w| {
-        let mut out = Array3::<f64>::zeros((n, d, d));
-        for row in 0..n {
-            let m = w.slice(s![row, .., ..]);
-            let vtmv = v_rot.t().dot(&m.dot(&v_rot));
-            out.slice_mut(s![row, .., ..]).assign(&vtmv);
-        }
-        out
-    });
-    let y = y_canon_owned.view();
-    let fisher_rao_w = fisher_canon_owned.as_ref().map(|a| a.view());
-
-    // Build the joint multi-output system with a SHARED smoothing parameter per
-    // formula smooth, common to all `D` tangent output coordinates. This is what
-    // makes the fit frame-equivariant: the tangent vector field `f: x ↦ T_μ M` is
-    // a single vector-valued function whose smoothness is a property of the
-    // predictor `x`, NOT of the arbitrary ambient coordinate axis. One λ per
-    // smooth (shared across outputs) makes the smoother output-isotropic,
-    // `B = S(λ)·Y`, so a rotation `Y ↦ Y Rᵀ` of the response frame maps
-    // `B ↦ B Rᵀ` and the predictions `X B ↦ (X B) Rᵀ` exactly. Per-output
-    // independent λ (the old scheme) broke this: a rotation that mixes a
-    // high-curvature tangent direction with a low-curvature one is smoothed
-    // differently after the mix, so the fitted surface — and the predictions —
-    // depended on the axis labelling.
-    //
-    // Coefficients use an INTERLEAVED layout: basis column `c` (0..K) of output
-    // `o` (0..D) lives at global index `c*D + o` (the row-major flatten of the
-    // `(K, D)` coefficient matrix). Interleaving makes the `D` copies of every
-    // formula penalty block contiguous, so a single shared λ can drive the
-    // Kronecker penalty `Sᵇ ⊗ I_D` over them. Each observation still contributes
-    // `D` stacked rows indexed by a metric axis; the per-row whitening factor
-    // `L Lᵀ = W_row · metric` couples the coordinate blocks across outputs
-    // (`L = sqrt(weight)·I` without a Fisher-Rao metric).
-    let p_total = k * d;
-    let mut joint_x = Array2::<f64>::zeros((n * d, p_total));
-    let mut joint_y = Array1::<f64>::zeros(n * d);
-    for row in 0..n {
-        let scale = weights[row].sqrt();
-        // Lower-triangular whitening factor `L` (D×D) with `L Lᵀ = metric`.
-        let lower: Array2<f64> = match fisher_rao_w.as_ref() {
-            Some(w) => {
-                let mut block = w.slice(s![row, .., ..]).to_owned();
-                for a in 0..d {
-                    for b in (a + 1)..d {
-                        let avg = 0.5 * (block[[a, b]] + block[[b, a]]);
-                        block[[a, b]] = avg;
-                        block[[b, a]] = avg;
-                    }
-                }
-                block
-                    .cholesky(Side::Lower)
-                    .map_err(|err| {
-                        format!(
-                            "fisher_rao_w row {row} must be positive-definite for shared-tangent REML: {err}"
-                        )
-                    })?
-                    .lower_triangular()
-            }
-            None => {
-                let mut id = Array2::<f64>::zeros((d, d));
-                for axis in 0..d {
-                    id[[axis, axis]] = 1.0;
-                }
-                id
-            }
-        };
-        for metric_axis in 0..d {
-            let stacked_row = row * d + metric_axis;
-            let mut y_value = 0.0;
-            for output in 0..d {
-                let l_t = scale * lower[[output, metric_axis]];
-                if l_t == 0.0 {
-                    continue;
-                }
-                y_value += l_t * y[[row, output]];
-                for col in 0..k {
-                    joint_x[[stacked_row, col * d + output]] = l_t * x[[row, col]];
-                }
-            }
-            joint_y[stacked_row] = y_value;
-        }
-    }
-
-    // One SHARED penalty per formula smooth: the Kronecker block `Sᵇ ⊗ I_D` over
-    // the interleaved columns `bs*D .. be*D`, driven by a single λ_b common to all
-    // `D` outputs. The general REML driver assigns one λ per `BlockwisePenalty`, so
-    // emitting `M` blocks — not `M*D` — is exactly what ties the smoothing across
-    // tangent coordinates and yields the output-isotropic, frame-equivariant fit.
-    let m = design.penalties.len();
-    let mut s_list: Vec<gam::terms::smooth::BlockwisePenalty> = Vec::with_capacity(m);
-    for penalty in &design.penalties {
-        if penalty.col_range.start > penalty.col_range.end
-            || penalty.col_range.end > k
-            || penalty.col_range.len() != penalty.local.nrows()
-            || penalty.col_range.len() != penalty.local.ncols()
-        {
-            return Err(format!(
-                "formula penalty range {:?} is incompatible with design width {k}",
-                penalty.col_range
-            ));
-        }
-        let q = penalty.col_range.len();
-        // `Sᵇ ⊗ I_D` over the interleaved columns: the entry at local
-        // `(i*D + o, j*D + p)` is `Sᵇ[i, j]·δ(o, p)`, so output `o`'s copy of
-        // the block sees exactly `Sᵇ` and the single λ penalizes every output's
-        // copy identically — the shared-smoothing coupling.
-        let mut kron = Array2::<f64>::zeros((q * d, q * d));
-        for i in 0..q {
-            for j in 0..q {
-                let value = penalty.local[[i, j]];
-                if value == 0.0 {
-                    continue;
-                }
-                for o in 0..d {
-                    kron[[i * d + o, j * d + o]] = value;
-                }
-            }
-        }
-        let shifted = (penalty.col_range.start * d)..(penalty.col_range.end * d);
-        s_list.push(gam::terms::smooth::BlockwisePenalty::new(shifted, kron));
-    }
-    if s_list.is_empty() {
-        // A purely parametric RHS (`y ~ 1`, `y ~ x`) carries NO smoothing
-        // penalty, so there is nothing for REML to select. Rather than erroring,
-        // fit it DIRECTLY: an ordinary (unpenalized) least-squares solve on the
-        // shared tangent design at the base point (#2103). For the intercept-only
-        // model this is the constant Fréchet-mean fit — at the intrinsic Fréchet
-        // (Karcher) mean base point `Σ_i log_base(Y_i) = 0`, so the fitted tangent
-        // intercept is `0` and `exp_base(0) = base` recovers the intrinsic mean.
-        let mut result =
-            direct_parametric_shared_tangent_fit(&joint_x, joint_y.view(), &x, y, weights, k, d)?;
-        // Rotate the canonical-frame fit back to the caller's output frame.
-        result.coefficients = result.coefficients.dot(&v_rot.t());
-        result.fitted = result.fitted.dot(&v_rot.t());
-        return Ok(result);
-    }
-
-    let offset_zero = Array1::<f64>::zeros(n * d);
-    let joint_weights = Array1::<f64>::ones(n * d);
-    let opts = gam::solver::estimate::FitOptions {
-        latent_cloglog: None,
-        mixture_link: None,
-        optimize_mixture: false,
-        sas_link: None,
-        optimize_sas: false,
-        compute_inference: true,
-        skip_rho_posterior_inference: false,
-        max_iter: 200,
-        tol: 1.0e-9,
-        nullspace_dims: vec![0; s_list.len()],
-        linear_constraints: None,
-        firth_bias_reduction: false,
-        adaptive_regularization: None,
-        penalty_shrinkage_floor: None,
-        rho_prior: Default::default(),
-        persist_warm_start_disk: false,
-        kronecker_penalty_system: None,
-        kronecker_factored: None,
-    };
-    let fit = gam::solver::estimate::fit_gamwith_heuristic_lambdas(
-        joint_x,
-        joint_y.view(),
-        joint_weights.view(),
-        offset_zero.view(),
-        &s_list,
-        None,
-        LikelihoodSpec::new(
-            ResponseFamily::Gaussian,
-            InverseLink::Standard(StandardLink::Identity),
-        ),
-        &opts,
-    )
-    .map_err(|err| err.to_string())?;
-
-    if fit.beta.len() != p_total {
-        return Err(format!(
-            "shared-tangent Gaussian REML produced {} coefficients, expected {p_total}",
-            fit.beta.len()
-        ));
-    }
-
-    // The general REML driver canonicalizes the penalty list before fitting and
-    // SILENTLY DROPS any block whose local matrix has numerical rank 0 (or a
-    // ridge with non-positive scale): see
-    // `construction::canonicalize_penalty_specs`. The surviving penalties are
-    // compacted, so `fit.lambdas` / `inference.edf_by_block` are reported in
-    // canonical-compacted order — NOT in `s_list` order. A rigid `block` stride
-    // would therefore misalign the shared λ/edf whenever a block canonicalizes
-    // away.
-    //
-    // Recover the canonical→`s_list` mapping by replaying the exact same per-spec
-    // canonicalization the solver ran. `s_list` entry `b` is formula smooth `b`
-    // (its shared `Sᵇ ⊗ I_D` block). We record, for each surviving canonical
-    // position, its origin block and the block's penalty rank (`rank(Sᵇ)·D` —
-    // the full rank across all `D` outputs), needed for the residual-df total.
-    let specs: Vec<gam::solver::estimate::PenaltySpec> = s_list
+            .map_err(|err| {
+                SharedTangentFfiError::Spec(format!("failed to build formula design matrix: {err}"))
+            })?;
+    let penalties: Vec<gam::families::response_geometry::SharedTangentPenalty> = design
+        .penalties
         .iter()
-        .map(gam::solver::estimate::PenaltySpec::from_blockwise_ref)
+        .map(|penalty| {
+            gam::families::response_geometry::SharedTangentPenalty::new(
+                penalty.col_range.start,
+                penalty.local.clone(),
+            )
+        })
         .collect();
-    let mut survivor_block: Vec<(usize, f64)> = Vec::with_capacity(s_list.len());
-    for (b, spec) in specs.iter().enumerate() {
-        if let Some(canonical) = gam::terms::construction::canonicalize_penalty_spec(
-            spec,
-            p_total,
-            b,
-            "shared_tangent_gaussian_reml",
-        )
-        .map_err(|err| err.to_string())?
-        {
-            survivor_block.push((b, canonical.rank() as f64));
-        }
-    }
-
-    // Unpack the interleaved coefficients into the `(K, D)` grid: output `o`,
-    // basis column `c` lives at joint index `c*D + o`. Recover the unwhitened
-    // fitted tangent values and the smoothing diagnostics.
-    let mut coefficients = Array2::<f64>::zeros((k, d));
-    for col in 0..k {
-        for output in 0..d {
-            coefficients[[col, output]] = fit.beta[col * d + output];
-        }
-    }
-    let fitted = x.dot(&coefficients);
-    let weight_sum: f64 = weights.iter().copied().sum();
-    let edf_by_block = fit
-        .inference
-        .as_ref()
-        .map(|inf| inf.edf_by_block.clone())
-        .unwrap_or_else(|| vec![0.0; survivor_block.len()]);
-    if fit.lambdas.len() != survivor_block.len() || edf_by_block.len() != survivor_block.len() {
-        return Err(format!(
-            "shared-tangent Gaussian REML smoothing-diagnostic length mismatch: solver reported \
-             {} lambdas and {} edf entries but {} penalty blocks survived canonicalization",
-            fit.lambdas.len(),
-            edf_by_block.len(),
-            survivor_block.len()
-        ));
-    }
-
-    // Scatter the canonical-order shared λ/edf back into the per-smooth vectors
-    // (length `M`). A block dropped during canonicalization (numerical rank 0)
-    // carries no smoothing parameter and contributes zero effective df, so its
-    // cell stays 0 — never NaN-padded by a stride that ran off the end. The
-    // `edf_by_block` value already accounts for all `D` outputs of the shared
-    // Kronecker block, and `rank = rank(Sᵇ)·D` likewise.
-    let mut edf = Array1::<f64>::zeros(m);
-    let mut lambdas = Array1::<f64>::zeros(m);
-    let mut penalized_rank_total = 0.0_f64;
-    let mut penalized_edf_total = 0.0_f64;
-    for (canonical_pos, &(block, rank)) in survivor_block.iter().enumerate() {
-        let edf_value = edf_by_block[canonical_pos];
-        edf[block] = edf_value;
-        lambdas[block] = fit.lambdas[canonical_pos];
-        penalized_rank_total += rank;
-        penalized_edf_total += edf_value;
-    }
-
-    // Pooled, isotropic residual variance. Isotropic tangent noise
-    // (`Cov = σ²·I_D`) is the rotation-invariant noise model; a per-coordinate
-    // scale would itself break frame equivariance. The joint system is a single
-    // Gaussian model with one scale over the `n·D` stacked rows, so we report one
-    // pooled σ̂² with the canonical Gaussian denominator `D·W − edf_total`, where
-    //   edf_total = (K·D − penalized_rank_total) + penalized_edf_total
-    // counts each unpenalized column (intercept, parametric terms, of which there
-    // are `K·D − penalized_rank_total`) once and shrinks the penalized columns to
-    // their bounded effective df — the multi-output analogue of `n − edf` in the
-    // scalar Gaussian scale (`smooth.rs`). Omitting the unpenalized term would
-    // overstate residual df and bias σ² low.
-    let edf_total = (k as f64 * d as f64 - penalized_rank_total) + penalized_edf_total;
-    let denom = (d as f64 * weight_sum - edf_total).max(1.0);
-    let mut ss = 0.0;
-    for row in 0..n {
-        for output in 0..d {
-            let resid = y[[row, output]] - fitted[[row, output]];
-            ss += weights[row] * resid * resid;
-        }
-    }
-    let sigma2 = Array1::<f64>::from_elem(1, ss / denom);
-
-    // Rotate the canonical-frame fit back to the caller's output frame: the
-    // canonical coefficients `B_canon` predict `Y V`, so `B = B_canon Vᵀ` and
-    // `fitted = fitted_canon Vᵀ`. The scale/λ/edf are frame-invariant scalars and
-    // `sigma2` was already accumulated in the (invariant) canonical residuals.
-    let coefficients = coefficients.dot(&v_rot.t());
-    let fitted = fitted.dot(&v_rot.t());
-
+    let request = gam::families::response_geometry::SharedTangentRemlRequest::new(
+        design.design,
+        y.to_owned(),
+        (*standard.weights).clone(),
+        fisher_rao_w.map(|metric| metric.to_owned()),
+        penalties,
+    );
+    let fit = gam::families::response_geometry::fit_shared_tangent_reml(request)
+        .map_err(SharedTangentFfiError::Engine)?;
     Ok(TangentRemlMultiResult {
-        coefficients,
-        fitted,
-        sigma2,
-        lambdas,
-        edf,
+        sigma2: Array1::from_elem(1, fit.sigma2),
+        coefficients: fit.coefficients,
+        fitted: fit.fitted,
+        lambdas: fit.lambdas,
+        edf: fit.edf_by_penalty,
         reml_score: fit.reml_score,
     })
 }
 
-/// Direct, non-REML shared-tangent fit for a purely parametric RHS (`y ~ 1`,
-/// `y ~ x`): an ordinary (unpenalized) least-squares solve on the joint whitened
-/// tangent design, the path the shared-tangent orchestration promises when the
-/// formula has no smoothing penalty (#2103).
-///
-/// The per-row whitening (observation weights and any Fisher–Rao metric) is
-/// already folded into `joint_x`/`joint_y` by the caller, so the fit is an
-/// ordinary GLS/LSQ on the whitened system: solve the normal equations
-/// `(joint_xᵀ joint_x) β = joint_xᵀ joint_y`. `β` is unpacked into the same
-/// interleaved `(K, D)` grid the REML path uses, and predictions are the tangent
-/// values `X · β` at the base point. For the intercept-only case (`K = 1`, the
-/// constant column) `β` is the weighted tangent mean; at the intrinsic Fréchet
-/// (Karcher) mean base point `Σ_i log_base(Y_i) = 0`, so `β = 0` and
-/// `exp_base(0) = base` is exactly the intrinsic Fréchet mean.
-fn direct_parametric_shared_tangent_fit(
-    joint_x: &Array2<f64>,
-    joint_y: ArrayView1<'_, f64>,
-    x: &Array2<f64>,
-    y: ArrayView2<'_, f64>,
-    weights: ArrayView1<'_, f64>,
-    k: usize,
-    d: usize,
-) -> Result<TangentRemlMultiResult, String> {
-    use gam::linalg::matrix::FactorizedSystem;
 
-    let p_total = joint_x.ncols();
-    // Whitened normal equations for the unpenalized parametric least squares.
-    let xtx = fast_ata(joint_x);
-    let xty = gam::linalg::faer_ndarray::fast_atv(joint_x, &joint_y);
-    let factor = factorize_symmetricwith_fallback(
-        gam::linalg::faer_ndarray::FaerArrayView::new(&xtx).as_ref(),
-        Side::Lower,
-    )
-    .map_err(|err| {
-        format!(
-            "direct parametric shared-tangent normal-equations factorization failed \
-             (a rank-deficient parametric RHS has no unique unpenalized fit): {err}"
-        )
-    })?;
-    let beta = FactorizedSystem::solve(&factor, &xty)
-        .map_err(|err| format!("direct parametric shared-tangent LSQ solve failed: {err}"))?;
-    if beta.len() != p_total {
-        return Err(format!(
-            "direct parametric shared-tangent LSQ produced {} coefficients, expected {p_total}",
-            beta.len()
-        ));
-    }
 
-    // Unpack the interleaved coefficients into the `(K, D)` grid: output `o`,
-    // basis column `c` lives at joint index `c*D + o` (same layout as the REML
-    // path), then recover the unwhitened fitted tangent values `X · β`.
-    let mut coefficients = Array2::<f64>::zeros((k, d));
-    for col in 0..k {
-        for output in 0..d {
-            coefficients[[col, output]] = beta[col * d + output];
-        }
-    }
-    let fitted = x.dot(&coefficients);
-
-    // Pooled, isotropic residual variance. Every column is unpenalized, so the
-    // effective df is exactly `K·D` and the denominator is the same
-    // `D·W − edf_total` the penalized path uses (the multi-output analogue of the
-    // scalar Gaussian `n − edf`).
-    let weight_sum: f64 = weights.iter().copied().sum();
-    let edf_total = k as f64 * d as f64;
-    let denom = (d as f64 * weight_sum - edf_total).max(1.0);
-    let mut ss = 0.0;
-    for row in 0..y.nrows() {
-        for output in 0..d {
-            let resid = y[[row, output]] - fitted[[row, output]];
-            ss += weights[row] * resid * resid;
-        }
-    }
-    let sigma2_hat = ss / denom;
-
-    // REML criterion of the null-penalty model: the σ-profiled restricted
-    // Gaussian log-likelihood over the `n·D` whitened stacked rows. No smoothing
-    // parameter is selected — this is simply the parametric model's restricted
-    // marginal likelihood, kept finite so the FFI reports `status = "ok"`.
-    let n_rows = joint_x.nrows() as f64;
-    let logdet_xtx = factor.logdet();
-    let reml_score = if sigma2_hat > 0.0 && logdet_xtx.is_finite() {
-        let residual_rows = (n_rows - p_total as f64).max(0.0);
-        -0.5 * residual_rows * ((2.0 * std::f64::consts::PI * sigma2_hat).ln() + 1.0)
-            - 0.5 * logdet_xtx
-    } else {
-        0.0
-    };
-
-    Ok(TangentRemlMultiResult {
-        coefficients,
-        fitted,
-        sigma2: Array1::<f64>::from_elem(1, sigma2_hat),
-        // No smoothing penalty ⇒ no per-smooth λ/edf (length-0 vectors, matching
-        // the empty penalty list `M = 0`).
-        lambdas: Array1::<f64>::zeros(0),
-        edf: Array1::<f64>::zeros(0),
-        reml_score,
-    })
-}
 
 fn gaussian_reml_fit_batched_impl(
     x: ArrayView2<'_, f64>,
@@ -2778,14 +2460,16 @@ fn position_fit_design_for_slice(
     by_start_col: usize,
     expected_cols: usize,
     batch_index: usize,
+    radial_reparam: Option<&Array2<f64>>,
 ) -> Result<Array2<f64>, String> {
-    let x = position_basis_design(
+    let x = position_basis_design_with_radial_reparam(
         t,
         knots_or_centers,
         basis_kind,
         basis_order,
         periodic,
         period,
+        radial_reparam,
     )?;
     if x.ncols() != expected_cols {
         return Err(format!(
@@ -2837,6 +2521,16 @@ fn gaussian_reml_fit_positions_batched_streaming_impl(
     let gated_weights = gate_weights_for_forward(weights, by, t.len())?;
     let weights = gated_weights.as_ref().map(|w| w.view());
 
+    // Duchon's data-metric radial chart is a property of the whole position
+    // collection. Compute it once from a streamed global Gram and freeze it
+    // into every ragged segment; segment-local charts represent different
+    // coefficient bases and cannot share one penalty or λ coordinate.
+    let radial_reparam = if normalized_position_basis_kind(basis_kind)? == "duchon" {
+        duchon_position_radial_reparam_streamed(t, knots_or_centers, basis_order, periodic, period)?
+    } else {
+        None
+    };
+
     // Build each ragged segment's basis independently. This makes it
     // impossible for the position-batched API to materialize the concatenated
     // n_total x p design, which is exactly the shape that becomes
@@ -2860,6 +2554,7 @@ fn gaussian_reml_fit_positions_batched_streaming_impl(
                 by_start_col,
                 p,
                 b,
+                radial_reparam.as_ref(),
             )?;
             let owned_weight: Array1<f64> = match weights.as_ref() {
                 Some(w) => w.slice(s![start..end]).to_owned(),
@@ -2916,6 +2611,7 @@ fn gaussian_reml_fit_positions_batched_streaming_impl(
                 by_start_col,
                 p,
                 b,
+                radial_reparam.as_ref(),
             )?;
             let weight_slice = weights.as_ref().map(|w| w.slice(s![start..end]));
             let cache_ref = prebuilt_caches[b].as_ref();
@@ -3078,6 +2774,11 @@ fn gaussian_reml_fit_positions_batched_backward_impl(
             ));
         }
     }
+    let radial_reparam = if normalized_position_basis_kind(basis_kind)? == "duchon" {
+        duchon_position_radial_reparam_streamed(t, knots_or_centers, basis_order, periodic, period)?
+    } else {
+        None
+    };
     type PositionBackwardParts = (
         Array1<f64>,
         Array2<f64>,
@@ -3099,13 +2800,14 @@ fn gaussian_reml_fit_positions_batched_backward_impl(
             let upstream_edf = grad_edf.as_ref().map_or(0.0, |g| g[b]);
             let upstream_coefficients = grad_coefficients.as_ref().map(|g| g.slice(s![b, .., ..]));
             let upstream_fitted = grad_fitted.as_ref().map(|g| g.slice(s![start..end, ..]));
-            let x_base = position_basis_design(
+            let x_base = position_basis_design_with_radial_reparam(
                 t.slice(s![start..end]),
                 knots_or_centers,
                 basis_kind,
                 basis_order,
                 periodic,
                 period,
+                radial_reparam.as_ref(),
             )?;
             if x_base.ncols() != p {
                 return Err(format!(
@@ -3113,13 +2815,14 @@ fn gaussian_reml_fit_positions_batched_backward_impl(
                     x_base.ncols()
                 ));
             }
-            let basis_derivative = position_basis_derivative(
+            let basis_derivative = position_basis_derivative_with_radial_reparam(
                 t.slice(s![start..end]),
                 knots_or_centers,
                 basis_kind,
                 basis_order,
                 periodic,
                 period,
+                radial_reparam.as_ref(),
             )?;
             if basis_derivative.dim() != x_base.dim() {
                 return Err(format!(
@@ -3240,13 +2943,45 @@ fn position_basis_design(
     periodic: bool,
     period: Option<f64>,
 ) -> Result<Array2<f64>, String> {
+    let radial_reparam = if normalized_position_basis_kind(basis_kind)? == "duchon" {
+        duchon_position_radial_reparam_streamed(t, knots_or_centers, basis_order, periodic, period)?
+    } else {
+        None
+    };
+    position_basis_design_with_radial_reparam(
+        t,
+        knots_or_centers,
+        basis_kind,
+        basis_order,
+        periodic,
+        period,
+        radial_reparam.as_ref(),
+    )
+}
+
+fn position_basis_design_with_radial_reparam(
+    t: ArrayView1<'_, f64>,
+    knots_or_centers: ArrayView1<'_, f64>,
+    basis_kind: &str,
+    basis_order: usize,
+    periodic: bool,
+    period: Option<f64>,
+    radial_reparam: Option<&Array2<f64>>,
+) -> Result<Array2<f64>, String> {
     match normalized_position_basis_kind(basis_kind)?.as_str() {
         "bspline" => {
             bspline_position_basis_impl(t, knots_or_centers, basis_order, periodic, period)
         }
         "duchon" => {
             validate_position_period("duchon", knots_or_centers, periodic, period)?;
-            duchon_basis_1d_impl(t, knots_or_centers, basis_order, periodic, period)
+            duchon_basis_1d_impl_with_radial_reparam(
+                t,
+                knots_or_centers,
+                basis_order,
+                periodic,
+                period,
+                radial_reparam,
+            )
         }
         other => Err(format!(
             "normalized_position_basis_kind returned an unsupported basis name: {other}"
@@ -3262,13 +2997,46 @@ fn position_basis_derivative(
     periodic: bool,
     period: Option<f64>,
 ) -> Result<Array2<f64>, String> {
+    let radial_reparam = if normalized_position_basis_kind(basis_kind)? == "duchon" {
+        duchon_position_radial_reparam_streamed(t, knots_or_centers, basis_order, periodic, period)?
+    } else {
+        None
+    };
+    position_basis_derivative_with_radial_reparam(
+        t,
+        knots_or_centers,
+        basis_kind,
+        basis_order,
+        periodic,
+        period,
+        radial_reparam.as_ref(),
+    )
+}
+
+fn position_basis_derivative_with_radial_reparam(
+    t: ArrayView1<'_, f64>,
+    knots_or_centers: ArrayView1<'_, f64>,
+    basis_kind: &str,
+    basis_order: usize,
+    periodic: bool,
+    period: Option<f64>,
+    radial_reparam: Option<&Array2<f64>>,
+) -> Result<Array2<f64>, String> {
     match normalized_position_basis_kind(basis_kind)?.as_str() {
         "bspline" => {
             bspline_position_derivative_impl(t, knots_or_centers, basis_order, 1, periodic, period)
         }
         "duchon" => {
             validate_position_period("duchon", knots_or_centers, periodic, period)?;
-            duchon_basis_1d_derivative_impl(t, knots_or_centers, basis_order, 1, periodic, period)
+            duchon_basis_1d_derivative_impl_with_radial_reparam(
+                t,
+                knots_or_centers,
+                basis_order,
+                1,
+                periodic,
+                period,
+                radial_reparam,
+            )
         }
         other => Err(format!(
             "normalized_position_basis_kind returned an unsupported basis name: {other}"
@@ -3616,19 +3384,63 @@ fn ungate_design_gradient(
     }
 }
 
+fn owned_row_major_f64(values: ArrayView2<'_, f64>) -> Array2<f64> {
+    Array2::from_shape_fn(values.dim(), |index| values[index])
+}
+
+fn posterior_bands_payload_to_py(
+    py: Python<'_>,
+    payload: PosteriorPredictBandsPayload,
+) -> PyResult<Py<PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item(
+        "linear_predictor",
+        payload.linear_predictor.into_pyarray(py),
+    )?;
+    out.set_item(
+        "linear_predictor_lower",
+        payload.linear_predictor_lower.into_pyarray(py),
+    )?;
+    out.set_item(
+        "linear_predictor_upper",
+        payload.linear_predictor_upper.into_pyarray(py),
+    )?;
+    out.set_item("mean", payload.mean.into_pyarray(py))?;
+    out.set_item("mean_lower", payload.mean_lower.into_pyarray(py))?;
+    out.set_item("mean_upper", payload.mean_upper.into_pyarray(py))?;
+    out.set_item("model_class", payload.model_class)?;
+    out.set_item("family_kind", payload.family_kind)?;
+    Ok(out.unbind())
+}
+
+fn posterior_predict_result_to_py(
+    py: Python<'_>,
+    result: PosteriorPredictResult,
+) -> PyResult<Py<PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("eta", result.eta.into_pyarray(py))?;
+    out.set_item("mean", result.mean.into_pyarray(py))?;
+    out.set_item("model_class", result.model_class)?;
+    out.set_item("family_kind", result.family_kind)?;
+    out.set_item("link_spec", result.link_spec)?;
+    Ok(out.unbind())
+}
+
 #[pyfunction]
 fn posterior_predict_table(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
-) -> PyResult<String> {
-    detach_py_result(py, "posterior_predict_table", move || {
-        posterior_predict_table_impl(&model_bytes, headers, rows, samples_flat, n_draws, n_coeffs)
-    })
+    rows: PyRef<'_, PyEncodedTable>,
+    samples: PyReadonlyArray2<'_, f64>,
+) -> PyResult<Py<PyDict>> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
+    let samples = owned_row_major_f64(samples.as_array());
+    let result = detach_py_result(py, "posterior_predict_table", move || {
+        posterior_predict_encoded_table_impl(&model_bytes, dataset, samples)
+    })?;
+    posterior_predict_result_to_py(py, result)
 }
 
 #[pyfunction]
@@ -3636,71 +3448,66 @@ fn posterior_predict_bands_table(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
+    rows: PyRef<'_, PyEncodedTable>,
+    samples: PyReadonlyArray2<'_, f64>,
     level: f64,
-) -> PyResult<String> {
-    detach_py_result(py, "posterior_predict_bands_table", move || {
-        posterior_predict_bands_table_impl(
-            &model_bytes,
-            headers,
-            rows,
-            samples_flat,
-            n_draws,
-            n_coeffs,
-            level,
-        )
-    })
+) -> PyResult<Py<PyDict>> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
+    let samples = owned_row_major_f64(samples.as_array());
+    let payload = detach_py_result(py, "posterior_predict_bands_table", move || {
+        posterior_predict_bands_encoded_table_impl(&model_bytes, dataset, samples, level)
+    })?;
+    posterior_bands_payload_to_py(py, payload)
 }
 
 #[pyfunction]
-#[pyo3(signature = (eta_flat, n_draws, n_rows, family_kind, level, link_spec=None))]
+fn posterior_draw_bands(
+    py: Python<'_>,
+    eta: PyReadonlyArray2<'_, f64>,
+    mean: PyReadonlyArray2<'_, f64>,
+    level: f64,
+) -> PyResult<Py<PyDict>> {
+    let eta = owned_row_major_f64(eta.as_array());
+    let mean = owned_row_major_f64(mean.as_array());
+    let payload = detach_py_result(py, "posterior_draw_bands", move || {
+        posterior_draw_bands_impl(eta, mean, level)
+    })?;
+    posterior_bands_payload_to_py(py, payload)
+}
+
+#[pyfunction]
+#[pyo3(signature = (eta, family_kind, level, link_spec=None))]
 fn posterior_eta_bands(
     py: Python<'_>,
-    eta_flat: Vec<f64>,
-    n_draws: usize,
-    n_rows: usize,
+    eta: PyReadonlyArray2<'_, f64>,
     family_kind: String,
     level: f64,
     link_spec: Option<String>,
-) -> PyResult<String> {
-    detach_py_result(py, "posterior_eta_bands", move || {
-        posterior_eta_bands_impl(
-            eta_flat,
-            n_draws,
-            n_rows,
-            &family_kind,
-            level,
-            link_spec.as_deref(),
-        )
-    })
+) -> PyResult<Py<PyDict>> {
+    let eta = owned_row_major_f64(eta.as_array());
+    let payload = detach_py_result(py, "posterior_eta_bands", move || {
+        posterior_eta_bands_impl(eta, &family_kind, level, link_spec.as_deref())
+    })?;
+    posterior_bands_payload_to_py(py, payload)
 }
 
 #[pyfunction]
 fn posterior_credible_interval(
     py: Python<'_>,
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
+    samples: PyReadonlyArray2<'_, f64>,
     level: f64,
-) -> PyResult<Vec<f64>> {
-    detach_py_result(py, "posterior_credible_interval", move || {
-        posterior_credible_interval_impl(samples_flat, n_draws, n_coeffs, level)
-    })
+) -> PyResult<Py<PyArray2<f64>>> {
+    let samples = owned_row_major_f64(samples.as_array());
+    let intervals = detach_py_result(py, "posterior_credible_interval", move || {
+        posterior_credible_interval_impl(samples, level)
+    })?;
+    Ok(intervals.into_pyarray(py).unbind())
 }
 
 #[pyfunction]
 fn posterior_coefficient_names_json(request_json: &str) -> PyResult<String> {
     posterior_coefficient_names_json_impl(request_json).map_err(py_value_error)
-}
-
-#[pyfunction]
-fn posterior_samples_summary_json(py: Python<'_>, request_json: String) -> PyResult<String> {
-    detach_py_result(py, "posterior_samples_summary_json", move || {
-        posterior_samples_summary_json_impl(&request_json)
-    })
 }
 
 #[pyfunction]
@@ -3712,13 +3519,19 @@ fn posterior_trace_selection_json(request_json: &str) -> PyResult<String> {
 #[pyo3(signature = (eta, family_kind, link_spec=None))]
 fn apply_inverse_link_array(
     py: Python<'_>,
-    eta: Vec<f64>,
+    eta: PyReadonlyArray2<'_, f64>,
     family_kind: String,
     link_spec: Option<String>,
-) -> PyResult<Vec<f64>> {
-    detach_py_result(py, "apply_inverse_link_array", move || {
-        apply_inverse_link_with_optional_spec(&eta, &family_kind, link_spec.as_deref())
-    })
+) -> PyResult<Py<PyArray2<f64>>> {
+    let eta = owned_row_major_f64(eta.as_array());
+    let shape = eta.dim();
+    let values = eta.into_raw_vec_and_offset().0;
+    let transformed = detach_py_result(py, "apply_inverse_link_array", move || {
+        apply_inverse_link_with_optional_spec(&values, &family_kind, link_spec.as_deref())
+    })?;
+    let result = Array2::from_shape_vec(shape, transformed)
+        .map_err(|err| py_value_error(format!("failed to shape inverse-link result: {err}")))?;
+    Ok(result.into_pyarray(py).unbind())
 }
 
 /// Apply the inverse link to `eta`, preferring the typed `link_spec` (a
@@ -3759,11 +3572,13 @@ fn curvature_inference_json(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
     level: Option<f64>,
 ) -> PyResult<String> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "curvature_inference_json", move || {
-        curvature_inference_json_impl(&model_bytes, headers, rows, level.unwrap_or(0.95))
+        curvature_inference_dataset_json_impl(&model_bytes, dataset, level.unwrap_or(0.95))
     })
 }
 
@@ -3784,10 +3599,12 @@ fn smooth_term_lr_inference_json(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
 ) -> PyResult<String> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "smooth_term_lr_inference_json", move || {
-        smooth_term_lr_inference_json_impl(&model_bytes, headers, rows)
+        smooth_term_lr_inference_dataset_json_impl(&model_bytes, dataset)
     })
 }
 
@@ -3822,11 +3639,13 @@ fn model_debiased_functional_json(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
     target_spec_json: String,
 ) -> PyResult<String> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "model_debiased_functional_json", move || {
-        model_debiased_functional_json_impl(&model_bytes, headers, rows, &target_spec_json)
+        model_debiased_functional_dataset_json_impl(&model_bytes, dataset, &target_spec_json)
     })
 }
 
@@ -3931,10 +3750,9 @@ fn debiased_query_design_full_schema(
     Ok(qx.row(0).to_owned())
 }
 
-fn model_debiased_functional_json_impl(
+fn model_debiased_functional_dataset_json_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    dataset: EncodedDataset,
     target_spec_json: &str,
 ) -> Result<String, String> {
     use gam::inference::riesz::{RieszInput, SmoothFunctional, debias_with_dense_hessian};
@@ -3960,15 +3778,14 @@ fn model_debiased_functional_json_impl(
         })?
         .clone();
 
-    // Preserve the exact training-frame column order before `headers` is moved
+    // Preserve the exact training-frame column order before the dataset is moved
     // into the encoder. `standard.data` (below) inherits this order verbatim
     // (`StandardFitRequest::data == dataset.values`, no reordering), and the
     // saved `TermCollectionSpec` resolves every term's feature column by its
     // offset in THIS layout. The `point`/`contrast` query design must be built
     // against the same full layout, not just the columns named in `x0` (#1621).
-    let training_headers = headers.clone();
-    let dataset = dataset_with_inferred_schema(headers, rows)?;
-    let (fit_config, _) = parse_fit_config(None)?;
+    let training_headers = dataset.headers.clone();
+    let fit_config = parse_fit_config(None)?;
     let materialized = materialize(&formula, &dataset, &fit_config).map_err(|e| format!("{e}"))?;
     let standard = match materialized.request {
         FitRequest::Standard(req) => req,
@@ -4153,14 +3970,13 @@ fn model_debiased_functional_json_impl(
                 // the same frozen identifiability chart the value design uses, so
                 // its columns align with beta.
                 let deriv_col = resolve_average_derivative_column(&spec, &dataset, &spec_val)?;
-                let dx = build_term_collection_derivative_design(
-                    standard.data.view(),
-                    &spec,
-                    deriv_col,
-                )
-                .map_err(|e| {
-                    format!("debiased_functional: average_derivative design build failed: {e}")
-                })?;
+                let dx =
+                    build_term_collection_derivative_design(standard.data.view(), &spec, deriv_col)
+                        .map_err(|e| {
+                            format!(
+                                "debiased_functional: average_derivative design build failed: {e}"
+                            )
+                        })?;
                 if dx.ncols() != x.ncols() {
                     return Err(format!(
                         "debiased_functional: average_derivative design width {} does not \
@@ -4569,10 +4385,12 @@ fn check_json(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
 ) -> PyResult<String> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "check_json", move || {
-        check_json_impl(&model_bytes, headers, rows)
+        check_dataset_json_impl(&model_bytes, dataset)
     })
 }
 
@@ -4581,10 +4399,12 @@ fn check_payload_from_model(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
 ) -> PyResult<PyObject> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     let payload = detach_py_result(py, "check_payload_from_model", move || {
-        let check_json = check_json_impl(&model_bytes, headers, rows)?;
+        let check_json = check_dataset_json_impl(&model_bytes, dataset)?;
         serde_json::from_str::<serde_json::Value>(&check_json)
             .map_err(|err| format!("invalid schema check JSON: {err}"))
     })?;
@@ -4646,134 +4466,29 @@ fn diagnostics_from_predictions(
 }
 
 #[pyfunction]
-fn benchmark_prediction_metrics(
-    py: Python<'_>,
-    family: String,
-    observed: Vec<f64>,
-    predicted_mean: Vec<f64>,
-    train_observed: Vec<f64>,
-    sigma: Option<Vec<f64>>,
-) -> PyResult<Py<PyDict>> {
-    let diagnostics =
-        gam::inference::diagnostics::diagnostics_from_predictions(&observed, &predicted_mean)
-            .map_err(py_value_error)?;
-    let metrics = PyDict::new(py);
-    match family.as_str() {
-        "binomial" => {
-            metrics.set_item("auc", benchmark_auc_score(&observed, &predicted_mean)?)?;
-            metrics.set_item("brier", diagnostics.rmse * diagnostics.rmse)?;
-            metrics.set_item(
-                "logloss",
-                benchmark_binary_logloss(&observed, &predicted_mean)?,
-            )?;
-            if let Some(nagelkerke_r2) =
-                benchmark_nagelkerke_r2(&observed, &predicted_mean, &train_observed)?
-            {
-                metrics.set_item("nagelkerke_r2", nagelkerke_r2)?;
-            }
-        }
-        "gaussian" => {
-            metrics.set_item("r2", diagnostics.r_squared.unwrap_or(0.0))?;
-            metrics.set_item("rmse", diagnostics.rmse)?;
-            metrics.set_item("mae", diagnostics.mae)?;
-            metrics.set_item("mse", diagnostics.rmse * diagnostics.rmse)?;
-            if let Some(sigma_values) = sigma {
-                metrics.set_item(
-                    "logloss",
-                    benchmark_gaussian_logloss(&observed, &predicted_mean, &sigma_values)?,
-                )?;
-            }
-        }
-        other => {
-            return Err(PyValueError::new_err(format!(
-                "unsupported benchmark metric family: {other}"
-            )));
-        }
-    }
-    Ok(metrics.unbind())
-}
-
-fn benchmark_pr_auc_score(observed: &[f64], predicted_mean: &[f64]) -> PyResult<f64> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "pr_auc length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    let mut pairs: Vec<(f64, bool)> = observed
-        .iter()
-        .zip(predicted_mean.iter())
-        .map(|(&y, &p)| (p, y > 0.5))
-        .collect();
-    let n_pos = pairs.iter().filter(|(_, is_pos)| *is_pos).count();
-    if n_pos == 0 {
-        return Ok(0.0);
-    }
-    pairs.sort_by(|(a, _), (b, _)| b.total_cmp(a));
-    let mut tp = 0usize;
-    let mut fp = 0usize;
-    let mut prev_precision = 1.0;
-    let mut prev_recall = 0.0;
-    let mut area = 0.0;
-    for (_score, is_pos) in pairs {
-        if is_pos {
-            tp += 1;
-        } else {
-            fp += 1;
-        }
-        let precision = tp as f64 / (tp + fp).max(1) as f64;
-        let recall = tp as f64 / n_pos as f64;
-        area += 0.5 * (precision + prev_precision) * (recall - prev_recall);
-        prev_precision = precision;
-        prev_recall = recall;
-    }
-    Ok(area)
-}
-
-fn benchmark_ece_score(observed: &[f64], predicted_mean: &[f64]) -> PyResult<f64> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "ece length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    if observed.is_empty() {
-        return Err(PyValueError::new_err("ece requires at least one row"));
-    }
-    let mut bins = vec![(0usize, 0.0, 0.0); 20];
-    for (&y, &p) in observed.iter().zip(predicted_mean.iter()) {
-        let mut idx = (p.clamp(0.0, 1.0) * 20.0).floor() as usize;
-        if idx >= 20 {
-            idx = 19;
-        }
-        bins[idx].0 += 1;
-        bins[idx].1 += y;
-        bins[idx].2 += p;
-    }
-    let n = observed.len() as f64;
-    Ok(bins
-        .into_iter()
-        .filter(|(count, _, _)| *count > 0)
-        .map(|(count, y_sum, p_sum)| {
-            let c = count as f64;
-            (c / n) * ((y_sum / c) - (p_sum / c)).abs()
-        })
-        .sum())
+fn auc_from_predictions(observed: Vec<f64>, predicted_mean: Vec<f64>) -> PyResult<f64> {
+    gam::inference::diagnostics::auc_from_predictions(&observed, &predicted_mean)
+        .map_err(py_value_error)
 }
 
 #[pyfunction]
-fn auc_from_predictions(observed: Vec<f64>, predicted_mean: Vec<f64>) -> PyResult<f64> {
-    benchmark_auc_score(&observed, &predicted_mean)
+fn weighted_auc_from_predictions(
+    observed: Vec<f64>,
+    predicted_mean: Vec<f64>,
+    weights: Vec<f64>,
+) -> PyResult<f64> {
+    gam::inference::diagnostics::weighted_auc_from_predictions(
+        &observed,
+        &predicted_mean,
+        Some(&weights),
+    )
+    .map_err(py_value_error)
 }
 
 #[pyfunction]
 fn brier_from_predictions(observed: Vec<f64>, predicted_mean: Vec<f64>) -> PyResult<f64> {
-    let diagnostics =
-        gam::inference::diagnostics::diagnostics_from_predictions(&observed, &predicted_mean)
-            .map_err(py_value_error)?;
-    Ok(diagnostics.rmse * diagnostics.rmse)
+    gam::inference::diagnostics::brier_from_predictions(&observed, &predicted_mean)
+        .map_err(py_value_error)
 }
 
 #[pyfunction(signature = (observed, predicted_mean, eps = 1e-12))]
@@ -4782,7 +4497,8 @@ fn log_loss_from_predictions(
     predicted_mean: Vec<f64>,
     eps: f64,
 ) -> PyResult<f64> {
-    benchmark_binary_logloss_eps(&observed, &predicted_mean, eps)
+    gam::inference::diagnostics::binary_log_loss_from_predictions(&observed, &predicted_mean, eps)
+        .map_err(py_value_error)
 }
 
 #[pyfunction(signature = (observed, predicted_mean, null_mean, eps = 1e-12))]
@@ -4792,7 +4508,13 @@ fn nagelkerke_r2_from_predictions(
     null_mean: f64,
     eps: f64,
 ) -> PyResult<Option<f64>> {
-    benchmark_nagelkerke_r2_with_null_mean(&observed, &predicted_mean, null_mean, eps)
+    gam::inference::diagnostics::nagelkerke_r_squared_from_predictions(
+        &observed,
+        &predicted_mean,
+        null_mean,
+        eps,
+    )
+    .map_err(py_value_error)
 }
 
 #[pyfunction(signature = (y, n_splits, seed, stratified))]
@@ -4834,13 +4556,20 @@ fn make_folds_indices(
     let mut rng = StdRng::seed_from_u64(seed);
 
     // Group row indices either into a single bucket (unstratified) or into
-    // one bucket per exact label value (stratified). Using the bit pattern
-    // as the key produces a well-defined grouping even when labels are
-    // floats; NaN is rejected above.
+    // one bucket per numeric label value (stratified). The key is the bit
+    // pattern with both IEEE zeros canonicalized to +0.0 — `-0.0 == +0.0`,
+    // so they are one class level, not two; NaN is rejected above.
     let mut buckets: Vec<Vec<usize>> = if stratified {
+        let label_key = |v: f64| {
+            if v == 0.0 {
+                0.0_f64.to_bits()
+            } else {
+                v.to_bits()
+            }
+        };
         let mut by_label: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
         for (i, v) in y.iter().enumerate() {
-            by_label.entry(v.to_bits()).or_default().push(i);
+            by_label.entry(label_key(*v)).or_default().push(i);
         }
         by_label.into_values().collect()
     } else {
@@ -4941,57 +4670,13 @@ fn gaussian_log_loss_value(
     sigma: &[f64],
     eps: f64,
 ) -> PyResult<f64> {
-    let n = observed.len();
-    if n == 0 {
-        return Err(py_value_error(
-            "gaussian_log_loss_from_predictions: observed must be non-empty".to_string(),
-        ));
-    }
-    if predicted_mean.len() != n {
-        return Err(py_value_error(format!(
-            "gaussian_log_loss_from_predictions length mismatch: observed={n} predicted_mean={}",
-            predicted_mean.len()
-        )));
-    }
-    if sigma.len() != 1 && sigma.len() != n {
-        return Err(py_value_error(format!(
-            "gaussian_log_loss_from_predictions: sigma length must be 1 or {n}; got {}",
-            sigma.len()
-        )));
-    }
-    if !eps.is_finite() || eps <= 0.0 {
-        return Err(py_value_error(format!(
-            "gaussian_log_loss_from_predictions: eps must be positive and finite; got {eps}"
-        )));
-    }
-    let scalar_sigma = sigma.len() == 1;
-    let two_pi = std::f64::consts::TAU;
-    let mut total = 0.0_f64;
-    for i in 0..n {
-        let y = observed[i];
-        let mu = predicted_mean[i];
-        if !y.is_finite() {
-            return Err(py_value_error(format!(
-                "gaussian_log_loss_from_predictions: observed[{i}] is not finite ({y})"
-            )));
-        }
-        if !mu.is_finite() {
-            return Err(py_value_error(format!(
-                "gaussian_log_loss_from_predictions: predicted_mean[{i}] is not finite ({mu})"
-            )));
-        }
-        let s_raw = if scalar_sigma { sigma[0] } else { sigma[i] };
-        if !s_raw.is_finite() {
-            return Err(py_value_error(format!(
-                "gaussian_log_loss_from_predictions: sigma[{}] is not finite ({s_raw})",
-                if scalar_sigma { 0 } else { i }
-            )));
-        }
-        let s = s_raw.abs().max(eps);
-        let r = y - mu;
-        total += 0.5 * (two_pi * s * s).ln() + 0.5 * (r / s) * (r / s);
-    }
-    Ok(total / n as f64)
+    gam::inference::diagnostics::gaussian_log_loss_from_predictions(
+        observed,
+        predicted_mean,
+        sigma,
+        eps,
+    )
+    .map_err(py_value_error)
 }
 
 #[pyfunction(signature = (observed, predicted_mean, sigma, eps = 1e-12))]
@@ -5014,7 +4699,12 @@ fn gaussian_prediction_scores_from_predictions(
     let diag =
         gam::inference::diagnostics::diagnostics_from_predictions(&observed, &predicted_mean)
             .map_err(py_value_error)?;
-    let logloss = gaussian_log_loss_value(&observed, &predicted_mean, &sigma, 1.0e-12)?;
+    let logloss = gaussian_log_loss_value(
+        &observed,
+        &predicted_mean,
+        &sigma,
+        gam::inference::diagnostics::DEFAULT_GAUSSIAN_SCALE_FLOOR,
+    )?;
 
     let out = PyDict::new(py);
     out.set_item("n_obs", diag.n_obs)?;
@@ -5076,14 +4766,29 @@ fn zscore_train_test_arrays<'py>(
     let mut stds = vec![1.0_f64; p];
     for j in 0..p {
         let col = tr.column(j);
-        let mean = col.iter().sum::<f64>() / n_train_f;
-        means[j] = mean;
+        // Welford one-pass moments: the running mean never leaves the data's
+        // range, so finite inputs near f64::MAX cannot overflow the way a
+        // naive `Σx / n` does (Σx saturates to +inf and the centred output
+        // turns NaN).
+        let mut mean = 0.0_f64;
+        let mut m2 = 0.0_f64;
+        for (k, v) in col.iter().enumerate() {
+            let delta = v - mean;
+            mean += delta / (k + 1) as f64;
+            m2 += delta * (v - mean);
+        }
         // Population standard deviation matches sklearn StandardScaler and
         // pandas (ddof=0). A constant column collapses to std=0 below; we
         // pass the centred zero through unchanged by leaving the divisor
         // at 1.0 in that branch (column has no variation to scale away).
-        let var = col.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / n_train_f;
-        let std = var.sqrt();
+        let std = (m2 / n_train_f).sqrt();
+        if !mean.is_finite() || !std.is_finite() {
+            return Err(py_value_error(format!(
+                "zscore_train_test_arrays: column {j} moments are not representable in f64 \
+                 (mean={mean}, std={std}); rescale the inputs before standardizing"
+            )));
+        }
+        means[j] = mean;
         stds[j] = if std > 0.0 { std } else { 1.0 };
     }
 
@@ -5112,25 +4817,22 @@ fn classification_metrics(
     predicted_mean: Vec<f64>,
     train_prev: f64,
 ) -> PyResult<Py<PyDict>> {
+    let metrics = gam::inference::diagnostics::classification_metrics_from_predictions(
+        &observed,
+        &predicted_mean,
+        train_prev,
+    )
+    .map_err(py_value_error)?;
     let out = PyDict::new(py);
-    out.set_item("auc", benchmark_auc_score(&observed, &predicted_mean)?)?;
-    out.set_item(
-        "pr_auc",
-        benchmark_pr_auc_score(&observed, &predicted_mean)?,
-    )?;
-    out.set_item(
-        "brier",
-        brier_from_predictions(observed.clone(), predicted_mean.clone())?,
-    )?;
-    out.set_item(
-        "logloss",
-        benchmark_binary_logloss(&observed, &predicted_mean)?,
-    )?;
-    match benchmark_nagelkerke_r2_with_null_mean(&observed, &predicted_mean, train_prev, 1.0e-12)? {
+    out.set_item("auc", metrics.auc)?;
+    out.set_item("pr_auc", metrics.precision_recall_auc)?;
+    out.set_item("brier", metrics.brier)?;
+    out.set_item("logloss", metrics.log_loss)?;
+    match metrics.nagelkerke_r_squared {
         Some(value) => out.set_item("nagelkerke_r2", value)?,
         None => out.set_item("nagelkerke_r2", py.None())?,
     }
-    out.set_item("ece", benchmark_ece_score(&observed, &predicted_mean)?)?;
+    out.set_item("ece", metrics.expected_calibration_error)?;
     Ok(out.unbind())
 }
 
@@ -5139,7 +4841,7 @@ fn survival_concordance(
     event_times: Vec<f64>,
     risk_score: Vec<f64>,
     events: Vec<f64>,
-) -> PyResult<f64> {
+) -> PyResult<Option<f64>> {
     if event_times.len() != risk_score.len() || event_times.len() != events.len() {
         return Err(PyValueError::new_err(format!(
             "survival_concordance length mismatch: times={} risk={} events={}",
@@ -5148,32 +4850,19 @@ fn survival_concordance(
             events.len()
         )));
     }
-    let mut admissible = 0.0;
-    let mut concordant = 0.0;
-    for i in 0..event_times.len() {
-        for j in (i + 1)..event_times.len() {
-            let ordering = if event_times[i] < event_times[j] && events[i] > 0.5 {
-                Some(risk_score[i].total_cmp(&risk_score[j]))
-            } else if event_times[j] < event_times[i] && events[j] > 0.5 {
-                Some(risk_score[j].total_cmp(&risk_score[i]))
-            } else {
-                None
-            };
-            if let Some(ordering) = ordering {
-                admissible += 1.0;
-                concordant += match ordering {
-                    Ordering::Greater => 1.0,
-                    Ordering::Equal => 0.5,
-                    Ordering::Less => 0.0,
-                };
-            }
-        }
-    }
-    Ok(if admissible == 0.0 {
-        0.5
-    } else {
-        concordant / admissible
-    })
+    // Delegate to the single source of truth for Harrell's C-index in
+    // gam-models (`survival::predict::harrell_concordance`). The core counts
+    // tied event times as a comparable half-credit pair and returns None when
+    // there are no comparable pairs at all (e.g. every row censored); the old
+    // hand-rolled pair loop here dropped tied-time pairs entirely and returned
+    // a silent 0.5 sentinel. Where the two disagreed the core wins — a None
+    // degenerate result is surfaced as Python None, matching how the
+    // neighboring metric pyfunctions report an undefined score.
+    Ok(gam::families::survival::predict::harrell_concordance(
+        &event_times,
+        &events,
+        &risk_score,
+    ))
 }
 
 #[pyfunction]
@@ -5246,6 +4935,61 @@ fn repeat_survival_curve<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
+/// Non-parametric Kaplan-Meier survival estimate `S(t) = ∏_{t_i ≤ t} (1 − d_i/n_i)`
+/// (right-continuous step function), evaluated at each point in `grid`.
+/// Non-finite and non-positive times are dropped before fitting. Rows tied at
+/// the same event time are pooled into a single risk-set update, matching the
+/// standard product-limit definition.
+fn benchmark_km_curve(times: &[f64], events: &[f64], grid: &[f64]) -> Vec<f64> {
+    let mut rows: Vec<(f64, f64)> = times
+        .iter()
+        .zip(events.iter())
+        .filter(|&(&t, _)| t.is_finite() && t > 0.0)
+        .map(|(&t, &e)| (t, e))
+        .collect();
+    if rows.is_empty() {
+        return vec![1.0; grid.len()];
+    }
+    rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let n_total = rows.len();
+    let mut event_step_times = Vec::<f64>::new();
+    let mut survival_after_step = Vec::<f64>::new();
+    let mut survivor = 1.0;
+    let mut i = 0usize;
+    while i < rows.len() {
+        let t = rows[i].0;
+        let mut j = i;
+        let mut deaths = 0usize;
+        while j < rows.len() && rows[j].0 == t {
+            if rows[j].1 > 0.5 {
+                deaths += 1;
+            }
+            j += 1;
+        }
+        if deaths > 0 {
+            let at_risk = (n_total - i) as f64;
+            survivor *= 1.0 - deaths as f64 / at_risk;
+            event_step_times.push(t);
+            survival_after_step.push(survivor);
+        }
+        i = j;
+    }
+    grid.iter()
+        .map(|&g| {
+            let idx = event_step_times.partition_point(|&t| t <= g);
+            if idx == 0 {
+                1.0
+            } else {
+                survival_after_step[idx - 1]
+            }
+        })
+        .collect()
+}
+
+/// The marginal (covariate-free) Kaplan-Meier survival curve fit on the
+/// training sample, evaluated at `grid`. This is the "null model" baseline
+/// [`survival_lifted_metrics_from_predictions`] scores a model's calibrated
+/// survival matrix against.
 #[pyfunction]
 fn survival_null_curve_from_train<'py>(
     py: Python<'py>,
@@ -5255,66 +4999,13 @@ fn survival_null_curve_from_train<'py>(
 ) -> PyResult<Py<PyArray1<f64>>> {
     if train_times.len() != train_events.len() {
         return Err(PyValueError::new_err(format!(
-            "survival null curve length mismatch: times={} events={}",
+            "survival_null_curve_from_train length mismatch: times={} events={}",
             train_times.len(),
             train_events.len()
         )));
     }
-    Ok(
-        Array1::from_vec(benchmark_km_curve(&train_times, &train_events, &grid))
-            .into_pyarray(py)
-            .unbind(),
-    )
-}
-
-fn benchmark_km_curve(times: &[f64], events: &[f64], grid: &[f64]) -> Vec<f64> {
-    let mut rows: Vec<(f64, bool)> = times
-        .iter()
-        .zip(events.iter())
-        .filter_map(|(&time, &event)| {
-            (time.is_finite() && event.is_finite() && time > 0.0).then_some((time, event > 0.5))
-        })
-        .collect();
-    if rows.is_empty() {
-        return vec![1.0; grid.len()];
-    }
-    rows.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let mut steps = Vec::<(f64, f64)>::new();
-    let mut at_risk = rows.len() as f64;
-    let mut survival = 1.0;
-    let mut i = 0usize;
-    while i < rows.len() {
-        let time = rows[i].0;
-        let mut j = i + 1;
-        let mut events_at_time = usize::from(rows[i].1);
-        while j < rows.len() && rows[j].0 == time {
-            events_at_time += usize::from(rows[j].1);
-            j += 1;
-        }
-        if events_at_time > 0 && at_risk > 0.0 {
-            survival *= ((at_risk - events_at_time as f64) / at_risk).max(0.0);
-            steps.push((time, survival));
-        }
-        at_risk -= (j - i) as f64;
-        i = j;
-    }
-    let mut out = Vec::with_capacity(grid.len());
-    let mut step_idx = 0usize;
-    let mut current = 1.0;
-    for &time in grid {
-        while step_idx < steps.len() && steps[step_idx].0 <= time {
-            current = steps[step_idx].1;
-            step_idx += 1;
-        }
-        out.push(current.clamp(1.0e-12, 1.0));
-    }
-    if let Some(first) = out.first_mut() {
-        *first = 1.0;
-    }
-    for idx in 1..out.len() {
-        out[idx] = out[idx].min(out[idx - 1]);
-    }
-    out
+    let curve = benchmark_km_curve(&train_times, &train_events, &grid);
+    Ok(Array1::from_vec(curve).into_pyarray(py).unbind())
 }
 
 fn benchmark_survival_matrix_from_risk(
@@ -5659,8 +5350,7 @@ fn survival_lifted_metrics_from_predictions<'py>(
                     )
                 };
                 null_log_losses[row] = hcum_z - if obs[row] { h_z.max(eps).ln() } else { 0.0 };
-                null_hazard_quadratic_losses[row] =
-                    0.5 * h2_int - if obs[row] { h_z } else { 0.0 };
+                null_hazard_quadratic_losses[row] = 0.5 * h2_int - if obs[row] { h_z } else { 0.0 };
             }
             let null_logloss = null_log_losses.iter().sum::<f64>() / null_log_losses.len() as f64;
             let null_hazard_quadratic = null_hazard_quadratic_losses.iter().sum::<f64>()
@@ -5693,12 +5383,11 @@ fn survival_lifted_metrics_from_predictions<'py>(
             )?;
             let ll_model = -log_losses.iter().sum::<f64>();
             let ll_null = -null_log_losses.iter().sum::<f64>();
-            let n = event_times.len() as f64;
-            let r2_cs = 1.0 - benchmark_exp_saturated((2.0 / n) * (ll_null - ll_model));
-            let max_r2_cs = 1.0 - benchmark_exp_saturated((2.0 / n) * ll_null);
-            if r2_cs.is_finite() && max_r2_cs.is_finite() && max_r2_cs > 0.0 {
-                nagelkerke = Some(r2_cs / max_r2_cs);
-            }
+            nagelkerke = gam::inference::diagnostics::nagelkerke_r_squared_from_log_likelihoods(
+                ll_model,
+                ll_null,
+                event_times.len(),
+            );
         }
     }
     match nagelkerke {
@@ -5710,6 +5399,54 @@ fn survival_lifted_metrics_from_predictions<'py>(
 
 fn sigmoid(value: f64) -> f64 {
     1.0 / (1.0 + (-value).exp())
+}
+
+/// Deterministic synthetic-fixture RNG for the Python-facing `synthetic_*`
+/// generators below. Built on the canonical SplitMix64 stream
+/// ([`gam::utils::splitmix64`]) rather than a bespoke LCG so every seeded draw
+/// here traces back to the one hash primitive the rest of the codebase uses.
+struct SplitMixNormalRng {
+    state: u64,
+    spare_normal: Option<f64>,
+}
+
+impl SplitMixNormalRng {
+    fn new(seed: u64) -> Self {
+        Self {
+            state: seed,
+            spare_normal: None,
+        }
+    }
+
+    /// A uniform draw on the open interval `(0, 1)`.
+    fn uniform_open01(&mut self) -> f64 {
+        let bits = gam::utils::splitmix64(&mut self.state) >> 11;
+        (bits as f64 + 0.5) / ((1_u64 << 53) as f64)
+    }
+
+    fn uniform_range(&mut self, lo: f64, hi: f64) -> f64 {
+        lo + (hi - lo) * self.uniform_open01()
+    }
+
+    /// A standard-normal draw via the Box-Muller transform.
+    fn standard_normal(&mut self) -> f64 {
+        if let Some(value) = self.spare_normal.take() {
+            return value;
+        }
+        let radius = (-2.0 * self.uniform_open01().ln()).sqrt();
+        let angle = std::f64::consts::TAU * self.uniform_open01();
+        let first = radius * angle.cos();
+        self.spare_normal = Some(radius * angle.sin());
+        first
+    }
+
+    fn normal(&mut self, mean: f64, sd: f64) -> f64 {
+        mean + sd * self.standard_normal()
+    }
+
+    fn bernoulli(&mut self, p: f64) -> bool {
+        self.uniform_open01() < p
+    }
 }
 
 fn standardize_vector(values: &mut [f64]) {

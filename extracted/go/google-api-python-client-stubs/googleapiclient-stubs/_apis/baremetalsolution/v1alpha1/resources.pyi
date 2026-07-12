@@ -22,7 +22,7 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                 *,
                 project: str,
                 location: str,
-                body: SubmitProvisioningConfigRequest = ...,
+                body: SubmitProvisioningConfigRequest,
                 **kwargs: typing.Any,
             ) -> ProvisioningConfigHttpRequest: ...
 
@@ -32,8 +32,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListProvisioningQuotasResponseHttpRequest: ...
             def list_next(

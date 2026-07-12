@@ -27,7 +27,7 @@ struct Args {
     post_peel: bool,
     n_peeled: usize,
     pca_dim: Option<usize>,
-    gpu_mode: gam_gpu::GpuMode,
+    gpu_policy: gam_gpu::GpuPolicy,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -78,17 +78,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // (fail fast) rather than a silent CPU run or a GPU slot burned on a late
     // crash; the per-minibatch admission uses the same `minibatch × K` score
     // floor the router enforces.
-    gam_gpu::set_gpu_mode(args.gpu_mode);
-    let route_plan =
-        gam_gpu::DictionaryScoreRoutePlan::default_for_shape(args.minibatch.min(n_used), args.atoms, p);
+    gam_gpu::configure_global_policy(args.gpu_policy);
+    let route_plan = gam_gpu::DictionaryScoreRoutePlan::default_for_shape(
+        args.minibatch.min(n_used),
+        args.atoms,
+        p,
+    );
     println!(
         "[scale_k] gpu={:?} per-minibatch score elems = {} (device_admitted={}, break-even={})",
-        args.gpu_mode,
+        args.gpu_policy,
         args.minibatch.min(n_used).saturating_mul(args.atoms),
         route_plan.device_admitted,
         route_plan.device_min_score_elems,
     );
-    if args.gpu_mode == gam_gpu::GpuMode::Required {
+    if args.gpu_policy == gam_gpu::GpuPolicy::Required {
         if gam_gpu::GpuRuntime::global().is_none() {
             return Err(
                 "--gpu required but no CUDA runtime is available on this host (run on the A100 box)"
@@ -103,7 +106,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args.atoms,
                 args.minibatch.min(n_used).saturating_mul(args.atoms),
                 route_plan.device_min_score_elems,
-                route_plan.device_min_score_elems.div_ceil(args.atoms.max(1)),
+                route_plan
+                    .device_min_score_elems
+                    .div_ceil(args.atoms.max(1)),
             )
             .into());
         }
@@ -181,11 +186,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // line, and under `--gpu required` a route that cannot make progress is a
         // typed error rather than a silent hang.
         println!(
-            "[scale_k] epoch {}/{} ev={:.6} revived={} dead={} elapsed={:.1}s",
+            "[scale_k] epoch {}/{} ev={:.6} accepted_births={} pending={} dead={} elapsed={:.1}s",
             epoch_index + 1,
             args.epochs,
             stats.explained_variance,
-            stats.revived,
+            stats.accepted_births,
+            stats.birth_pending,
             stats.dead,
             started.elapsed().as_secs_f64(),
         );
@@ -193,7 +199,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "epoch": epoch_index + 1,
             "reported_epoch": stats.epoch,
             "explained_variance": stats.explained_variance,
-            "revived": stats.revived,
+            "accepted_births": stats.accepted_births,
+            "birth_pending": stats.birth_pending,
             "dead": stats.dead,
             "gamma": stats.gamma,
             "converged": stats.converged,
@@ -416,7 +423,7 @@ fn parse_args() -> Result<Args, String> {
         pca_dim: None,
         // Default Auto: the block router dispatches admitted minibatches to the
         // CUDA block-gate device path on a CUDA host, else the CPU router.
-        gpu_mode: gam_gpu::GpuMode::Auto,
+        gpu_policy: gam_gpu::GpuPolicy::Auto,
     };
     let mut i = 3usize;
     while i < raw.len() {
@@ -452,12 +459,8 @@ fn parse_args() -> Result<Args, String> {
             "--n-peeled" => args.n_peeled = parse_usize(value, key)?,
             "--pca-dim" => args.pca_dim = Some(parse_usize(value, key)?),
             "--gpu" => {
-                args.gpu_mode = match value.as_str() {
-                    "required" => gam_gpu::GpuMode::Required,
-                    "auto" => gam_gpu::GpuMode::Auto,
-                    "off" => gam_gpu::GpuMode::Off,
-                    other => return Err(format!("--gpu must be required|auto|off, got {other}")),
-                }
+                args.gpu_policy = gam_gpu::GpuPolicy::parse(value)
+                    .ok_or_else(|| format!("--gpu must be required|auto|off, got {value}"))?;
             }
             other => return Err(format!("unknown argument {other}")),
         }
@@ -486,8 +489,7 @@ fn validate_run_contract(args: &Args, n_used: usize, p: usize) -> Result<(), Str
     }
     if args.n_peeled == 0 {
         return Err(
-            "scale_k requires --n-peeled > 0 for the default post-peel/PCA-reduced run"
-                .to_string(),
+            "scale_k requires --n-peeled > 0 for the default post-peel/PCA-reduced run".to_string(),
         );
     }
     let pca_dim = args.pca_dim.ok_or_else(|| {
@@ -583,7 +585,10 @@ fn parse_npy_header(bytes: &[u8], path: &Path) -> Result<NpyHeader, String> {
         ));
     }
     if header.contains("True") {
-        return Err(format!("{} must be C-order, header={header:?}", path.display()));
+        return Err(format!(
+            "{} must be C-order, header={header:?}",
+            path.display()
+        ));
     }
     let shape_open = header
         .find('(')
@@ -605,7 +610,10 @@ fn parse_npy_header(bytes: &[u8], path: &Path) -> Result<NpyHeader, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("{} shape parse error: {e}", path.display()))?;
     if dims.len() != 2 {
-        return Err(format!("{} must be rank-2, got shape {dims:?}", path.display()));
+        return Err(format!(
+            "{} must be rank-2, got shape {dims:?}",
+            path.display()
+        ));
     }
     Ok(NpyHeader {
         rows: dims[0],

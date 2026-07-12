@@ -179,14 +179,14 @@ pub(crate) struct TauTauHessianPolicy {
 impl TauTauHessianPolicy {
     /// True when the τ-τ exact-Hessian path cannot be assembled at all and the
     /// eval must fall back to value-and-gradient mode (forcing
-    /// `HessianResult::Unavailable`).
+    /// `HessianValue::Unavailable`).
     ///
     /// This is the *only* remaining capability gate: the previous
     /// implementation also forced gradient-only when the design used implicit
     /// multi-dim Duchon storage or when the dense τ-cache plan would exceed
     /// the budget.  Both of those are now *cost* gates, not capability gates
     /// — the unified evaluator's `prefer_outer_hessian_operator(n, p, k)`
-    /// selects the matrix-free `HessianResult::Operator` representation in
+    /// selects the matrix-free `HessianValue::Operator` representation in
     /// exactly the regimes where the dense cache would be unaffordable, and
     /// the planner routes operator returns through `run_operator_trust_region`
     /// (or basis-probes them when `dim ≤ OUTER_HVP_MATERIALIZE_MAX_DIM`).
@@ -334,6 +334,7 @@ mod tests {
         DirectionalHyperParam, EvalCacheManager, EvalShared, HyperDesignDerivative,
         HyperPenaltyDerivative, ImplicitDerivLevel, RemlConfig, RemlState,
     };
+    use super::atoms::CriterionAtom;
     use crate::estimate::EstimationError;
     use gam_linalg::faer_ndarray::FaerCholesky;
     use gam_linalg::matrix::symmetrize_in_place;
@@ -343,7 +344,7 @@ mod tests {
         GlmLikelihoodSpec, InverseLink, LikelihoodSpec, ResponseFamily, StandardLink,
     };
     use faer::Side;
-    use gam_problem::{HessianResult, OuterEval};
+    use gam_problem::{HessianValue, OuterEval};
     use ndarray::{Array1, Array2, array, s};
     use std::sync::Arc;
 
@@ -470,7 +471,7 @@ mod tests {
         // Multi-dim Duchon implicit storage used to force gradient-only,
         // because the τ-cache materialization plan was infeasible.  The
         // unified evaluator now elects the matrix-free
-        // `HessianResult::Operator` representation in this regime via
+        // `HessianValue::Operator` representation in this regime via
         // `prefer_outer_hessian_operator`, so the planner can route to the
         // operator trust-region (or basis-probe to dense for small K) — the
         // capability is preserved and gradient-only must NOT engage.
@@ -712,6 +713,58 @@ mod tests {
         );
     }
 
+    #[test]
+    fn nonlogit_firth_keeps_tk_value_and_gradient() {
+        let y = array![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0];
+        let w = Array1::<f64>::ones(y.len());
+        let x = array![
+            [1.0, -1.0, 0.3],
+            [1.0, -0.7, -0.2],
+            [1.0, -0.3, 0.4],
+            [1.0, 0.0, -0.5],
+            [1.0, 0.2, 0.6],
+            [1.0, 0.6, -0.4],
+            [1.0, 0.9, 0.2],
+            [1.0, 1.3, -0.1],
+        ];
+        let s = array![[0.0, 0.0, 0.0], [0.0, 1.2, 0.1], [0.0, 0.1, 0.7]];
+        let rho = array![0.15];
+
+        for link in [StandardLink::Probit, StandardLink::CLogLog] {
+            let likelihood = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(link),
+            ));
+            let cfg = RemlConfig::external(likelihood, 1e-9, true).with_max_iterations(500);
+            let state = build_logit_state(&y, &w, &x, &s, &cfg);
+            assert!(
+                !state.analytic_outer_hessian_enabled(),
+                "{link:?} should use BFGS curvature until exact f_obs is available"
+            );
+
+            let bundle = state.obtain_eval_bundle(&rho).expect("non-logit Firth bundle");
+            let atom = state
+                .tierney_kadane_terms(
+                    &rho,
+                    &bundle,
+                    super::reml_outer_engine::EvalMode::ValueAndGradient,
+                    &[],
+                )
+                .expect("non-logit TK correction");
+            let value = CriterionAtom::value(&atom);
+            let gradient = atom.gradient().expect("TK gradient");
+            assert!(
+                value.is_finite() && value.abs() > 1e-12,
+                "{link:?} must receive a material finite TK correction, got {value}"
+            );
+            assert_eq!(gradient.len(), rho.len());
+            assert!(
+                gradient.iter().all(|entry| entry.is_finite()),
+                "{link:?} TK gradient must be finite: {gradient:?}"
+            );
+        }
+    }
+
     pub(crate) fn poisson_log_glm_spec() -> GlmLikelihoodSpec {
         GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
             ResponseFamily::Poisson,
@@ -878,7 +931,7 @@ mod tests {
             gradient,
             hessian
                 .materialize_dense()
-                .map_err(EstimationError::RemlOptimizationFailed)?
+                .map_err(|error| EstimationError::RemlOptimizationFailed(error.to_string()))?
                 .ok_or_else(|| {
                     EstimationError::RemlOptimizationFailed(
                         "joint hyper Hessian requested but unavailable".to_string(),
@@ -995,7 +1048,7 @@ mod tests {
         let eval = OuterEval {
             cost: 3.5,
             gradient: array![1.0, -2.0],
-            hessian: HessianResult::Unavailable,
+            hessian: HessianValue::Unavailable,
             inner_beta_hint: None,
         };
 
@@ -1006,7 +1059,7 @@ mod tests {
             .expect("first-order outer eval should be cached");
         assert_eq!(cached.cost, eval.cost);
         assert_eq!(cached.gradient, eval.gradient);
-        assert!(matches!(cached.hessian, HessianResult::Unavailable));
+        assert!(matches!(cached.hessian, HessianValue::Unavailable));
 
         cache.invalidate_eval_bundle();
         assert!(
@@ -1033,7 +1086,7 @@ mod tests {
         let make_eval = |seed: f64| OuterEval {
             cost: (seed * std::f64::consts::PI).sin() / 3.0 - seed,
             gradient: array![seed, -seed * 2.0, seed.recip()],
-            hessian: HessianResult::Unavailable,
+            hessian: HessianValue::Unavailable,
             inner_beta_hint: Some(array![seed + 0.5, seed - 0.5]),
         };
         let bits_eq = |a: &OuterEval, b: &OuterEval| -> bool {
@@ -1615,8 +1668,8 @@ mod tests {
             )
             .expect("analytic Hessian eval");
         let h = match eval.hessian {
-            HessianResult::Analytic(hessian) => hessian,
-            HessianResult::Operator(_) | HessianResult::Unavailable => {
+            HessianValue::Dense(hessian) => hessian,
+            HessianValue::Operator(_) | HessianValue::Unavailable => {
                 panic!("expected dense analytic Hessian")
             }
         };
@@ -5197,12 +5250,6 @@ impl RemlArena {
     }
 }
 
-pub(crate) struct AloFrozenNuisance {
-    pub(crate) n_obs: usize,
-    pub(crate) influence_scale: Vec<f64>,
-    pub(crate) phi: f64,
-}
-
 pub(crate) struct RemlState<'a> {
     pub(crate) y: ArrayView1<'a, f64>,
     pub(crate) x: DesignMatrix,
@@ -5479,34 +5526,13 @@ pub(crate) struct RemlState<'a> {
     /// original-frame Gram skips one dense `O(n·p²)` pass per warm-started
     /// trial while still letting later PIRLS iterations restream the moving
     /// weights. IFT/tangent-predicted starts do not consume this cache.
-    pub(crate) flat_glm_first_step_gram: RwLock<Option<Arc<ndarray::Array2<f64>>>>,
-    /// Frozen ALO robustness weights for this REML surface.
     ///
-    /// The PSIS influence scale is a non-smooth function of the current hat
-    /// diagonals. Once the high-leverage ALO objective activates, it is frozen
-    /// for the current surface so the analytic gradient differentiates the
-    /// same fixed-weight objective the cost evaluates.
-    pub(crate) alo_frozen_nuisance: RwLock<Option<AloFrozenNuisance>>,
-
-    /// ρ-independent certificate that the Gaussian-identity ALO-stabilization
-    /// augmentation can never activate on this surface (#1689).
-    ///
-    /// The augmentation engages only when some row's *penalized* leverage
-    /// `h_i = w_i · xᵢᵀ H_λ⁻¹ xᵢ` reaches `ALO_MAX_LEVERAGE_THRESHOLD`, where
-    /// `H_λ = XᵀWX + S_λ + ridge·I ⪰ XᵀWX`. Because `S_λ + ridge·I ⪰ 0` we have
-    /// `H_λ⁻¹ ⪯ (XᵀWX)⁻¹`, so `h_i ≤ w_i · xᵢᵀ (XᵀWX)⁻¹ xᵢ` — the *unpenalized*
-    /// weighted hat diagonal, which (for Gaussian identity, where W is the fixed
-    /// prior-weight diagonal) is independent of ρ. If the max of that bound is
-    /// below the activation threshold, no ρ can trip the gate, so the entire
-    /// per-outer-evaluation O(n·p²) ALO leverage diagnostic — recomputed and
-    /// discarded on every cost/gradient eval otherwise — is skipped.
-    ///
-    /// `Some(true)`  → provably inactive everywhere, skip the diagnostic.
-    /// `Some(false)` → bound is ≥ threshold or XᵀWX is rank-deficient/ill-
-    ///                 conditioned (bound not certifiable); fall through to the
-    ///                 exact per-eval gate. Computed lazily, at most once.
-    pub(crate) alo_provably_inactive: RwLock<Option<bool>>,
-
+    /// The cached dense `p×p` Gram is coupled to a [`MemoryGovernor`] ledger
+    /// reservation ([`gam_runtime::resource::Governed`]) so a long-lived cache
+    /// entry never holds dense bytes off-ledger; a reservation refusal under
+    /// joint pressure skips caching (the streamed path remains available).
+    pub(crate) flat_glm_first_step_gram:
+        RwLock<Option<gam_runtime::resource::Governed<Arc<ndarray::Array2<f64>>>>>,
     /// Stable disk-cache key for the current realized REML surface. Computed
     /// lazily because it hashes the row-chunked design and data vectors.
     pub(crate) persistent_warm_start_key: RwLock<Option<String>>,
@@ -5519,16 +5545,6 @@ pub(crate) struct RemlState<'a> {
     /// evaluations. In-memory warm starts still update; only JSON/bin
     /// persistence and eviction sweeps are suppressed.
     pub(crate) persistent_warm_start_store_suppression: AtomicUsize,
-    /// Scoped counter disabling the Gaussian-identity ALO-stabilization
-    /// augmentation (#979). The leverage barrier `Σ_i (h_i − τ)₊²` is an OUTER
-    /// OPTIMIZER aid (#813/#821) that keeps the smoothing-parameter search off
-    /// pathological high-leverage λ regions. The marginal smoothing-parameter
-    /// posterior `π(ρ|y) ∝ exp(−LAML(ρ))` (#938) is a property of the genuine
-    /// model criterion, sampled against a Laplace proposal built from the BASE
-    /// REML Hessian, so the certificate / NUTS evaluations suppress the
-    /// augmentation (see `without_alo_stabilization`) — both for proposal↔target
-    /// consistency and to drop the per-leapfrog ALO diagnostic suite.
-    pub(crate) alo_stabilization_suppression: AtomicUsize,
     /// Whether the cross-process ON-DISK warm-start layer is engaged at all.
     ///
     /// Default `false`: the optimizer's IN-MEMORY warm start (the actual

@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "dependency_groups",
+    "packaging",
+    "packaging.requirements",
+    "packaging.specifiers",
+    "pathlib",
+    "tomllib",
+}
+
 import re
 import sys
 from pathlib import Path
@@ -57,12 +66,14 @@ def load_toml(
             session.install(*myscript_options["dependencies"])
     """
     filepath = Path(filename)
-    if filepath.suffix == ".toml":
-        return _load_toml_file(filepath)
-    if filepath.suffix in {".py", ""}:
-        return _load_script_block(filepath, missing_ok=missing_ok)
-    msg = f"Extension must be .py or .toml, got {filepath.suffix}"
-    raise ValueError(msg)
+    match filepath.suffix:
+        case ".toml":
+            return _load_toml_file(filepath)
+        case ".py" | "":
+            return _load_script_block(filepath, missing_ok=missing_ok)
+        case suffix:
+            msg = f"Extension must be .py or .toml, got {suffix}"
+            raise ValueError(msg)
 
 
 def _load_toml_file(filepath: Path) -> dict[str, Any]:
@@ -72,8 +83,13 @@ def _load_toml_file(filepath: Path) -> dict[str, Any]:
 
 def _load_script_block(filepath: Path, *, missing_ok: bool) -> dict[str, Any]:
     name = "script"
-    script = filepath.read_text(encoding="utf-8")
-    matches = list(filter(lambda m: m.group("type") == name, REGEX.finditer(script)))
+    try:
+        script = filepath.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        if missing_ok:
+            return {}
+        raise
+    matches = [m for m in REGEX.finditer(script) if m.group("type") == name]
 
     if not matches:
         if missing_ok:

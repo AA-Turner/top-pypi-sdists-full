@@ -21,9 +21,9 @@ class MyBusinessBusinessCallsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListBusinessCallsInsightsResponseHttpRequest: ...
             def list_next(
@@ -39,8 +39,8 @@ class MyBusinessBusinessCallsResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: BusinessCallsSettings = ...,
-            updateMask: str = ...,
+            body: BusinessCallsSettings,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> BusinessCallsSettingsHttpRequest: ...
         def businesscallsinsights(self) -> BusinesscallsinsightsResource: ...

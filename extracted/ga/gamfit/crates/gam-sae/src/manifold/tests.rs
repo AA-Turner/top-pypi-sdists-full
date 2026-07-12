@@ -1,10 +1,13 @@
 use gam_linalg::faer_ndarray::fast_ata;
 
+pub(crate) use super::tests_recovery_split_780::{
+    diagonal_latent_cache, fixed_state_logdet, gamma_fd_tiny_fixture, warmstart_test_objective,
+    warmstart_test_objective_with_evaluator,
+};
 use super::*;
 use approx::assert_abs_diff_eq;
 use gam_terms::analytic_penalties::ARDPenalty;
 use ndarray::{Array5, array};
-pub(crate) use super::tests_recovery_split_780::{gamma_fd_tiny_fixture, fixed_state_logdet, diagonal_latent_cache, warmstart_test_objective, warmstart_test_objective_with_evaluator};
 
 pub(crate) fn assert_matrix_same_bits(left: &Array2<f64>, right: &Array2<f64>) {
     assert_eq!(left.dim(), right.dim());
@@ -261,50 +264,6 @@ pub(crate) fn evidence_gauge_deflation_count_guard_reanchors_then_rejects_runawa
     );
 }
 
-/// #1217 — the outer-REML cost handed to the BFGS line search MUST be finite.
-/// At a K≥2 co-collapse cliff the Laplace normalizer `½log|H|` of a numerically
-/// singular joint Hessian can return `±∞`/`NaN`, so `reml_criterion` surfaces a
-/// non-finite criterion value. The `opt` BFGS reports a non-finite probe as
-/// "Line search failed (nonfinite seen)" and ABORTS the outer solve at the
-/// current iterate (observed on real OLMo K=2: stall at iter 2, |g|≈65) instead
-/// of backtracking. `add_fit_data_collapse_penalty` is the single seam BOTH the
-/// value-probe (`eval_with_order(Value)`) and gradient (`eval`) lanes route
-/// through, so flooring a non-finite cost to the finite collapse wall there
-/// presents the SAME rejectable barrier a detected collapse does — the line
-/// search rejects the step and backtracks toward the feasible basin.
-#[test]
-pub(crate) fn outer_collapse_penalty_floors_nonfinite_cost_to_finite_wall() {
-    let finite_ok = |cost: f64| {
-        // Fresh objective per call: `add_fit_data_collapse_penalty` mutates the
-        // term's collapse ledger, so each assertion gets a clean slate.
-        let mut objective = warmstart_test_objective();
-        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1)]);
-        objective
-            .add_fit_data_collapse_penalty(cost, &rho)
-            .expect("collapse penalty must not error on a non-finite cost")
-    };
-
-    // A finite, non-collapsed base cost passes through unchanged (byte-for-byte).
-    let plain = finite_ok(3.5);
-    assert!(plain.is_finite(), "finite cost must stay finite");
-
-    // Each non-finite base must be floored to a FINITE, rejectable wall — never
-    // propagated as `±∞`/`NaN` to the BFGS line search. The wall is bounded by
-    // `2·SAE_FIT_DATA_COLLAPSE_COST` (base wall + at-most-one collapse penalty).
-    for nonfinite in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
-        let walled = finite_ok(nonfinite);
-        assert!(
-            walled.is_finite(),
-            "a non-finite outer cost ({nonfinite}) must be floored to a finite wall, got {walled}"
-        );
-        assert!(
-            walled >= SAE_FIT_DATA_COLLAPSE_COST && walled <= 2.0 * SAE_FIT_DATA_COLLAPSE_COST,
-            "the floored wall {walled} must sit in [collapse_cost, 2·collapse_cost] so BFGS \
-             treats it as an infeasible step to backtrack from, not as a descent target"
-        );
-    }
-}
-
 /// The identity-homotopy shortcut's structural probe: the η dial is inert
 /// iff no atom evaluator declares curved columns. Caller-managed atoms
 /// (no evaluator) and one-harmonic periodic banks (M = 3: constant +
@@ -507,17 +466,6 @@ pub(crate) fn dictionary_incoherence_report_circle_kappa_matches_inverse_radius(
     assert_abs_diff_eq!(report.peak_activity_floor, 1.0, epsilon = 1.0e-12);
 }
 
-#[test]
-pub(crate) fn search_strategy_exposes_fixed_and_sweep_values() {
-    assert!(SearchStrategy::Fixed.is_fixed());
-
-    let strategy = SearchStrategy::ExponentialSweep {
-        values: vec![0.1, 1.0, 10.0],
-    };
-    assert!(!strategy.is_fixed());
-    assert_eq!(strategy.sweep_values(), Some([0.1, 1.0, 10.0].as_slice()));
-}
-
 /// `try_assignments_row` may only pin the K==1 assignment to `1.0` for
 /// Softmax, whose single simplex coordinate is genuinely fixed. For the
 /// independent gate modes (IBP-MAP, JumpReLU) the lone logit must drive the
@@ -526,13 +474,8 @@ pub(crate) fn search_strategy_exposes_fixed_and_sweep_values() {
 /// audit's K==1 special-case bug.
 #[test]
 pub(crate) fn k1_gate_modes_do_not_pin_assignment_to_one() {
-    // IBP-MAP, K=1: σ(0/τ)·π_0. Since #614 the stick-breaking prior shrinks
-    // EVERY atom by one Beta(α,1) stick mean — including the first — so the
-    // truncated mean is `π_0 = α/(α+1)`, NOT the old unshrunk `π_0 = 1` (that
-    // left atom 0 unshrunk and broke α's role as a concentration). With α=1,
-    // τ=1, l=0 the gate is therefore `σ(0)·(1/2) = 0.5·0.5 = 0.25`. The point
-    // of this case is unchanged: the K=1 gate is NOT pinned to 1.0 (the
-    // Softmax-only collapse), it is the genuine sigmoid×prior product.
+    // IBP, K=1: the posterior-mean Bernoulli gate is σ(0/τ)=0.5. The ordered
+    // prior is scored separately and never caps the final function.
     let ibp = SaeAssignment::from_blocks_with_mode(
         array![[0.0]],
         vec![array![[0.0]]],
@@ -540,7 +483,7 @@ pub(crate) fn k1_gate_modes_do_not_pin_assignment_to_one() {
     )
     .unwrap();
     let ibp_gate = ibp.try_assignments_row(0).unwrap()[0];
-    assert_abs_diff_eq!(ibp_gate, 0.25, epsilon = 1e-9);
+    assert_abs_diff_eq!(ibp_gate, 0.5, epsilon = 1e-9);
     assert!(
         (ibp_gate - 1.0).abs() > 1e-6,
         "K=1 IBP-MAP must not pin the gate to 1.0"
@@ -550,7 +493,7 @@ pub(crate) fn k1_gate_modes_do_not_pin_assignment_to_one() {
     let jr = SaeAssignment::from_blocks_with_mode(
         array![[-1.0]],
         vec![array![[0.0]]],
-        AssignmentMode::jumprelu(1.0, 0.0),
+        AssignmentMode::threshold_gate(1.0, 0.0),
     )
     .unwrap();
     assert_abs_diff_eq!(jr.try_assignments_row(0).unwrap()[0], 0.0, epsilon = 1e-12);
@@ -1477,7 +1420,12 @@ pub(crate) fn snapshot_restore_round_trips_mutated_state() {
 
     // Restore and confirm every snapshotted field matches the pre-step
     // values bit-for-bit.
-    term.restore_mutable_state(&snapshot);
+    term.restore_mutable_state(&snapshot)
+        .expect("differential restore rebuilds the basis");
+    // The differential snapshot drops `basis_values`/`basis_jacobian` and rebuilds
+    // them from the restored coordinates via `refresh_basis_from_current_coords`.
+    // `TestPeriodicEvaluator::evaluate` is exactly `periodic_basis`, so the rebuild
+    // reproduces the pre-step basis bit-for-bit (basis is deterministic in coords).
     assert_eq!(term.atoms[0].basis_values, pre_basis);
     assert_eq!(term.atoms[0].basis_jacobian, pre_jet);
     assert_eq!(term.atoms[0].decoder_coefficients, pre_decoder);
@@ -1528,6 +1476,234 @@ pub(crate) fn ibp_path_refreshes_periodic_basis_for_two_newton_iterations() {
     assert!(term.assignment.assignments().iter().all(|v| v.is_finite()));
     let basis_delta = (&term.atoms[0].basis_values - &basis0).mapv(f64::abs).sum();
     assert!(basis_delta > 1.0e-10);
+}
+
+/// #1017 — accepted nonlinear iterations reuse allocation identity while
+/// rebuilding the actual current-iterate system. Two one-iteration production
+/// driver calls leave their completed system allocations in the ordinary
+/// workspace; the test reads that production state directly, with no test-only
+/// observer embedded in the term.
+#[test]
+pub(crate) fn accepted_iterations_reuse_arrow_and_device_frame_allocations_with_fresh_content() {
+    let coords0 = array![[0.05], [0.20], [0.55], [0.80]];
+    let (phi0, jet0) = periodic_basis(&coords0);
+    let p = 16usize;
+    let mut decoder = Array2::<f64>::zeros((3, p));
+    decoder[[0, 0]] = 0.4;
+    decoder[[1, 0]] = -0.3;
+    decoder[[2, 0]] = 0.2;
+    decoder[[0, 1]] = -0.1;
+    decoder[[1, 1]] = 0.35;
+    decoder[[2, 1]] = 0.25;
+    let mut target = phi0.dot(&decoder);
+    for row in 0..target.nrows() {
+        target[[row, 0]] += 0.08 * (row as f64 + 0.5).sin();
+        target[[row, 1]] -= 0.06 * (row as f64 + 1.0).cos();
+    }
+    let atom = SaeManifoldAtom::new(
+        "resident_periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi0,
+        jet0,
+        decoder,
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((4, 1)),
+        vec![coords0],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(0.7),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let mut rho = SaeManifoldRho::new(0.0, -4.0, vec![Array1::<f64>::zeros(1)]);
+
+    let decoder_before = term.atoms[0].decoder_coefficients.clone();
+    term.run_joint_fit_arrow_schur(target.view(), &mut rho, None, 1, 0.05, 1.0e-3, 1.0e-3)
+        .expect("first accepted nonlinear iteration");
+    assert_ne!(
+        term.atoms[0].decoder_coefficients, decoder_before,
+        "first production call must accept a state-changing step"
+    );
+    let first_row = term
+        .arrow_assembly_workspace
+        .rows
+        .first()
+        .expect("driver returns row allocations to the workspace");
+    let first_row_htt_ptr = first_row.htt.as_ptr() as usize;
+    let first_row_htbeta_ptr = first_row.htbeta.as_ptr() as usize;
+    let first_gb_ptr = term.arrow_assembly_workspace.gb.as_ptr() as usize;
+    let first_device = term
+        .arrow_assembly_workspace
+        .device_sae_pcg
+        .as_ref()
+        .filter(|data| data.frame.is_some())
+        .expect("framed assembly returns its device descriptor");
+    let first_device_frame_ptr = Arc::as_ptr(first_device) as usize;
+    let first_device_frame_blocks_ptr = first_device
+        .frame
+        .as_ref()
+        .map_or(0, |frame| frame.frame_blocks.as_ptr() as usize);
+    let first_device_row_htbeta_ptr = first_device
+        .frame
+        .as_ref()
+        .and_then(|frame| frame.row_htbeta.first())
+        .map_or(0, |row| row.as_ptr() as usize);
+    let first_device_row_htbeta_bits: Vec<u64> = first_device
+        .frame
+        .as_ref()
+        .and_then(|frame| frame.row_htbeta.first())
+        .into_iter()
+        .flatten()
+        .map(|value| value.to_bits())
+        .collect();
+    let first_device_frame_block = first_device
+        .frame
+        .as_ref()
+        .and_then(|frame| frame.frame_blocks.first())
+        .expect("framed assembly retains a data-fit G tensor W block");
+    let first_device_frame_g_ptr = first_device_frame_block.g.as_ptr() as usize;
+    let first_device_frame_w_ptr = first_device_frame_block.w.as_ptr() as usize;
+    let first_device_frame_block_bits: Vec<u64> = first_device_frame_block
+        .g
+        .iter()
+        .chain(first_device_frame_block.w.iter())
+        .map(|value| value.to_bits())
+        .collect();
+    let first_numerical_bits: Vec<u64> = first_row
+        .htt
+        .iter()
+        .chain(first_row.htbeta.iter())
+        .chain(first_row.gt.iter())
+        .chain(term.arrow_assembly_workspace.gb.iter())
+        .map(|value| value.to_bits())
+        .collect();
+
+    // Keep the second call away from the first call's fixed point so the test
+    // exercises a second accepted step instead of merely reassembling a
+    // converged state. The perturbation stays inside the active output frame.
+    term.atoms[0].decoder_coefficients[[0, 0]] += 0.02;
+    let decoder_before_second = term.atoms[0].decoder_coefficients.clone();
+    term.run_joint_fit_arrow_schur(target.view(), &mut rho, None, 1, 0.05, 1.0e-3, 1.0e-3)
+        .expect("second accepted nonlinear iteration");
+    assert_ne!(
+        term.atoms[0].decoder_coefficients, decoder_before_second,
+        "second production call must accept a state-changing step"
+    );
+    let second_row = term
+        .arrow_assembly_workspace
+        .rows
+        .first()
+        .expect("driver returns reused row allocations to the workspace");
+    let second_device = term
+        .arrow_assembly_workspace
+        .device_sae_pcg
+        .as_ref()
+        .filter(|data| data.frame.is_some())
+        .expect("reused framed assembly returns its device descriptor");
+    let second_device_frame_ptr = Arc::as_ptr(second_device) as usize;
+    let second_device_frame_blocks_ptr = second_device
+        .frame
+        .as_ref()
+        .map_or(0, |frame| frame.frame_blocks.as_ptr() as usize);
+    let second_device_row_htbeta_ptr = second_device
+        .frame
+        .as_ref()
+        .and_then(|frame| frame.row_htbeta.first())
+        .map_or(0, |row| row.as_ptr() as usize);
+    let second_device_frame_block = second_device
+        .frame
+        .as_ref()
+        .and_then(|frame| frame.frame_blocks.first())
+        .expect("reused framed assembly retains its data-fit block");
+    let second_numerical_bits: Vec<u64> = second_row
+        .htt
+        .iter()
+        .chain(second_row.htbeta.iter())
+        .chain(second_row.gt.iter())
+        .chain(term.arrow_assembly_workspace.gb.iter())
+        .map(|value| value.to_bits())
+        .collect();
+
+    assert_ne!(first_row_htt_ptr, 0);
+    assert_eq!(first_row_htt_ptr, second_row.htt.as_ptr() as usize);
+    assert_ne!(first_row_htbeta_ptr, 0);
+    assert_eq!(first_row_htbeta_ptr, second_row.htbeta.as_ptr() as usize);
+    assert_ne!(first_gb_ptr, 0);
+    assert_eq!(
+        first_gb_ptr,
+        term.arrow_assembly_workspace.gb.as_ptr() as usize
+    );
+    assert_ne!(
+        first_device_frame_ptr, 0,
+        "framed assembly must install DeviceSaePcgData"
+    );
+    assert_eq!(first_device_frame_ptr, second_device_frame_ptr);
+    assert_ne!(first_device_frame_blocks_ptr, 0);
+    assert_eq!(
+        first_device_frame_blocks_ptr, second_device_frame_blocks_ptr,
+        "framed data-fit block vector must retain its allocation"
+    );
+    assert_ne!(first_device_row_htbeta_ptr, 0);
+    assert_eq!(
+        first_device_row_htbeta_ptr, second_device_row_htbeta_ptr,
+        "dominant framed row H_tbeta host slab must retain its allocation"
+    );
+    assert_ne!(first_device_frame_g_ptr, 0);
+    assert_eq!(
+        first_device_frame_g_ptr,
+        second_device_frame_block.g.as_ptr() as usize,
+        "framed data-fit G block must retain its allocation"
+    );
+    assert_ne!(first_device_frame_w_ptr, 0);
+    assert_eq!(
+        first_device_frame_w_ptr,
+        second_device_frame_block.w.as_ptr() as usize,
+        "framed output-factor W block must retain its allocation"
+    );
+    let second_device_row_htbeta_bits: Vec<u64> = second_device
+        .frame
+        .as_ref()
+        .and_then(|frame| frame.row_htbeta.first())
+        .into_iter()
+        .flatten()
+        .map(|value| value.to_bits())
+        .collect();
+    assert_ne!(
+        first_device_row_htbeta_bits, second_device_row_htbeta_bits,
+        "retained framed row H_tbeta slab must be numerically refreshed"
+    );
+    let second_device_frame_block_bits: Vec<u64> = second_device_frame_block
+        .g
+        .iter()
+        .chain(second_device_frame_block.w.iter())
+        .map(|value| value.to_bits())
+        .collect();
+    assert_ne!(
+        first_device_frame_block_bits, second_device_frame_block_bits,
+        "retained framed G tensor W block must be numerically refreshed"
+    );
+    assert_ne!(
+        first_numerical_bits, second_numerical_bits,
+        "accepted state change must refresh Hessian/gradient numerical content"
+    );
+    eprintln!(
+        "#1017 accepted-iteration residency telemetry: iterations=2 row_htt_ptr={} \
+         row_htbeta_ptr={} gb_ptr={} device_frame_ptr={} device_row_htbeta_ptr={} \
+         device_frame_blocks_ptr={} device_frame_g_ptr={} device_frame_w_ptr={} \
+         numerical_content_changed=true",
+        first_row_htt_ptr,
+        first_row_htbeta_ptr,
+        first_gb_ptr,
+        first_device_frame_ptr,
+        first_device_row_htbeta_ptr,
+        first_device_frame_blocks_ptr,
+        first_device_frame_g_ptr,
+        first_device_frame_w_ptr,
+    );
 }
 
 pub(crate) fn small_two_atom_periodic_term() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
@@ -1809,13 +1985,12 @@ fn collapse_rescue_term_and_target() -> (SaeManifoldTerm, Array2<f64>, SaeManifo
     (term, target, rho)
 }
 
-/// #1777 GOAL 1 — a collapse-rescued atom must reconstruct the SAME rows
-/// identically whether treated as "train" (cached per-row codes) or re-encoded
-/// as "held-out" (the `v`-projection of the row's own leave-this-atom-out
-/// residual), and the `v`-projection OOS reconstruction must BEAT the collapsed
-/// (own-coordinate) fallback in explained variance.
+/// #1777 GOAL 1 — a collapse-rescued atom has exactly one reconstruction model:
+/// the `v`-projection of the row's own leave-this-atom-out residual. Training and
+/// held-out reconstruction must agree through that target-aware path, while a
+/// target-less reconstruction must refuse the rescued image explicitly.
 #[test]
-pub(crate) fn collapse_rescue_oos_v_projection_matches_train_and_beats_fallback() {
+pub(crate) fn collapse_rescue_projection_matches_train_and_oos_and_refuses_targetless() {
     let (mut term, target, rho) = collapse_rescue_term_and_target();
 
     // The joint fit drove this atom into the degenerate fixed point; the hybrid
@@ -1834,20 +2009,25 @@ pub(crate) fn collapse_rescue_oos_v_projection_matches_train_and_beats_fallback(
         rescue_image.is_collapse_rescued() && rescue_image.v.is_some(),
         "a collapse-rescued image must carry a projection direction v"
     );
-    assert!(
-        rescue_image.row_codes.is_some(),
-        "a collapse-rescued image must carry its train per-row codes"
-    );
 
-    // TRAIN reconstruction: the term with the report installed decodes the slot at
-    // its cached per-row codes (`row_codes`).
+    // TRAIN reconstruction uses the same residual projection as OOS. With no
+    // target the term must refuse the rescued image instead of silently decoding
+    // at the collapsed atom coordinate.
     term.hybrid_split_report = Some(report);
-    let train_recon = term.fitted();
+    let refusal = term
+        .try_fitted()
+        .expect_err("a rescued image cannot be reconstructed without its target");
+    assert!(
+        refusal.contains("requires try_fitted_target_aware"),
+        "unexpected target-less refusal: {refusal}"
+    );
+    let train_recon = term
+        .try_fitted_target_aware(target.view(), Some(&rho))
+        .expect("target-aware train reconstruction assembles");
 
     // HELD-OUT reconstruction: a fresh OOS term that knows only the decoder and
     // the trained linear images (no in-fit report) recomputes each row's
-    // coordinate from ITS OWN residual projected onto `v`, via the target-aware
-    // path. Same target ⇒ same residual ⇒ same coordinate ⇒ same reconstruction.
+    // coordinate from ITS OWN residual projected onto `v`.
     let mut oos = term.clone();
     oos.hybrid_split_report = None;
     oos.set_hybrid_linear_images(vec![rescue_image.clone()])
@@ -1861,54 +2041,26 @@ pub(crate) fn collapse_rescue_oos_v_projection_matches_train_and_beats_fallback(
         .fold(0.0_f64, |m, d| m.max(d.abs()));
     assert!(
         max_gap < 1e-10,
-        "train (cached codes) and OOS (v-projection) reconstructions must be the \
-         SAME model within tol; max gap {max_gap:e}"
+        "train and OOS residual-projection reconstructions must be the SAME model \
+         within tol; max gap {max_gap:e}"
     );
-
-    // The v-projection OOS reconstruction must beat the collapsed-coordinate
-    // fallback (row_codes/v cleared ⇒ every row decodes at the atom's own, single,
-    // collapsed coordinate → a constant image that cannot track the residual ramp).
-    let fallback_image = crate::hybrid_split::AtomLinearImage {
-        atom_idx: rescue_image.atom_idx,
-        t_bar: rescue_image.t_bar,
-        b0: rescue_image.b0.clone(),
-        b1: rescue_image.b1.clone(),
-        row_codes: None,
-        v: None,
-    };
-    let mut fallback = term.clone();
-    fallback.hybrid_split_report = None;
-    fallback
-        .set_hybrid_linear_images(vec![fallback_image])
-        .expect("fallback image attaches");
-    let fallback_recon = fallback.fitted();
-
-    let ev_vproj = global_ev(target.view(), oos_recon.view());
-    let ev_fallback = global_ev(target.view(), fallback_recon.view());
+    let ev = global_ev(target.view(), oos_recon.view());
     assert!(
-        ev_vproj > ev_fallback + 0.1 && ev_vproj > 0.95,
-        "the v-projection OOS EV ({ev_vproj:.4}) must beat the collapsed-coordinate \
-         fallback ({ev_fallback:.4}) and recover the residual ramp"
+        ev > 0.95,
+        "residual projection must recover the ramp; EV={ev:.4}"
     );
 }
 
 /// #1777 GOAL 2 — the PER-FIT [`SaeFitConfig`] is the source of truth for the
 /// IBP-α and separation-barrier overrides: two terms carrying DIFFERENT configs
-/// produce correspondingly-different α / barrier strength, with NO process-global
-/// atomic touched (isolation), and the two terms do not leak into each other.
+/// produce correspondingly-different α / barrier strength, and the two terms do
+/// not leak into each other.
 #[test]
 pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
-    // Sanity: neither term sets a global override, so the global fallbacks stay
-    // unset and cannot be the source of the distinct effects observed below.
-    assert!(
-        crate::assignment::ibp_alpha_override().is_none(),
-        "test must not depend on a preset global IBP-α override"
-    );
-
     let (mut term_a, _t_a, rho_a) = small_two_atom_ibp_term();
     let (mut term_b, _t_b, rho_b) = small_two_atom_ibp_term();
 
-    // Distinct per-fit configs, applied via config ONLY (no global setters).
+    // Distinct per-fit configs, applied to each term independently.
     term_a.set_fit_config(SaeFitConfig {
         separation_barrier_strength_override: Some(0.1),
         ibp_alpha_override: Some(0.2),
@@ -1926,13 +2078,13 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
     );
 
     // IBP-α: the per-fit override is the resolved α (bypassing the mode schedule),
-    // and the two terms resolve DIFFERENT α without touching any global.
+    // and the two terms resolve different α values.
     assert_eq!(term_a.assignment.resolved_ibp_alpha(&rho_a), Some(0.2));
     assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
 
     // Distinct α ⇒ distinct gates (the ordered geometric prior π_k differs).
-    let gates_a = term_a.assignment.assignments_for_rho(&rho_a).unwrap();
-    let gates_b = term_b.assignment.assignments_for_rho(&rho_b).unwrap();
+    let gates_a = term_a.assignment.try_assignments().unwrap();
+    let gates_b = term_b.assignment.try_assignments().unwrap();
     let gate_gap = (&gates_a - &gates_b)
         .iter()
         .fold(0.0_f64, |m, d| m.max(d.abs()));
@@ -1942,16 +2094,12 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
     );
 
     // Barrier strength (K=2, so the barrier is live): the per-fit override is the
-    // source of truth, distinct per term, with the global still unset.
+    // source of truth, distinct per term.
     assert_eq!(term_a.separation_barrier_strength(), 0.1);
     assert_eq!(term_b.separation_barrier_strength(), 3.0);
-    assert!(
-        super::term::sae_separation_barrier_override().is_none(),
-        "the per-fit override must NOT write the process-global barrier atomic"
-    );
 
     // Isolation: clearing term_a's config leaves term_b untouched, and term_a
-    // falls back to the mode's own α (the historical path).
+    // uses the mode's canonical α.
     term_a.set_fit_config(SaeFitConfig::default());
     assert_eq!(term_a.assignment.resolved_ibp_alpha(&rho_a), Some(1.0)); // the mode's compiled α
     assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
@@ -1961,24 +2109,10 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
 /// genuinely CONCURRENT in-process fits: two threads that each build a term,
 /// set a DIFFERENT `μ_sep` via [`SaeFitConfig`], and hammer
 /// [`SaeManifoldTerm::separation_barrier_strength`] must each keep reading their
-/// OWN strength for the whole run, and the process-global barrier atomic must
-/// stay unset throughout (the field, not the global, is the source of truth).
-///
-/// This is the concurrency safety the process-global `set_sae_barrier_overrides`
-/// atomic could NOT provide (last-writer-wins across threads leaks the override
-/// between fits): a parallel candidate/rung/layer sweep is now safe because the
-/// strength lives on the term, so there is no shared cell to race on. The
-/// pre-#1777 global-atomic path would fail this test — thread B's `store` would
-/// be observed by thread A's `separation_barrier_strength` read.
+/// own strength for the whole run. A parallel candidate/rung/layer sweep is safe
+/// because the strength lives on the term and there is no shared mutable state.
 #[test]
 pub(crate) fn per_fit_barrier_isolated_under_concurrent_fits() {
-    // Neither thread touches a global setter, so the global fallback must stay
-    // unset for the whole run — assert the precondition up front.
-    assert!(
-        super::term::sae_separation_barrier_override().is_none(),
-        "test must not depend on a preset global barrier override"
-    );
-
     // Two distinct per-fit strengths, one per worker. Chosen far apart so a leak
     // between threads (either direction) is unambiguous.
     let strengths = [0.125_f64, 7.5_f64];
@@ -1998,17 +2132,12 @@ pub(crate) fn per_fit_barrier_isolated_under_concurrent_fits() {
                     // Hammer the barrier-strength read while the sibling thread
                     // hammers its own with a different μ. The per-fit field is
                     // the source of truth, so every read is this thread's μ and
-                    // the global stays unset — under the old global atomic the
-                    // sibling's `store` would be visible here.
+                    // no sibling state can be visible here.
                     for _ in 0..iters {
                         assert_eq!(
                             term.separation_barrier_strength(),
                             mu,
                             "concurrent fit read a leaked barrier strength (expected {mu})"
-                        );
-                        assert!(
-                            super::term::sae_separation_barrier_override().is_none(),
-                            "a per-fit override must never write the process-global atomic"
                         );
                     }
                     mu
@@ -2019,42 +2148,6 @@ pub(crate) fn per_fit_barrier_isolated_under_concurrent_fits() {
             assert_eq!(handle.join().unwrap(), mu);
         }
     });
-
-    // Post-condition: the global barrier atomic is still unset — no thread leaked
-    // its per-fit strength into the process-global cell.
-    assert!(
-        super::term::sae_separation_barrier_override().is_none(),
-        "the process-global barrier atomic must remain unset after concurrent per-fit fits"
-    );
-}
-
-/// #1777 GOAL 3 — the assignment mode is the accurately-named `ThresholdGate`
-/// (a hard-sigmoid gate, NOT the literature JumpReLU magnitude activation); the
-/// legacy `jumprelu` constructor remains a back-compat alias producing the SAME
-/// variant and the SAME gates.
-#[test]
-pub(crate) fn threshold_gate_is_primary_jumprelu_is_backcompat_alias() {
-    let primary = AssignmentMode::threshold_gate(0.9, 0.15);
-    let legacy = AssignmentMode::jumprelu(0.9, 0.15);
-    assert!(matches!(primary, AssignmentMode::ThresholdGate { .. }));
-    assert!(
-        matches!(legacy, AssignmentMode::ThresholdGate { .. }),
-        "the legacy jumprelu constructor must yield the renamed ThresholdGate variant"
-    );
-
-    // Identical gates from either spelling.
-    let logits = array![[0.5, -0.2, 0.4], [0.05, 0.6, -0.3]];
-    let coords = vec![
-        array![[0.1], [0.2]],
-        array![[0.3], [0.4]],
-        array![[0.5], [0.6]],
-    ];
-    let build = |mode: AssignmentMode| {
-        SaeAssignment::from_blocks_with_mode(logits.clone(), coords.clone(), mode).unwrap()
-    };
-    let a_primary = build(primary).assignments();
-    let a_legacy = build(legacy).assignments();
-    assert_eq!(a_primary, a_legacy);
 }
 
 /// #976 Layer-1 guard 2: a single Newton application cannot move a gate
@@ -2470,11 +2563,14 @@ pub(crate) fn planted_circle_ibp_map_n40_sigma018_reaches_high_ev_1744() {
     let n_params = init_rho_flat.len();
     let mut objective =
         SaeManifoldOuterObjective::new(term, z.clone(), None, init_rho, 50, 0.04, 1.0e-6, 1.0e-6);
-    gam_solve::rho_optimizer::OuterProblem::new(n_params)
+    let result = gam_solve::rho_optimizer::OuterProblem::new(n_params)
         .with_initial_rho(init_rho_flat)
         .run(&mut objective, "SAE planted circle #1744 focused")
         .unwrap();
-    let fitted_result = objective.into_fitted();
+    objective
+        .certify_outer_result(&result)
+        .expect("focused #1744 outer result must certify the installed state");
+    let fitted_result = objective.into_fitted().expect("outer fit was evaluated");
     let rho = fitted_result.rho;
     let ev = global_ev(z.view(), fitted_result.term.fitted().view());
     assert!(
@@ -2517,11 +2613,14 @@ pub(crate) fn planted_circle_noise_scale_sweep_reaches_high_ev_with_dimensionles
                     1.0e-6,
                     1.0e-6,
                 );
-                gam_solve::rho_optimizer::OuterProblem::new(n_params)
+                let result = gam_solve::rho_optimizer::OuterProblem::new(n_params)
                     .with_initial_rho(init_rho_flat)
                     .run(&mut objective, "SAE planted circle dimensionless seed")
                     .unwrap();
-                let fitted_result = objective.into_fitted();
+                objective
+                    .certify_outer_result(&result)
+                    .expect("dimensionless-seed outer result must certify the installed state");
+                let fitted_result = objective.into_fitted().expect("outer fit was evaluated");
                 let fitted_term = fitted_result.term;
                 let rho = fitted_result.rho;
                 let fitted = fitted_term.fitted();
@@ -2744,8 +2843,7 @@ pub(crate) fn value_probe_refine_policy_ranks_same_criterion_as_full_policy() {
     assert_abs_diff_eq!(probe_loss.total(), full_loss.total(), epsilon = 1.0e-8);
 }
 
-/// #1224 — the BFGS/ARC line-search cost probe must see PURE REML, not the
-/// co-training consistency fold `f+c`.
+/// #1224 — every fitting/ranking lane must price the same pure REML criterion.
 ///
 /// The outer optimizer compares three lanes at a fixed ρ:
 ///   * `eval` (`OuterEvalOrder::ValueAndGradient`) returns the consistent
@@ -2757,20 +2855,14 @@ pub(crate) fn value_probe_refine_policy_ranks_same_criterion_as_full_policy() {
 ///     here while the direction is `∇f` mixes two functions in the Armijo test
 ///     (the objective↔gradient desync bug class). The fix threads
 ///     `fold_cotrain = false` into this lane.
-///   * `eval_cost` is the derivative-free cross-seed RANKING lane, where no
-///     gradient is ever paired with the cost, so it legitimately carries the
-///     fold (`fold_cotrain = true`): its cost is `f + c`.
+///   * `eval_cost` is the cross-seed ranking lane and also returns `f`; ranking
+///     by a different `f+c` criterion would select a fit that need not be
+///     stationary for the objective the optimizer descended.
 ///
-/// This fixture's atoms carry NO basis evaluator, so every amortized encode is
-/// uncertified (`uncertified_fraction = 1.0`) and the consistency fold `c` is
-/// strictly positive. The regression therefore pins:
-///   (1) line-search lane cost == gradient lane cost  (the desync invariant),
-///   (2) ranking lane cost  >  line-search lane cost   (the fold IS present on
-///       the ranking lane and ABSENT on the line-search lane).
-/// The pre-fix code fed `f+c` to the line search, collapsing (1)/(2): the
-/// line-search cost would equal the ranking cost and exceed the gradient cost.
+/// The regression pins one invariant: gradient, line-search, and ranking costs
+/// agree at the same `ρ`.
 #[test]
-pub(crate) fn line_search_value_probe_sees_pure_reml_not_cotrain_fold() {
+pub(crate) fn outer_value_and_ranking_lanes_share_pure_reml_criterion() {
     use gam_solve::rho_optimizer::{OuterEvalOrder, OuterObjective};
 
     // A fixed ρ at which all three lanes converge from the same fixture state.
@@ -2792,33 +2884,16 @@ pub(crate) fn line_search_value_probe_sees_pure_reml_not_cotrain_fold() {
         .expect("line-search probe must converge on the warm-start fixture")
         .cost;
 
-    // Ranking lane (`eval_cost`): the derivative-free cross-seed screen, which
-    // DOES carry the consistency fold `c`.
+    // Ranking lane (`eval_cost`): the cross-seed screen prices the same `f`.
     let mut rank_obj = warmstart_test_objective();
     let rank_cost = rank_obj
         .eval_cost(&rho_flat)
         .expect("ranking lane must converge on the warm-start fixture");
 
-    // (1) The line-search cost equals the gradient-lane cost: the BFGS Armijo
-    //     sufficient-decrease test now pairs `f` with `∇f` (no desync).
+    // Armijo and cross-seed selection both price the criterion whose gradient
+    // the accepted-point lane returns.
     assert_abs_diff_eq!(ls_cost, grad_cost, epsilon = 1.0e-10);
-
-    // The fold is genuinely present in this fixture (no basis evaluator ⇒
-    // uncertified_fraction = 1.0), so the ranking lane is strictly costlier.
-    assert!(
-        rank_cost > grad_cost + 1.0e-6,
-        "ranking lane must carry a strictly positive co-training fold: \
-             rank_cost={rank_cost:.12} grad_cost={grad_cost:.12}"
-    );
-
-    // (2) The line-search lane must NOT carry the fold: it is strictly cheaper
-    //     than the ranking lane by exactly the fold magnitude. The pre-fix bug
-    //     (line search sees `f+c`) would make `ls_cost == rank_cost`.
-    assert!(
-        ls_cost < rank_cost - 1.0e-6,
-        "line-search lane must exclude the co-training fold the ranking lane \
-             carries: ls_cost={ls_cost:.12} rank_cost={rank_cost:.12}"
-    );
+    assert_abs_diff_eq!(rank_cost, grad_cost, epsilon = 1.0e-10);
 }
 
 /// #1029 budget-policy gate: value probes get the base refine budget and
@@ -2880,6 +2955,34 @@ pub(crate) fn refine_iteration_limit_probe_budget_never_extends() {
         ),
         accepted_base
     );
+}
+
+/// #2253 exact-envelope gate: an objective-stall or small-decrement diagnostic
+/// cannot mint an analytic outer derivative while both the raw and quotient
+/// KKT residuals remain above the stationarity bound.
+#[test]
+pub(crate) fn objective_stall_cannot_substitute_for_kkt_envelope_2253() {
+    let tolerance = 1.0e-4;
+    assert!(!SaeManifoldTerm::evidence_kkt_stationary(
+        2.0 * tolerance,
+        3.0 * tolerance,
+        tolerance,
+    ));
+    assert!(SaeManifoldTerm::evidence_kkt_stationary(
+        tolerance,
+        3.0 * tolerance,
+        tolerance,
+    ));
+    assert!(SaeManifoldTerm::evidence_kkt_stationary(
+        2.0 * tolerance,
+        tolerance,
+        tolerance,
+    ));
+    assert!(!SaeManifoldTerm::evidence_kkt_stationary(
+        f64::NAN,
+        f64::INFINITY,
+        tolerance,
+    ));
 }
 
 #[test]
@@ -3011,13 +3114,22 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
     let p = 2usize;
     let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
     let (phi, jet) = periodic_basis(&coords);
+    let decoder = array![[0.30, -0.10], [1.20, 0.20], [0.10, 1.10]];
+    // Keep the parity witness on a resolved hard-MP branch. The prior target was
+    // unrelated to the hand-seeded decoder, so the canonical rank-zero veto
+    // fired before either dense/bundle derivative route could be exercised.
+    let mut target = phi.dot(&decoder);
+    for row in 0..n {
+        target[[row, 0]] += 1.0e-3 * (0.37 * row as f64).sin();
+        target[[row, 1]] += 1.0e-3 * (0.29 * row as f64).cos();
+    }
     let atom = SaeManifoldAtom::new(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
         phi,
         jet,
-        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        decoder,
         Array2::<f64>::eye(3),
     )
     .unwrap()
@@ -3030,14 +3142,6 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-    let target = Array2::from_shape_fn((n, p), |(row, col)| {
-        let x = (row as f64 + 0.5) / n as f64;
-        if col == 0 {
-            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
-        } else {
-            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
-        }
-    });
     let alpha = 250.0_f64;
     let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![alpha.ln()]]);
     let loss = term.loss(target.view(), &rho).unwrap();
@@ -3048,7 +3152,9 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
-    let dispersion = term.reconstruction_dispersion(&loss, &cache, &rho, None).unwrap();
+    let dispersion = term
+        .reconstruction_dispersion(&loss, &cache, &rho, None)
+        .unwrap();
     let smooth_edf: f64 = term
         .decoder_smoothness_effective_dof_per_atom(&cache, &rho.lambda_smooth_vec())
         .unwrap()
@@ -3353,13 +3459,23 @@ fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
     let p = 2usize;
     let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
     let (phi, jet) = periodic_basis(&coords);
+    let decoder = array![[0.30, -0.10], [1.20, 0.20], [0.10, 1.10]];
+    assert_eq!(decoder.ncols(), p);
+    // Keep this routing witness on a resolved hard-MP branch. The former target
+    // was unrelated to the hand-seeded decoder, so the canonical rank-zero veto
+    // fired before either dense or bundled selected-inverse route was exercised.
+    let mut target = phi.dot(&decoder);
+    for row in 0..n {
+        target[[row, 0]] += 1.0e-3 * (0.37 * row as f64).sin();
+        target[[row, 1]] += 1.0e-3 * (0.29 * row as f64).cos();
+    }
     let atom = SaeManifoldAtom::new(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
         phi,
         jet,
-        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        decoder,
         Array2::<f64>::eye(3),
     )
     .unwrap()
@@ -3371,15 +3487,7 @@ fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
         AssignmentMode::softmax(1.0),
     )
     .unwrap();
-    let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-    let target = Array2::from_shape_fn((n, p), |(row, col)| {
-        let x = (row as f64 + 0.5) / n as f64;
-        if col == 0 {
-            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
-        } else {
-            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
-        }
-    });
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
     let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
@@ -4551,13 +4659,7 @@ pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
     let mut atom_curv = vec![0.0_f64; term.k_atoms()];
     let mut sep_rank1 = Vec::new();
     assert!(
-        term.add_sae_separation_barrier(
-            &mut deferred,
-            1.0,
-            false,
-            &mut atom_curv,
-            &mut sep_rank1
-        ),
+        term.add_sae_separation_barrier(&mut deferred, 1.0, false, &mut atom_curv, &mut sep_rank1),
         "fixture must activate the co-collapse separation barrier on the deferred path"
     );
 
@@ -4633,8 +4735,14 @@ pub(crate) fn sae_row_layout_from_dense_weights_top_k_and_cutoff() {
         // its single largest atom. Cap 2 ⇒ {0, 1}.
         Array1::from_vec(vec![0.001, 0.002, 0.0005]),
     ];
-    let layout =
-        SaeRowLayout::from_dense_weights(&assignments, 2, 0.05, coord_dims, coord_offsets_full, None);
+    let layout = SaeRowLayout::from_dense_weights(
+        &assignments,
+        2,
+        0.05,
+        coord_dims,
+        coord_offsets_full,
+        None,
+    );
     assert_eq!(layout.active_atoms[0], vec![0, 2]);
     assert_eq!(layout.active_atoms[1], vec![0, 1]);
     // Row 0 compact dim = |{0,2}| + d_0 + d_2 = 2 + 2 + 2 = 6.
@@ -5336,8 +5444,7 @@ pub(crate) fn native_ard_energy_composes_additively_on_mixed_dictionary() {
     )
     .unwrap();
     let joint = SaeManifoldTerm::new(vec![a0, a1, a2], joint_assign).unwrap();
-    let joint_rho =
-        SaeManifoldRho::new(0.0, 0.0, vec![ard0.clone(), ard1.clone(), ard2.clone()]);
+    let joint_rho = SaeManifoldRho::new(0.0, 0.0, vec![ard0.clone(), ard1.clone(), ard2.clone()]);
     let joint_energy = joint.ard_value(&joint_rho).unwrap();
 
     // Per-atom single-block terms, each with the SAME coords / manifold / ARD.

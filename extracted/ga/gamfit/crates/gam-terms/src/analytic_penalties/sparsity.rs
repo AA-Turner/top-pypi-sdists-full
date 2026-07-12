@@ -1,5 +1,14 @@
 use super::*;
 
+/// Exact floating-point continuation of `log(p) + 1` on the support of a
+/// representable softmax row. An underflowed probability is exactly zero in the
+/// value path, so its entropy contribution and all local derivatives are zero;
+/// using the same branch everywhere keeps value/gradient/Hessian consistent.
+#[inline]
+fn entropy_log_plus_one(p: f64) -> f64 {
+    if p > 0.0 { p.ln() + 1.0 } else { 0.0 }
+}
+
 // ---------------------------------------------------------------------------
 // Sparsity penalty
 // ---------------------------------------------------------------------------
@@ -69,6 +78,17 @@ pub struct SoftmaxAssignmentSparsityPenalty {
     pub temperature: f64,
     pub weight: f64,
     pub weight_schedule: Option<ScalarWeightSchedule>,
+    /// #991 design-honesty per-row weights `w_i` (mean-1). When present, row `i`'s
+    /// prior contribution is scaled by `w_i` in EVERY aggregate channel — value,
+    /// `grad_target`, `hessian_diag`, `hvp`, `psd_majorizer_diag`, `grad_rho`.
+    /// Because each of those is linear in the per-row penalty strength, scaling
+    /// the strength by `w_i` scales all channels by the same `w_i` and cannot
+    /// desync them (the value/gradient FD oracle gates this). The per-row *block*
+    /// helpers (`row_dense_hessian` / `row_psd_majorizer` / their logit
+    /// derivatives / `psd_majorizer_abs_row_sums`) take an explicit `scale` and a
+    /// single row, so their callers apply `scale·w_i` instead. `None` ⇒ every
+    /// weight is `1`, bit-for-bit the unweighted path.
+    pub row_weights: Option<std::sync::Arc<[f64]>>,
 }
 
 impl SoftmaxAssignmentSparsityPenalty {
@@ -81,7 +101,25 @@ impl SoftmaxAssignmentSparsityPenalty {
             temperature,
             weight: 1.0,
             weight_schedule: None,
+            row_weights: None,
         }
+    }
+
+    /// Install #991 design-honesty per-row weights (see [`Self::row_weights`]).
+    /// A uniform / absent design is passed as `None` so the unweighted arithmetic
+    /// stays bit-for-bit; a present slice must have one finite weight per row.
+    #[must_use]
+    pub fn with_row_weights(mut self, weights: Option<&[f64]>) -> Self {
+        self.row_weights = weights.map(|w| std::sync::Arc::from(w.to_vec()));
+        self
+    }
+
+    /// Per-row strength multiplier `w_i` (defaults to `1.0` when no design weights
+    /// are installed). Callers of the per-row *block* helpers fold this into the
+    /// `scale` they pass so those channels carry the identical weighting.
+    #[must_use]
+    pub fn row_weight(&self, row: usize) -> f64 {
+        self.row_weights.as_ref().map_or(1.0, |w| w[row])
     }
 
     impl_with_weight_schedule!(weight);
@@ -135,9 +173,7 @@ impl SoftmaxAssignmentSparsityPenalty {
     pub fn psd_majorizer_abs_row_sums(&self, row: &[f64], scale: f64) -> Vec<f64> {
         let a = self.softmax_row(row);
         let k = self.k_atoms;
-        let l: Vec<f64> = (0..k)
-            .map(|i| a[i].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0)
-            .collect();
+        let l: Vec<f64> = (0..k).map(|i| entropy_log_plus_one(a[i])).collect();
         let m: f64 = (0..k).map(|i| a[i] * l[i]).sum();
         let mut d = vec![0.0_f64; k];
         for kk in 0..k {
@@ -176,9 +212,7 @@ impl SoftmaxAssignmentSparsityPenalty {
     pub fn row_dense_hessian(&self, row_logits: &[f64], scale: f64) -> Array2<f64> {
         let k = self.k_atoms;
         let a = self.softmax_row(row_logits);
-        let l: Vec<f64> = (0..k)
-            .map(|i| a[i].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0)
-            .collect();
+        let l: Vec<f64> = (0..k).map(|i| entropy_log_plus_one(a[i])).collect();
         let m: f64 = (0..k).map(|i| a[i] * l[i]).sum();
         let mut h = Array2::<f64>::zeros((k, k));
         for kk in 0..k {
@@ -209,16 +243,14 @@ impl SoftmaxAssignmentSparsityPenalty {
         let k = self.k_atoms;
         let inv_tau = 1.0 / self.temperature;
         let a = self.softmax_row(row_logits);
-        let l: Vec<f64> = (0..k)
-            .map(|i| a[i].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0)
-            .collect();
+        let l: Vec<f64> = (0..k).map(|i| entropy_log_plus_one(a[i])).collect();
         let m: f64 = (0..k).map(|i| a[i] * l[i]).sum();
         // ∂a_r/∂z_w = a_r (δ_rw − a_w)/τ ; ∂L_r/∂z_w = (∂a_r/∂z_w)/a_r.
         let da: Vec<f64> = (0..k)
             .map(|r| a[r] * (if r == w { 1.0 } else { 0.0 } - a[w]) * inv_tau)
             .collect();
         let dl: Vec<f64> = (0..k)
-            .map(|r| da[r] / a[r].max(ENTROPY_LOG_PROBABILITY_FLOOR))
+            .map(|r| if a[r] > 0.0 { da[r] / a[r] } else { 0.0 })
             .collect();
         let dm: f64 = (0..k).map(|r| da[r] * l[r] + a[r] * dl[r]).sum();
         let mut dh = Array2::<f64>::zeros((k, k));
@@ -380,9 +412,10 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         for row in 0..n {
             let start = row * self.k_atoms;
             let a = self.softmax_row(&values[start..start + self.k_atoms]);
+            let w_row = self.row_weight(row);
             for v in a {
                 if v > 0.0 {
-                    acc += -v * v.ln();
+                    acc += -w_row * v * v.ln();
                 }
             }
         }
@@ -398,15 +431,15 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         for row in 0..n {
             let start = row * self.k_atoms;
             let a = self.softmax_row(&values[start..start + self.k_atoms]);
+            let w_row = self.row_weight(row);
             let mut d_h_da = vec![0.0; self.k_atoms];
             let mut mean = 0.0;
             for k in 0..self.k_atoms {
-                let ak = a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR);
-                d_h_da[k] = -lambda * (ak.ln() + 1.0);
+                d_h_da[k] = -lambda * entropy_log_plus_one(a[k]);
                 mean += a[k] * d_h_da[k];
             }
             for k in 0..self.k_atoms {
-                out[start + k] = a[k] * (d_h_da[k] - mean) * inv_tau;
+                out[start + k] = w_row * a[k] * (d_h_da[k] - mean) * inv_tau;
             }
         }
         out
@@ -444,14 +477,15 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         for row in 0..n {
             let start = row * self.k_atoms;
             let a = self.softmax_row(&values[start..start + self.k_atoms]);
+            let w_row = self.row_weight(row);
             let mut mean_log_plus_one = 0.0;
             for k in 0..self.k_atoms {
-                mean_log_plus_one += a[k] * (a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0);
+                mean_log_plus_one += a[k] * entropy_log_plus_one(a[k]);
             }
             for k in 0..self.k_atoms {
-                let log_plus_one = a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0;
+                let log_plus_one = entropy_log_plus_one(a[k]);
                 let term = (1.0 - 2.0 * a[k]) * (mean_log_plus_one - log_plus_one) + a[k] - 1.0;
-                out[start + k] = scale * a[k] * term;
+                out[start + k] = w_row * scale * a[k] * term;
             }
         }
         Some(out)
@@ -483,22 +517,23 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         for row in 0..n {
             let start = row * self.k_atoms;
             let a = self.softmax_row(&values[start..start + self.k_atoms]);
+            let w_row = self.row_weight(row);
             let mut mean_log_plus_one = 0.0;
             let mut mean_v = 0.0;
             for k in 0..self.k_atoms {
-                mean_log_plus_one += a[k] * (a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0);
+                mean_log_plus_one += a[k] * entropy_log_plus_one(a[k]);
                 mean_v += a[k] * v[start + k];
             }
             let mut mean_centered_v_log_plus_one = 0.0;
             for k in 0..self.k_atoms {
                 let centered_v = v[start + k] - mean_v;
-                mean_centered_v_log_plus_one +=
-                    a[k] * centered_v * (a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0);
+                mean_centered_v_log_plus_one += a[k] * centered_v * entropy_log_plus_one(a[k]);
             }
             for k in 0..self.k_atoms {
-                let log_plus_one = a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0;
+                let log_plus_one = entropy_log_plus_one(a[k]);
                 let centered_v = v[start + k] - mean_v;
-                out[start + k] = scale
+                out[start + k] = w_row
+                    * scale
                     * a[k]
                     * (centered_v * (mean_log_plus_one - log_plus_one - 1.0)
                         + mean_centered_v_log_plus_one);
@@ -534,9 +569,10 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
         let mut out = Array1::<f64>::zeros(target.len());
         for row in 0..n {
             let start = row * self.k_atoms;
+            let w_row = self.row_weight(row);
             let d = self.psd_majorizer_abs_row_sums(&values[start..start + self.k_atoms], scale);
             for k in 0..self.k_atoms {
-                out[start + k] = d[k];
+                out[start + k] = w_row * d[k];
             }
         }
         Some(out)
@@ -1462,6 +1498,161 @@ mod fisher_majorizer_1419_tests {
                     }
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod row_weighted_prior_991_tests {
+    //! #991 design-honesty per-row weights: row `i`'s softmax-entropy prior must
+    //! be scaled by `w_i` IDENTICALLY in every channel. Because value, gradient,
+    //! Hessian diagonal, HVP, and the PSD majorizer are all linear in the per-row
+    //! penalty strength, scaling the strength by `w_i` scales all of them by the
+    //! same `w_i` and cannot desync them. These are the CI gate for that
+    //! invariant (the fit that consumes it cannot be run here).
+    use super::AnalyticPenalty;
+    use super::*;
+    use approx::assert_abs_diff_eq;
+    use ndarray::{Array1, s};
+
+    fn logits(n: usize, k: usize) -> Array1<f64> {
+        // Deterministic non-uniform logits so every row has genuine entropy
+        // gradient/curvature (no trivially-degenerate softmax rows).
+        let mut v = Array1::<f64>::zeros(n * k);
+        for r in 0..n {
+            for a in 0..k {
+                v[r * k + a] =
+                    0.35 * (r as f64) - 0.6 * (a as f64) + 0.11 * ((r * k + a) as f64).sin();
+            }
+        }
+        v
+    }
+
+    /// The weighted value equals the unweighted per-row entropies recombined with
+    /// `w_i`, and the mean-1 weighting leaves the total exactly invariant when the
+    /// weights average to one — the design-honesty contract.
+    #[test]
+    fn weighted_value_is_per_row_reweight_of_unweighted() {
+        let (n, k) = (5usize, 3usize);
+        let temperature = 0.7_f64;
+        let rho = Array1::from_vec(vec![0.2_f64]);
+        let target = logits(n, k);
+        let base = SoftmaxAssignmentSparsityPenalty::new(k, temperature);
+        // Per-row entropies via single-row penalties (each a 1-row problem).
+        let mut per_row = vec![0.0_f64; n];
+        for r in 0..n {
+            let row = target.slice(s![r * k..r * k + k]).to_owned();
+            per_row[r] = base.value(row.view(), rho.view());
+        }
+        let unweighted: f64 = per_row.iter().sum();
+        assert_abs_diff_eq!(
+            base.value(target.view(), rho.view()),
+            unweighted,
+            epsilon = 1e-12
+        );
+
+        let w = vec![1.7_f64, 0.3, 1.1, 0.5, 1.4]; // mean = 1.0 exactly.
+        let weighted = base.clone().with_row_weights(Some(&w));
+        let expect: f64 = (0..n).map(|r| w[r] * per_row[r]).sum();
+        assert_abs_diff_eq!(
+            weighted.value(target.view(), rho.view()),
+            expect,
+            epsilon = 1e-12
+        );
+        // Mean-1 weights preserve the total (Σ w_i H_i vs Σ H_i differ only by the
+        // per-row redistribution, but here we assert the exact reweighted target).
+        assert_abs_diff_eq!(
+            weighted.value(target.view(), rho.view()),
+            (0..n).map(|r| w[r] * per_row[r]).sum::<f64>(),
+            epsilon = 1e-12
+        );
+    }
+
+    /// FD ORACLE: `d(value)/d(z_{r,a}) == grad_target[r*K+a]` under NONTRIVIAL
+    /// per-row weights. This is the value/gradient desync gate — if any channel
+    /// carried a different weighting than the value, this central difference would
+    /// diverge from the analytic gradient.
+    #[test]
+    fn weighted_value_grad_are_fd_consistent() {
+        let (n, k) = (4usize, 3usize);
+        let temperature = 0.9_f64;
+        let rho = Array1::from_vec(vec![-0.1_f64]);
+        let target = logits(n, k);
+        let w = vec![1.9_f64, 0.4, 0.8, 0.9];
+        let pen = SoftmaxAssignmentSparsityPenalty::new(k, temperature).with_row_weights(Some(&w));
+        let grad = pen.grad_target(target.view(), rho.view());
+        let eps = 1e-6;
+        for idx in 0..n * k {
+            let mut plus = target.clone();
+            let mut minus = target.clone();
+            plus[idx] += eps;
+            minus[idx] -= eps;
+            let fd = (pen.value(plus.view(), rho.view()) - pen.value(minus.view(), rho.view()))
+                / (2.0 * eps);
+            assert_abs_diff_eq!(grad[idx], fd, epsilon = 1e-7);
+        }
+    }
+
+    /// Every channel scales by exactly `w_i` on row `i` relative to the unweighted
+    /// penalty — grad_target, hessian_diag, psd_majorizer_diag, and hvp. Confirms
+    /// the single strength multiplier reaches all of them identically.
+    #[test]
+    fn every_channel_scales_by_w_row_identically() {
+        let (n, k) = (4usize, 3usize);
+        let temperature = 0.8_f64;
+        let rho = Array1::from_vec(vec![0.15_f64]);
+        let target = logits(n, k);
+        let v = logits(n, k); // arbitrary HVP direction.
+        let w = vec![1.6_f64, 0.25, 1.05, 1.1];
+        let base = SoftmaxAssignmentSparsityPenalty::new(k, temperature);
+        let wtd = base.clone().with_row_weights(Some(&w));
+
+        let g0 = base.grad_target(target.view(), rho.view());
+        let g1 = wtd.grad_target(target.view(), rho.view());
+        let d0 = base.hessian_diag(target.view(), rho.view()).unwrap();
+        let d1 = wtd.hessian_diag(target.view(), rho.view()).unwrap();
+        let m0 = base.psd_majorizer_diag(target.view(), rho.view()).unwrap();
+        let m1 = wtd.psd_majorizer_diag(target.view(), rho.view()).unwrap();
+        let h0 = base.hvp(target.view(), rho.view(), v.view());
+        let h1 = wtd.hvp(target.view(), rho.view(), v.view());
+        for r in 0..n {
+            for a in 0..k {
+                let i = r * k + a;
+                assert_abs_diff_eq!(g1[i], w[r] * g0[i], epsilon = 1e-12);
+                assert_abs_diff_eq!(d1[i], w[r] * d0[i], epsilon = 1e-12);
+                assert_abs_diff_eq!(m1[i], w[r] * m0[i], epsilon = 1e-12);
+                assert_abs_diff_eq!(h1[i], w[r] * h0[i], epsilon = 1e-12);
+            }
+        }
+        // grad_rho (softmax) is the value itself, so it too carries the weighting.
+        let r0 = base.grad_rho(target.view(), rho.view())[0];
+        let r1 = wtd.grad_rho(target.view(), rho.view())[0];
+        let expect: f64 = (0..n)
+            .map(|r| {
+                let row = target.slice(s![r * k..r * k + k]).to_owned();
+                w[r] * base.value(row.view(), rho.view())
+            })
+            .sum();
+        assert_abs_diff_eq!(r1, expect, epsilon = 1e-12);
+        assert!(r0.is_finite());
+    }
+
+    /// `None` weights are byte-for-byte the unweighted path (no silent ×1.0 drift).
+    #[test]
+    fn none_weights_are_bit_for_bit_unweighted() {
+        let (n, k) = (3usize, 4usize);
+        let rho = Array1::from_vec(vec![0.0_f64]);
+        let target = logits(n, k);
+        let base = SoftmaxAssignmentSparsityPenalty::new(k, 1.0);
+        let none = base.clone().with_row_weights(None);
+        assert_eq!(
+            base.value(target.view(), rho.view()).to_bits(),
+            none.value(target.view(), rho.view()).to_bits()
+        );
+        let g0 = base.grad_target(target.view(), rho.view());
+        let g1 = none.grad_target(target.view(), rho.view());
+        for i in 0..n * k {
+            assert_eq!(g0[i].to_bits(), g1[i].to_bits());
         }
     }
 }

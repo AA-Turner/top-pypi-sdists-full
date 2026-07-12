@@ -34,6 +34,7 @@ mod bspline_eval;
 mod center_selection;
 pub mod closed_form_operator;
 mod cubic_regression;
+mod derivative_penalty;
 mod duchon_kernel_math;
 mod duchon_psi_derivatives;
 mod duchon_thinplate;
@@ -87,11 +88,10 @@ pub use measure_jet_smooth::{
     MeasureJetBand, MeasureJetBasisSpec, MeasureJetEnergyJets, MeasureJetFrozenQuadrature,
     MeasureJetIdentifiability, build_measure_jet_basis, build_measure_jet_basis_psi_derivatives,
     measure_jet_affine_head_transform, measure_jet_band, measure_jet_center_masses,
-    measure_jet_design_matrix,
-    measure_jet_energy_form, measure_jet_energy_form_with_jets, measure_jet_energy_forms_per_scale,
-    measure_jet_input_noise_scale, measure_jet_multiscale_mode, measure_jet_quadrature_nodes,
-    measure_jet_scale_spectrum,
-    measure_jet_support_curve, realized_measure_jet_length_scale,
+    measure_jet_design_matrix, measure_jet_energy_form, measure_jet_energy_form_with_jets,
+    measure_jet_energy_forms_per_scale, measure_jet_input_noise_scale, measure_jet_multiscale_mode,
+    measure_jet_quadrature_nodes, measure_jet_scale_spectrum, measure_jet_support_curve,
+    realized_measure_jet_length_scale,
 };
 
 pub use measure_jet_anisotropy::{
@@ -103,14 +103,9 @@ pub use sphere_spec::{
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
 };
 
-pub use cyclic::{
-    create_closure_difference_penalty_jet, create_cyclic_difference_penalty_matrix,
-    create_open_difference_penalty_matrix,
-};
-
 pub(crate) use cyclic::{
-    create_cyclic_bspline_basis_dense, cyclic_distance_1d, cyclic_knot_anchor,
-    cyclic_uniform_knot_vector, wrap_to_period,
+    create_cyclic_bspline_basis_dense, cyclic_knot_anchor, cyclic_uniform_knot_vector,
+    wrap_to_period,
 };
 
 // Concern modules: flatten each onto `basis::` so external paths are unchanged.
@@ -119,6 +114,7 @@ pub use bspline_eval::*;
 pub use center_selection::*;
 pub use closed_form_operator::ClosedFormPenaltyOperator;
 pub use cubic_regression::*;
+pub use derivative_penalty::*;
 pub use duchon_kernel_math::*;
 pub use duchon_psi_derivatives::*;
 pub use duchon_thinplate::*;

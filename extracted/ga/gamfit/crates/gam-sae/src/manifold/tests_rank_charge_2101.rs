@@ -1,6 +1,6 @@
 //! #5/(B) rank-charge criterion tests: the honest realised-rank BIC charge
 //! (i) ACCEPTS a real rank-2 circle, (ii) NEUTRALISES a vanishing decoder
-//! (co-collapse fix), (iii) is INERT when the flag is off.
+//! (co-collapse fix), and the canonical criterion is dense/streaming invariant.
 
 use crate::manifold::{
     AssignmentMode, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind, SaeBasisEvaluator,
@@ -37,7 +37,9 @@ fn lcg_normal(s: &mut u64) -> f64 {
 /// true phase, amp 1, noise 0.05. Returns the fitted term + rho.
 fn fitted_circle_term(n: usize, p: usize) -> (SaeManifoldTerm, SaeManifoldRho) {
     let mut s = 0x2101_B1C_0000_0005u64;
-    let theta: Vec<f64> = (0..n).map(|_| std::f64::consts::TAU * lcg(&mut s)).collect();
+    let theta: Vec<f64> = (0..n)
+        .map(|_| std::f64::consts::TAU * lcg(&mut s))
+        .collect();
     let mut x = Array2::<f64>::zeros((n, p));
     for i in 0..n {
         x[[i, 0]] += theta[i].cos();
@@ -47,8 +49,7 @@ fn fitted_circle_term(n: usize, p: usize) -> (SaeManifoldTerm, SaeManifoldRho) {
         }
     }
     let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
-    let coords =
-        Array2::<f64>::from_shape_fn((n, 1), |(r, _)| theta[r] / std::f64::consts::TAU);
+    let coords = Array2::<f64>::from_shape_fn((n, 1), |(r, _)| theta[r] / std::f64::consts::TAU);
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let mut decoder = Array2::<f64>::zeros((3, p));
     decoder[[1, 0]] = 1.0;
@@ -89,7 +90,9 @@ fn rank_charge_deff_accepts_circle_and_neutralises_vanishing() {
     let (_v, loss, cache) = term
         .reml_criterion_with_cache(unit_target(&term).view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
         .unwrap_or_else(|_| panic!("reml pass"));
-    let disp = term.reconstruction_dispersion(&loss, &cache, &rho, None).unwrap();
+    let disp = term
+        .reconstruction_dispersion(&loss, &cache, &rho, None)
+        .unwrap();
     drop((loss, cache));
 
     let d_real = term.per_atom_realised_rank_dof(&rho, disp).unwrap();
@@ -113,11 +116,12 @@ fn rank_charge_deff_accepts_circle_and_neutralises_vanishing() {
 
     // Vanishing: shrink the decoder → singular values ≪ noise floor → d_eff→0.
     let saved = term.atoms[0].decoder_coefficients.clone();
-    term.atoms[0]
-        .decoder_coefficients
-        .assign(&(&saved * 1e-4));
+    term.atoms[0].decoder_coefficients.assign(&(&saved * 1e-4));
     let d_vanish = term.per_atom_realised_rank_dof(&rho, disp).unwrap();
-    eprintln!("[rank-charge] vanishing (decoder×1e-4) d_eff={:.5} → charge≈0 (neutral)", d_vanish[0]);
+    eprintln!(
+        "[rank-charge] vanishing (decoder×1e-4) d_eff={:.5} → charge≈0 (neutral)",
+        d_vanish[0]
+    );
     assert!(
         d_vanish[0] < 0.2,
         "vanishing decoder must give d_eff→0 (neutral); got {:.4}",
@@ -126,44 +130,11 @@ fn rank_charge_deff_accepts_circle_and_neutralises_vanishing() {
     term.atoms[0].decoder_coefficients.assign(&saved);
 }
 
-/// (iii) flag OFF ⇒ the criterion value is BYTE-IDENTICAL to the historical path.
-#[test]
-fn rank_charge_flag_off_is_inert() {
-    let (mut term, rho) = fitted_circle_term(80, 16);
-    let tgt = unit_target(&term);
-    // Explicitly disable the rank-charge switch to audit the historical ledger.
-    term.set_rank_charge_evidence(false);
-    let (v_off, _, _) = term
-        .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
-        .unwrap();
-    // Re-applying off is still identical.
-    term.set_rank_charge_evidence(false);
-    let (v_off2, _, _) = term
-        .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
-        .unwrap();
-    assert_eq!(
-        v_off, v_off2,
-        "rank_charge_evidence=false must be bit-identical to the historical criterion"
-    );
-    // flag ON changes the criterion (the rank charge replaces the coord-block).
-    term.set_rank_charge_evidence(true);
-    let (v_on, _, _) = term
-        .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
-        .unwrap();
-    eprintln!("[rank-charge] reml OFF={v_off:.4}  ON={v_on:.4}  (ON lowers the circle's complexity)");
-    assert!(
-        (v_on - v_off).abs() > 1e-6 && v_on.is_finite(),
-        "rank_charge_evidence=true must change the (finite) criterion; off={v_off:.4} on={v_on:.4}"
-    );
-}
-
-/// (iv) HEALTHY K=3 DECISION-LEVEL CONTROL (hand-built — the pipeline has no
+/// (iii) HEALTHY K=3 DECISION-LEVEL CONTROL (hand-built — the pipeline has no
 /// healthy multi-atom fit pre-recovery): three well-separated clean rank-2
-/// circles on disjoint output dims. The rank-charge value changes a lot BY
-/// DESIGN (over-charge removal), so inertness is checked at the DECISION level:
-/// every atom must price as a clean rank-2 (d_eff ~4-6), the criterion stays
-/// finite and well-conditioned (no Schur collapse at K≥2), and flag-off is
-/// bit-identical.
+/// circles on disjoint output dims. Every atom must price as a clean rank-2
+/// (d_eff ~4-6), and the canonical criterion must stay finite and
+/// well-conditioned (no Schur collapse at K≥2).
 #[test]
 fn rank_charge_healthy_k3_control_well_conditioned() {
     let serial = k3_guard();
@@ -172,7 +143,11 @@ fn rank_charge_healthy_k3_control_well_conditioned() {
     let ncirc = 3usize;
     let mut s = 0x2101_C3C_0000_0009u64;
     let theta: Vec<Vec<f64>> = (0..n)
-        .map(|_| (0..ncirc).map(|_| std::f64::consts::TAU * lcg(&mut s)).collect())
+        .map(|_| {
+            (0..ncirc)
+                .map(|_| std::f64::consts::TAU * lcg(&mut s))
+                .collect()
+        })
         .collect();
     let mut x = Array2::<f64>::zeros((n, p));
     for i in 0..n {
@@ -225,28 +200,30 @@ fn rank_charge_healthy_k3_control_well_conditioned() {
     term.run_joint_fit_arrow_schur(x.view(), &mut rho, None, 60, 1.0, 1e-6, 1e-6)
         .expect("K=3 clean fit");
 
-    let (v_off, loss, cache) = term
+    let (criterion, loss, cache) = term
         .reml_criterion_with_cache(x.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
         .unwrap();
-    let disp = term.reconstruction_dispersion(&loss, &cache, &rho, None).unwrap();
+    let disp = term
+        .reconstruction_dispersion(&loss, &cache, &rho, None)
+        .unwrap();
     drop((loss, cache));
     let d_eff = term.per_atom_realised_rank_dof(&rho, disp).unwrap();
-    eprintln!("[rank-charge K=3] d_eff per atom = {:?}  disp={disp:.5}",
-        d_eff.iter().map(|v| (v*100.0).round()/100.0).collect::<Vec<_>>());
+    eprintln!(
+        "[rank-charge K=3] d_eff per atom = {:?}  disp={disp:.5}",
+        d_eff
+            .iter()
+            .map(|v| (v * 100.0).round() / 100.0)
+            .collect::<Vec<_>>()
+    );
     for (k, &de) in d_eff.iter().enumerate() {
         assert!(
             de > 2.0 && de < 8.0,
             "K=3 atom {k}: every clean rank-2 circle must price ~4-6; got d_eff={de:.3}"
         );
     }
-    term.set_rank_charge_evidence(true);
-    let (v_on, _, _) = term
-        .reml_criterion_with_cache(x.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
-        .unwrap();
-    eprintln!("[rank-charge K=3] reml OFF={v_off:.3} ON={v_on:.3}");
     assert!(
-        v_on.is_finite() && v_off.is_finite(),
-        "K=3 criterion must stay finite (no Schur collapse) both ways: off={v_off} on={v_on}"
+        criterion.is_finite(),
+        "K=3 rank-charge criterion must stay finite (no Schur collapse): {criterion}"
     );
     drop(serial); // hold the K=3 serialisation lock across the whole fit
 }
@@ -258,7 +235,6 @@ fn fit_circle_subset(
     x: &Array2<f64>,
     theta: &[Vec<f64>],
     circles: &[usize],
-    flag: bool,
 ) -> (SaeManifoldTerm, SaeManifoldRho) {
     let n = x.nrows();
     let p = x.ncols();
@@ -298,27 +274,28 @@ fn fit_circle_subset(
     .unwrap();
     let mut term = SaeManifoldTerm::new(atoms, assignment).unwrap();
     term.set_guards_enabled(false);
-    term.set_rank_charge_evidence(flag);
     let mut rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); circles.len()]);
     term.run_joint_fit_arrow_schur(x.view(), &mut rho, None, 60, 1.0, 1e-6, 1e-6)
         .expect("subset fit");
     (term, rho)
 }
 
-/// (v) DECISION-LEVEL control (the commit gate): on a clean well-separated
-/// 3-circle fit, the leave-one-out margin of every real atom must be < 0
-/// (KEEPING it is favored ⇒ accepted) under the rank charge, and NO decision
-/// may FLIP vs flag-off (no healthy atom newly rejected). The value shifts a lot
-/// by design; the accept/reject OUTCOME must not.
+/// (iv) DECISION-LEVEL control: on a clean well-separated 3-circle fit, the
+/// canonical criterion's leave-one-out margin of every real atom must be < 0
+/// (KEEPING it is favored ⇒ accepted).
 #[test]
-fn rank_charge_k3_decisions_preserved() {
+fn rank_charge_k3_accepts_clean_atoms() {
     let serial = k3_guard();
     let n = 96usize;
     let p = 18usize;
     let ncirc = 3usize;
     let mut s = 0x2101_DEC_0000_0011u64;
     let theta: Vec<Vec<f64>> = (0..n)
-        .map(|_| (0..ncirc).map(|_| std::f64::consts::TAU * lcg(&mut s)).collect())
+        .map(|_| {
+            (0..ncirc)
+                .map(|_| std::f64::consts::TAU * lcg(&mut s))
+                .collect()
+        })
         .collect();
     let mut x = Array2::<f64>::zeros((n, p));
     for i in 0..n {
@@ -330,17 +307,17 @@ fn rank_charge_k3_decisions_preserved() {
             x[[i, j]] += 0.05 * lcg_normal(&mut s);
         }
     }
-    // For each flag, compute the leave-one-out margin of each circle:
-    //   margin_k = reml(all 3) − reml(drop k).  <0 ⇒ keeping k is favored (accepted).
-    let margins = |flag: bool| -> Vec<f64> {
-        let (mut t3, r3) = fit_circle_subset(&x, &theta, &[0, 1, 2], flag);
+    // Compute each circle's leave-one-out margin:
+    // margin_k = reml(all 3) − reml(drop k). <0 ⇒ keeping k is favored.
+    let margins = || -> Vec<f64> {
+        let (mut t3, r3) = fit_circle_subset(&x, &theta, &[0, 1, 2]);
         let (v3, _, _) = t3
             .reml_criterion_with_cache(x.view(), &r3, None, 0, 1.0, 1e-6, 1e-6)
             .unwrap();
         (0..ncirc)
             .map(|drop| {
                 let keep: Vec<usize> = (0..ncirc).filter(|&c| c != drop).collect();
-                let (mut t2, r2) = fit_circle_subset(&x, &theta, &keep, flag);
+                let (mut t2, r2) = fit_circle_subset(&x, &theta, &keep);
                 let (v2, _, _) = t2
                     .reml_criterion_with_cache(x.view(), &r2, None, 0, 1.0, 1e-6, 1e-6)
                     .unwrap();
@@ -353,35 +330,26 @@ fn rank_charge_k3_decisions_preserved() {
     // fits, which amplifies that into occasional sign flips under parallel test
     // execution. Pin the fits to a ONE-thread rayon pool so they converge to the
     // identical (correct) optimum every run — the single-thread values ARE the
-    // optimum (verified: stable across runs, matches the flag-off baseline).
+    // optimum (verified stable across runs).
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(1)
         .build()
         .expect("1-thread rayon pool for deterministic K=3 fits");
-    let m_off = pool.install(|| margins(false));
-    let m_on = pool.install(|| margins(true));
-    eprintln!("[rank-charge K=3 decisions] leave-one-out margins OFF={m_off:?} ON={m_on:?}");
-    for k in 0..ncirc {
-        // (a) every real atom ACCEPTED under the rank charge (margin < 0).
+    let margins = pool.install(margins);
+    eprintln!("[rank-charge K=3 decisions] leave-one-out margins={margins:?}");
+    for (k, margin) in margins.iter().enumerate() {
         assert!(
-            m_on[k] < 0.0,
+            *margin < 0.0,
             "circle {k}: rank-charge must ACCEPT the real atom (margin<0); got {:.3}",
-            m_on[k]
-        );
-        // (b) NO decision flip vs flag-off (a healthy atom accepted off must stay accepted on).
-        assert!(
-            !(m_off[k] < 0.0 && m_on[k] >= 0.0),
-            "circle {k}: decision FLIPPED off→on (was accepted, now rejected): off={:.3} on={:.3}",
-            m_off[k],
-            m_on[k]
+            margin
         );
     }
-    // (c) spurious/noise atom rejected is covered structurally by the vanishing
+    // A spurious/noise atom is covered structurally by the vanishing
     // test (rank→0 → charge 0 → ΔEV rejects); a real atom here is never spurious.
     drop(serial); // hold the K=3 serialisation lock across the whole fit
 }
 
-/// (vi) #9 DENSE-vs-STREAMING PARITY (the #9 correctness proof): the streaming
+/// (v) #9 DENSE-vs-STREAMING PARITY (the #9 correctness proof): the streaming
 /// criterion must price the rank charge IDENTICALLY to the dense path. The load-
 /// bearing invariant is that the streaming chunk-accumulated per-atom Grams +
 /// effective sample sizes equal the dense `accumulate_decoder_gram`/`Σa²` (so the
@@ -391,7 +359,6 @@ fn rank_charge_k3_decisions_preserved() {
 fn rank_charge_dense_streaming_parity() {
     let serial = k3_guard();
     let (mut term, rho) = fitted_circle_term(80, 16);
-    term.set_rank_charge_evidence(true);
     let tgt = unit_target(&term);
 
     // Dense per-atom Grams + N_eff (what per_atom_realised_rank_dof builds).
@@ -437,8 +404,12 @@ fn rank_charge_dense_streaming_parity() {
 
     // d_eff parity through the shared core (identical grams ⇒ identical count).
     let disp = 0.003_f64; // fixed R so both price against the same floor
-    let d_dense = term.rank_dof_from_grams(&dense_grams, &dense_n_eff, &rho, disp).unwrap();
-    let d_stream = term.rank_dof_from_grams(&ri.grams, &ri.n_eff, &rho, disp).unwrap();
+    let d_dense = term
+        .rank_dof_from_grams(&dense_grams, &dense_n_eff, &rho, disp)
+        .unwrap();
+    let d_stream = term
+        .rank_dof_from_grams(&ri.grams, &ri.n_eff, &rho, disp)
+        .unwrap();
     eprintln!("[#9 parity] d_eff dense={d_dense:?} stream={d_stream:?}");
     for k in 0..d_dense.len() {
         assert!(
@@ -449,7 +420,7 @@ fn rank_charge_dense_streaming_parity() {
         );
     }
 
-    // End-to-end criterion parity (flag ON): dense vs streaming to ε.
+    // End-to-end canonical criterion parity: dense vs streaming to ε.
     let (v_dense, _, _) = term
         .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
         .unwrap();
@@ -475,7 +446,9 @@ fn rank_charge_shared_primitive_parity() {
     let (_v, loss, cache) = term
         .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
         .unwrap();
-    let disp = term.reconstruction_dispersion(&loss, &cache, &rho, None).unwrap();
+    let disp = term
+        .reconstruction_dispersion(&loss, &cache, &rho, None)
+        .unwrap();
     drop((loss, cache));
 
     // Term-level d_eff (the currency the joint REML charges).
@@ -502,34 +475,39 @@ fn rank_charge_shared_primitive_parity() {
         Some(&term.atoms[0].smooth_penalty),
     )
     .unwrap();
-    eprintln!("[#16 primitive] d_term={:.12} d_free={:.12}", d_term[0], d_free);
+    eprintln!(
+        "[#16 primitive] d_term={:.12} d_free={:.12}",
+        d_term[0], d_free
+    );
     assert_eq!(
         d_term[0], d_free,
         "shared realised_rank_charge_dof must match the term-level pricing bit-for-bit"
     );
 }
 
-/// (viii) #5 VETO — the blend-null null-license fix (recov matrix 12484591). A
-/// zero-realised-rank atom (rank_eff==0 ⟺ d_eff==0) reconstructs nothing; under
-/// the flag its Laplace evidence is INVALID (the β-Schur log-det → −∞ was letting
+/// (vii) #5 VETO — the blend-null null-license fix (recov matrix 12484591). A
+/// zero-realised-rank atom (rank_eff==0 ⟺ d_eff==0) reconstructs nothing, so
+/// its Laplace evidence is invalid (the β-Schur log-det → −∞ was letting
 /// zero-‖B‖ atoms get born on a featureless residual), so the criterion must reject
 /// it categorically (v → +∞) — not merely neutralise its charge. A real circle is
-/// untouched (rank_eff=2), and flag-OFF is the historical finite path.
+/// untouched (rank_eff=2).
 #[test]
 fn rank_charge_vetoes_zero_realised_rank_atom() {
     let (mut term, rho) = fitted_circle_term(80, 16);
     let tgt = unit_target(&term);
     let saved = term.atoms[0].decoder_coefficients.clone();
 
-    // (a) flag ON, REAL circle (rank_eff=2, d_eff≈5.5) → finite (NOT vetoed).
-    term.set_rank_charge_evidence(true);
+    // A real circle (rank_eff=2, d_eff≈5.5) remains finite.
     let (v_real, _, _) = term
         .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
         .unwrap();
     eprintln!("[#5 veto] real circle v={v_real:.4} (finite, accepted)");
-    assert!(v_real.is_finite(), "real rank-2 circle must NOT be vetoed: {v_real}");
+    assert!(
+        v_real.is_finite(),
+        "real rank-2 circle must NOT be vetoed: {v_real}"
+    );
 
-    // (b) flag ON, VANISHING decoder (×1e-6 → rank_eff=0, d_eff=0) → VETOED (v=+∞).
+    // A vanishing decoder (×1e-6 → rank_eff=0, d_eff=0) is vetoed.
     term.atoms[0].decoder_coefficients.assign(&(&saved * 1e-6));
     let (v_vanish, _, _) = term
         .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
@@ -537,16 +515,8 @@ fn rank_charge_vetoes_zero_realised_rank_atom() {
     eprintln!("[#5 veto] vanishing atom v={v_vanish} (must be +∞)");
     assert!(
         v_vanish.is_infinite() && v_vanish > 0.0,
-        "a zero-realised-rank (vanishing) atom must be VETOED to +∞ under the flag; got {v_vanish}"
+        "a zero-realised-rank (vanishing) atom must be VETOED to +∞; got {v_vanish}"
     );
-
-    // (c) flag OFF, same vanishing atom → historical finite path (no veto).
-    term.set_rank_charge_evidence(false);
-    let (v_off, _, _) = term
-        .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
-        .unwrap();
-    eprintln!("[#5 veto] flag-off vanishing v={v_off:.4} (finite, historical)");
-    assert!(v_off.is_finite(), "flag-off must not veto (byte-identical historical): {v_off}");
     term.atoms[0].decoder_coefficients.assign(&saved);
 }
 
@@ -556,7 +526,9 @@ fn unit_target(term: &SaeManifoldTerm) -> Array2<f64> {
     let n = term.n_obs();
     let p = term.output_dim();
     let mut s = 0x2101_B1C_0000_0005u64;
-    let theta: Vec<f64> = (0..n).map(|_| std::f64::consts::TAU * lcg(&mut s)).collect();
+    let theta: Vec<f64> = (0..n)
+        .map(|_| std::f64::consts::TAU * lcg(&mut s))
+        .collect();
     let mut x = Array2::<f64>::zeros((n, p));
     for i in 0..n {
         x[[i, 0]] += theta[i].cos();
@@ -566,4 +538,96 @@ fn unit_target(term: &SaeManifoldTerm) -> Array2<f64> {
         }
     }
     x
+}
+
+/// (viii) #2022/#2099 SCALE-INSENSITIVITY of the evidence, rebuilt against HEAD's
+/// architecture. The removed `fit_level_decoder_rescale_invariance_2099` gate held
+/// the reconstruction IMAGE fixed under `B↦cB` via a compensating `s↦s−ln c`
+/// amplitude — a symmetry that no longer exists on HEAD (the free amplitude dof was
+/// removed; the inner walk is `(δt, δβ)` with `‖B‖` data-pinned). What DOES survive
+/// as the evidence-side quotient is that the rank charge `½·d_eff·ln N_eff` is a
+/// scale-INSENSITIVE rank COUNT, not the removed scale-dependent
+/// `½·log(a²‖B‖²)` log-volume. Concretely `d_eff = rank_eff·basis_edf` is
+/// INVARIANT under a uniform decoder rescale `D↦cD` on the resolved-rank plateau:
+/// `basis_edf` reads only the (decoder-free) basis Gram, and `rank_eff` is the
+/// integer count of reconstruction modes above the fixed Marchenko–Pastur edge, so
+/// a uniform positive rescale moves every mode multiplicatively without reordering
+/// it across the edge. The old log-volume proxy `½·ln‖D‖²` shifts by `2·ln c` under
+/// the same rescale — the exact scale degeneracy #2022 wanted out of the evidence.
+/// As `c→0` every mode drops below the edge, `rank_eff→0`, `d_eff→0` (the veto
+/// regime): norm shrinkage is NEUTRALISED, never rewarded. Convergence-independent
+/// (prices the primitive directly, no fit).
+#[test]
+fn rank_charge_deff_scale_insensitive_under_decoder_rescale_2099() {
+    let (mut term, rho) = fitted_circle_term(80, 16);
+    let tgt = unit_target(&term);
+    let (_v, loss, cache) = term
+        .reml_criterion_with_cache(tgt.view(), &rho, None, 0, 1.0, 1e-6, 1e-6)
+        .unwrap();
+    let disp = term
+        .reconstruction_dispersion(&loss, &cache, &rho, None)
+        .unwrap();
+    drop((loss, cache));
+
+    let mut grams = term.empty_decoder_gram_accumulator();
+    term.accumulate_decoder_gram(&mut grams);
+    let n_eff: f64 = term
+        .assignment
+        .assignments()
+        .column(0)
+        .iter()
+        .map(|&a| a * a)
+        .sum();
+    let lam = rho.lambda_smooth_vec();
+    let p_out = term.output_dim() as f64;
+    let base_decoder = term.atoms[0].decoder_coefficients.clone();
+    let d_eff = |decoder: &Array2<f64>| -> f64 {
+        super::construction::realised_rank_charge_dof(
+            &grams[0],
+            decoder,
+            n_eff,
+            p_out,
+            disp,
+            lam.first().copied().unwrap_or(0.0),
+            Some(&term.atoms[0].smooth_penalty),
+        )
+        .unwrap()
+    };
+
+    let d0 = d_eff(&base_decoder);
+    assert!(
+        d0 > 0.0,
+        "resolved circle must carry positive rank charge; got {d0}"
+    );
+    // Plateau invariance: the rank charge is bit-identical under a uniform decoder
+    // rescale, while the removed log-volume proxy shifts by 2·ln c.
+    let n0: f64 = base_decoder.iter().map(|v| v * v).sum();
+    for &c in &[0.5_f64, 2.0, 4.0] {
+        let scaled = base_decoder.mapv(|v| c * v);
+        let d_c = d_eff(&scaled);
+        let nc: f64 = scaled.iter().map(|v| v * v).sum();
+        let old_proxy_shift = 0.5 * (nc.ln() - n0.ln()); // the ½log(a²‖B‖²) degeneracy
+        eprintln!(
+            "[#2099 scale] c={c:>4}: d_eff={d_c:.12} (Δ={:.2e}) | old ½log‖B‖² shift={old_proxy_shift:+.4}",
+            d_c - d0
+        );
+        assert_eq!(
+            d_c, d0,
+            "rank charge must be decoder-rescale INVARIANT on the resolved plateau \
+             (c={c}): got {d_c} vs {d0}"
+        );
+        assert!(
+            old_proxy_shift.abs() > 0.1,
+            "sanity: the old log-volume proxy MUST be scale-dependent (shift {old_proxy_shift})"
+        );
+    }
+    // Collapse endpoint: shrinking the decoder toward zero drives rank_eff→0 and the
+    // charge to exactly 0 (veto regime) — the opposite of the old ½log‖B‖²→−∞ reward.
+    let vanished = base_decoder.mapv(|v| 1e-10 * v);
+    let d_vanish = d_eff(&vanished);
+    eprintln!("[#2099 scale] c=1e-10: d_eff={d_vanish:.12} (veto regime)");
+    assert_eq!(
+        d_vanish, 0.0,
+        "a vanishing decoder must price to d_eff=0 (veto), not a divergent reward; got {d_vanish}"
+    );
 }

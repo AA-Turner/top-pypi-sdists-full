@@ -20,11 +20,7 @@ class CloudCommercePartnerProcurementServiceResource(
         @typing.type_check_only
         class AccountsResource(googleapiclient.discovery.Resource):
             def approve(
-                self,
-                *,
-                name: str,
-                body: ApproveAccountRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: ApproveAccountRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def get(
                 self,
@@ -34,15 +30,16 @@ class CloudCommercePartnerProcurementServiceResource(
                     "ACCOUNT_VIEW_UNSPECIFIED",
                     "ACCOUNT_VIEW_BASIC",
                     "ACCOUNT_VIEW_FULL",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> AccountHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAccountsResponseHttpRequest: ...
             def list_next(
@@ -51,18 +48,10 @@ class CloudCommercePartnerProcurementServiceResource(
                 previous_response: ListAccountsResponse,
             ) -> ListAccountsResponseHttpRequest | None: ...
             def reject(
-                self,
-                *,
-                name: str,
-                body: RejectAccountRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: RejectAccountRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def reset(
-                self,
-                *,
-                name: str,
-                body: ResetAccountRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: ResetAccountRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
 
         @typing.type_check_only
@@ -71,14 +60,14 @@ class CloudCommercePartnerProcurementServiceResource(
                 self,
                 *,
                 name: str,
-                body: ApproveEntitlementRequest = ...,
+                body: ApproveEntitlementRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def approvePlanChange(
                 self,
                 *,
                 name: str,
-                body: ApproveEntitlementPlanChangeRequest = ...,
+                body: ApproveEntitlementPlanChangeRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def get(
@@ -88,9 +77,9 @@ class CloudCommercePartnerProcurementServiceResource(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListEntitlementsResponseHttpRequest: ...
             def list_next(
@@ -102,29 +91,25 @@ class CloudCommercePartnerProcurementServiceResource(
                 self,
                 *,
                 name: str,
-                body: Entitlement = ...,
-                updateMask: str = ...,
+                body: Entitlement,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> EntitlementHttpRequest: ...
             def reject(
-                self,
-                *,
-                name: str,
-                body: RejectEntitlementRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: RejectEntitlementRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def rejectPlanChange(
                 self,
                 *,
                 name: str,
-                body: RejectEntitlementPlanChangeRequest = ...,
+                body: RejectEntitlementPlanChangeRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def suspend(
                 self,
                 *,
                 name: str,
-                body: SuspendEntitlementRequest = ...,
+                body: SuspendEntitlementRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
 

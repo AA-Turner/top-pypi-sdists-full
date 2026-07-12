@@ -216,6 +216,218 @@ _STRINGS = {
     "waf_bypass_fail":      {"ko": "우회 실패 — /waf 결과를 AI에게 물어보세요",
                              "zh": "绕过失败 — 请将 /waf 结果发给 AI",
                              "en": "Bypass failed — ask AI with /waf results"},
+    "waf_400_block_detected": {
+        "ko": "⚠ WAF 400 차단 감지 — 고급 우회 기법 자동 적용 중",
+        "zh": "⚠ 检测到WAF 400封锁 — 正在自动应用高级绕过技术",
+        "en": "⚠ WAF 400 block detected — applying advanced bypass techniques"},
+    "waf_versioned_comment": {
+        "ko": "버전 인라인 주석 우회: /*!12345AND*/",
+        "zh": "版本内联注释绕过: /*!12345AND*/",
+        "en": "Versioned inline comment bypass: /*!12345AND*/"},
+    "waf_tab_bypass": {
+        "ko": "탭(0x09) 공백 치환 우회: %09AND%09",
+        "zh": "Tab(0x09)空格替换绕过: %09AND%09",
+        "en": "Tab(0x09) space substitution bypass: %09AND%09"},
+    "waf_case_when_bypass": {
+        "ko": "CASE WHEN 조건문 우회 (AND/OR 없이 조건 표현)",
+        "zh": "CASE WHEN条件语句绕过 (无AND/OR表达条件)",
+        "en": "CASE WHEN condition bypass (express condition without AND/OR)"},
+    "waf_null_byte_bypass": {
+        "ko": "NULL 바이트(%00) 삽입 우회: %00AND%00",
+        "zh": "NULL字节(%00)插入绕过: %00AND%00",
+        "en": "NULL byte(%00) insertion bypass: %00AND%00"},
+    "waf_double_urlencode": {
+        "ko": "이중 URL 인코딩 우회: %2526%2526 (&&)",
+        "zh": "双重URL编码绕过: %2526%2526 (&&)",
+        "en": "Double URL encoding bypass: %2526%2526 (&&)"},
+    "waf_header_inject": {
+        "ko": "HTTP 헤더 인젝션 시도: X-Forwarded-For / Referer / User-Agent",
+        "zh": "HTTP头注入尝试: X-Forwarded-For / Referer / User-Agent",
+        "en": "HTTP header injection attempt: X-Forwarded-For / Referer / User-Agent"},
+    "waf_header_inject_ok": {
+        "ko": "✅ HTTP 헤더 인젝션으로 WAF 우회 성공!",
+        "zh": "✅ HTTP头注入成功绕过WAF！",
+        "en": "✅ WAF bypassed via HTTP header injection!"},
+    "waf_stage3_header": {
+        "ko": "STAGE3: HTTP 헤더 인젝션으로 WAF 우회 시도 중...",
+        "zh": "STAGE3: 正在通过HTTP头注入尝试绕过WAF...",
+        "en": "STAGE3: Attempting WAF bypass via HTTP header injection..."},
+    "waf_kisa_detected": {
+        "ko": "한국 공공기관 WAF(KISA) 감지 — 특화 우회 기법 적용",
+        "zh": "检测到韩国公共机构WAF(KISA) — 应用专用绕过技术",
+        "en": "Korean public sector WAF (KISA) detected — applying specialized bypass"},
+    "waf_hpp_bypass": {
+        "ko": "HPP(파라미터 오염) 우회 시도: ?id=1&id=payload",
+        "zh": "HPP(参数污染)绕过尝试: ?id=1&id=payload",
+        "en": "HPP (HTTP Parameter Pollution) bypass: ?id=1&id=payload"},
+    "waf_json_bypass": {
+        "ko": "JSON 바디 인젝션 시도: Content-Type: application/json",
+        "zh": "JSON主体注入尝试: Content-Type: application/json",
+        "en": "JSON body injection attempt: Content-Type: application/json"},
+    "waf_multipart_bypass": {
+        "ko": "Multipart/form-data 인젝션 시도",
+        "zh": "Multipart/form-data注入尝试",
+        "en": "Multipart/form-data injection attempt"},
+    "waf_http2_bypass": {
+        "ko": "HTTP/2 프로토콜 우회 시도",
+        "zh": "HTTP/2协议绕过尝试",
+        "en": "HTTP/2 protocol bypass attempt"},
+    "waf_chunked_bypass": {
+        "ko": "청크 분할 전송(Transfer-Encoding: chunked) 우회 시도",
+        "zh": "分块传输(Transfer-Encoding: chunked)绕过尝试",
+        "en": "Chunked transfer encoding bypass attempt"},
+    "waf_stage4_proto": {
+        "ko": "STAGE4: 프로토콜 레벨 우회 시도 중 (HPP/JSON/Multipart/HTTP2/Chunked)...",
+        "zh": "STAGE4: 正在尝试协议级别绕过 (HPP/JSON/Multipart/HTTP2/Chunked)...",
+        "en": "STAGE4: Attempting protocol-level bypass (HPP/JSON/Multipart/HTTP2/Chunked)..."},
+    "waf_all_failed_timebased": {
+        "ko": "⚠ Boolean 우회 전부 실패 → Time-based SQLi로 전환",
+        "zh": "⚠ 布尔绕过全部失败 → 切换到时间盲注",
+        "en": "⚠ All boolean bypasses failed → switching to time-based SQLi"},
+    "waf_oob_dns_hint": {
+        "ko": "OOB DNS 채널 사용: sqli_oob_dns(dns_domain='<interactsh도메인>')",
+        "zh": "使用OOB DNS通道: sqli_oob_dns(dns_domain='<interactsh域名>')",
+        "en": "Use OOB DNS channel: sqli_oob_dns(dns_domain='<interactsh-domain>')"},
+    "sqli_timebased_sleep_bypass": {
+        "ko": "SLEEP 키워드 차단 → 대체 방법 자동 시도: GET_LOCK / BENCHMARK / pg_sleep / WAITFOR DELAY",
+        "zh": "SLEEP关键字被拦截 → 自动尝试替代方法: GET_LOCK / BENCHMARK / pg_sleep / WAITFOR DELAY",
+        "en": "SLEEP keyword blocked → auto-trying alternatives: GET_LOCK / BENCHMARK / pg_sleep / WAITFOR DELAY"},
+    "sqli_oob_dns_send": {
+        "ko": "OOB DNS 페이로드 전송 — DNS 수신 서버에서 결과 확인",
+        "zh": "OOB DNS载荷已发送 — 在DNS接收服务器确认结果",
+        "en": "OOB DNS payloads sent — check results on DNS receiver"},
+    "waf_unicode_bypass": {
+        "ko": "유니코드 전각문자 우회: ＡＮＤ / ＯＲ / ＳＥＬＥＣＴ",
+        "zh": "Unicode全角字符绕过: ＡＮＤ / ＯＲ / ＳＥＬＥＣＴ",
+        "en": "Unicode fullwidth character bypass: ＡＮＤ / ＯＲ / ＳＥＬＥＣＴ"},
+    "waf_scientific_notation": {
+        "ko": "MySQL 과학적 표기법 우회: 1e0=1e0 → TRUE",
+        "zh": "MySQL科学记数法绕过: 1e0=1e0 → TRUE",
+        "en": "MySQL scientific notation bypass: 1e0=1e0 → TRUE"},
+    "waf_cookie_inject": {
+        "ko": "쿠키 인젝션 시도: Cookie: param=payload",
+        "zh": "Cookie注入尝试: Cookie: param=payload",
+        "en": "Cookie injection attempt: Cookie: param=payload"},
+    "waf_gzip_encoding": {
+        "ko": "gzip 압축 요청 우회: Content-Encoding: gzip",
+        "zh": "gzip压缩请求绕过: Content-Encoding: gzip",
+        "en": "gzip compressed request bypass: Content-Encoding: gzip"},
+    "waf_smuggling": {
+        "ko": "HTTP Request Smuggling CL.TE 우회 시도",
+        "zh": "HTTP请求走私CL.TE绕过尝试",
+        "en": "HTTP Request Smuggling CL.TE bypass attempt"},
+    "waf_second_order_detected": {
+        "ko": "⚠ 데이터 저장 패턴 감지 — Second-order SQLi 시도 가능",
+        "zh": "⚠ 检测到数据存储模式 — 可尝试二阶SQL注入",
+        "en": "⚠ Data store pattern detected — Second-order SQLi possible"},
+    "waf_websocket_detected": {
+        "ko": "⚠ WebSocket 감지 — WAF 미검사 채널! 인젝션 시도",
+        "zh": "⚠ 检测到WebSocket — WAF未检查通道！可尝试注入",
+        "en": "⚠ WebSocket detected — WAF unchecked channel! Injection possible"},
+    "waf_multi_comment_noise": {
+        "ko": "다중 인라인 주석 노이즈 우회: /**/AND/**/",
+        "zh": "多重内联注释噪声绕过: /**/AND/**/",
+        "en": "Multi inline comment noise bypass: /**/AND/**/"},
+    "waf_param_flood": {
+        "ko": "파라미터 폭탄 시도: 500개 더미 파라미터로 WAF 파서 과부하",
+        "zh": "参数炸弹尝试: 500个虚假参数使WAF解析器过载",
+        "en": "Parameter flood attempt: 500 dummy params to overload WAF parser"},
+    "waf_path_normalize": {
+        "ko": "경로 정규화 우회: //page.php / /./page.php",
+        "zh": "路径规范化绕过: //page.php / /./page.php",
+        "en": "Path normalization bypass: //page.php / /./page.php"},
+    "waf_http3_bypass": {
+        "ko": "HTTP/3 QUIC 프로토콜 우회 시도 (WAF 미검사)",
+        "zh": "HTTP/3 QUIC协议绕过尝试 (WAF未检查)",
+        "en": "HTTP/3 QUIC protocol bypass attempt (WAF unchecked)"},
+    "waf_json_array_bypass": {
+        "ko": "JSON 배열 인젝션: {\"id\":[1,\"payload\"]}",
+        "zh": "JSON数组注入: {\"id\":[1,\"payload\"]}",
+        "en": "JSON array injection: {\"id\":[1,\"payload\"]}"},
+    "waf_xml_soap_bypass": {
+        "ko": "XML/SOAP 바디 인젝션: <param>payload</param>",
+        "zh": "XML/SOAP主体注入: <param>payload</param>",
+        "en": "XML/SOAP body injection: <param>payload</param>"},
+    "waf_ip_blocked": {
+        "ko": "⚠ IP 차단/속도 제한 감지 — Tor/프록시 로테이션 필요",
+        "zh": "⚠ 检测到IP封锁/速率限制 — 需要Tor/代理轮换",
+        "en": "⚠ IP block/rate limit detected — Tor/proxy rotation needed"},
+    "waf_tor_detected": {
+        "ko": "✅ Tor 감지됨 — IP 로테이션 자동 적용",
+        "zh": "✅ 检测到Tor — 自动应用IP轮换",
+        "en": "✅ Tor detected — applying IP rotation automatically"},
+    "waf_tor_not_running": {
+        "ko": "❌ Tor 미실행 — brew install tor && tor 실행 필요",
+        "zh": "❌ Tor未运行 — 需要运行: brew install tor && tor",
+        "en": "❌ Tor not running — run: brew install tor && tor"},
+    "waf_ip_rotation_ok": {
+        "ko": "✅ IP 로테이션으로 WAF 우회 성공!",
+        "zh": "✅ IP轮换成功绕过WAF！",
+        "en": "✅ WAF bypassed via IP rotation!"},
+    "xss_advanced_test": {
+        "ko": "고급 XSS 테스트 — WAF 우회 페이로드 22종 (DOM/Mutation/CSP/SVG/Angular)",
+        "zh": "高级XSS测试 — 22种WAF绕过载荷 (DOM/Mutation/CSP/SVG/Angular)",
+        "en": "Advanced XSS test — 22 WAF bypass payloads (DOM/Mutation/CSP/SVG/Angular)"},
+    "xss_reflected_found": {
+        "ko": "✅ XSS 반사 페이로드 발견",
+        "zh": "✅ 发现XSS反射载荷",
+        "en": "✅ XSS reflected payload found"},
+    "xss_cookie_steal": {
+        "ko": "쿠키 탈취 XSS: document.cookie → attacker_url 전송",
+        "zh": "Cookie窃取XSS: document.cookie → 发送到attacker_url",
+        "en": "Cookie steal XSS: document.cookie → send to attacker_url"},
+    "post_exploit_chain": {
+        "ko": "웹쉘 후속 공격 체인: SUID→권한상승→크리덴셜→리버스쉘",
+        "zh": "Webshell后续攻击链: SUID→权限提升→凭证→反弹Shell",
+        "en": "Webshell post-exploit chain: SUID→priv-esc→credentials→revshell"},
+    "post_exploit_suid": {
+        "ko": "SUID 바이너리 발견 → GTFOBins 권한 상승 시도",
+        "zh": "发现SUID二进制文件 → 尝试GTFOBins权限提升",
+        "en": "SUID binary found → GTFOBins privilege escalation attempt"},
+    "post_exploit_creds": {
+        "ko": "DB 접속 정보 발견: wp-config.php / .env / 설정 파일",
+        "zh": "发现数据库凭证: wp-config.php / .env / 配置文件",
+        "en": "DB credentials found: wp-config.php / .env / config files"},
+    "jwt_confusion_attack": {
+        "ko": "JWT 알고리즘 혼동 공격: RS256→HS256 관리자 토큰 위조",
+        "zh": "JWT算法混淆攻击: RS256→HS256 伪造管理员令牌",
+        "en": "JWT algorithm confusion attack: RS256→HS256 admin token forgery"},
+    "jwt_forged_token": {
+        "ko": "✅ JWT 위조 토큰 생성 완료",
+        "zh": "✅ JWT伪造令牌生成完成",
+        "en": "✅ JWT forged token generated"},
+    "ssrf_chain_cloud": {
+        "ko": "SSRF → 클라우드 메타데이터(169.254.169.254) IAM 키 탈취",
+        "zh": "SSRF → 云元数据(169.254.169.254) IAM密钥窃取",
+        "en": "SSRF → cloud metadata (169.254.169.254) IAM key theft"},
+    "ssrf_chain_internal": {
+        "ko": "SSRF → 내부 서비스 스캔 (Redis/Elasticsearch/내부API)",
+        "zh": "SSRF → 内部服务扫描 (Redis/Elasticsearch/内部API)",
+        "en": "SSRF → internal service scan (Redis/Elasticsearch/internal API)"},
+    "ssrf_chain_file": {
+        "ko": "SSRF → file:// 프로토콜로 서버 파일 읽기",
+        "zh": "SSRF → 使用file://协议读取服务器文件",
+        "en": "SSRF → file:// protocol for server file read"},
+    "ssl_eof_detected": {
+        "ko": "SSL EOF 감지 — User-Agent 교체 + 레거시 TLS 자동 재시도",
+        "zh": "检测到SSL EOF — 自动切换User-Agent并启用旧版TLS重试",
+        "en": "SSL EOF detected — auto-retry with UA spoof + legacy TLS"},
+    "ssl_retry_ua_ok": {
+        "ko": "✅ User-Agent 브라우저 위장으로 SSL 우회 성공",
+        "zh": "✅ 通过User-Agent伪装成功绕过SSL",
+        "en": "✅ SSL bypass success via User-Agent browser spoof"},
+    "ssl_retry_tls_ok": {
+        "ko": "✅ 레거시 TLS 컨텍스트로 SSL 우회 성공",
+        "zh": "✅ 通过旧版TLS上下文成功绕过SSL",
+        "en": "✅ SSL bypass success via legacy TLS context"},
+    "ssl_retry_failed": {
+        "ko": "❌ SSL EOF 우회 실패 — 서버가 연결을 강제 종료함",
+        "zh": "❌ SSL EOF绕过失败 — 服务器强制关闭连接",
+        "en": "❌ SSL EOF bypass failed — server forcibly closed connection"},
+    "waf_stage6_adv": {
+        "ko": "STAGE6: 최고급 우회 시도 (파라미터 폭탄/경로 정규화/HTTP3/JSON 배열/XML/Tor)...",
+        "zh": "STAGE6: 正在尝试高级绕过 (参数炸弹/路径规范化/HTTP3/JSON数组/XML/Tor)...",
+        "en": "STAGE6: Attempting advanced bypass (ParamFlood/PathNorm/HTTP3/JSON-array/XML/Tor)..."},
     "waf_analyzing":        {"ko": "WAF 분석",                  "zh": "WAF 分析",                "en": "WAF analysis"},
     "waf_detecting":        {"ko": "WAF 탐지 중...",             "zh": "WAF 检测中...",            "en": "Detecting WAF..."},
     "waf_priority":         {"ko": "우선 우회 전략",             "zh": "优先绕过策略",             "en": "Priority bypass strategies"},

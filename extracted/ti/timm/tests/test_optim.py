@@ -386,6 +386,33 @@ def test_adam(optimizer):
     _test_model(optimizer, dict(lr=5e-2))
 
 
+@pytest.mark.skipif(not hasattr(torch, 'compile'), reason='requires torch.compile')
+@pytest.mark.parametrize('optimizer_name', ['adamwlegacy', 'nadamw'])
+@pytest.mark.parametrize('foreach', [None, False, True])
+def test_compiled_foreach_adam_optimizers(optimizer_name, foreach):
+    from timm.optim.adamw import AdamWLegacy
+    from timm.optim.nadamw import NAdamW
+
+    optimizer_cls = AdamWLegacy if optimizer_name == 'adamwlegacy' else NAdamW
+    param = Parameter(torch.ones(4))
+    reference_param = Parameter(param.detach().clone())
+    optimizer = optimizer_cls([param], lr=1e-3, foreach=foreach)
+    reference_optimizer = optimizer_cls([reference_param], lr=1e-3, foreach=False)
+    compiled_step = torch.compile(optimizer.step, backend='eager')
+
+    before = param.detach().clone()
+    for _ in range(2):
+        param.grad = torch.ones_like(param)
+        reference_param.grad = torch.ones_like(reference_param)
+        compiled_step()
+        reference_optimizer.step()
+
+    assert torch.isfinite(param).all()
+    assert not torch.equal(param, before)
+    torch.testing.assert_close(param, reference_param)
+    assert optimizer.state[param]['step'] == 2
+
+
 @pytest.mark.parametrize('optimizer',  ['kron'])
 def test_kron(optimizer):
     _test_rosenbrock(
@@ -400,6 +427,31 @@ def test_muon(optimizer):
         lambda params: create_optimizer_v2(params, optimizer, lr=1e-2)
     )
     _test_model(optimizer, dict(lr=1e-2))
+
+
+@pytest.mark.skipif(not hasattr(torch, 'compile'), reason='requires torch.compile')
+@pytest.mark.parametrize('nesterov', [False, True])
+def test_compiled_muon_fallback(nesterov):
+    from timm.optim.muon import Muon
+
+    # A 1-D parameter is routed through Muon's AdamW/NAdamW fallback.
+    param = Parameter(torch.ones(4))
+    reference_param = Parameter(param.detach().clone())
+    optimizer = Muon([param], lr=1e-3, nesterov=nesterov)
+    reference_optimizer = Muon([reference_param], lr=1e-3, nesterov=nesterov)
+    compiled_step = torch.compile(optimizer.step, backend='eager')
+
+    before = param.detach().clone()
+    for _ in range(2):
+        param.grad = torch.ones_like(param)
+        reference_param.grad = torch.ones_like(reference_param)
+        compiled_step()
+        reference_optimizer.step()
+
+    assert torch.isfinite(param).all()
+    assert not torch.equal(param, before)
+    torch.testing.assert_close(param, reference_param)
+    assert optimizer.state[param]['step'] == 2
 
 
 @pytest.mark.parametrize('optimizer',  ['adamuon', 'nadamuon'])
@@ -609,6 +661,57 @@ def test_param_groups_layer_decay_with_matcher():
         assert len(group['params']) > 0
 
 
+@pytest.mark.parametrize('model_name', ['eva', 'vit'])
+def test_param_groups_layer_decay_reg_token_stem(model_name):
+    from timm.models import group_parameters
+    from timm.models.eva import Eva
+    from timm.models.vision_transformer import VisionTransformer
+
+    if model_name == 'eva':
+        model = Eva(
+            img_size=16,
+            patch_size=8,
+            embed_dim=8,
+            depth=1,
+            num_heads=2,
+            num_reg_tokens=1,
+            num_classes=0,
+        )
+    else:
+        model = VisionTransformer(
+            img_size=16,
+            patch_size=8,
+            embed_dim=8,
+            depth=1,
+            num_heads=2,
+            reg_tokens=1,
+            num_classes=0,
+        )
+
+    no_weight_decay = model.no_weight_decay()
+    assert 'reg_token' in no_weight_decay
+
+    layer_map = group_parameters(model, model.group_matcher(coarse=False), reverse=True)
+    assert layer_map['reg_token'] == layer_map['cls_token'] == layer_map['pos_embed']
+
+    param_groups = param_groups_layer_decay(
+        model,
+        weight_decay=0.05,
+        no_weight_decay_list=no_weight_decay,
+        layer_decay=0.75,
+    )
+    param_to_group = {
+        id(param): group
+        for group in param_groups
+        for param in group['params']
+    }
+
+    cls_group = param_to_group[id(model.cls_token)]
+    reg_group = param_to_group[id(model.reg_token)]
+    assert reg_group['lr_scale'] == cls_group['lr_scale']
+    assert reg_group['weight_decay'] == 0.
+
+
 def test_param_groups_weight_decay():
     model = torch.nn.Sequential(
         torch.nn.Linear(10, 5),
@@ -658,4 +761,3 @@ def test_csgdw(optimizer):
         lambda params: create_optimizer_v2(params, optimizer, lr=5e-4)
     )
     _test_model(optimizer, dict(lr=5e-4))
-

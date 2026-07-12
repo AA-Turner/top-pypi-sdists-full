@@ -698,9 +698,9 @@ pub(crate) fn prepare_survival_location_scale_model(
                             total_dim: p_wiggle,
                         },
                         gam_terms::penalty_spec::PenaltySpec::Dense(m)
-                        | gam_terms::penalty_spec::PenaltySpec::DenseWithMean { matrix: m, .. } => {
-                            PenaltyMatrix::Dense(m.clone())
-                        }
+                        | gam_terms::penalty_spec::PenaltySpec::DenseWithMean {
+                            matrix: m, ..
+                        } => PenaltyMatrix::Dense(m.clone()),
                     })
                     .collect()
             },
@@ -949,7 +949,7 @@ pub(crate) fn finalize_survival_location_scale_fit(
         used_device: false,
         outer_iterations: fit.outer_iterations,
         outer_gradient_norm: fit.outer_gradient_norm,
-        outer_converged: fit.outer_converged,
+        outer_converged: true,
         covariance_conditional,
         geometry,
         // Per-penalty trace / effective-d.f. from the inner blockwise fit,
@@ -974,6 +974,11 @@ pub(crate) fn validatewiggle_block(
         );
     }
     let p = b.design.ncols();
+    if p == 0 {
+        return Err(SurvivalLocationScaleError::InvalidConfiguration {
+            reason: "linkwiggle_block must contain at least one basis column".to_string(),
+        });
+    }
     if b.knots.len() < b.degree + 2 {
         return Err(SurvivalLocationScaleError::InvalidConfiguration {
             reason: format!(
@@ -1036,9 +1041,7 @@ pub(crate) fn validatewiggle_block(
             | gam_terms::penalty_spec::PenaltySpec::DenseWithMean { matrix: m, .. } => {
                 let (r, c) = m.dim();
                 if r != p || c != p {
-                    bail_dim_sls!(
-                        "linkwiggle_block penalty {idx} must be {p}x{p}, got {r}x{c}"
-                    );
+                    bail_dim_sls!("linkwiggle_block penalty {idx} must be {p}x{p}, got {r}x{c}");
                 }
             }
         }

@@ -837,6 +837,29 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
             _ => None,
         };
 
+    // Admission before allocation: the ρ-penalty cache densifies every block
+    // penalty and holds them for the whole outer optimization, so its
+    // aggregate footprint is charged on the process-wide ledger up front and
+    // stays reserved for exactly the cache's lifetime (the `Governed` wrapper
+    // couples the reservation to the Vec). A refusal is typed evidence the
+    // joint budget cannot fit this dense cache right now.
+    let rho_penalty_cache_bytes: usize = penalty_counts
+        .iter()
+        .enumerate()
+        .flat_map(|(block_idx, &count)| (0..count).map(move |penalty_idx| (block_idx, penalty_idx)))
+        .map(|(block_idx, penalty_idx)| {
+            let (nrows, ncols) = specs_arc[block_idx].penalties[penalty_idx].shape();
+            nrows
+                .saturating_mul(ncols)
+                .saturating_mul(std::mem::size_of::<f64>())
+        })
+        .fold(0usize, usize::saturating_add);
+    let rho_penalty_reservation = gam_runtime::resource::MemoryGovernor::global()
+        .try_reserve(
+            rho_penalty_cache_bytes,
+            "custom_family::psi_hyper::rho_penalty_cache",
+        )
+        .map_err(|err| format!("rho-penalty dense cache refused by memory governor: {err}"))?;
     let mut rho_penalty_cache: Vec<RhoPenaltyCacheEntry> = Vec::new();
     for (block_idx, &count) in penalty_counts.iter().enumerate() {
         let (start, end) = ranges_arc[block_idx];
@@ -851,7 +874,7 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
             });
         }
     }
-    let rho_penalty_cache = Arc::new(rho_penalty_cache);
+    let rho_penalty_cache = Arc::new(rho_penalty_reservation.bind(rho_penalty_cache));
 
     // ψ-ψ pair callback
     let ext_ext = {
@@ -1606,7 +1629,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
                         gradient,
-                        outer_hessian: gam_problem::HessianResult::Unavailable,
+                        outer_hessian: gam_problem::HessianValue::Unavailable,
                         warm_start: value_only.warm_start,
                         inner_converged: inner.converged,
                     });
@@ -2040,7 +2063,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
                         gradient,
-                        outer_hessian: gam_problem::HessianResult::Unavailable,
+                        outer_hessian: gam_problem::HessianValue::Unavailable,
                         warm_start: value_only.warm_start,
                         inner_converged: inner.converged,
                     });
@@ -2183,7 +2206,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
             working_response: _,
             working_weights,
         } => with_block_geometry(family, &inner.block_states, spec, b, |x_dyn, _| {
-            let w = floor_positiveworking_weights(working_weights, options.minweight);
+            let w = floor_positiveworking_weights(working_weights, options.minweight)?;
             let (xtwx, _) = weighted_normal_equations(x_dyn, &w, None)?;
             diagonal_design = Some(x_dyn.clone());
             Ok(xtwx)
@@ -2236,7 +2259,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                 let x_dyn = diagonal_design.as_ref().ok_or_else(|| {
                     format!("missing dynamic design for block {b} diagonal correction")
                 })?;
-                let wwork = floor_positiveworking_weights(working_weights, options.minweight);
+                let wwork = floor_positiveworking_weights(working_weights, options.minweight)?;
                 let x_dense = x_dyn.to_dense();
                 let n = x_dense.nrows();
 

@@ -1,34 +1,6 @@
-//! #2022 Workstream B — decoder-frame gauge quotient primitives for the `K = 1`
-//! inner step.
+//! Manifold chart-equivalence and realized-amplitude diagnostics.
 //!
-//! A single manifold atom contributes `exp(s_k)·Φ_k(t)·B_k` to the
-//! reconstruction. Three continuous gauge freedoms make the raw
-//! `(B_k, t, s_k)` parameterization non-identifiable, and every one of them
-//! is the reason the terminal joint Hessian can be singular (residual gauge)
-//! and the reason the historical joint path needed barrier / floor / keep-best
-//! machinery to stay off the flat directions:
-//!
-//!  1. **SCALE.** `(B_k, s_k) ↦ (c·B_k, s_k − ln c)` leaves the contribution
-//!     unchanged for any `c > 0`. Removed by pinning `‖B_k‖_F = 1` as a hard
-//!     constraint and carrying the magnitude in the explicit log-amplitude
-//!     `s_k` ([`retract_decoder_unit_frobenius`],
-//!     [`unit_frobenius_tangent_projection`]). At `K = 1` the decoder-frame
-//!     manifold is exactly the unit sphere `St(M·p, 1) = S^{M·p−1}` (the raw
-//!     `vec(B_k)` normalized), so the "Stiefel constraint" of SAC_PLAN Part 3
-//!     is the trivial `k = 1` sphere retraction: divide by the Frobenius norm.
-//!  2. **CHART.** `t ↦ φ(t)` (reparameterization) leaves the decoded *curve*
-//!     unchanged. Removed for `d = 1` by the unit-speed (arc-length) chart —
-//!     already enforced in-loop by
-//!     [`crate::chart_canonicalization::unit_speed_retraction`]; this module
-//!     re-exports the sampling/gluing helpers built on top of it.
-//!  3. **INTENSITY vs EXISTENCE.** the gate (existence) and the amplitude
-//!     (intensity) were entangled while magnitude lived in `B_k`; the explicit
-//!     `s_k` with the [`LogAmplitudeHoyerPrior`] (the #1939 "cone atom") is the
-//!     sparse-amplitude prior on the *shape-normalized* atoms.
-//!
-//! Payoff, once the quotient is in force: the terminal joint evidence is
-//! computed on the quotient (comparable normalizers across `K`), and the
-//! same-manifold gluing test that SAC's birth race needs becomes the
+//! The same-manifold gluing test used by SAC's birth race is the
 //! two-parameter affine transition of the arc-length coordinate
 //! ([`affine_chart_transition`]) — under unit-speed coordinates two atoms that
 //! trace the same 1-manifold are related by `t_a = ±t_b + c` (slope exactly
@@ -38,334 +10,14 @@
 //! outside tests); the `#[cfg(test)]` module verifies each one against finite
 //! differences, which SPEC permits *inside tests only*.
 
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+use ndarray::{Array2, ArrayView1, ArrayView2};
 
-use super::{SaeBasisEvaluator, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm, Side};
-use gam_linalg::faer_ndarray::FaerCholesky;
+use super::SaeBasisEvaluator;
+use opt::{BacktrackConfig, backtracking_line_search};
 
-/// Frobenius norm `‖B‖_F = (Σ_{μ,j} B_{μj}²)^{1/2}` of a decoder block.
-pub fn decoder_frobenius_norm(decoder: ArrayView2<'_, f64>) -> f64 {
-    decoder.iter().map(|v| v * v).sum::<f64>().sqrt()
-}
-
-/// #2022 STEP 2 — pin `‖B_k‖_F = 1` as the hard SCALE-gauge constraint on one
-/// atom's decoder frame, folding the removed magnitude into the explicit
-/// log-amplitude so the contribution `exp(s_k)·Φ·B_k` is numerically UNCHANGED.
-///
-/// This is the `K = 1` decoder-frame retraction: `vec(B_k)` lives on the unit
-/// sphere `S^{M·p−1} = St(M·p, 1)` and the retraction is the radial projection
-/// `B_k ↦ B_k / ‖B_k‖_F`, `s_k ↦ s_k + ln‖B_k‖_F`. It is a genuine constraint
-/// (not a heuristic normalization): after it the only decoder-frame freedom
-/// left is the sphere itself (pure shape), and the scale ray has been quotiented
-/// out into `s_k`. Idempotent — a frame already at unit norm is left untouched
-/// and `false` is returned.
-///
-/// Delegates the byte-exact magnitude peel to
-/// [`SaeManifoldAtom::absorb_decoder_norm_into_log_amplitude`] (which also keeps
-/// the pullback-metric roughness Gram consistent). Returns `true` iff the frame
-/// was rescaled (finite norm strictly off `1`).
-pub fn retract_decoder_unit_frobenius(atom: &mut SaeManifoldAtom) -> bool {
-    let norm = decoder_frobenius_norm(atom.decoder_coefficients.view());
-    if !(norm.is_finite() && norm > 0.0) {
-        return false;
-    }
-    if (norm - 1.0).abs() <= f64::EPSILON {
-        return false;
-    }
-    atom.absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-    true
-}
-
-/// Project an ambient decoder gradient `G = ∂L/∂B_k` onto the tangent space of
-/// the unit-Frobenius sphere at `B_k` (assumed `‖B_k‖_F = 1`): the SCALE
-/// (radial) component is removed because it is carried by the log-amplitude
-/// channel, not the frame.
-///
-/// The unit sphere `{B : ⟨B, B⟩_F = 1}` has tangent space `{Δ : ⟨Δ, B⟩_F = 0}`;
-/// the metric projection is `Δ = G − ⟨G, B⟩_F · B`. This is the derivative
-/// bookkeeping that keeps the frame step consistent with the retraction
-/// [`retract_decoder_unit_frobenius`] (chain rule through the radial
-/// projection): the along-`B` part of any raw gradient would only change the
-/// magnitude, which `s_k` owns, so it is annihilated here. `B` need not be
-/// exactly unit-norm — the projection uses `⟨G,B⟩/⟨B,B⟩` so it is correct for a
-/// pre-retraction frame too.
-pub fn unit_frobenius_tangent_projection(
-    decoder: ArrayView2<'_, f64>,
-    ambient_grad: ArrayView2<'_, f64>,
-) -> Array2<f64> {
-    let bb = decoder.iter().map(|v| v * v).sum::<f64>();
-    let mut out = ambient_grad.to_owned();
-    if !(bb > 0.0) {
-        return out;
-    }
-    let gb: f64 = ambient_grad
-        .iter()
-        .zip(decoder.iter())
-        .map(|(g, b)| g * b)
-        .sum();
-    let coeff = gb / bb;
-    for (o, b) in out.iter_mut().zip(decoder.iter()) {
-        *o -= coeff * b;
-    }
-    out
-}
-
-/// #1939 cone atom — the Hoyer sparsity prior on the atoms' explicit
-/// amplitudes `a_k = exp(s_k)`, evaluated as an energy in the log-amplitudes
-/// `s = (s_1, …, s_K)`.
-///
-/// With the SCALE gauge removed (every `B_k` unit-Frobenius, so `a_k` is the
-/// atom's true intensity), a sparse dictionary is one where a few atoms carry
-/// large amplitude and the rest are ~0. The Hoyer ratio
-/// `‖a‖₁/‖a‖₂ ∈ [1, √K]` is the scale-invariant density of the amplitude
-/// vector (`1` ⇔ one atom active, `√K` ⇔ all equal), so the prior toward
-/// sparsity is the energy
-///
-/// ```text
-///   E(s) = λ · ‖a‖₁ / ‖a‖₂,   a_k = exp(s_k).
-/// ```
-///
-/// It is scale-invariant in `a` (adding a constant to every `s_k` leaves `E`
-/// unchanged) — exactly the property the SCALE quotient demands — so it prices
-/// the *distribution* of intensity across atoms, never the overall magnitude
-/// (which the per-atom evidence owns). `λ` is a smoothing weight (REML/LAML
-/// estimable like every other penalty coefficient), not a magic constant.
-///
-/// Writing `u_k = a_k / ‖a‖₂` (so `Σ u_k² = 1`) and `R = ‖a‖₁/‖a‖₂`, the exact
-/// closed-form derivatives are
-///
-/// ```text
-///   ∂E/∂s_k       = λ · u_k (1 − R u_k)
-///   ∂²E/∂s_k∂s_j  = λ [ δ_kj u_k (1 − 2R u_k)
-///                       − u_k u_j (u_j + u_k)
-///                       + 3 R u_k² u_j² ]
-/// ```
-///
-/// verified against finite differences in the test module.
-#[derive(Debug, Clone)]
-pub struct LogAmplitudeHoyerEnergy {
-    /// Prior energy `E(s) = λ ‖a‖₁/‖a‖₂`.
-    pub value: f64,
-    /// Gradient `∂E/∂s_k`, length `K`.
-    pub grad: Array1<f64>,
-    /// Hessian `∂²E/∂s_k∂s_j`, shape `(K, K)`. Symmetric; may be indefinite (a
-    /// ratio penalty is not convex in `s`), so a Newton assembly must PSD-majorize
-    /// it before Cholesky exactly as the periodic ARD curvature is majorized.
-    pub hess: Array2<f64>,
-}
-
-/// Evaluate the [`LogAmplitudeHoyerEnergy`] at log-amplitudes `s` with weight
-/// `lambda`. Returns a zero energy (and zero derivatives) for `K ≤ 1` — the
-/// Hoyer ratio is a constant `1` with a single atom, so it carries no gradient
-/// and the whole prior is vacuous until there is more than one amplitude to
-/// distribute mass across.
-pub fn log_amplitude_hoyer_energy(s: ArrayView1<'_, f64>, lambda: f64) -> LogAmplitudeHoyerEnergy {
-    let k = s.len();
-    let mut grad = Array1::<f64>::zeros(k);
-    let mut hess = Array2::<f64>::zeros((k, k));
-    if k <= 1 {
-        return LogAmplitudeHoyerEnergy {
-            value: 0.0,
-            grad,
-            hess,
-        };
-    }
-    // a_k = exp(s_k); shift by max(s) for overflow-free exponentials — E is
-    // invariant to a common shift of s, so this is exact, not an approximation.
-    let smax = s.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    if !smax.is_finite() {
-        return LogAmplitudeHoyerEnergy {
-            value: 0.0,
-            grad,
-            hess,
-        };
-    }
-    let a: Vec<f64> = s.iter().map(|&sk| (sk - smax).exp()).collect();
-    let l1: f64 = a.iter().sum();
-    let l2_sq: f64 = a.iter().map(|v| v * v).sum();
-    let l2 = l2_sq.sqrt();
-    if !(l2 > 0.0 && l1 > 0.0) {
-        return LogAmplitudeHoyerEnergy {
-            value: 0.0,
-            grad,
-            hess,
-        };
-    }
-    let r = l1 / l2;
-    let u: Vec<f64> = a.iter().map(|v| v / l2).collect();
-    let value = lambda * r;
-    for k1 in 0..k {
-        grad[k1] = lambda * u[k1] * (1.0 - r * u[k1]);
-    }
-    for k1 in 0..k {
-        for j in 0..k {
-            let diag = if k1 == j {
-                u[k1] * (1.0 - 2.0 * r * u[k1])
-            } else {
-                0.0
-            };
-            let cross = -u[k1] * u[j] * (u[j] + u[k1]) + 3.0 * r * u[k1] * u[k1] * u[j] * u[j];
-            hess[[k1, j]] = lambda * (diag + cross);
-        }
-    }
-    LogAmplitudeHoyerEnergy { value, grad, hess }
-}
-
-/// Evidence (log-normal / ARD) prior energy on the per-atom log-amplitudes
-/// `s_k = log_amplitude` — the RADIAL intensity coordinate of the cone-atom
-/// decomposition `a_ik · exp(s_k) · Φ_k · B̃_k` (#1939), separate from the
-/// existence gate `a_ik` and the identity frame `B̃_k`.
-#[derive(Debug, Clone)]
-pub struct LogAmplitudeArdEnergy {
-    /// Prior energy `E(s) = ½ α Σ_k s_k²`.
-    pub value: f64,
-    /// Gradient `∂E/∂s_k = α s_k`, length `K`.
-    pub grad: Array1<f64>,
-    /// Diagonal of the (separable, so purely diagonal) Hessian `∂²E/∂s_k² = α`,
-    /// length `K`. PSD (`α > 0`) — convex, needs no majorization.
-    pub hess_diag: Array1<f64>,
-}
-
-/// Evaluate the amplitude EVIDENCE prior `E(s) = ½ α Σ_k s_k²` (a log-normal
-/// `s_k ~ N(0, 1/α)` on the log-amplitude, i.e. an ARD Gaussian on
-/// `log_amplitude`) with precision `alpha`.
-///
-/// # Why ARD, not Hoyer, is the EVIDENCE prior (decoupling doctrine, #1939)
-/// The cone-atom split makes existence (`a_ik`), intensity (`exp(s_k)`), and
-/// identity (`B̃_k`) three separable axes. The intensity axis itself carries two
-/// distinct quantities: the overall MAGNITUDE of each atom's amplitude (radial
-/// dosimetry) and the DISTRIBUTION of intensity across atoms (selectivity). The
-/// scale-invariant [`log_amplitude_hoyer_energy`] prices ONLY the distribution —
-/// it is invariant to a common shift of `s`, so it "never [prices] the overall
-/// magnitude (which the per-atom evidence owns)". The EVIDENCE prior is exactly
-/// that magnitude owner: a log-normal on `s` whose evidence-optimized precision
-/// `α` sets the a-priori intensity scale (fit by the same Fellner–Schall /
-/// MacKay evidence step as the coordinate-ARD `α` and `λ_smooth`). It is
-/// therefore the correct object for the issue's "log-normal / ARD prior on log
-/// s", while Hoyer and SCAD are the complementary SELECTIVITY penalties (Hoyer
-/// scale-free relative prominence, SCAD shrink-to-exact-zero). Being at its MODE
-/// at `s = 0` (`log_amplitude = 0`, unit amplitude) it contributes zero value AND
-/// zero gradient at the zero-amplitude default, so a fit that never engages the
-/// amplitude coordinate is bit-for-bit unchanged. A non-finite / non-positive
-/// `alpha` yields a vacuous zero prior.
-pub fn log_amplitude_ard_energy(s: ArrayView1<'_, f64>, alpha: f64) -> LogAmplitudeArdEnergy {
-    let k = s.len();
-    let mut grad = Array1::<f64>::zeros(k);
-    let mut hess_diag = Array1::<f64>::zeros(k);
-    if !(alpha.is_finite() && alpha > 0.0) {
-        return LogAmplitudeArdEnergy {
-            value: 0.0,
-            grad,
-            hess_diag,
-        };
-    }
-    let mut value = 0.0_f64;
-    for i in 0..k {
-        let si = s[i];
-        value += 0.5 * alpha * si * si;
-        grad[i] = alpha * si;
-        hess_diag[i] = alpha;
-    }
-    LogAmplitudeArdEnergy {
-        value,
-        grad,
-        hess_diag,
-    }
-}
-
-/// SCAD (Fan–Li smoothly-clipped absolute deviation) SELECTIVITY penalty on the
-/// cone-atom AMPLITUDES `β_k = exp(s_k)`, `s_k = log_amplitude` (#1939).
-#[derive(Debug, Clone)]
-pub struct LogAmplitudeScadEnergy {
-    /// Penalty energy `E(s) = Σ_k p_λ(exp(s_k))`.
-    pub value: f64,
-    /// Gradient `∂E/∂s_k`, length `K` (the `s`-coordinate, chain-ruled).
-    pub grad: Array1<f64>,
-    /// Diagonal of the (separable) Hessian `∂²E/∂s_k²`, length `K`. SCAD is
-    /// NONCONVEX, so entries can be negative in the taper region — a Newton
-    /// assembly must PSD-majorize this exactly as the periodic-ARD / Hoyer
-    /// curvatures are majorized.
-    pub hess_diag: Array1<f64>,
-}
-
-/// Evaluate the SCAD-on-amplitude selectivity penalty. This is the issue's "move
-/// `coord_sparsity` SCAD onto intensity, not the gate" leg: nonconvex
-/// shrink-to-EXACT-zero belongs on the amplitude (the closed-form amplitude solve
-/// is a `β ≥ 0` NNLS, so a small `β_k` can be driven to exactly 0 — a turned-off
-/// atom), while the bounded gate must stay a soft existence indicator.
-///
-/// The penalty is the standard three-region SCAD in the amplitude `β` (concavity
-/// `gamma > 2`, canonical `3.7`):
-/// ```text
-///   p_λ(β)   =  λβ                              0 ≤ β ≤ λ
-///              (2γλβ − β² − λ²)/(2(γ−1))        λ < β ≤ γλ
-///              λ²(γ+1)/2                        β > γλ
-///   p_λ'(β)  =  λ,  (γλ−β)/(γ−1),  0            (Fan–Li three regions)
-///   p_λ''(β) =  0,  −1/(γ−1),      0
-/// ```
-/// returned in the `s`-coordinate through the exp chain rule `dβ/ds = β`:
-/// ```text
-///   ∂E/∂s_k   = p_λ'(β_k)·β_k
-///   ∂²E/∂s_k² = p_λ''(β_k)·β_k² + p_λ'(β_k)·β_k
-/// ```
-/// DEFAULT-INACTIVE: `lambda ≤ 0` (or `gamma ≤ 2`, or non-finite) gives an
-/// identically zero penalty — value, gradient, AND curvature — so the
-/// zero-amplitude default is bit-for-bit unchanged and the knob is strictly
-/// opt-in.
-pub fn log_amplitude_scad_energy(
-    s: ArrayView1<'_, f64>,
-    lambda: f64,
-    gamma: f64,
-) -> LogAmplitudeScadEnergy {
-    let k = s.len();
-    let mut grad = Array1::<f64>::zeros(k);
-    let mut hess_diag = Array1::<f64>::zeros(k);
-    if !(lambda.is_finite() && lambda > 0.0 && gamma.is_finite() && gamma > 2.0) {
-        return LogAmplitudeScadEnergy {
-            value: 0.0,
-            grad,
-            hess_diag,
-        };
-    }
-    let mut value = 0.0_f64;
-    for i in 0..k {
-        let beta = s[i].exp();
-        if !beta.is_finite() {
-            continue;
-        }
-        let (p, dp, ddp) = if beta <= lambda {
-            (lambda * beta, lambda, 0.0)
-        } else if beta <= gamma * lambda {
-            let num = 2.0 * gamma * lambda * beta - beta * beta - lambda * lambda;
-            (
-                num / (2.0 * (gamma - 1.0)),
-                (gamma * lambda - beta) / (gamma - 1.0),
-                -1.0 / (gamma - 1.0),
-            )
-        } else {
-            (lambda * lambda * (gamma + 1.0) / 2.0, 0.0, 0.0)
-        };
-        value += p;
-        grad[i] = dp * beta;
-        hess_diag[i] = ddp * beta * beta + dp * beta;
-    }
-    LogAmplitudeScadEnergy {
-        value,
-        grad,
-        hess_diag,
-    }
-}
-
-/// Sample one atom's decoded curve `γ(t) = exp(s)·Φ(t)·B` at the given latent
-/// coordinates, returning the point set `(n × p)`. Pure forward evaluation (no
-/// data, no refit) — the honest image the gluing test compares. `coords` is the
-/// `d = 1` latent coordinate for each sample (e.g. a uniform arc-length grid
-/// produced by
-/// [`crate::chart_canonicalization::unit_speed_reparameterization`]).
 pub fn sample_decoded_curve(
     evaluator: &dyn SaeBasisEvaluator,
     decoder: ArrayView2<'_, f64>,
-    log_amplitude: f64,
     coords: ArrayView1<'_, f64>,
 ) -> Result<Array2<f64>, String> {
     let n = coords.len();
@@ -381,12 +33,7 @@ pub fn sample_decoded_curve(
             decoder.nrows()
         ));
     }
-    let mut pts = phi.dot(&decoder);
-    if log_amplitude != 0.0 {
-        let amp = log_amplitude.exp();
-        pts.mapv_inplace(|v| v * amp);
-    }
-    Ok(pts)
+    Ok(phi.dot(&decoder))
 }
 
 /// The two-parameter affine transition `t_a ≈ slope·t_b + offset` relating the
@@ -576,337 +223,12 @@ pub fn affine_chart_transition(
     })
 }
 
-impl SaeManifoldTerm {
-    /// #2022 STEP 2 — in-loop decoder-frame gauge retraction: pin `‖B_k‖_F = 1`
-    /// on every atom, folding each removed magnitude into that atom's explicit
-    /// log-amplitude. The companion of
-    /// [`Self::retract_unit_speed_charts_in_loop`] for the SCALE gauge: both are
-    /// IMAGE-FROZEN (the decoded contribution `exp(s)·Φ·B` is numerically
-    /// unchanged), so the data-fit, smoothness, and terminal Laplace evidence
-    /// are invariant — only the `(B_k, s_k)` representation moves onto the
-    /// quotient (unit-Frobenius frame + explicit amplitude).
-    ///
-    /// Cadence (identical to the unit-speed chart retraction): call at a
-    /// post-acceptance chart-refresh boundary, NEVER inside a line search. Within
-    /// one inner solve the border `B_k` is free to carry scale; peeling it into
-    /// `s_k` here between solves is what makes the *converged* dictionary sit on
-    /// the SCALE quotient — so terminal evidence normalizers are comparable
-    /// across `K` and the decoder-norm collapse guards (which key on `‖B_k‖`)
-    /// become inert, their dead-atom signal migrating to the amplitude `s_k`.
-    ///
-    /// Returns the number of atoms whose frame was rescaled (a strict no-op —
-    /// `0` returned — once every atom is already unit-Frobenius, so it is
-    /// idempotent at a boundary).
-    pub fn retract_decoder_gauge_in_loop(&mut self) -> usize {
-        let mut retracted = 0usize;
-        for atom in self.atoms.iter_mut() {
-            if retract_decoder_unit_frobenius(atom) {
-                retracted += 1;
-            }
-        }
-        retracted
-    }
-
-    /// #1939 Design B — SCOPED cone-atom retraction: unit-Frobenius-retract ONLY
-    /// the atoms whose decoder has COLLAPSED relative to its dictionary peers,
-    /// leaving healthy atoms' scale in `B` untouched. Returns the number retracted.
-    ///
-    /// The unconditional [`Self::retract_decoder_gauge_in_loop`] forces `‖B_k‖≡1`
-    /// on EVERY atom every accepted iterate, which fights every subsystem that
-    /// assumes scale lives in `B` (the isometry `‖B‖⁴` pullback #673/#795, the
-    /// `‖B‖`-keyed norm guards, the β-Newton magnitude step). On a HEALTHY fit that
-    /// destabilizes the trajectory — empirically it DETONATES a healthy K=2 disjoint
-    /// fit (EV → −1e128, a runaway β step after the forced unit retraction). So
-    /// retracting healthy atoms is the harm; retracting a genuinely-collapsed atom is
-    /// the cure (it re-homes the vanished decoder onto the unit sphere so the paired
-    /// amplitude solve can restore its magnitude — the born-atom `0.7255→0.0023`
-    /// recovery).
-    ///
-    /// The collapse trigger REUSES the existing decoder-norm guard threshold
-    /// (`SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO · median‖B‖`, assignment.rs — an
-    /// existing DERIVED constant, no new magic number) so an atom is retracted iff
-    /// its decoder is below the same bar `enforce_decoder_norm_guard` calls a breach.
-    /// Two floors keep it safe: (i) `k < 2` returns 0 — a lone atom has no peer to be
-    /// "collapsed" relative to, and a K=1 low-amplitude decoder is HEALTHY (its scale
-    /// legitimately lives in `B`), so it is never retracted (this is what makes the
-    /// K=1 low-amp crash structurally impossible); (ii) an atom whose `‖B‖` is below
-    /// a machine floor is skipped — it carries no direction to normalize (`B/‖B‖` is
-    /// undefined), it needs reseeding not retraction (seed-fix's lane).
-    pub fn retract_collapsed_decoders_in_loop(&mut self) -> usize {
-        let k = self.k_atoms();
-        // A single atom has no dictionary peer to be collapsed *relative to*, and a
-        // K=1 low-amplitude decoder is healthy — never retract it (mirrors the
-        // K<2 early-out in `enforce_decoder_norm_guard`).
-        if k < 2 {
-            return 0;
-        }
-        let norms: Vec<f64> = self
-            .atoms
-            .iter()
-            .map(|atom| atom.contribution_frobenius_scale())
-            .collect();
-        // "Healthy dictionary scale" to measure collapse against = the MAX decoder
-        // scale (definitionally a surviving atom). NOT the median: the median is the
-        // guard's statistic but it DEGENERATES whenever the MAJORITY of atoms
-        // collapse, because the collapsed atoms THEMSELVES set the median. At K=3
-        // with two co-vanished atoms (real IBP data: ‖B‖=[2.6, ~0, ~0]) the median
-        // is ~0 — either exactly 0 (a median-keyed floor finds no reference) or
-        // tiny-nonzero (a median-keyed `1e-3·median` floor sits BELOW the collapsed
-        // atoms, so they aren't flagged). Both miss exactly the failure this exists
-        // to fix. Keying on the max survivor is robust to any collapse fraction and
-        // leaves healthy fits unchanged (the largest atom's 1e-3·max floor never
-        // flags a peer of ordinary magnitude). `median` is kept for the diagnostic
-        // trace only. Genuine TOTAL collapse (max 0) has no scale — return 0 and
-        // defer to the reseed arm.
-        let mut sorted = norms.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let median = if k % 2 == 1 {
-            sorted[k / 2]
-        } else {
-            0.5 * (sorted[k / 2 - 1] + sorted[k / 2])
-        };
-        let reference = norms.iter().copied().fold(0.0_f64, f64::max);
-        if !(reference > 0.0) {
-            return 0;
-        }
-        let breach_floor = crate::assignment::SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO * reference;
-        // Below this a decoder carries no usable direction to normalize; retracting
-        // `B/‖B‖` would amplify pure round-off. Machine-scaled to the dictionary.
-        let direction_floor = 1.0e-12 * reference;
-        let mut retracted = 0usize;
-        // A decoder BELOW the direction floor is collapsed but UN-RETRACTABLE (no
-        // direction to normalize) — it needs a fresh-direction reseed, not this
-        // retraction. Count it so a null wheel A/B is self-diagnosing (fired-but-
-        // didn't-help vs never-fired-because-literal-zero — see the trace below).
-        let mut unretractable_zero = 0usize;
-        for idx in 0..k {
-            if norms[idx] < breach_floor {
-                if norms[idx] > direction_floor {
-                    if retract_decoder_unit_frobenius(&mut self.atoms[idx]) {
-                        retracted += 1;
-                    }
-                } else {
-                    unretractable_zero += 1;
-                }
-            }
-        }
-        // #1939 wheel diagnostic (opt-in path only — this runs under the
-        // `cone_atom_recovery` or `quotient_scale` (#2100) breach-gated boundary
-        // retraction). Emit the RAW UNROUNDED per-atom norms, the
-        // breach/direction thresholds, and the fired / literal-zero counts, so the
-        // near-zero-vs-literal-zero question is answered inside the A/B run: a
-        // collapse at `1e-3` is retracted (`retracted>0`), a collapse at `1e-16` is
-        // an `unretractable_zero` (Design B correctly no-ops → needs a backfit
-        // reseed, not this). Under a healthy dictionary nothing breaches and this is
-        // a bit-for-bit no-op with a benign one-line trace. The printed `norms` are
-        // physical contribution scales `exp(s_k)‖B_k‖_F`, so the diagnostic keeps
-        // its meaning under the scale quotient.
-        let norms_fmt: Vec<String> = norms.iter().map(|v| format!("{v:.6e}")).collect();
-        log::warn!(
-            "[#1939 cone-atom] k={k} norms=[{}] median={median:.6e} reference={reference:.6e} \
-             breach_floor={breach_floor:.6e} direction_floor={direction_floor:.6e} \
-             retracted={retracted} unretractable_zero={unretractable_zero}",
-            norms_fmt.join(", ")
-        );
-        retracted
-    }
-
-    /// #1939 cone-atom amplitude solve — the OTHER half of the scale quotient.
-    /// After [`Self::retract_decoder_gauge_in_loop`] pins every `‖B_k‖_F = 1`, set
-    /// each atom's explicit log-amplitude `s_k` to the RECONSTRUCTION-OPTIMAL
-    /// magnitude by a small non-negative least squares over the amplitudes
-    /// `β = exp(s)`: with the frozen unit-`B` gated designs
-    /// `D_k = diag(a_{·k})·Φ_k·B_k` (the atom's reconstruction at unit amplitude),
-    /// `β` minimises the fit's OWN weighted reconstruction data-fit
-    /// `0.5·Σ_i w_i·‖W_i(target_i − Σ_k β_k D_{k,i})‖²` — the same per-row RowMetric
-    /// whitening `W_i` and #991 design-honesty weights `w_i` that
-    /// [`Self::data_fit_for_reconstruction`] / `loss_scaled` use — as a `K×K` SPD
-    /// weighted normal-equation solve. The weighting is DELEGATED to the fit's own
-    /// `whiten_residual_row`, never re-derived in raw space: a parallel raw-space
-    /// LSQ diverges from the fit's objective under a whitening / row-weighted
-    /// metric and regresses those fits (the −151 / whitened_k2 class). Under a
-    /// Euclidean, unweighted metric it is bit-for-bit the plain `‖target − Σβ_kD_k‖²`.
-    ///
-    /// This is load-bearing: the retraction alone only FOLDS `‖B‖` into `s`
-    /// (magnitude-neutral), so `s` then DRIFTS to collapse under the penalty's
-    /// residual shape gradient — the scale-collapse merely relocates from `B` to
-    /// `s`. Pinning `s` to the data optimum here is what keeps a low-signal atom's
-    /// amplitude at its true (small) value with a HEALTHY unit-norm decoder shape,
-    /// instead of co-vanishing (the K≥2 born-atom `0.7255→0.0023` decoder collapse
-    /// / the #1026 degenerate-amplitude thrash). Idempotent at a fixed point.
-    pub fn optimize_log_amplitudes_closed_form(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-    ) -> Result<(), String> {
-        let k = self.k_atoms();
-        if k == 0 {
-            return Ok(());
-        }
-        // Per-atom UNIT-amplitude contribution C_k, taken from the term's OWN
-        // `try_fitted_for_rho` reconstruction so it matches the fitted output the
-        // data-fit measures exactly (a naive `Φ_k·B_k·gate` mis-matches the gated
-        // `exp(s)·Φ·B` fitted output and sets a wrong amplitude). The fitted output
-        // is LINEAR in `exp(s_k)`
-        // (`fitted = Σ_k a_k·exp(s_k)·Φ_k·B_k`, and the gate `a_k` is amplitude-
-        // independent), so toggling atom `k` on (`s=0`) and the rest off
-        // (`exp(s)→0`) reads off `C_k`.
-        let saved: Vec<f64> = self.atoms.iter().map(|a| a.log_amplitude).collect();
-        // Monotone safeguard: the amplitude LSQ is optimal for the frozen unit-B
-        // designs, but the retraction↔amplitude↔Newton alternation is not
-        // guaranteed contractive, so the update can make the reconstruction WORSE.
-        // Bank the pre-solve data-fit and revert if the update degrades it
-        // (keep-best, exactly like the #1026 incumbent restore), so the cone-atom
-        // can never regress a fit that was recovering. CRITICAL (team-lead
-        // #1939): the banked objective is the fit's OWN weighted reconstruction
-        // data-fit `data_fit_for_reconstruction` (per-row RowMetric whitening +
-        // #991 design-honesty row weights), NOT a raw unweighted EV — a raw EV is
-        // a parallel re-derivation that diverges from what the fit minimises under
-        // a whitening / row-weighted metric and mis-fires the guard (the −151 /
-        // whitened_k2 regression class). The retraction is magnitude-neutral, so
-        // this reconstruction is the pre-retraction one. Lower data-fit is better.
-        let df_before = self
-            .try_fitted_for_rho(rho)
-            .and_then(|recon| self.data_fit_for_reconstruction(target, recon.view()))
-            .unwrap_or(f64::INFINITY);
-        const OFF: f64 = -700.0; // exp(-700) underflows to 0: contribution off.
-        let mut designs: Vec<Array2<f64>> = Vec::with_capacity(k);
-        let mut probe_err: Option<String> = None;
-        for kk in 0..k {
-            for (j, atom) in self.atoms.iter_mut().enumerate() {
-                atom.log_amplitude = if j == kk { 0.0 } else { OFF };
-            }
-            match self.try_fitted_for_rho(rho) {
-                Ok(c) => designs.push(c),
-                Err(e) => {
-                    probe_err = Some(e);
-                    break;
-                }
-            }
-        }
-        for (j, atom) in self.atoms.iter_mut().enumerate() {
-            atom.log_amplitude = saved[j];
-        }
-        if let Some(e) = probe_err {
-            return Err(format!(
-                "optimize_log_amplitudes_closed_form: per-atom probe fit failed: {e}"
-            ));
-        }
-        // Normal equations for min_β 0.5·Σ_i w_i·‖W_i(target_i − Σ_k β_k C_{k,i})‖²,
-        // β = exp(s) ≥ 0 — the WEIGHTED reconstruction VarPro profile, i.e. exactly
-        // the objective `data_fit_for_reconstruction` (hence `loss_scaled`)
-        // minimises. `W_i` is the per-row RowMetric whitening factor `U_iᵀ` and
-        // `w_i` the #991 design-honesty row weight. Rather than re-derive the
-        // weighting (the −151 raw-space mismatch class), whiten each per-atom
-        // design row and the target row through the fit's OWN `whiten_residual_row`
-        // (linear in its argument, `‖W_i r‖² = rᵀ W_i r`; identity/rank-p for a
-        // Euclidean metric, so this reduces to the plain Gram bit-for-bit when no
-        // metric/row-weight is installed) and scale by `√w_i`. The `0.5` and the
-        // constant `√w_i`/`W_i` factors are shared by Gram and RHS, so the profile
-        // minimiser is unchanged; forming them in the whitened rank space makes the
-        // Gram the true weighted `CᵀWC`.
-        let metric = self.row_metric();
-        let whitens = metric.is_some_and(|m| m.whitens_likelihood());
-        let row_loss_w = self.row_loss_weights();
-        let n = target.nrows();
-        let mut gram = Array2::<f64>::zeros((k, k));
-        let mut rhs = Array1::<f64>::zeros(k);
-        // Per-row whitened design/target rows reused across the K(K+1)/2 + K dot
-        // products (K small); rank-length under a factored metric, p under None.
-        let mut wdesign: Vec<Vec<f64>> = vec![Vec::new(); k];
-        for row in 0..n {
-            let sw = row_loss_w.map_or(1.0, |w| w[row]).sqrt();
-            let whiten_row = |r: ArrayView1<'_, f64>| -> Vec<f64> {
-                match metric {
-                    Some(m) if whitens => {
-                        let mut w = m.whiten_residual_row(row, r);
-                        for x in w.iter_mut() {
-                            *x *= sw;
-                        }
-                        w
-                    }
-                    _ => r.iter().map(|&x| x * sw).collect(),
-                }
-            };
-            let wtarget = whiten_row(target.row(row));
-            for kk in 0..k {
-                wdesign[kk] = whiten_row(designs[kk].row(row));
-            }
-            for j in 0..k {
-                rhs[j] += wtarget
-                    .iter()
-                    .zip(wdesign[j].iter())
-                    .map(|(t, d)| t * d)
-                    .sum::<f64>();
-                for kk in j..k {
-                    let g: f64 = wdesign[j]
-                        .iter()
-                        .zip(wdesign[kk].iter())
-                        .map(|(x, y)| x * y)
-                        .sum();
-                    gram[[j, kk]] += g;
-                    if kk != j {
-                        gram[[kk, j]] += g;
-                    }
-                }
-            }
-        }
-        // Numerical PD epsilon (NOT a penalty): keep the Cholesky well-posed when
-        // two atoms' contributions are near-collinear (co-collapse). The
-        // non-negativity clamp below — not this epsilon — is what bounds the
-        // amplitude on a rank-deficient design, so the epsilon can stay at
-        // machine scale and never biases a well-identified amplitude.
-        let scale = (0..k)
-            .map(|j| gram[[j, j]])
-            .fold(0.0_f64, f64::max)
-            .max(1e-300);
-        for j in 0..k {
-            gram[[j, j]] += 1e-12 * scale;
-        }
-        let raw = gram
-            .cholesky(Side::Lower)
-            .map_err(|e| format!("optimize_log_amplitudes_closed_form: cholesky failed: {e}"))?
-            .solvevec(&rhs);
-        // Project to the non-negative orthant (guardrail: born atom takes only its
-        // residual-appropriate share; a negative optimum means the atom is off).
-        // For an already-non-negative optimum this is exact; where it clamps, the
-        // remaining atoms' share is re-absorbed on the next accepted-iterate solve.
-        const AMP_FLOOR: f64 = 1.0e-12;
-        for atom_idx in 0..k {
-            let b = raw[atom_idx];
-            self.atoms[atom_idx].log_amplitude = if b.is_finite() && b > AMP_FLOOR {
-                b.ln()
-            } else {
-                AMP_FLOOR.ln()
-            };
-        }
-        let df_after = self
-            .try_fitted_for_rho(rho)
-            .and_then(|recon| self.data_fit_for_reconstruction(target, recon.view()))
-            .unwrap_or(f64::INFINITY);
-        // Keep-best on the fit's own weighted data-fit (lower = better). Tolerance
-        // is relative to the incumbent so a benign round-off wobble is accepted but
-        // a genuine degradation reverts. `df_before` finite is guaranteed unless the
-        // entry reconstruction itself failed, in which case any finite `df_after`
-        // is an improvement over the +inf sentinel and is kept.
-        let tol = 1.0e-9 * df_before.abs().max(1.0);
-        if !(df_after <= df_before + tol) {
-            for (j, atom) in self.atoms.iter_mut().enumerate() {
-                atom.log_amplitude = saved[j];
-            }
-        }
-        Ok(())
-    }
-}
-
 // ===========================================================================
 // F1 — amplitude-concentration certificate (the "intensity is presence vs a
 // hidden radial coordinate" law).
 //
-// The scale/intensity/existence quotient above splits an atom's magnitude into
-// the unit-Frobenius decoder shape, the explicit log-amplitude `s_k`, and the
-// gate. What it does NOT certify is the SHAPE of an atom's realized amplitude
-// distribution ACROSS the samples it fires on. Two regimes are observationally
+// This certifies the shape of an atom's realized assignment-amplitude
+// distribution across the samples it fires on. Two regimes are observationally
 // distinct and carry opposite structural verdicts:
 //
 //   * **Spike-at-saturation** — the realized amplitude piles at the two ends of
@@ -991,8 +313,8 @@ impl AmplitudeConcentrationCertificate {
 }
 
 /// Certify one atom's realized amplitude-concentration law from the amplitudes
-/// `a_n ≥ 0` it fires with across its samples (the gated intensity per row, e.g.
-/// `exp(s_k)` times the per-row gate). The verdict is read from the fitted Beta
+/// `a_n ≥ 0` it fires with across its samples (the posterior gate per row). The
+/// verdict is read from the fitted Beta
 /// shape of the saturation-normalized amplitudes: U-shaped (`α < 1 ∧ β < 1`) ⟺
 /// [`AmplitudeConcentration::SpikeAtSaturation`], otherwise
 /// [`AmplitudeConcentration::Continuous`]; a degenerate / no-spread sample is
@@ -1024,7 +346,10 @@ pub fn amplitude_concentration_certificate(
     // Saturation-normalize into [0, 1]. A near-constant amplitude (no spread)
     // carries neither bimodality nor a radial axis: it is a pure fixed-intensity
     // presence coordinate, reported Indeterminate so no radial axis is promoted.
-    let raw: Vec<f64> = amplitudes.iter().map(|&a| (a / amax).clamp(0.0, 1.0)).collect();
+    let raw: Vec<f64> = amplitudes
+        .iter()
+        .map(|&a| (a / amax).clamp(0.0, 1.0))
+        .collect();
     let mean_r: f64 = raw.iter().sum::<f64>() / n as f64;
     let var_r: f64 = raw.iter().map(|r| (r - mean_r).powi(2)).sum::<f64>() / n as f64;
     // Spread floor: the sample must vary by more than floating-point noise
@@ -1036,10 +361,7 @@ pub fn amplitude_concentration_certificate(
     // the standard `(r(n−1) + 1/2)/n` compression so `ln r` / `ln(1−r)` stay
     // finite. This is a recognized boundary rule, not a tuning knob.
     let nf = n as f64;
-    let r: Vec<f64> = raw
-        .iter()
-        .map(|&x| (x * (nf - 1.0) + 0.5) / nf)
-        .collect();
+    let r: Vec<f64> = raw.iter().map(|&x| (x * (nf - 1.0) + 0.5) / nf).collect();
 
     let (alpha, beta, loglik) = match fit_beta_mle(&r) {
         Some(v) => v,
@@ -1123,22 +445,36 @@ fn fit_beta_mle(r: &[f64]) -> Option<(f64, f64, f64)> {
         let d_b = (h_aa * g_b - h_ab * g_a) / det;
         // Step-halving to keep `(α, β)` strictly positive and non-decreasing in
         // loglik — a standard safeguard, no wall-clock budget.
-        let mut step = 1.0_f64;
         let base = beta_loglik_avg(alpha, beta, s_ln, s_ln1m);
-        let mut moved = false;
-        for _ in 0..40 {
-            let na = alpha + step * d_a;
-            let nb = beta + step * d_b;
-            if na > 0.0 && nb > 0.0 && beta_loglik_avg(na, nb, s_ln, s_ln1m) >= base {
+        let accepted = match backtracking_line_search::<_, std::convert::Infallible>(
+            BacktrackConfig {
+                initial_step: 1.0,
+                contraction: 0.5,
+                max_steps: 40,
+            },
+            |step| {
+                let na = alpha + step * d_a;
+                let nb = beta + step * d_b;
+                // Feasibility (strict positivity) gates the trial before the
+                // ascent test — mirrors the short-circuit `&&` of the original.
+                if na > 0.0 && nb > 0.0 {
+                    Ok(Some((beta_loglik_avg(na, nb, s_ln, s_ln1m), (na, nb))))
+                } else {
+                    Ok(None)
+                }
+            },
+            |_step, f| f >= base,
+        ) {
+            Ok(v) => v,
+            Err(never) => match never {},
+        };
+        match accepted {
+            Some(step) => {
+                let (na, nb) = step.payload;
                 alpha = na;
                 beta = nb;
-                moved = true;
-                break;
             }
-            step *= 0.5;
-        }
-        if !moved {
-            break;
+            None => break,
         }
     }
     let loglik = nf * beta_loglik_avg(alpha, beta, s_ln, s_ln1m);
@@ -1167,8 +503,7 @@ fn digamma(mut x: f64) -> f64 {
     }
     let inv = 1.0 / x;
     let inv2 = inv * inv;
-    result + x.ln() - 0.5 * inv
-        - inv2 * (1.0 / 12.0 - inv2 * (1.0 / 120.0 - inv2 / 252.0))
+    result + x.ln() - 0.5 * inv - inv2 * (1.0 / 12.0 - inv2 * (1.0 / 120.0 - inv2 / 252.0))
 }
 
 /// Trigamma `ψ₁(x) = d²/dx² ln Γ(x)` for `x > 0`: recurrence up to `x ≥ 6` then
@@ -1182,8 +517,7 @@ fn trigamma(mut x: f64) -> f64 {
     }
     let inv = 1.0 / x;
     let inv2 = inv * inv;
-    result
-        + inv * (1.0 + inv * (0.5 + inv * (1.0 / 6.0 - inv2 * (1.0 / 30.0 - inv2 / 42.0))))
+    result + inv * (1.0 + inv * (0.5 + inv * (1.0 / 6.0 - inv2 * (1.0 / 30.0 - inv2 / 42.0))))
 }
 
 /// `ln Γ(x)` for `x > 0` via the Lanczos approximation (g = 7). Hand-derived
@@ -1212,7 +546,7 @@ fn ln_gamma(x: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{Array3, array};
+    use ndarray::{Array1, Array3, array};
 
     // ---- F1: amplitude-concentration certificate ----------------------------
 
@@ -1367,242 +701,6 @@ mod tests {
             None
         }
     }
-
-    #[test]
-    fn unit_frobenius_tangent_projection_kills_radial_component() {
-        // B unit-Frobenius; the radial gradient c·B must project to ~0, and a
-        // pure tangent gradient must pass through unchanged.
-        let b = array![[0.6_f64, 0.0], [0.0, 0.8]]; // ‖B‖_F = 1
-        let radial = b.mapv(|v| 2.5 * v);
-        let proj = unit_frobenius_tangent_projection(b.view(), radial.view());
-        let worst = proj.iter().fold(0.0_f64, |a, &v| a.max(v.abs()));
-        assert!(
-            worst < 1e-12,
-            "radial gradient must project to 0, got {worst}"
-        );
-
-        let tangent = array![[0.0_f64, 1.0], [-1.0, 0.0]]; // ⟨tangent, B⟩ = 0
-        let proj_t = unit_frobenius_tangent_projection(b.view(), tangent.view());
-        let drift = proj_t
-            .iter()
-            .zip(tangent.iter())
-            .map(|(a, c)| (a - c).abs())
-            .fold(0.0_f64, f64::max);
-        assert!(
-            drift < 1e-12,
-            "tangent gradient must pass through, drift {drift}"
-        );
-    }
-
-    #[test]
-    fn hoyer_energy_gradient_and_hessian_match_fd() {
-        // Non-uniform amplitudes so every u_k is distinct and the derivatives are
-        // genuinely exercised.
-        let s = array![0.3_f64, -0.7, 1.1, 0.05];
-        let lambda = 1.7_f64;
-        let base = log_amplitude_hoyer_energy(s.view(), lambda);
-        let h = 1e-6_f64;
-        let k = s.len();
-        // Gradient vs central difference of the value.
-        for i in 0..k {
-            let mut sp = s.clone();
-            sp[i] += h;
-            let mut sm = s.clone();
-            sm[i] -= h;
-            let vp = log_amplitude_hoyer_energy(sp.view(), lambda).value;
-            let vm = log_amplitude_hoyer_energy(sm.view(), lambda).value;
-            let fd = (vp - vm) / (2.0 * h);
-            assert!(
-                (base.grad[i] - fd).abs() <= 1e-6 * (1.0 + fd.abs()),
-                "grad[{i}] {} != FD {fd}",
-                base.grad[i]
-            );
-        }
-        // Hessian vs central difference of the gradient.
-        for i in 0..k {
-            let mut sp = s.clone();
-            sp[i] += h;
-            let mut sm = s.clone();
-            sm[i] -= h;
-            let gp = log_amplitude_hoyer_energy(sp.view(), lambda).grad;
-            let gm = log_amplitude_hoyer_energy(sm.view(), lambda).grad;
-            for j in 0..k {
-                let fd = (gp[j] - gm[j]) / (2.0 * h);
-                assert!(
-                    (base.hess[[j, i]] - fd).abs() <= 1e-5 * (1.0 + fd.abs()),
-                    "hess[{j},{i}] {} != FD {fd}",
-                    base.hess[[j, i]]
-                );
-            }
-        }
-        // Scale invariance: a common shift of s leaves E unchanged (SCALE gauge).
-        let shifted = s.mapv(|v| v + 3.4);
-        let e_shift = log_amplitude_hoyer_energy(shifted.view(), lambda).value;
-        assert!(
-            (e_shift - base.value).abs() <= 1e-9 * (1.0 + base.value.abs()),
-            "Hoyer energy must be invariant to a common amplitude shift"
-        );
-    }
-
-    #[test]
-    fn hoyer_energy_prefers_sparse_over_dense() {
-        // One dominant atom (sparse) must have LOWER energy than all-equal (dense).
-        let sparse = array![2.0_f64, -3.0, -3.0, -3.0];
-        let dense = array![0.0_f64, 0.0, 0.0, 0.0];
-        let es = log_amplitude_hoyer_energy(sparse.view(), 1.0).value;
-        let ed = log_amplitude_hoyer_energy(dense.view(), 1.0).value;
-        assert!(es < ed, "sparse energy {es} must be below dense {ed}");
-        // Dense K-vector realizes the ratio ceiling √K.
-        assert!(
-            (ed - (4.0_f64).sqrt()).abs() < 1e-9,
-            "dense ratio must be √K"
-        );
-    }
-
-    #[test]
-    fn ard_energy_gradient_hessian_and_default_mode() {
-        let s = array![0.3_f64, -0.7, 1.1, 0.05];
-        let alpha = 1.9_f64;
-        let base = log_amplitude_ard_energy(s.view(), alpha);
-        let expect_v = 0.5 * alpha * s.iter().map(|v| v * v).sum::<f64>();
-        assert!((base.value - expect_v).abs() <= 1e-12 * (1.0 + expect_v.abs()));
-        let h = 1e-6_f64;
-        for i in 0..s.len() {
-            let mut sp = s.clone();
-            sp[i] += h;
-            let mut sm = s.clone();
-            sm[i] -= h;
-            let fd = (log_amplitude_ard_energy(sp.view(), alpha).value
-                - log_amplitude_ard_energy(sm.view(), alpha).value)
-                / (2.0 * h);
-            assert!(
-                (base.grad[i] - fd).abs() <= 1e-6 * (1.0 + fd.abs()),
-                "ARD grad[{i}] {} != FD {fd}",
-                base.grad[i]
-            );
-            assert!((base.hess_diag[i] - alpha).abs() <= 1e-12, "ARD hess[{i}]");
-        }
-        // At the zero-amplitude default (s = 0, the prior mode) value AND gradient
-        // vanish → a non-cone fit is bit-for-bit unchanged.
-        let zero = Array1::<f64>::zeros(4);
-        let at_mode = log_amplitude_ard_energy(zero.view(), alpha);
-        assert_eq!(at_mode.value, 0.0);
-        assert!(at_mode.grad.iter().all(|&g| g == 0.0));
-        // Vacuous for a non-positive precision.
-        let off = log_amplitude_ard_energy(s.view(), 0.0);
-        assert_eq!(off.value, 0.0);
-        assert!(off.grad.iter().all(|&g| g == 0.0));
-    }
-
-    #[test]
-    fn scad_energy_gradient_hessian_three_regions_and_default_off() {
-        // β = exp(s) placed strictly inside each SCAD region (λ=0.5, γλ=1.85):
-        // 0.3 < λ (shrink), 0.8 & 1.0 ∈ (λ,γλ] (taper), 3.0 > γλ (flat).
-        let s = array![
-            (0.3_f64).ln(),
-            (0.8_f64).ln(),
-            (1.0_f64).ln(),
-            (3.0_f64).ln()
-        ];
-        let (lambda, gamma) = (0.5_f64, 3.7_f64);
-        let base = log_amplitude_scad_energy(s.view(), lambda, gamma);
-        let h = 1e-6_f64;
-        for i in 0..s.len() {
-            let mut sp = s.clone();
-            sp[i] += h;
-            let mut sm = s.clone();
-            sm[i] -= h;
-            let fd_g = (log_amplitude_scad_energy(sp.view(), lambda, gamma).value
-                - log_amplitude_scad_energy(sm.view(), lambda, gamma).value)
-                / (2.0 * h);
-            assert!(
-                (base.grad[i] - fd_g).abs() <= 1e-5 * (1.0 + fd_g.abs()),
-                "SCAD grad[{i}] {} != FD {fd_g}",
-                base.grad[i]
-            );
-            let gp = log_amplitude_scad_energy(sp.view(), lambda, gamma).grad[i];
-            let gm = log_amplitude_scad_energy(sm.view(), lambda, gamma).grad[i];
-            let fd_h = (gp - gm) / (2.0 * h);
-            assert!(
-                (base.hess_diag[i] - fd_h).abs() <= 1e-4 * (1.0 + fd_h.abs()),
-                "SCAD hess[{i}] {} != FD {fd_h}",
-                base.hess_diag[i]
-            );
-        }
-        // Nonconvexity: the upper taper (β=1.0 > γλ/2) has NEGATIVE curvature.
-        assert!(
-            base.hess_diag[2] < 0.0,
-            "taper curvature must be negative (SCAD is nonconvex)"
-        );
-        // Flat region (β=3.0 > γλ) contributes zero gradient — the large-signal
-        // taper-to-zero that distinguishes SCAD from L¹.
-        assert_eq!(base.grad[3], 0.0);
-        // DEFAULT-OFF: λ ≤ 0 ⇒ identically zero (value, grad, curvature) ⇒
-        // bit-for-bit unchanged.
-        let off = log_amplitude_scad_energy(s.view(), 0.0, gamma);
-        assert_eq!(off.value, 0.0);
-        assert!(off.grad.iter().all(|&g| g == 0.0));
-        assert!(off.hess_diag.iter().all(|&hd| hd == 0.0));
-    }
-
-    #[test]
-    fn retract_decoder_unit_frobenius_is_image_frozen() {
-        // Straight-line atom γ(t) = [1,t]·B with a non-unit decoder.
-        let coords = array![[0.0_f64], [0.25], [0.5], [0.75], [1.0]];
-        let ev = AffineLineEvaluator;
-        let (phi, jet) = ev.evaluate(coords.view()).unwrap();
-        let decoder = array![[2.0_f64, -1.0], [3.0, 0.5]]; // ‖B‖_F ≈ 3.775
-        let atom = SaeManifoldAtom::new(
-            "line",
-            super::super::SaeAtomBasisKind::Linear,
-            1,
-            phi,
-            jet,
-            decoder.clone(),
-            Array2::<f64>::eye(2),
-        )
-        .unwrap()
-        .with_basis_evaluator(std::sync::Arc::new(AffineLineEvaluator));
-        // Image before the retraction.
-        let before = sample_decoded_curve(
-            &ev,
-            atom.decoder_coefficients.view(),
-            atom.log_amplitude,
-            coords.column(0),
-        )
-        .unwrap();
-        let mut atom = atom;
-        let applied = retract_decoder_unit_frobenius(&mut atom);
-        assert!(applied, "a non-unit decoder must be retracted");
-        let norm = decoder_frobenius_norm(atom.decoder_coefficients.view());
-        assert!(
-            (norm - 1.0).abs() < 1e-12,
-            "‖B‖_F must be pinned to 1, got {norm}"
-        );
-        // Image after — exp(s)·Φ·B must be byte-close to the original.
-        let after = sample_decoded_curve(
-            &ev,
-            atom.decoder_coefficients.view(),
-            atom.log_amplitude,
-            coords.column(0),
-        )
-        .unwrap();
-        let drift = before
-            .iter()
-            .zip(after.iter())
-            .map(|(a, b)| (a - b).abs())
-            .fold(0.0_f64, f64::max);
-        assert!(
-            drift < 1e-10,
-            "retraction must be image-frozen, drift {drift}"
-        );
-        // Idempotent: a second retraction is a no-op.
-        assert!(
-            !retract_decoder_unit_frobenius(&mut atom),
-            "retraction must be idempotent"
-        );
-    }
-
     #[test]
     fn affine_transition_detects_same_line_with_reflection_and_offset() {
         // Curve A: straight segment through the origin, arc-length t ∈ [0, 1].
@@ -1612,14 +710,14 @@ mod tests {
         // Decoder makes γ(t) = [t·d] with unit-speed d (‖d‖ = 1) so t is arc length.
         let d = array![[0.0_f64, 0.0], [0.6, 0.8]]; // γ(t) = (0,0) + t·(0.6,0.8), speed 1
         let ca = Array1::linspace(0.0, 1.0, 11);
-        let pts_a = sample_decoded_curve(&ev, d.view(), 0.0, ca.view()).unwrap();
+        let pts_a = sample_decoded_curve(&ev, d.view(), ca.view()).unwrap();
         // B samples the same physical points but parameterized as t_b with
         // t_a = -t_b + 1  ⇒  physical point = (1 - t_b)·d. Matched grid so every
         // B point coincides with an A grid point (nearest-match is exact and the
         // reflected transition is recovered to machine precision).
         let cb = Array1::linspace(0.0, 1.0, 11);
         let db = array![[0.6_f64, 0.8], [-0.6, -0.8]]; // γ_b(t_b) = (0.6,0.8) + t_b·(-0.6,-0.8)
-        let pts_b = sample_decoded_curve(&ev, db.view(), 0.0, cb.view()).unwrap();
+        let pts_b = sample_decoded_curve(&ev, db.view(), cb.view()).unwrap();
         let tr = affine_chart_transition(pts_a.view(), ca.view(), pts_b.view(), cb.view(), None)
             .unwrap();
         assert!(
@@ -1655,8 +753,8 @@ mod tests {
         let db = array![[0.0_f64, 5.0], [1.0, 0.0]]; // B parallel, y = 5 away
         let ca = Array1::linspace(0.0, 1.0, 11);
         let cb = Array1::linspace(0.0, 1.0, 11);
-        let pts_a = sample_decoded_curve(&ev, da.view(), 0.0, ca.view()).unwrap();
-        let pts_b = sample_decoded_curve(&ev, db.view(), 0.0, cb.view()).unwrap();
+        let pts_a = sample_decoded_curve(&ev, da.view(), ca.view()).unwrap();
+        let pts_b = sample_decoded_curve(&ev, db.view(), cb.view()).unwrap();
         let tr = affine_chart_transition(pts_a.view(), ca.view(), pts_b.view(), cb.view(), None)
             .unwrap();
         assert!(

@@ -29,8 +29,8 @@ class ManufacturerCenterResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListProductCertificationsResponseHttpRequest: ...
                 def list_next(
@@ -42,8 +42,8 @@ class ManufacturerCenterResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ProductCertification = ...,
-                    updateMask: str = ...,
+                    body: ProductCertification,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProductCertificationHttpRequest: ...
 
@@ -66,7 +66,8 @@ class ManufacturerCenterResource(googleapiclient.discovery.Resource):
                     typing_extensions.Literal[
                         "UNKNOWN", "ATTRIBUTES", "ISSUES", "DESTINATION_STATUSES"
                     ]
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ProductHttpRequest: ...
             def list(
@@ -80,9 +81,10 @@ class ManufacturerCenterResource(googleapiclient.discovery.Resource):
                     typing_extensions.Literal[
                         "UNKNOWN", "ATTRIBUTES", "ISSUES", "DESTINATION_STATUSES"
                     ]
-                ] = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListProductsResponseHttpRequest: ...
             def list_next(
@@ -91,12 +93,7 @@ class ManufacturerCenterResource(googleapiclient.discovery.Resource):
                 previous_response: ListProductsResponse,
             ) -> ListProductsResponseHttpRequest | None: ...
             def update(
-                self,
-                *,
-                parent: str,
-                name: str,
-                body: Attributes = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, name: str, body: Attributes, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
 
         def languages(self) -> LanguagesResource: ...

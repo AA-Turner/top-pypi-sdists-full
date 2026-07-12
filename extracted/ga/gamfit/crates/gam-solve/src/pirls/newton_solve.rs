@@ -4,6 +4,7 @@
 //! active-set KKT machinery, and the soft-acceptance progress test.
 
 use super::*;
+use opt::{RidgeSchedule, escalate_ridge};
 
 pub(crate) const DENSE_OUTER_MAX_P: usize = 1024;
 
@@ -498,14 +499,6 @@ pub(crate) fn ensure_positive_definitewithridge(
     })
 }
 
-pub(super) fn solve_newton_direction_dense(
-    hessian: &Array2<f64>,
-    gradient: &Array1<f64>,
-    direction_out: &mut Array1<f64>,
-) -> Result<(), EstimationError> {
-    solve_newton_direction_dense_with_factor(hessian, gradient, direction_out).map(|_| ())
-}
-
 pub(super) fn solve_direction_with_dense_factor(
     factor: &FaerSymmetricFactor,
     gradient: &Array1<f64>,
@@ -520,14 +513,11 @@ pub(super) fn solve_direction_with_dense_factor(
     direction_out.mapv_inplace(|v| -v);
 }
 
-/// Fixes the audit-revised geodesic-acceleration note: expose the dense
-/// factor so the optional second-order correction can reuse it instead of
-/// refactorizing the same Hessian.
-pub(super) fn solve_newton_direction_dense_with_factor(
+pub(super) fn solve_newton_direction_dense(
     hessian: &Array2<f64>,
     gradient: &Array1<f64>,
     direction_out: &mut Array1<f64>,
-) -> Result<Option<FaerSymmetricFactor>, EstimationError> {
+) -> Result<(), EstimationError> {
     let dense_solve_start = std::time::Instant::now();
     let p = hessian.nrows();
     if direction_out.len() != gradient.len() {
@@ -555,7 +545,7 @@ pub(super) fn solve_newton_direction_dense_with_factor(
                 (p as u64).saturating_mul((p as u64).saturating_mul(p as u64)) / 3,
                 dense_solve_start.elapsed().as_secs_f64(),
             );
-            return Ok(None);
+            return Ok(());
         }
     }
 
@@ -601,7 +591,7 @@ pub(super) fn solve_newton_direction_dense_with_factor(
                 cpu_route,
                 rel,
             );
-            return Ok(Some(factor));
+            return Ok(());
         }
     }
     if array_is_finite(direction_out) {
@@ -612,7 +602,7 @@ pub(super) fn solve_newton_direction_dense_with_factor(
             dense_solve_start.elapsed().as_secs_f64(),
             cpu_route,
         );
-        return Ok(Some(factor));
+        return Ok(());
     }
     Err(EstimationError::LinearSystemSolveFailed(
         FaerLinalgError::FactorizationFailed {
@@ -1298,22 +1288,23 @@ pub(crate) fn solve_subsystem_direction(
         .map(|i| h_sub[[i, i]].abs())
         .fold(0.0_f64, f64::max)
         .max(1.0);
-    let mut tau = 1e-8 * diag_scale;
     let mut h_reg = h_sub.to_owned();
-    for _ in 0..12 {
+    if escalate_ridge(RidgeSchedule::geometric(1e-8 * diag_scale, 12), |tau| {
         for i in 0..n {
             h_reg[[i, i]] = h_sub[[i, i]] + tau;
         }
-        if let Ok(factor) = StableSolver::new("pirls bounded subsystem ridge").factorize(&h_reg) {
-            out.assign(&g_sub);
-            let mut rhs = array1_to_col_matmut(out);
-            factor.solve_in_place(rhs.as_mut());
-            out.mapv_inplace(|v| -v);
-            if array_is_finite(out) {
-                return Ok(());
-            }
-        }
-        tau *= 10.0;
+        let factor = StableSolver::new("pirls bounded subsystem ridge")
+            .factorize(&h_reg)
+            .ok()?;
+        out.assign(&g_sub);
+        let mut rhs = array1_to_col_matmut(out);
+        factor.solve_in_place(rhs.as_mut());
+        out.mapv_inplace(|v| -v);
+        array_is_finite(out).then_some(())
+    })
+    .is_ok()
+    {
+        return Ok(());
     }
     // All ridge attempts failed — fall back to steepest descent on the
     // free subspace: d = -g / ||g||, scaled to a conservative step.

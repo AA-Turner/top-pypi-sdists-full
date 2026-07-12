@@ -27,6 +27,7 @@ class InputMessageContent(Object):
     Pyrogram currently supports the following types:
 
     - :obj:`~pyrogram.types.InputTextMessageContent`
+    - :obj:`~pyrogram.types.InputRichMessageContent`
     - :obj:`~pyrogram.types.InputLocationMessageContent`
     - :obj:`~pyrogram.types.InputVenueMessageContent`
     - :obj:`~pyrogram.types.InputContactMessageContent`

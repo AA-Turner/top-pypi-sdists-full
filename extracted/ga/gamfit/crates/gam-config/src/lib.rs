@@ -5,16 +5,22 @@ use gam_models::fit_orchestration::{CtnStage1Recipe, FitConfig};
 use gam_models::survival::location_scale::residual_distribution_inverse_link;
 use gam_models::survival::lognormal_kernel::{FrailtySpec, HazardLoading};
 use gam_models::survival::parse_survival_distribution;
-use gam_models::survival::{SurvivalLikelihoodMode, parse_survival_likelihood_mode};
+use gam_models::survival::parse_survival_likelihood_mode;
 use gam_models::transformation_normal::TransformationNormalConfig;
 use gam_problem::types::{
     InverseLink, LinkComponent, LinkFunction, MixtureLinkSpec, SasLinkSpec, StandardLink,
 };
 use gam_solve::mixture_link::{state_from_beta_logisticspec, state_from_sasspec, state_fromspec};
 use ndarray::Array1;
-use serde::Deserialize;
-use serde_json::Value as JsonValue;
-use std::collections::BTreeMap;
+
+mod fit_request_document;
+
+pub use fit_request_document::{
+    AnalyticPenaltiesDocument, CtnStage1ConfigDocument, CtnStage1Document, FIT_REQUEST_SCHEMA,
+    FIT_REQUEST_SCHEMA_VERSION, FitRequestConfigDocument, FitRequestDocument,
+    LatentCoordinateDocument, LatentCoordinatesDocument, PrecisionHyperpriorDocument,
+    SmoothDescriptorsDocument,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CliFrailtyKind {
@@ -28,75 +34,7 @@ pub enum CliHazardLoading {
     LoadedVsUnloaded,
 }
 
-#[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct JsonFitConfig {
-    family: Option<String>,
-    offset: Option<String>,
-    weights: Option<String>,
-    ridge_lambda: Option<f64>,
-    transformation_normal: Option<bool>,
-    survival_likelihood: Option<String>,
-    baseline_target: Option<String>,
-    baseline_scale: Option<f64>,
-    baseline_shape: Option<f64>,
-    baseline_rate: Option<f64>,
-    baseline_makeham: Option<f64>,
-    z_column: Option<String>,
-    logslope_formula: Option<String>,
-    ctn_stage1: Option<JsonCtnStage1>,
-    link: Option<String>,
-    flexible_link: Option<bool>,
-    scale_dimensions: Option<bool>,
-    adaptive_regularization: Option<bool>,
-    noise_formula: Option<String>,
-    noise_offset: Option<String>,
-    firth: Option<bool>,
-    outer_max_iter: Option<usize>,
-    gpu: Option<String>,
-    group_metadata: Option<GroupMetadata>,
-    groups: Option<JsonValue>,
-    precision_hyperpriors: Option<JsonValue>,
-    penalty_block_gamma_priors: Option<JsonValue>,
-    latents: Option<JsonValue>,
-    penalties: Option<JsonValue>,
-    smooths: Option<JsonValue>,
-    topology_auto_selector: Option<JsonValue>,
-    frailty_kind: Option<String>,
-    frailty_sd: Option<f64>,
-    hazard_loading: Option<String>,
-    training_table_kind: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct JsonCtnStage1 {
-    response_column: String,
-    covariate_formula_rhs: String,
-    #[serde(default)]
-    config: Option<JsonCtnStage1Config>,
-    #[serde(default)]
-    weight_column: Option<String>,
-    #[serde(default)]
-    offset_column: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct JsonCtnStage1Config {
-    #[serde(default)]
-    response_degree: Option<usize>,
-    #[serde(default)]
-    response_num_internal_knots: Option<usize>,
-    #[serde(default)]
-    response_penalty_order: Option<usize>,
-    #[serde(default)]
-    response_extra_penalty_orders: Option<Vec<usize>>,
-    #[serde(default)]
-    double_penalty: Option<bool>,
-}
-
-impl JsonCtnStage1 {
+impl CtnStage1Document {
     fn into_recipe(self) -> Result<CtnStage1Recipe, String> {
         let mut config = TransformationNormalConfig::default();
         if let Some(overrides) = self.config {
@@ -116,6 +54,20 @@ impl JsonCtnStage1 {
                 config.double_penalty = value;
             }
         }
+        if config.response_degree == 0 {
+            return Err("ctn_stage1.config.response_degree must be >= 1".to_string());
+        }
+        if config.response_num_internal_knots < 2 {
+            return Err("ctn_stage1.config.response_num_internal_knots must be >= 2".to_string());
+        }
+        if config.response_penalty_order == 0
+            || config
+                .response_extra_penalty_orders
+                .iter()
+                .any(|order| *order == 0)
+        {
+            return Err("ctn_stage1 response penalty orders must be >= 1".to_string());
+        }
         CtnStage1Recipe::new(
             &self.response_column,
             &self.covariate_formula_rhs,
@@ -126,53 +78,10 @@ impl JsonCtnStage1 {
     }
 }
 
-pub struct ResolvedFitConfig {
+#[derive(Clone, Debug)]
+pub struct ResolvedFitRequest {
+    pub formula: String,
     pub fit_config: FitConfig,
-    pub training_table_kind: Option<String>,
-}
-
-pub struct CliFitConfigInput {
-    pub family: Option<String>,
-    /// Expectile asymmetry `τ ∈ (0, 1)` for `--family expectile`. The CLI family
-    /// flag is a fixed value-enum that cannot carry the inline `expectile(τ)`
-    /// asymmetry the string form accepts, so the CLI pins `τ` through this
-    /// separate `--expectile-tau` field; it rides into `FitConfig::expectile_tau`
-    /// and is read by the shared expectile dispatch seam (#1777).
-    pub expectile_tau: Option<f64>,
-    pub negative_binomial_theta: Option<f64>,
-    pub link: Option<String>,
-    pub flexible_link: bool,
-    pub offset_column: Option<String>,
-    pub weight_column: Option<String>,
-    pub noise_offset_column: Option<String>,
-    pub baseline_target: String,
-    pub baseline_scale: Option<f64>,
-    pub baseline_shape: Option<f64>,
-    pub baseline_rate: Option<f64>,
-    pub baseline_makeham: Option<f64>,
-    pub time_basis: String,
-    pub time_degree: usize,
-    pub time_num_internal_knots: usize,
-    pub time_smooth_lambda: f64,
-    pub survival_likelihood: String,
-    pub survival_distribution: String,
-    pub threshold_time_k: Option<usize>,
-    pub threshold_time_degree: usize,
-    pub sigma_time_k: Option<usize>,
-    pub sigma_time_degree: usize,
-    pub noise_formula: Option<String>,
-    pub logslope_formula: Option<String>,
-    pub z_column: Option<String>,
-    pub scale_dimensions: bool,
-    pub adaptive_regularization: Option<bool>,
-    pub ridge_lambda: f64,
-    pub transformation_normal: bool,
-    pub firth: bool,
-    pub outer_max_iter: Option<usize>,
-    pub gpu: Option<String>,
-    pub frailty_kind: Option<CliFrailtyKind>,
-    pub frailty_sd: Option<f64>,
-    pub hazard_loading: Option<CliHazardLoading>,
 }
 
 pub struct SurvivalInverseLinkInput<'a> {
@@ -183,38 +92,81 @@ pub struct SurvivalInverseLinkInput<'a> {
     pub survival_distribution: &'a str,
 }
 
-pub fn parse_fit_config_json(config_json: Option<&str>) -> Result<ResolvedFitConfig, String> {
-    let json_config = match config_json {
-        Some(raw) if !raw.trim().is_empty() => serde_json::from_str::<JsonFitConfig>(raw)
-            .map_err(|err| format!("invalid fit config json: {err}"))?,
-        _ => JsonFitConfig::default(),
-    };
-    resolve_json_fit_config(json_config)
+pub fn parse_fit_request_json(request_json: &str) -> Result<ResolvedFitRequest, String> {
+    resolve_fit_request_document(FitRequestDocument::from_json(request_json)?)
 }
 
-fn resolve_json_fit_config(json_config: JsonFitConfig) -> Result<ResolvedFitConfig, String> {
-    let training_table_kind = json_config.training_table_kind;
+/// Validate a fit request through the production resolver and serialize it in
+/// the one canonical byte representation used by every frontend.
+pub fn canonicalize_fit_request_json(request_json: &str) -> Result<String, String> {
+    let request = FitRequestDocument::from_json(request_json)?;
+    resolve_fit_request_document(request.clone())?;
+    request.to_canonical_json()
+}
+
+pub fn resolve_fit_request_document(
+    request: FitRequestDocument,
+) -> Result<ResolvedFitRequest, String> {
+    let formula = request.formula;
+    let fit_config = resolve_fit_request_config(request.config)?;
+    Ok(ResolvedFitRequest {
+        formula,
+        fit_config,
+    })
+}
+
+/// Parse the canonical config object used by non-formula helper APIs.
+/// Formula fit entry points must use [`FitRequestDocument`] instead.
+pub fn parse_fit_config_json(config_json: Option<&str>) -> Result<FitConfig, String> {
+    let config = match config_json {
+        Some(raw) if !raw.trim().is_empty() => {
+            serde_json::from_str::<FitRequestConfigDocument>(raw)
+                .map_err(|error| format!("invalid fit config object: {error}"))?
+        }
+        _ => FitRequestConfigDocument::default(),
+    };
+    resolve_fit_request_config(config)
+}
+
+pub fn resolve_fit_request_config(
+    json_config: FitRequestConfigDocument,
+) -> Result<FitConfig, String> {
     let mut fit_config = FitConfig::default();
-    fit_config.group_metadata =
-        parse_group_metadata(json_config.group_metadata, json_config.groups)?;
-    fit_config.penalty_block_gamma_priors = parse_precision_hyperpriors(
-        json_config.precision_hyperpriors,
-        json_config.penalty_block_gamma_priors,
-    )?;
-    let analytic_penalties = json_config.penalties;
+    fit_config.group_metadata = json_config.group_metadata.and_then(nonempty_group_metadata);
+    if let Some(training_table_kind) = json_config.training_table_kind {
+        fit_config.training_table_kind = training_table_kind;
+    }
+    fit_config.penalty_block_gamma_priors =
+        parse_precision_hyperpriors(json_config.precision_hyperpriors)?;
+    let latent_coordinates = json_config
+        .latent_coordinates
+        .as_ref()
+        .map(|coordinates| coordinates.to_json_value())
+        .transpose()?;
+    let analytic_penalties = json_config
+        .analytic_penalties
+        .as_ref()
+        .map(|penalties| penalties.to_json_value())
+        .transpose()?;
     build_analytic_penalty_registry_from_descriptors(
-        json_config.latents.as_ref(),
+        latent_coordinates.as_ref(),
         analytic_penalties.as_ref(),
     )?;
-    fit_config.latents = json_config.latents;
+    fit_config.latents = latent_coordinates;
     fit_config.analytic_penalties = analytic_penalties;
-    fit_config.smooth_overrides = json_config.smooths;
+    fit_config.smooth_overrides = json_config
+        .smooth_descriptors
+        .as_ref()
+        .map(|descriptors| descriptors.to_json_value())
+        .transpose()?;
     fit_config.topology_auto_selector = json_config
         .topology_auto_selector
         .as_ref()
         .map(gam_solve::topology_selector::TopologyAutoSelector::from_json)
         .transpose()?;
-    fit_config.family = normalize_optional_family(json_config.family);
+    fit_config.family = json_config.family;
+    fit_config.negative_binomial_theta = json_config.negative_binomial_theta;
+    fit_config.expectile_tau = json_config.expectile_tau;
     fit_config.offset_column = json_config.offset;
     fit_config.weight_column = json_config.weights;
     if let Some(ridge_lambda) = json_config.ridge_lambda {
@@ -224,11 +176,13 @@ fn resolve_json_fit_config(json_config: JsonFitConfig) -> Result<ResolvedFitConf
         fit_config.transformation_normal = flag;
     }
     if let Some(mode) = json_config.survival_likelihood {
-        fit_config.survival_likelihood = parse_survival_likelihood_cli(&mode)?;
+        fit_config.survival_likelihood = mode;
+    }
+    if let Some(distribution) = json_config.survival_distribution {
+        fit_config.survival_distribution = distribution;
     }
     if let Some(target) = json_config.baseline_target {
-        fit_config.baseline_target =
-            resolve_nonempty_string(target, "baseline_target must be a non-empty string")?;
+        fit_config.baseline_target = target;
     }
     if let Some(value) = json_config.baseline_scale {
         fit_config.baseline_scale = Some(value);
@@ -242,31 +196,42 @@ fn resolve_json_fit_config(json_config: JsonFitConfig) -> Result<ResolvedFitConf
     if let Some(value) = json_config.baseline_makeham {
         fit_config.baseline_makeham = Some(value);
     }
-    if let Some(z) = json_config.z_column {
-        fit_config.z_column = Some(resolve_nonempty_string(
-            z,
-            "z_column must be a non-empty string",
-        )?);
+    if let Some(value) = json_config.time_basis {
+        fit_config.time_basis = value;
     }
+    if let Some(value) = json_config.time_degree {
+        fit_config.time_degree = value;
+    }
+    if let Some(value) = json_config.time_num_internal_knots {
+        fit_config.time_num_internal_knots = value;
+    }
+    if let Some(value) = json_config.time_smooth_lambda {
+        fit_config.time_smooth_lambda = value;
+    }
+    fit_config.threshold_time_k = json_config.threshold_time_k;
+    if let Some(value) = json_config.threshold_time_degree {
+        fit_config.threshold_time_degree = value;
+    }
+    fit_config.sigma_time_k = json_config.sigma_time_k;
+    if let Some(value) = json_config.sigma_time_degree {
+        fit_config.sigma_time_degree = value;
+    }
+    fit_config.z_column = json_config.z_column;
     if let Some(formula) = json_config.logslope_formula {
         fit_config.logslope_formula = Some(formula);
     }
     if let Some(stage1) = json_config.ctn_stage1 {
         fit_config.ctn_stage1 = Some(stage1.into_recipe()?);
     }
-    if let Some(link) = json_config.link {
-        let trimmed = link.trim();
-        fit_config.link = if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        };
-    }
+    fit_config.link = json_config.link;
     if let Some(flag) = json_config.flexible_link {
         fit_config.flexible_link = flag;
     }
     if let Some(flag) = json_config.scale_dimensions {
         fit_config.scale_dimensions = flag;
+    }
+    if let Some(value) = json_config.pilot_subsample_threshold {
+        fit_config.spatial_optimization.pilot_subsample_threshold = value;
     }
     if let Some(flag) = json_config.adaptive_regularization {
         fit_config.adaptive_regularization = Some(flag);
@@ -281,9 +246,6 @@ fn resolve_json_fit_config(json_config: JsonFitConfig) -> Result<ResolvedFitConf
         fit_config.firth = flag;
     }
     if let Some(value) = json_config.outer_max_iter {
-        if value == 0 {
-            return Err("outer_max_iter must be >= 1".to_string());
-        }
         fit_config.outer_max_iter = Some(value);
     }
     if let Some(raw_gpu) = json_config.gpu {
@@ -294,57 +256,7 @@ fn resolve_json_fit_config(json_config: JsonFitConfig) -> Result<ResolvedFitConf
         json_config.frailty_sd,
         json_config.hazard_loading,
     )?;
-    validate_resolved_fit_config(&fit_config)?;
-    Ok(ResolvedFitConfig {
-        fit_config,
-        training_table_kind,
-    })
-}
-
-pub fn resolve_cli_fit_config(input: CliFitConfigInput) -> Result<FitConfig, String> {
-    let mut fit_config = FitConfig::default();
-    fit_config.family = input.family;
-    fit_config.expectile_tau = input.expectile_tau;
-    fit_config.negative_binomial_theta = input.negative_binomial_theta;
-    fit_config.link = input.link;
-    fit_config.flexible_link = input.flexible_link;
-    fit_config.offset_column = input.offset_column;
-    fit_config.weight_column = input.weight_column;
-    fit_config.noise_offset_column = input.noise_offset_column;
-    fit_config.baseline_target = input.baseline_target;
-    fit_config.baseline_scale = input.baseline_scale;
-    fit_config.baseline_shape = input.baseline_shape;
-    fit_config.baseline_rate = input.baseline_rate;
-    fit_config.baseline_makeham = input.baseline_makeham;
-    fit_config.time_basis = input.time_basis;
-    fit_config.time_degree = input.time_degree;
-    fit_config.time_num_internal_knots = input.time_num_internal_knots;
-    fit_config.time_smooth_lambda = input.time_smooth_lambda;
-    fit_config.survival_likelihood = parse_survival_likelihood_cli(&input.survival_likelihood)?;
-    fit_config.survival_distribution = input.survival_distribution;
-    fit_config.threshold_time_k = input.threshold_time_k;
-    fit_config.threshold_time_degree = input.threshold_time_degree;
-    fit_config.sigma_time_k = input.sigma_time_k;
-    fit_config.sigma_time_degree = input.sigma_time_degree;
-    fit_config.noise_formula = input.noise_formula;
-    fit_config.logslope_formula = input.logslope_formula;
-    fit_config.z_column = input.z_column;
-    fit_config.scale_dimensions = input.scale_dimensions;
-    fit_config.adaptive_regularization = input.adaptive_regularization;
-    fit_config.ridge_lambda = input.ridge_lambda;
-    fit_config.transformation_normal = input.transformation_normal;
-    fit_config.firth = input.firth;
-    fit_config.outer_max_iter = input.outer_max_iter;
-    if let Some(raw_gpu) = input.gpu {
-        fit_config.gpu_policy = parse_gpu_policy(&raw_gpu)?;
-    }
-    fit_config.frailty = Some(resolve_cli_frailty_spec(
-        input.frailty_kind,
-        input.frailty_sd,
-        input.hazard_loading,
-        "fit",
-    )?);
-    validate_resolved_fit_config(&fit_config)?;
+    fit_config = fit_config.resolve()?;
     Ok(fit_config)
 }
 
@@ -410,74 +322,6 @@ pub fn parse_baseline_target_cli(raw: &str) -> Result<String, String> {
             "unsupported --baseline-target '{other}'; use linear|weibull|gompertz|gompertz-makeham"
         )),
     }
-}
-
-pub fn validate_survival_baseline_args(
-    likelihood_mode: SurvivalLikelihoodMode,
-    baseline_target: &str,
-    baseline_scale: Option<f64>,
-    baseline_shape: Option<f64>,
-    baseline_rate: Option<f64>,
-    baseline_makeham: Option<f64>,
-) -> Result<(), String> {
-    if likelihood_mode == SurvivalLikelihoodMode::Weibull {
-        if baseline_rate.is_some() || baseline_makeham.is_some() {
-            return Err(
-                "--survival-likelihood weibull does not use --baseline-rate or --baseline-makeham"
-                    .to_string(),
-            );
-        }
-        if !matches!(baseline_target, "linear" | "weibull") {
-            return Err(
-                "--survival-likelihood weibull supports only --baseline-target linear|weibull"
-                    .to_string(),
-            );
-        }
-        return Ok(());
-    }
-
-    match baseline_target {
-        "linear" => {
-            if baseline_scale.is_some()
-                || baseline_shape.is_some()
-                || baseline_rate.is_some()
-                || baseline_makeham.is_some()
-            {
-                return Err(
-                    "--baseline-target linear does not use baseline parameter flags".to_string(),
-                );
-            }
-        }
-        "weibull" => {
-            if baseline_rate.is_some() || baseline_makeham.is_some() {
-                return Err(
-                    "--baseline-target weibull does not use --baseline-rate or --baseline-makeham"
-                        .to_string(),
-                );
-            }
-        }
-        "gompertz" => {
-            if baseline_scale.is_some() || baseline_makeham.is_some() {
-                return Err(
-                    "--baseline-target gompertz does not use --baseline-scale or --baseline-makeham"
-                        .to_string(),
-                );
-            }
-        }
-        "gompertz-makeham" => {
-            if baseline_scale.is_some() {
-                return Err(
-                    "--baseline-target gompertz-makeham does not use --baseline-scale".to_string(),
-                );
-            }
-        }
-        other => {
-            return Err(format!(
-                "unsupported --baseline-target '{other}'; use linear|weibull|gompertz|gompertz-makeham"
-            ));
-        }
-    }
-    Ok(())
 }
 
 pub fn parse_comma_f64(v: &str, label: &str) -> Result<Vec<f64>, String> {
@@ -678,34 +522,14 @@ pub fn parse_survival_inverse_link(
     }
 }
 
-pub fn normalize_optional_family(family: Option<String>) -> Option<String> {
-    match family {
-        Some(value) if value.eq_ignore_ascii_case("auto") => None,
-        other => other,
-    }
-}
-
-fn resolve_nonempty_string(raw: String, message: &str) -> Result<String, String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Err(message.to_string());
-    }
-    Ok(trimmed.to_string())
-}
-
 fn parse_json_frailty_spec(
     frailty_kind: Option<String>,
     frailty_sd: Option<f64>,
     hazard_loading: Option<String>,
-) -> Result<Option<FrailtySpec>, String> {
+) -> Result<FrailtySpec, String> {
     if let Some(kind) = frailty_kind {
         let trimmed = kind.trim().to_ascii_lowercase();
         let sigma = frailty_sd;
-        if let Some(value) = sigma
-            && (!value.is_finite() || value < 0.0)
-        {
-            return Err(format!("frailty_sd must be finite and >= 0, got {value}"));
-        }
         let hazard_loading = hazard_loading
             .as_ref()
             .map(|raw| raw.trim().to_ascii_lowercase());
@@ -749,11 +573,11 @@ fn parse_json_frailty_spec(
                 ));
             }
         };
-        Ok(Some(frailty))
+        Ok(frailty)
     } else if frailty_sd.is_some() || hazard_loading.is_some() {
         Err("frailty_kind is required when frailty_sd or hazard_loading is provided".to_string())
     } else {
-        Ok(None)
+        Ok(FrailtySpec::None)
     }
 }
 
@@ -764,128 +588,27 @@ fn cli_hazard_loading(loading: CliHazardLoading) -> HazardLoading {
     }
 }
 
-fn parse_group_metadata(
-    direct: Option<GroupMetadata>,
-    groups: Option<JsonValue>,
-) -> Result<Option<GroupMetadata>, String> {
-    match (direct, groups) {
-        (Some(metadata), None) => Ok(nonempty_group_metadata(metadata)),
-        (None, Some(groups)) => group_metadata_from_groups(groups),
-        (None, None) => Ok(None),
-        (Some(_), Some(_)) => {
-            Err("fit config accepts either group_metadata or groups metadata, not both".to_string())
-        }
-    }
-}
-
-fn parse_gamma_pair_value(label: &str, value: JsonValue) -> Result<(String, f64, f64), String> {
-    match value {
-        JsonValue::Array(values) => {
-            if values.len() != 2 {
-                return Err(format!(
-                    "precision_hyperpriors['{label}'] must be [shape, rate]"
-                ));
-            }
-            let shape = values[0]
-                .as_f64()
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'][0] must be numeric"))?;
-            let rate = values[1]
-                .as_f64()
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'][1] must be numeric"))?;
-            Ok((label.to_string(), shape, rate))
-        }
-        JsonValue::Object(mut map) => {
-            let shape = map
-                .remove("shape")
-                .or_else(|| map.remove("a"))
-                .or_else(|| map.remove("a_p"))
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'] missing shape/a"))?
-                .as_f64()
-                .ok_or_else(|| {
-                    format!("precision_hyperpriors['{label}'] shape/a must be numeric")
-                })?;
-            let rate = map
-                .remove("rate")
-                .or_else(|| map.remove("b"))
-                .or_else(|| map.remove("b_p"))
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'] missing rate/b"))?
-                .as_f64()
-                .ok_or_else(|| {
-                    format!("precision_hyperpriors['{label}'] rate/b must be numeric")
-                })?;
-            Ok((label.to_string(), shape, rate))
-        }
-        _ => Err(format!(
-            "precision_hyperpriors['{label}'] must be [shape, rate] or an object"
-        )),
-    }
-}
-
 fn parse_precision_hyperpriors(
-    precision_hyperpriors: Option<JsonValue>,
-    penalty_block_gamma_priors: Option<JsonValue>,
+    precision_hyperpriors: Option<std::collections::BTreeMap<String, PrecisionHyperpriorDocument>>,
 ) -> Result<Vec<(String, f64, f64)>, String> {
-    let raw = match (precision_hyperpriors, penalty_block_gamma_priors) {
-        (Some(_), Some(_)) => {
-            return Err(
-                "fit config accepts either precision_hyperpriors or penalty_block_gamma_priors, not both"
-                    .to_string(),
-            );
+    let mut out = Vec::with_capacity(precision_hyperpriors.as_ref().map_or(0, |map| map.len()));
+    for (label, prior) in precision_hyperpriors.unwrap_or_default() {
+        if label.trim().is_empty() {
+            return Err("precision_hyperpriors keys must be non-empty".to_string());
         }
-        (Some(raw), None) | (None, Some(raw)) => raw,
-        (None, None) => {
-            return Ok(Vec::new());
+        if !prior.shape.is_finite() || prior.shape <= 0.0 {
+            return Err(format!(
+                "precision_hyperpriors['{label}'].shape must be finite and > 0"
+            ));
         }
-    };
-    let raw_name = "precision_hyperpriors";
-    let Some(raw) = (match raw {
-        JsonValue::Null => None,
-        other => Some(other),
-    }) else {
-        return Ok(Vec::new());
-    };
-    match raw {
-        JsonValue::Object(map) => map
-            .into_iter()
-            .map(|(label, value)| parse_gamma_pair_value(&label, value))
-            .collect(),
-        JsonValue::Array(items) => items
-            .into_iter()
-            .enumerate()
-            .map(|(idx, item)| match item {
-                JsonValue::Object(mut obj) => {
-                    let label = obj
-                        .remove("label")
-                        .or_else(|| obj.remove("name"))
-                        .or_else(|| obj.remove("group"))
-                        .ok_or_else(|| format!("{raw_name}[{idx}] needs label/name/group"))?;
-                    let JsonValue::String(label) = label else {
-                        return Err(format!("{raw_name}[{idx}] label must be a string"));
-                    };
-                    parse_gamma_pair_value(&label, JsonValue::Object(obj))
-                }
-                JsonValue::Array(mut values) => {
-                    if values.len() != 2 && values.len() != 3 {
-                        return Err(format!(
-                            "{raw_name}[{idx}] must be [label, shape, rate] or [label, [shape, rate]]"
-                        ));
-                    }
-                    let label = values.remove(0);
-                    let JsonValue::String(label) = label else {
-                        return Err(format!("{raw_name}[{idx}][0] must be a string label"));
-                    };
-                    let pair = if values.len() == 1 {
-                        values.remove(0)
-                    } else {
-                        JsonValue::Array(values)
-                    };
-                    parse_gamma_pair_value(&label, pair)
-                }
-                _ => Err(format!("{raw_name}[{idx}] must be an object or array")),
-            })
-            .collect(),
-        _ => Err(format!("{raw_name} must be a map or array")),
+        if !prior.rate.is_finite() || prior.rate < 0.0 {
+            return Err(format!(
+                "precision_hyperpriors['{label}'].rate must be finite and >= 0"
+            ));
+        }
+        out.push((label, prior.shape, prior.rate));
     }
+    Ok(out)
 }
 
 fn nonempty_group_metadata(metadata: GroupMetadata) -> Option<GroupMetadata> {
@@ -896,69 +619,13 @@ fn nonempty_group_metadata(metadata: GroupMetadata) -> Option<GroupMetadata> {
     }
 }
 
-fn group_metadata_from_groups(groups: JsonValue) -> Result<Option<GroupMetadata>, String> {
-    match groups {
-        JsonValue::Null => Ok(None),
-        JsonValue::Object(map) => {
-            let out = map.into_iter().collect::<BTreeMap<_, _>>();
-            Ok(nonempty_group_metadata(out))
-        }
-        JsonValue::Array(items) => {
-            let mut out = BTreeMap::new();
-            for (idx, item) in items.into_iter().enumerate() {
-                let JsonValue::Object(mut group) = item else {
-                    return Err(format!("groups[{idx}] must be an object"));
-                };
-                let Some(metadata) = group.remove("metadata") else {
-                    continue;
-                };
-                let name = group
-                    .remove("name")
-                    .or_else(|| group.remove("id"))
-                    .or_else(|| group.remove("key"))
-                    .ok_or_else(|| {
-                        format!(
-                            "groups[{idx}] with metadata must include a string name, id, or key"
-                        )
-                    })?;
-                let JsonValue::String(name) = name else {
-                    return Err(format!("groups[{idx}] name/id/key must be a string"));
-                };
-                if name.is_empty() {
-                    return Err(format!("groups[{idx}] name/id/key must be non-empty"));
-                }
-                if out.insert(name.clone(), metadata).is_some() {
-                    return Err(format!("duplicate group metadata key '{name}'"));
-                }
-            }
-            Ok(nonempty_group_metadata(out))
-        }
-        _ => Err("groups must be an object map or an array of group objects".to_string()),
-    }
-}
-
 fn parse_gpu_policy(raw_gpu: &str) -> Result<gam_gpu::GpuPolicy, String> {
     gam_gpu::GpuPolicy::parse(raw_gpu).ok_or_else(|| {
         format!(
-            "invalid gpu policy '{}'; supported values are auto, off, force",
+            "invalid gpu policy '{}'; supported values are auto, off, required",
             raw_gpu
         )
     })
-}
-
-fn validate_resolved_fit_config(config: &FitConfig) -> Result<(), String> {
-    if !config.ridge_lambda.is_finite() || config.ridge_lambda < 0.0 {
-        return Err("--ridge-lambda must be finite and >= 0".to_string());
-    }
-    let likelihood_mode = parse_survival_likelihood_mode(&config.survival_likelihood)?;
-    validate_survival_baseline_args(
-        likelihood_mode,
-        &config.baseline_target,
-        config.baseline_scale,
-        config.baseline_shape,
-        config.baseline_rate,
-        config.baseline_makeham,
-    )
 }
 
 fn survival_link_usage() -> &'static str {
@@ -973,67 +640,143 @@ mod tests {
 
     struct ParityCase {
         name: &'static str,
-        cli: CliFitConfigInput,
+        cli: FitConfig,
         json: Value,
     }
 
-    fn base_cli() -> CliFitConfigInput {
-        CliFitConfigInput {
-            family: None,
-            expectile_tau: None,
-            negative_binomial_theta: None,
-            link: None,
-            flexible_link: false,
-            offset_column: None,
-            weight_column: None,
-            noise_offset_column: None,
-            baseline_target: "linear".to_string(),
-            baseline_scale: None,
-            baseline_shape: None,
-            baseline_rate: None,
-            baseline_makeham: None,
-            time_basis: "ispline".to_string(),
-            time_degree: 3,
-            time_num_internal_knots: 8,
-            time_smooth_lambda: 1e-2,
-            survival_likelihood: "transformation".to_string(),
-            survival_distribution: "gaussian".to_string(),
-            threshold_time_k: None,
-            threshold_time_degree: 3,
-            sigma_time_k: None,
-            sigma_time_degree: 3,
-            noise_formula: None,
-            logslope_formula: None,
-            z_column: None,
-            scale_dimensions: false,
-            adaptive_regularization: None,
-            ridge_lambda: 1e-6,
-            transformation_normal: false,
-            firth: false,
-            outer_max_iter: None,
-            gpu: None,
-            frailty_kind: None,
-            frailty_sd: None,
-            hazard_loading: None,
-        }
+    fn base_cli() -> FitConfig {
+        FitConfig::default()
     }
 
-    fn resolved_cli(input: CliFitConfigInput) -> Result<FitConfig, String> {
-        resolve_cli_fit_config(input)
+    fn resolved_cli(input: FitConfig) -> Result<FitConfig, String> {
+        input.resolve()
     }
 
     fn resolved_json(config: Value) -> Result<FitConfig, String> {
-        parse_fit_config_json(Some(&config.to_string())).map(|resolved| {
-            assert_eq!(resolved.training_table_kind, None);
+        let config = serde_json::from_value::<FitRequestConfigDocument>(config)
+            .map_err(|error| format!("invalid test fit config: {error}"))?;
+        let request = FitRequestDocument::new("y ~ x", config)?;
+        resolve_fit_request_document(request).map(|resolved| {
+            assert_eq!(resolved.formula, "y ~ x");
             resolved.fit_config
         })
     }
 
-    fn canonical_fit_config(mut config: FitConfig) -> String {
-        if config.frailty.is_none() {
-            config.frailty = Some(FrailtySpec::None);
-        }
+    fn canonical_fit_config(config: FitConfig) -> String {
         format!("{config:#?}")
+    }
+
+    #[test]
+    fn rich_request_document_resolves_every_frontend_parity_field() {
+        let request = FitRequestDocument::new(
+            "y ~ duchon(z)",
+            FitRequestConfigDocument {
+                ctn_stage1: Some(CtnStage1Document {
+                    response_column: "dose".to_string(),
+                    covariate_formula_rhs: "s(age)".to_string(),
+                    config: Some(CtnStage1ConfigDocument {
+                        response_degree: Some(4),
+                        response_num_internal_knots: Some(9),
+                        response_penalty_order: Some(2),
+                        response_extra_penalty_orders: Some(vec![1, 3]),
+                        double_penalty: Some(false),
+                    }),
+                    weight_column: Some("case_weight".to_string()),
+                    offset_column: Some("stage1_offset".to_string()),
+                }),
+                precision_hyperpriors: Some(std::collections::BTreeMap::from([(
+                    "duchon(z):roughness".to_string(),
+                    PrecisionHyperpriorDocument {
+                        shape: 2.5,
+                        rate: 0.75,
+                    },
+                )])),
+                latent_coordinates: Some(
+                    serde_json::from_value(json!({
+                        "z": {"n": 20, "d": 2, "name": "z", "init": "pca"}
+                    }))
+                    .unwrap(),
+                ),
+                analytic_penalties: Some(AnalyticPenaltiesDocument(vec![json!({
+                    "kind": "orthogonality",
+                    "target": "z",
+                    "weight": 1.25
+                })])),
+                smooth_descriptors: Some(
+                    serde_json::from_value(json!({
+                        "z": {"kind": "duchon", "vars": ["z"], "centers": 8}
+                    }))
+                    .unwrap(),
+                ),
+                ..FitRequestConfigDocument::default()
+            },
+        )
+        .unwrap();
+
+        let canonical = request.to_canonical_json().unwrap();
+        assert_eq!(
+            canonicalize_fit_request_json(&canonical).unwrap(),
+            canonical
+        );
+        let resolved = parse_fit_request_json(&canonical).unwrap();
+        assert_eq!(resolved.formula, "y ~ duchon(z)");
+        let config = resolved.fit_config;
+        let stage1 = config.ctn_stage1.unwrap();
+        assert_eq!(stage1.response_column, "dose");
+        assert_eq!(stage1.covariate_formula_rhs, "s(age)");
+        assert_eq!(stage1.config.response_degree, 4);
+        assert_eq!(stage1.config.response_num_internal_knots, 9);
+        assert_eq!(stage1.config.response_extra_penalty_orders, vec![1, 3]);
+        assert_eq!(
+            config.penalty_block_gamma_priors,
+            vec![("duchon(z):roughness".to_string(), 2.5, 0.75)]
+        );
+        assert_eq!(config.latents.unwrap()["z"]["d"], json!(2));
+        assert_eq!(config.analytic_penalties.unwrap()[0]["target"], "z");
+        assert_eq!(config.smooth_overrides.unwrap()["z"]["kind"], "duchon");
+    }
+
+    #[test]
+    fn rich_request_rejects_invalid_prior_and_order_dependent_penalty_target() {
+        let invalid_prior = FitRequestDocument::new(
+            "y ~ x",
+            FitRequestConfigDocument {
+                precision_hyperpriors: Some(std::collections::BTreeMap::from([(
+                    "x".to_string(),
+                    PrecisionHyperpriorDocument {
+                        shape: 0.0,
+                        rate: 1.0,
+                    },
+                )])),
+                ..FitRequestConfigDocument::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            resolve_fit_request_document(invalid_prior)
+                .unwrap_err()
+                .contains("shape must be finite and > 0")
+        );
+
+        let numeric_target = FitRequestDocument::new(
+            "y ~ s(z)",
+            FitRequestConfigDocument {
+                latent_coordinates: Some(
+                    serde_json::from_value(json!({"z": {"n": 4, "d": 1}})).unwrap(),
+                ),
+                analytic_penalties: Some(AnalyticPenaltiesDocument(vec![json!({
+                    "kind": "orthogonality",
+                    "target": 0
+                })])),
+                ..FitRequestConfigDocument::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            resolve_fit_request_document(numeric_target)
+                .unwrap_err()
+                .contains("target must be a latent-coordinate name")
+        );
     }
 
     #[test]
@@ -1156,7 +899,7 @@ mod tests {
                 name: "gpu policy toggle",
                 cli: {
                     let mut input = base_cli();
-                    input.gpu = Some("off".to_string());
+                    input.gpu_policy = gam_gpu::GpuPolicy::Off;
                     input
                 },
                 json: json!({
@@ -1167,9 +910,10 @@ mod tests {
                 name: "hazard multiplier frailty fields",
                 cli: {
                     let mut input = base_cli();
-                    input.frailty_kind = Some(CliFrailtyKind::HazardMultiplier);
-                    input.frailty_sd = Some(0.35);
-                    input.hazard_loading = Some(CliHazardLoading::LoadedVsUnloaded);
+                    input.frailty = FrailtySpec::HazardMultiplier {
+                        sigma_fixed: Some(0.35),
+                        loading: HazardLoading::LoadedVsUnloaded,
+                    };
                     input
                 },
                 json: json!({
@@ -1182,8 +926,9 @@ mod tests {
                 name: "gaussian shift frailty fields",
                 cli: {
                     let mut input = base_cli();
-                    input.frailty_kind = Some(CliFrailtyKind::GaussianShift);
-                    input.frailty_sd = Some(0.2);
+                    input.frailty = FrailtySpec::GaussianShift {
+                        sigma_fixed: Some(0.2),
+                    };
                     input
                 },
                 json: json!({
@@ -1219,17 +964,6 @@ mod tests {
                 },
                 json: json!({
                     "ridge_lambda": -1.0
-                }),
-            },
-            ParityCase {
-                name: "unknown gpu policy",
-                cli: {
-                    let mut input = base_cli();
-                    input.gpu = Some("cuda".to_string());
-                    input
-                },
-                json: json!({
-                    "gpu": "cuda"
                 }),
             },
             ParityCase {
@@ -1312,32 +1046,6 @@ mod tests {
         );
     }
 
-    // ── normalize_optional_family ─────────────────────────────────────────
-
-    #[test]
-    fn normalize_optional_family_none_passthrough() {
-        assert_eq!(normalize_optional_family(None), None);
-    }
-
-    #[test]
-    fn normalize_optional_family_auto_becomes_none() {
-        assert_eq!(normalize_optional_family(Some("auto".to_string())), None);
-        assert_eq!(normalize_optional_family(Some("Auto".to_string())), None);
-        assert_eq!(normalize_optional_family(Some("AUTO".to_string())), None);
-    }
-
-    #[test]
-    fn normalize_optional_family_non_auto_passthrough() {
-        assert_eq!(
-            normalize_optional_family(Some("binomial".to_string())),
-            Some("binomial".to_string())
-        );
-        assert_eq!(
-            normalize_optional_family(Some("gaussian".to_string())),
-            Some("gaussian".to_string())
-        );
-    }
-
     // ── parse_survival_likelihood_cli ─────────────────────────────────────
 
     #[test]
@@ -1382,45 +1090,6 @@ mod tests {
         assert!(
             err.contains("cox"),
             "error should name the bad value: {err}"
-        );
-    }
-
-    // ── validate_survival_baseline_args ───────────────────────────────────
-
-    #[test]
-    fn validate_survival_baseline_args_linear_rejects_params() {
-        let mode = parse_survival_likelihood_mode("transformation").unwrap();
-        assert!(
-            validate_survival_baseline_args(mode, "linear", Some(1.0), None, None, None).is_err()
-        );
-    }
-
-    #[test]
-    fn validate_survival_baseline_args_linear_accepts_no_params() {
-        let mode = parse_survival_likelihood_mode("transformation").unwrap();
-        assert!(validate_survival_baseline_args(mode, "linear", None, None, None, None).is_ok());
-    }
-
-    #[test]
-    fn validate_survival_baseline_args_weibull_likelihood_rejects_gompertz_target() {
-        let mode = parse_survival_likelihood_mode("weibull").unwrap();
-        assert!(validate_survival_baseline_args(mode, "gompertz", None, None, None, None).is_err());
-    }
-
-    #[test]
-    fn validate_survival_baseline_args_gompertz_rejects_scale() {
-        let mode = parse_survival_likelihood_mode("transformation").unwrap();
-        assert!(
-            validate_survival_baseline_args(mode, "gompertz", Some(2.0), None, None, None).is_err()
-        );
-    }
-
-    #[test]
-    fn validate_survival_baseline_args_gompertz_makeham_rejects_scale() {
-        let mode = parse_survival_likelihood_mode("transformation").unwrap();
-        assert!(
-            validate_survival_baseline_args(mode, "gompertz-makeham", Some(1.0), None, None, None)
-                .is_err()
         );
     }
 }

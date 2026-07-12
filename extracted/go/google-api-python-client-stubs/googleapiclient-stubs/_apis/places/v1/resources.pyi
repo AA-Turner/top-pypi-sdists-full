@@ -21,38 +21,32 @@ class MapsPlacesResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                maxHeightPx: int = ...,
-                maxWidthPx: int = ...,
-                skipHttpRedirect: bool = ...,
+                maxHeightPx: int | None = ...,
+                maxWidthPx: int | None = ...,
+                skipHttpRedirect: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleMapsPlacesV1PhotoMediaHttpRequest: ...
 
         def autocomplete(
             self,
             *,
-            body: GoogleMapsPlacesV1AutocompletePlacesRequest = ...,
+            body: GoogleMapsPlacesV1AutocompletePlacesRequest,
             **kwargs: typing.Any,
         ) -> GoogleMapsPlacesV1AutocompletePlacesResponseHttpRequest: ...
         def get(
             self,
             *,
             name: str,
-            languageCode: str = ...,
-            regionCode: str = ...,
-            sessionToken: str = ...,
+            languageCode: str | None = ...,
+            regionCode: str | None = ...,
+            sessionToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleMapsPlacesV1PlaceHttpRequest: ...
         def searchNearby(
-            self,
-            *,
-            body: GoogleMapsPlacesV1SearchNearbyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, body: GoogleMapsPlacesV1SearchNearbyRequest, **kwargs: typing.Any
         ) -> GoogleMapsPlacesV1SearchNearbyResponseHttpRequest: ...
         def searchText(
-            self,
-            *,
-            body: GoogleMapsPlacesV1SearchTextRequest = ...,
-            **kwargs: typing.Any,
+            self, *, body: GoogleMapsPlacesV1SearchTextRequest, **kwargs: typing.Any
         ) -> GoogleMapsPlacesV1SearchTextResponseHttpRequest: ...
         def searchText_next(
             self,

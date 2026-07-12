@@ -18,11 +18,12 @@ and surfaced in documentation."""
 
 from __future__ import annotations
 
+__lazy_modules__ = {"argcomplete", "argparse", "functools"}
+
 import argparse
 import functools
 import os
 from argparse import ArgumentError, ArgumentParser, Namespace
-from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, Literal
 
 import argcomplete
@@ -47,7 +48,7 @@ def __dir__() -> list[str]:
 
 
 av_opt_str = av.optional(av.instance_of(str))
-av_opt_path = av.optional(av.or_(av.instance_of(str), av.instance_of(os.PathLike)))
+av_opt_path = av.optional(av.or_(av.instance_of(str), av.instance_of(os.PathLike)))  # type: ignore[type-abstract]
 av_opt_list_str = av.optional(
     av.deep_iterable(
         member_validator=av.instance_of(str),

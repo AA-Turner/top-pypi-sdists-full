@@ -343,6 +343,141 @@ EVENT_TASK_MAILBOX_MESSAGE = "task.mailbox_message"
 #: scheduler decision.
 EVENT_TASK_CLAIM_RECEIPT = "task.claim_receipt"
 
+#: Issue #2369 -- emitted once per packaged agent-skill / plugin install.
+#: When the bundled ``bernstein-run`` skill (or a plugin checkout a host
+#: performed) lands in an agent host's skill directory, the install writes a
+#: content-addressed receipt anchored in the ``skills`` lineage spine and
+#: mirrors ``{skill_hash, manifest_hash, install_id, spine_anchor, host,
+#: scope, dest}`` into the chain. A verifier recomputes the installed tree's
+#: content address and checks it against the receipt and the spine, so
+#: "installed" is chain-attested rather than a directory listing.
+EVENT_PLUGIN_INSTALL_RECEIPT = "plugin.install_receipt"
+
+#: Issue #2369 (tail) -- emitted when a packaged install is superseded by an
+#: update. The event binds ``prior_skill_hash -> skill_hash`` so the
+#: supersession is chain-verifiable: a verifier walks update receipts newest
+#: to oldest and lands on the root ``plugin.install_receipt``, proving which
+#: content addresses an installed tree passed through and in what order.
+EVENT_PLUGIN_UPDATE_RECEIPT = "plugin.update_receipt"
+
+#: Issue #2369 (tail) -- emitted when a packaged skill passes a multi-host
+#: conformance sweep: one skill content address is installed into several
+#: agent hosts against one bernstein install and the skill's documented
+#: self-check contract is replayed per host. The event binds the shared
+#: content address, the per-host pass/fail verdicts, and the lineage-spine
+#: anchor of the conformance receipt, so "the skill works from N agent CLIs
+#: against one install" is chain-verifiable rather than a transient CI log.
+EVENT_PLUGIN_CONFORMANCE_RECEIPT = "plugin.conformance_receipt"
+
+#: Issue #2368 -- emitted for every probe of the nightly adapter conformance
+#: canary. The event binds the probed adapter, the discovered upstream
+#: version, the conformance verdict, and the content hash of the canary
+#: receipt into the HMAC chain, so a canary finding (and the last-green
+#: table row it attests) is reconstructable and tamper-evident offline
+#: rather than living only in a CI log.
+EVENT_ADAPTER_CANARY_RECEIPT = "adapter.canary_receipt"
+
+#: Issue #2367 -- emitted when the orchestrator forcibly reaps an agent
+#: process tree.  The event records which platform mechanism delivered the
+#: stop (POSIX process-group signalling or Windows process-tree
+#: termination), whether the graceful stop was delivered, whether
+#: escalation to a force-kill was required, and the grace window that
+#: applied.  Reaps stop being an unobservable side effect of supervision:
+#: an operator reconstructing a failure window can prove offline which
+#: reap path ran and on which platform semantics it relied.
+EVENT_PROCESS_REAP_RECEIPT = "process.reap_receipt"
+
+#: Issue #2366 -- emitted whenever a scoped dashboard token is issued or
+#: revoked. The event mirrors the signed registry row: the short token id,
+#: the token digest, the principal, the scope, and the grant kind -- never
+#: the raw token (the registry itself only ever stores the digest). Together
+#: with the ``governance.decision`` events the dashboard authz layer
+#: records, the chain carries the full life of a dashboard credential:
+#: grant, every write it authorized, and revocation.
+EVENT_DASHBOARD_TOKEN_GRANT = "dashboard.token_grant"
+
+#: Issue #2365 -- emitted for every operator action on the run review board
+#: (approve / request-changes / merge). The signed, principal-named receipt
+#: binds the decision to the projection the operator saw (``projection_hash``)
+#: and the exact journal head it chained onto (``journal_entry_hash``), so a
+#: reviewer can prove from the chain alone that a named principal took the
+#: action against that board state without operator override.
+EVENT_REVIEW_BOARD_ACTION = "review_board.action"
+
+#: Issue #2352 -- emitted at every lifecycle boundary of a detached run
+#: (submit, detach, reattach, daemon restart, complete). The daemon that owns
+#: the run is a projection of the durable work ledger; each receipt binds the
+#: ledger head at the boundary so a reattaching operator can prove, from the
+#: chain alone, that the current ledger is a forward extension of the head
+#: they last saw -- nothing happened off the record while they were away.
+#: Only the run id, the transition, the ledger head/entry count, and (for
+#: reattach/restart boundaries) the ``from_head``/``to_head``/``entries_added``
+#: continuity span are recorded -- never goal text or task payloads.
+EVENT_RUN_LIFECYCLE = "run.lifecycle"
+
+#: Issue #2364 -- emitted whenever an MCP Tasks-extension run handle is minted
+#: for a long-running run. The event carries the handle receipt: the task id,
+#: the run id, the projected status, the run journal head, the embedded
+#: audit-chain head, the receipt hash, the pinned spec revision, and the
+#: ingested W3C trace id (empty when none). A client that polled the handle
+#: can prove offline that the task it watched corresponds to the audited run
+#: by recomputing the receipt hash from the journal and matching the embedded
+#: chain head against this chain.
+EVENT_MCP_TASK_HANDLE = "mcp.task_handle"
+
+#: Issue #2363 -- emitted whenever a SPIRE-issued X.509-SVID is bound to an
+#: agent card. The event pins the binding's content hash together with the
+#: derived SPIFFE ID, the install fingerprint, the card hash, and the leaf
+#: SVID's content address -- never the SVID private key. Because the binding's
+#: identity is its content hash and that hash is chained here, the mapping
+#: between platform identity (the SVID) and card identity is reconstructable
+#: and tamper-evident offline: a verifier holding the chain and the install
+#: public key can prove after the fact that a card was bound to exactly this
+#: SVID and that neither has been altered since.
+EVENT_SPIFFE_SVID_BINDING = "spiffe.svid_binding"
+
+#: Issue #2361 -- emitted when an operator approves (or rejects) the
+#: requirement set drafted from a spec, before the deterministic compiler
+#: turns it into a task graph. The event binds the content-addressed
+#: requirement-set hash, the source-spec hash, the requirement count, the
+#: compiled graph hash, and the decision into the HMAC chain. The receipt
+#: is the plan-approval gate for the spec pipeline: a verifier can prove,
+#: from the chain alone, that a given task graph was compiled from a
+#: requirement set the operator signed off on -- no requirement line was
+#: added or altered after approval without breaking the chain.
+EVENT_SPEC_REQUIREMENT_SET = "spec.requirement_set"
+
+#: Issue #2354 -- emitted once per cost-aware dispatch decision. The
+#: deterministic decision (admit/halt under USD caps) is a pure function of a
+#: hash-pinned price table, the spend ledger, and the caps; this event mirrors
+#: the decision's identity into the HMAC chain by recording ``{decision_hash,
+#: run_id, task_id, admit, breached_dimension, projected_overrun_usd,
+#: price_table_hash, ledger_state_hash, policy_hash, journal_entry_hash}``. A
+#: verifier holding the same ledger and price table recomputes the decision
+#: byte-identically and checks it against the chain, so a halt names exactly
+#: why it fired and two operators replay the same budget decision. Only hashes,
+#: the verdict, and the projected overrun are recorded -- never prompt content.
+EVENT_COST_DISPATCH_RECEIPT = "cost.dispatch_receipt"
+
+#: Issue #2353 -- emitted whenever a tournament selects a winning attempt.
+#: The event mirrors the signed selection receipt: the task id, the tournament
+#: receipt hash (spine anchor), the winning attempt hash, the full set of
+#: attempt hashes, and the evaluator names that decided the outcome -- never a
+#: model judgement (there is none in the decision path). A verifier can join a
+#: chain entry to the offline-verifiable receipt and prove which attempt won
+#: and why, without re-running the tournament.
+EVENT_TOURNAMENT_SELECTION = "tournament.selection"
+
+#: Issue #2352 (AC4) -- emitted once per detached-run task executed on the ssh
+#: sandbox backend. The receipt binds the run and task ids, the remote host, the
+#: isolated remote worktree the task ran in, the task's exit code, a digest of
+#: the per-task isolation marker written into that worktree, and the work-ledger
+#: head at execution time. Only non-secret identifiers and hashes are recorded
+#: -- never goal text, task payloads, or injected credentials -- so an auditor
+#: can prove from the chain alone that each task of a goal ran in its own
+#: worktree across the ssh boundary (distinct worktree per task, none lost).
+EVENT_RUN_SSH_TASK = "run.ssh_task"
+
 
 # ---------------------------------------------------------------------------
 # AuditChainStore
@@ -2128,9 +2263,852 @@ def record_task_claim_receipt(
             "task_id": task_id,
             "role": role,
             "claimed_by": claimed_by,
-            "depends_on": list(depends_on),
+            "depends_on": depends_on.copy(),
             "task_version": task_version,
             "claim_path": claim_path,
+        },
+    )
+
+
+def record_plugin_install_receipt(
+    *,
+    chain: AuditChainStore,
+    skill_hash: str,
+    manifest_hash: str,
+    install_id: str,
+    spine_anchor: str,
+    host: str,
+    scope: str,
+    dest: str,
+    actor: str = "skill_packaging",
+) -> AuditEvent:
+    """Append a ``plugin.install_receipt`` event into *chain* (#2369).
+
+    Records the packaged agent-skill / plugin install receipt: the installed
+    tree's content address, the manifest hash the receipt binds to, and the
+    lineage-spine anchor of the receipt row. Together with the receipt file
+    under ``.sdd/skills/receipts/`` this lets a verifier prove -- from the
+    chain alone -- which skill content an agent host was driving.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        skill_hash: Content address of the installed tree (``sha256:<hex>``).
+        manifest_hash: SHA-256 of the installed manifest file (``SKILL.md``
+            or the plugin manifest).
+        install_id: Per-install identifier tying this event to the receipt.
+        spine_anchor: Entry hash of the receipt row in the install lineage
+            spine; a verifier holding the spine can recompute it.
+        host: Target agent host (``claude`` / ``codex`` / ... / ``dest``).
+        scope: Install scope (``project`` / ``user`` / ``dest``).
+        dest: Destination directory the tree was installed into.
+        actor: Recorded actor; defaults to ``"skill_packaging"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_PLUGIN_INSTALL_RECEIPT,
+        actor=actor,
+        resource_type="plugin_install_receipt",
+        resource_id=skill_hash,
+        details={
+            "skill_hash": skill_hash,
+            "manifest_hash": manifest_hash,
+            "install_id": install_id,
+            "spine_anchor": spine_anchor,
+            "host": host,
+            "scope": scope,
+            "dest": dest,
+        },
+    )
+
+
+def record_plugin_update_receipt(
+    *,
+    chain: AuditChainStore,
+    prior_skill_hash: str,
+    skill_hash: str,
+    manifest_hash: str,
+    install_id: str,
+    spine_anchor: str,
+    host: str,
+    scope: str,
+    dest: str,
+    actor: str = "skill_packaging",
+) -> AuditEvent:
+    """Append a ``plugin.update_receipt`` event into *chain* (#2369, tail).
+
+    Records that a previously attested packaged install at *dest* was
+    superseded: the tree that was there (``prior_skill_hash``) was replaced
+    by new content (``skill_hash``). The event binds both addresses plus the
+    lineage-spine anchor of the update-receipt row. A verifier holding the
+    chain walks update receipts from the current content address back through
+    their ``prior_skill_hash`` links until it reaches the root
+    ``plugin.install_receipt`` -- the full supersession history of an
+    installed tree is reconstructable offline.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        prior_skill_hash: Content address of the tree being superseded
+            (``sha256:<hex>``).
+        skill_hash: Content address of the new installed tree.
+        manifest_hash: SHA-256 of the new installed manifest file.
+        install_id: Per-install identifier tying this event to the receipt.
+        spine_anchor: Entry hash of the update-receipt row in the install
+            lineage spine.
+        host: Target agent host (``claude`` / ``codex`` / ... / ``dest``).
+        scope: Install scope (``project`` / ``user`` / ``dest``).
+        dest: Destination directory the tree was updated in place.
+        actor: Recorded actor; defaults to ``"skill_packaging"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_PLUGIN_UPDATE_RECEIPT,
+        actor=actor,
+        resource_type="plugin_update_receipt",
+        resource_id=skill_hash,
+        details={
+            "prior_skill_hash": prior_skill_hash,
+            "skill_hash": skill_hash,
+            "manifest_hash": manifest_hash,
+            "install_id": install_id,
+            "spine_anchor": spine_anchor,
+            "host": host,
+            "scope": scope,
+            "dest": dest,
+        },
+    )
+
+
+def record_plugin_conformance_receipt(
+    *,
+    chain: AuditChainStore,
+    skill_hash: str,
+    receipt_id: str,
+    host_results: list[tuple[str, bool]],
+    min_hosts: int,
+    passed_hosts: int,
+    ok: bool,
+    install_id: str,
+    spine_anchor: str,
+    actor: str = "skill_packaging",
+) -> AuditEvent:
+    """Append a ``plugin.conformance_receipt`` event into *chain* (#2369, tail).
+
+    Records one multi-host conformance sweep of a packaged skill: the shared
+    installed content address, the ordered per-host pass/fail verdicts, the
+    content id of the sealed conformance receipt, and its lineage-spine
+    anchor. Together with the receipt file under ``.sdd/skills/conformance/``
+    a verifier can prove -- from the chain alone -- that one skill content
+    address drove ``passed_hosts`` distinct agent hosts against one install
+    and whether the ``min_hosts`` bar was met.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        skill_hash: Content address shared by every host install
+            (``sha256:<hex>``).
+        receipt_id: Content address of the conformance receipt itself.
+        host_results: Ordered ``(host, ok)`` verdicts (sorted by host).
+        min_hosts: Minimum number of green hosts the sweep required.
+        passed_hosts: Number of hosts whose contract passed.
+        ok: Aggregate verdict (all hosts green and at least ``min_hosts``).
+        install_id: Per-sweep identifier tying this event to the receipt.
+        spine_anchor: Entry hash of the receipt row in the install lineage
+            spine; a verifier holding the spine can recompute it.
+        actor: Recorded actor; defaults to ``"skill_packaging"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_PLUGIN_CONFORMANCE_RECEIPT,
+        actor=actor,
+        resource_type="plugin_conformance_receipt",
+        resource_id=receipt_id,
+        details={
+            "skill_hash": skill_hash,
+            "receipt_id": receipt_id,
+            "host_results": [[host, verdict] for host, verdict in host_results],
+            "min_hosts": min_hosts,
+            "passed_hosts": passed_hosts,
+            "ok": ok,
+            "install_id": install_id,
+            "spine_anchor": spine_anchor,
+        },
+    )
+
+
+def record_adapter_canary_receipt(
+    *,
+    chain: AuditChainStore,
+    adapter: str,
+    binary: str,
+    installed_version: str | None,
+    verdict: str,
+    receipt_sha256: str,
+    failures: list[str],
+    actor: str = "adapter_canary",
+) -> AuditEvent:
+    """Append an ``adapter.canary_receipt`` event into *chain* (#2368).
+
+    Mirrors one canary probe into the HMAC chain: the probed adapter, the
+    upstream version discovered on the runner, the conformance verdict,
+    and the content hash of the sealed canary receipt. A verifier holding
+    the receipt file can recompute its hash and check it against the
+    chain, so a canary finding (and the last-green table row it attests)
+    cannot be forged by editing the artifact.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        adapter: Adapter registry key probed.
+        binary: Binary name the probe resolved.
+        installed_version: Parsed upstream version, or ``None`` when
+            unknown.
+        verdict: ``pass`` / ``fail`` / ``skip``.
+        receipt_sha256: Content hash of the canonical receipt bytes.
+        failures: Conformance failure lines (empty unless ``fail``).
+        actor: Recorded actor; defaults to ``"adapter_canary"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest``
+        embedded in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_ADAPTER_CANARY_RECEIPT,
+        actor=actor,
+        resource_type="adapter_canary",
+        resource_id=adapter,
+        details={
+            "adapter": adapter,
+            "binary": binary,
+            "installed_version": installed_version,
+            "verdict": verdict,
+            "receipt_sha256": receipt_sha256,
+            "failures": failures.copy(),
+        },
+    )
+
+
+def record_process_reap_receipt(
+    *,
+    chain: AuditChainStore,
+    session_id: str,
+    pgid: int,
+    os_name: str,
+    method: str,
+    delivered: bool,
+    escalated: bool,
+    grace_seconds: float,
+    reason: str,
+    actor: str = "spawner",
+) -> AuditEvent:
+    """Append a ``process.reap_receipt`` event into *chain* (#2367).
+
+    Mirrors a forced agent process-tree reap into the audit chain.  The
+    receipt records which platform mechanism delivered the stop (POSIX
+    process-group signalling or Windows process-tree termination), whether
+    the graceful stop was delivered, and whether escalation to a force-kill
+    was required.  A verifier reconstructing a failure window can prove
+    offline which reap path ran instead of inferring it from log lines.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        session_id: Agent session whose process tree was reaped.
+        pgid: Process group ID (POSIX) or lead PID (Windows) targeted.
+        os_name: Normalised OS name (``"linux"``/``"macos"``/``"windows"``).
+        method: Delivery mechanism identifier
+            (``"posix_process_group"`` / ``"windows_process_tree"``).
+        delivered: Whether the initial graceful stop was delivered.
+        escalated: Whether a force-kill was required after the grace window.
+        grace_seconds: The grace window that applied to this reap.
+        reason: Why the reap ran (e.g. ``"kill_requested"``,
+            ``"heartbeat_stale"``, ``"wall_clock_timeout"``).
+        actor: Recorded actor; defaults to ``"spawner"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_PROCESS_REAP_RECEIPT,
+        actor=actor,
+        resource_type="process_reap",
+        resource_id=session_id,
+        details={
+            "session_id": session_id,
+            "pgid": pgid,
+            "os_name": os_name,
+            "method": method,
+            "delivered": delivered,
+            "escalated": escalated,
+            "grace_seconds": grace_seconds,
+            "reason": reason,
+        },
+    )
+
+
+def record_dashboard_token_grant(
+    *,
+    chain: AuditChainStore,
+    grant: str,
+    token_id: str,
+    token_sha256: str,
+    principal: str,
+    scope: str,
+    actor: str = "dashboard",
+) -> AuditEvent:
+    """Append a ``dashboard.token_grant`` event into *chain* (#2366).
+
+    Mirrors one signed row of the dashboard token registry so credential
+    grants and revocations are chain-attested alongside the authz decisions
+    they later authorize. Only the digest and metadata are recorded -- the
+    raw token exists solely in the issuing terminal.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        grant: ``issue`` or ``revoke``.
+        token_id: Short hex id of the token (digest prefix).
+        token_sha256: Hex SHA-256 of the raw token.
+        principal: The seat / person the token attributes actions to.
+        scope: The granted scope (``viewer`` / ``operator``; empty on
+            revocations).
+        actor: Recorded actor; defaults to ``"dashboard"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_DASHBOARD_TOKEN_GRANT,
+        actor=actor,
+        resource_type="dashboard_token",
+        resource_id=token_id,
+        details={
+            "grant": grant,
+            "token_id": token_id,
+            "token_sha256": token_sha256,
+            "principal": principal,
+            "scope": scope,
+        },
+    )
+
+
+def record_cost_dispatch_receipt(
+    *,
+    chain: AuditChainStore,
+    decision_hash: str,
+    run_id: str,
+    task_id: str,
+    admit: bool,
+    breached_dimension: str,
+    projected_overrun_usd: float,
+    price_table_hash: str,
+    ledger_state_hash: str,
+    policy_hash: str,
+    journal_entry_hash: str,
+    actor: str = "cost_policy",
+) -> AuditEvent:
+    """Append a ``cost.dispatch_receipt`` event into *chain* (#2354).
+
+    Mirrors one deterministic cost-aware dispatch decision into the HMAC chain
+    so an operator can prove, from the chain alone, that a dispatch was admitted
+    or halted under a named policy against a pinned price table and ledger --
+    and, on a halt, exactly which dimension breached and by how much. Only
+    hashes, the verdict, and the projected overrun are recorded; a verifier
+    holding the same ledger and price table recomputes the ``decision_hash``
+    byte-identically.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        decision_hash: Deterministic ``sha256:`` hash pinning the whole
+            decision (the receipt identity).
+        run_id: The run the candidate belonged to.
+        task_id: The task the candidate belonged to.
+        admit: Whether the dispatch was admitted (``False`` == halted).
+        breached_dimension: The first breached cap dimension (``task`` /
+            ``run`` / ``day``), empty when admitted.
+        projected_overrun_usd: USD the breached dimension would exceed its cap
+            by (``0`` when admitted).
+        price_table_hash: Content hash of the pinned price table.
+        ledger_state_hash: Hash over the projected prior spend the decision
+            read from the ledger.
+        policy_hash: Content hash of the caps the decision enforced.
+        journal_entry_hash: Lineage-spine entry hash anchoring the sealed
+            decision bytes; a verifier holding the spine can recompute it.
+        actor: Recorded actor; defaults to ``"cost_policy"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_COST_DISPATCH_RECEIPT,
+        actor=actor,
+        resource_type="cost_dispatch_receipt",
+        resource_id=decision_hash,
+        details={
+            "decision_hash": decision_hash,
+            "run_id": run_id,
+            "task_id": task_id,
+            "admit": admit,
+            "breached_dimension": breached_dimension,
+            "projected_overrun_usd": round(projected_overrun_usd, 6),
+            "price_table_hash": price_table_hash,
+            "ledger_state_hash": ledger_state_hash,
+            "policy_hash": policy_hash,
+            "journal_entry_hash": journal_entry_hash,
+        },
+    )
+
+
+def record_tournament_selection(
+    *,
+    chain: AuditChainStore,
+    task_id: str,
+    receipt_hash: str,
+    winner_hash: str,
+    attempt_hashes: list[str],
+    evaluator_names: list[str],
+    actor: str = "tournament",
+) -> AuditEvent:
+    """Append a ``tournament.selection`` event into *chain* (#2353).
+
+    Mirrors a signed tournament selection receipt into the audit chain. The
+    receipt itself is the offline-verifiable proof of why an attempt won; this
+    entry lets an auditor join the chain to that receipt and confirm the
+    decision was made without a model in the loop. Only hashes and metadata are
+    recorded -- the attempt artefacts live in the tournament lineage spine.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        task_id: The task the tournament ran for.
+        receipt_hash: The tournament receipt's spine anchor (its identity).
+        winner_hash: The winning attempt's content hash.
+        attempt_hashes: Every attempt's content hash (winner + losers).
+        evaluator_names: The scripted evaluators that decided the outcome.
+        actor: Recorded actor; defaults to ``"tournament"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_TOURNAMENT_SELECTION,
+        actor=actor,
+        resource_type="tournament",
+        resource_id=task_id,
+        details={
+            "task_id": task_id,
+            "receipt_hash": receipt_hash,
+            "winner_hash": winner_hash,
+            "attempt_hashes": [*attempt_hashes],
+            "attempt_count": len(attempt_hashes),
+            "evaluator_names": [*evaluator_names],
+        },
+    )
+
+
+def record_spec_requirement_set(
+    *,
+    chain: AuditChainStore,
+    requirement_set_hash: str,
+    source_hash: str,
+    requirement_count: int,
+    graph_hash: str,
+    decision: str,
+    actor: str = "spec-pipeline",
+) -> AuditEvent:
+    """Append a ``spec.requirement_set`` approval receipt into *chain* (#2361).
+
+    The receipt is the plan-approval gate for the spec pipeline. It binds the
+    content-addressed requirement-set hash, the source-spec hash, the compiled
+    graph hash, and the decision into the HMAC chain so a verifier can prove,
+    from the chain alone, that a task graph was compiled from the exact
+    requirement set the operator approved. Only hashes and metadata are
+    recorded -- never the spec body or the requirement text.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        requirement_set_hash: ``sha256:`` digest over the ordered
+            ``(id, line_hash)`` pairs of the approved requirement set.
+        source_hash: ``sha256:`` digest of the source spec document.
+        requirement_count: Number of requirements in the approved set.
+        graph_hash: ``sha256:`` digest of the compiled task graph.
+        decision: ``approved`` or ``rejected``.
+        actor: Recorded actor; defaults to ``"spec-pipeline"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_SPEC_REQUIREMENT_SET,
+        actor=actor,
+        resource_type="requirement_set",
+        resource_id=requirement_set_hash,
+        details={
+            "requirement_set_hash": requirement_set_hash,
+            "source_hash": source_hash,
+            "requirement_count": requirement_count,
+            "graph_hash": graph_hash,
+            "decision": decision,
+        },
+    )
+
+
+def record_spiffe_svid_binding(
+    *,
+    chain: AuditChainStore,
+    agent_id: str,
+    spiffe_id: str,
+    install_id: str,
+    card_hash: str,
+    svid_sha256: str,
+    binding_hash: str,
+    trust_domain: str,
+    actor: str = "workload_identity",
+) -> AuditEvent:
+    """Append a ``spiffe.svid_binding`` event into *chain* (#2363).
+
+    Anchors the mapping between a SPIRE-issued X.509-SVID and an agent card:
+    the derived SPIFFE ID, the install fingerprint the ID derives from, the
+    card hash at binding time, the leaf SVID's content address, and the
+    binding's own content hash. Records identifiers and hashes only -- never
+    the SVID private key -- so the receipt is safe to chain and a verifier
+    holding the chain plus the install public key can prove the binding offline.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        agent_id: The bound agent card's id.
+        spiffe_id: The derived ``spiffe://`` id both card and SVID carry.
+        install_id: The install fingerprint segment the SPIFFE ID derives from.
+        card_hash: The card's ``card_hash`` at binding time.
+        svid_sha256: Content address (``sha256:<hex>``) of the leaf SVID DER.
+        binding_hash: Content address of the binding's canonical identity.
+        trust_domain: The SPIFFE trust domain the id lives in.
+        actor: Recorded actor; defaults to ``"workload_identity"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_SPIFFE_SVID_BINDING,
+        actor=actor,
+        resource_type="spiffe_svid_binding",
+        resource_id=spiffe_id,
+        details={
+            "agent_id": agent_id,
+            "spiffe_id": spiffe_id,
+            "install_id": install_id,
+            "card_hash": card_hash,
+            "svid_sha256": svid_sha256,
+            "binding_hash": binding_hash,
+            "trust_domain": trust_domain,
+        },
+    )
+
+
+def record_mcp_task_handle(
+    *,
+    chain: AuditChainStore,
+    task_id: str,
+    run_id: str,
+    status: str,
+    journal_head: str,
+    chain_head: str,
+    receipt_hash: str,
+    spec_revision: str,
+    trace_id: str = "",
+    actor: str = "mcp_task_handle",
+) -> AuditEvent:
+    """Append an ``mcp.task_handle`` event into *chain* (#2364).
+
+    Anchors an MCP Tasks-extension run handle in the audit chain. The handle
+    is a pure projection of the run journal; recording its receipt hash, the
+    run journal head, and the embedded chain head means a client that polled
+    the handle can later prove offline that the task it watched corresponds
+    to the audited run: recompute the receipt from the journal and match the
+    embedded chain head against a verified chain.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        task_id: The Tasks-extension task id.
+        run_id: The run whose journal the handle projects.
+        status: The projected Tasks-extension status.
+        journal_head: The run journal's Merkle head hash.
+        chain_head: The audit-chain head hash embedded in the handle.
+        receipt_hash: The content-addressed digest of the handle.
+        spec_revision: The pinned Tasks-extension revision.
+        trace_id: The ingested W3C trace id, empty when none.
+        actor: Recorded actor; defaults to ``"mcp_task_handle"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_MCP_TASK_HANDLE,
+        actor=actor,
+        resource_type="mcp_task_handle",
+        resource_id=run_id,
+        details={
+            "task_id": task_id,
+            "run_id": run_id,
+            "status": status,
+            "journal_head": journal_head,
+            "chain_head": chain_head,
+            "receipt_hash": receipt_hash,
+            "spec_revision": spec_revision,
+            "trace_id": trace_id,
+        },
+    )
+
+
+def record_run_lifecycle(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    transition: str,
+    ledger_head: str,
+    entry_count: int,
+    from_head: str = "",
+    to_head: str = "",
+    entries_added: int = 0,
+    actor: str = "run_service",
+) -> AuditEvent:
+    """Append a ``run.lifecycle`` event into *chain* (#2352).
+
+    Records one lifecycle boundary of a detached run into the HMAC-chained
+    audit log. The detached-run daemon owns execution but its state is a
+    projection of the durable work ledger; this receipt binds the ledger head
+    at the boundary so a reattaching operator (or an offline verifier) can
+    prove the current ledger extends the head last seen. Only identifiers,
+    the transition, and the continuity span are recorded -- never goal text or
+    task payloads.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        run_id: The run whose lifecycle boundary is recorded.
+        transition: One of ``submitted`` / ``detached`` / ``reattached`` /
+            ``daemon_restarted`` / ``completed``.
+        ledger_head: Head entry hash of the work ledger at the boundary.
+        entry_count: Number of ledger entries at the boundary.
+        from_head: Ledger head the operator last saw (reattach/restart only).
+        to_head: Ledger head at reattach/restart (equals ``ledger_head``).
+        entries_added: Entries appended between ``from_head`` and ``to_head``.
+        actor: Recorded actor; defaults to ``"run_service"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_RUN_LIFECYCLE,
+        actor=actor,
+        resource_type="run",
+        resource_id=run_id,
+        details={
+            "run_id": run_id,
+            "transition": transition,
+            "ledger_head": ledger_head,
+            "entry_count": entry_count,
+            "from_head": from_head,
+            "to_head": to_head,
+            "entries_added": entries_added,
+        },
+    )
+
+
+def record_review_board_action(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    task_id: str,
+    decision: str,
+    principal: str,
+    scope: str,
+    projection_hash: str,
+    journal_head: str,
+    diff_hash: str,
+    journal_entry_hash: str,
+    actor: str = "review_board",
+) -> AuditEvent:
+    """Append a ``review_board.action`` event into *chain*.
+
+    Mirrors one signed operator board decision into the HMAC-chained audit
+    log. The receipt names the acting principal and binds what was reviewed:
+    the board ``projection_hash`` the operator saw, the run ``journal_head``
+    the decision chained onto, and the reviewed ``diff_hash``. Only hashes,
+    the decision, the principal, and the scope are recorded -- never diff
+    bytes. A verifier holding the run journal can prove the decision row at
+    ``journal_entry_hash`` follows the named head.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        run_id: The run the reviewed task belongs to.
+        task_id: The reviewed task.
+        decision: The board action (``approve`` / ``request_changes`` /
+            ``merge``).
+        principal: The acting operator principal (dashboard-auth credential).
+        scope: The scope the action was authorized under.
+        projection_hash: The board projection hash the operator saw.
+        journal_head: The run journal Merkle head the decision chained onto.
+        diff_hash: Content hash of the reviewed task diff (empty when none).
+        journal_entry_hash: The recorded decision row's ``event_hash``.
+        actor: Recorded actor; defaults to ``"review_board"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_REVIEW_BOARD_ACTION,
+        actor=actor,
+        resource_type="review_board_action",
+        resource_id=task_id,
+        details={
+            "run_id": run_id,
+            "task_id": task_id,
+            "decision": decision,
+            "principal": principal,
+            "scope": scope,
+            "projection_hash": projection_hash,
+            "journal_head": journal_head,
+            "diff_hash": diff_hash,
+            "journal_entry_hash": journal_entry_hash,
+        },
+    )
+
+
+def record_run_ssh_task(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    task_id: str,
+    host: str,
+    worktree: str,
+    exit_code: int,
+    worktree_digest: str,
+    ledger_head: str,
+    backend_name: str = "ssh",
+    actor: str = "run_service_ssh",
+) -> AuditEvent:
+    """Append a ``run.ssh_task`` execution receipt into *chain* (#2352, AC4).
+
+    Records one detached-run task executed on the ssh sandbox backend. The
+    receipt binds the isolated remote worktree the task ran in and the
+    work-ledger head at execution time, so an offline verifier can prove from
+    the chain alone that each task of a goal ran in its own worktree across the
+    ssh boundary. Only non-secret identifiers and content hashes are recorded --
+    never goal text, task payloads, or the credentials injected into the remote
+    environment (those flow through the credential vault, never the chain).
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        run_id: The detached run the task belongs to.
+        task_id: The task that executed.
+        host: The ssh host the task ran on (hostname only, never a secret).
+        worktree: Absolute POSIX path of the isolated remote worktree.
+        exit_code: The remote task command's exit code.
+        worktree_digest: ``sha256:`` digest of the per-task isolation marker
+            written into ``worktree`` (proves the marker landed in that tree).
+        ledger_head: Work-ledger head entry hash at execution time.
+        backend_name: The sandbox backend name; defaults to ``"ssh"``.
+        actor: Recorded actor; defaults to ``"run_service_ssh"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_RUN_SSH_TASK,
+        actor=actor,
+        resource_type="run_ssh_task",
+        resource_id=task_id,
+        details={
+            "run_id": run_id,
+            "task_id": task_id,
+            "backend": backend_name,
+            "host": host,
+            "worktree": worktree,
+            "exit_code": exit_code,
+            "worktree_digest": worktree_digest,
+            "ledger_head": ledger_head,
+        },
+    )
+
+
+#: Issue #2354 -- emitted whenever the live dispatch loop routes a task with
+#: respect to the provider batch surface. The event mirrors the deterministic
+#: :func:`~bernstein.core.cost.scheduling.batch.route_batch` decision so an
+#: operator can prove, from the chain alone, that a batch-eligible task reached
+#: the batch endpoint only on a batch-capable adapter -- and that an eligible
+#: task on an adapter with no batch surface was refused (routed interactively),
+#: never faked. Only the routing verdict and capability facts are recorded.
+EVENT_COST_BATCH_ROUTE = "cost.batch_route"
+
+
+def record_cost_batch_route(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    task_id: str,
+    adapter: str,
+    batch_eligible: bool,
+    adapter_capable: bool,
+    capability: str,
+    route: str,
+    refused_reason: str,
+    actor: str = "cost_policy",
+) -> AuditEvent:
+    """Append a ``cost.batch_route`` event into *chain* (#2354).
+
+    Mirrors one live batch-routing decision into the HMAC chain so the routing
+    of a task -- to the batch surface or to interactive dispatch -- is a
+    verifiable receipt, not a log line. A batch-eligible task routes to
+    ``batch`` only when the resolved adapter declares a batch surface; an
+    eligible task on an incapable adapter routes ``interactive`` with
+    *refused_reason* recorded, and a non-eligible task routes ``interactive``
+    with no reason. A verifier reading the chain, the adapter capability map,
+    and the task's eligibility recomputes the same verdict.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        run_id: The run the task belonged to.
+        task_id: The task being routed.
+        adapter: Registry name of the resolved adapter.
+        batch_eligible: Whether policy marked the task batch-eligible.
+        adapter_capable: Whether the resolved adapter declares a batch surface.
+        capability: The declared batch-dispatch capability string.
+        route: ``batch`` or ``interactive``.
+        refused_reason: Why an eligible task was refused the batch surface
+            (empty unless a batch-eligible task hit an incapable adapter).
+        actor: Recorded actor; defaults to ``"cost_policy"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
+        its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_COST_BATCH_ROUTE,
+        actor=actor,
+        resource_type="cost_batch_route",
+        resource_id=task_id,
+        details={
+            "run_id": run_id,
+            "task_id": task_id,
+            "adapter": adapter,
+            "batch_eligible": batch_eligible,
+            "adapter_capable": adapter_capable,
+            "capability": capability,
+            "route": route,
+            "refused_reason": refused_reason,
         },
     )
 
@@ -2139,10 +3117,14 @@ __all__ = [
     "AGENT_FRESH_RESTART_ON_RETRY",
     "EVENT_A2A_MESSAGE_RECEIPT",
     "EVENT_ACTIVITY_RESULT",
+    "EVENT_ADAPTER_CANARY_RECEIPT",
     "EVENT_CHECKPOINT_RETRY",
     "EVENT_COMPACTION_RECEIPT",
     "EVENT_COMPACTION_SENSITIVE_GATE",
+    "EVENT_COST_BATCH_ROUTE",
+    "EVENT_COST_DISPATCH_RECEIPT",
     "EVENT_COST_PROFILE_REPORT",
+    "EVENT_DASHBOARD_TOKEN_GRANT",
     "EVENT_ENDPOINT_CERTIFICATION",
     "EVENT_ESCALATION_RECEIPT",
     "EVENT_EVAL_AB_COMPARISON",
@@ -2153,20 +3135,31 @@ __all__ = [
     "EVENT_MANDATE_CONSENT_RECEIPT",
     "EVENT_MANDATE_REVOCATION",
     "EVENT_MCP_STATELESS_CALL",
+    "EVENT_MCP_TASK_HANDLE",
     "EVENT_MEMORY_WRITE",
     "EVENT_MULTIMODAL_ATTACH",
     "EVENT_OTEL_PROJECTION",
+    "EVENT_PLUGIN_CONFORMANCE_RECEIPT",
+    "EVENT_PLUGIN_INSTALL_RECEIPT",
+    "EVENT_PLUGIN_UPDATE_RECEIPT",
+    "EVENT_PROCESS_REAP_RECEIPT",
+    "EVENT_REVIEW_BOARD_ACTION",
     "EVENT_REVIEW_RECEIPT",
     "EVENT_ROUTING_FAILOVER_RECEIPT",
+    "EVENT_RUN_LIFECYCLE",
+    "EVENT_RUN_SSH_TASK",
     "EVENT_SCHEDULE_FIRE_PROJECTION",
     "EVENT_SKILL_INSTALL_RECEIPT",
     "EVENT_SKILL_USAGE",
+    "EVENT_SPEC_REQUIREMENT_SET",
+    "EVENT_SPIFFE_SVID_BINDING",
     "EVENT_SUBAGENT_DELEGATION",
     "EVENT_TASK_CLAIM_RECEIPT",
     "EVENT_TASK_MAILBOX_MESSAGE",
     "EVENT_TEMPLATE_COMPRESSION_RECEIPT",
     "EVENT_TEMPLATE_COMPRESSION_RESTORE",
     "EVENT_THREAD_APPROVAL",
+    "EVENT_TOURNAMENT_SELECTION",
     "EVENT_WEBHOOK_NODE_RECEIPT",
     "EVENT_WORK_LEDGER_ANCHOR",
     "AuditChainStore",
@@ -2180,8 +3173,12 @@ __all__ = [
     "ThreadApprovalDetails",
     "record_a2a_message_receipt",
     "record_activity_result",
+    "record_adapter_canary_receipt",
     "record_checkpoint_retry",
+    "record_cost_batch_route",
+    "record_cost_dispatch_receipt",
     "record_cost_profile_report",
+    "record_dashboard_token_grant",
     "record_endpoint_certification",
     "record_escalation_receipt",
     "record_eval_ab_comparison",
@@ -2192,19 +3189,30 @@ __all__ = [
     "record_mandate_consent_receipt",
     "record_mandate_revocation",
     "record_mcp_stateless_call",
+    "record_mcp_task_handle",
     "record_memory_write",
     "record_multimodal_attach",
     "record_otel_projection",
+    "record_plugin_conformance_receipt",
+    "record_plugin_install_receipt",
+    "record_plugin_update_receipt",
+    "record_process_reap_receipt",
+    "record_review_board_action",
     "record_review_receipt",
     "record_routing_failover_receipt",
+    "record_run_lifecycle",
+    "record_run_ssh_task",
     "record_schedule_fire_projection",
     "record_sensitive_gate",
     "record_skill_install_receipt",
     "record_skill_usage",
+    "record_spec_requirement_set",
+    "record_spiffe_svid_binding",
     "record_subagent_delegation",
     "record_task_claim_receipt",
     "record_task_mailbox_message",
     "record_thread_approval",
+    "record_tournament_selection",
     "record_webhook_node_receipt",
     "record_work_ledger_anchor",
 ]

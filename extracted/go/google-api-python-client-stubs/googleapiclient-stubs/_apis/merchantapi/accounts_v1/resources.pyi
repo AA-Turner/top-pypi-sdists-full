@@ -24,8 +24,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: AutofeedSettings = ...,
-                updateMask: str = ...,
+                body: AutofeedSettings,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AutofeedSettingsHttpRequest: ...
 
@@ -38,8 +38,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: AutomaticImprovements = ...,
-                updateMask: str = ...,
+                body: AutomaticImprovements,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AutomaticImprovementsHttpRequest: ...
 
@@ -52,8 +52,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: BusinessIdentity = ...,
-                updateMask: str = ...,
+                body: BusinessIdentity,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> BusinessIdentityHttpRequest: ...
 
@@ -66,8 +66,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: BusinessInfo = ...,
-                updateMask: str = ...,
+                body: BusinessInfo,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> BusinessInfoHttpRequest: ...
 
@@ -80,14 +80,10 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self, *, name: str, **kwargs: typing.Any
             ) -> DeveloperRegistrationHttpRequest: ...
             def registerGcp(
-                self, *, name: str, body: RegisterGcpRequest = ..., **kwargs: typing.Any
+                self, *, name: str, body: RegisterGcpRequest, **kwargs: typing.Any
             ) -> DeveloperRegistrationHttpRequest: ...
             def unregisterGcp(
-                self,
-                *,
-                name: str,
-                body: UnregisterGcpRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: UnregisterGcpRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
 
         @typing.type_check_only
@@ -99,26 +95,22 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: EmailPreferences = ...,
-                updateMask: str = ...,
+                body: EmailPreferences,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> EmailPreferencesHttpRequest: ...
 
         @typing.type_check_only
         class GbpAccountsResource(googleapiclient.discovery.Resource):
             def linkGbpAccount(
-                self,
-                *,
-                parent: str,
-                body: LinkGbpAccountRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: LinkGbpAccountRequest, **kwargs: typing.Any
             ) -> LinkGbpAccountResponseHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListGbpAccountsResponseHttpRequest: ...
             def list_next(
@@ -130,28 +122,20 @@ class MerchantResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class HomepageResource(googleapiclient.discovery.Resource):
             def claim(
-                self,
-                *,
-                name: str,
-                body: ClaimHomepageRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: ClaimHomepageRequest, **kwargs: typing.Any
             ) -> HomepageHttpRequest: ...
             def getHomepage(
                 self, *, name: str, **kwargs: typing.Any
             ) -> HomepageHttpRequest: ...
             def unclaim(
-                self,
-                *,
-                name: str,
-                body: UnclaimHomepageRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: UnclaimHomepageRequest, **kwargs: typing.Any
             ) -> HomepageHttpRequest: ...
             def updateHomepage(
                 self,
                 *,
                 name: str,
-                body: Homepage = ...,
-                updateMask: str = ...,
+                body: Homepage,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> HomepageHttpRequest: ...
 
@@ -161,10 +145,10 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                languageCode: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                timeZone: str = ...,
+                languageCode: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                timeZone: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAccountIssuesResponseHttpRequest: ...
             def list_next(
@@ -181,8 +165,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FindLfpProvidersResponseHttpRequest: ...
                 def find_next(
@@ -194,16 +178,12 @@ class MerchantResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: LinkLfpProviderRequest = ...,
+                    body: LinkLfpProviderRequest,
                     **kwargs: typing.Any,
                 ) -> LinkLfpProviderResponseHttpRequest: ...
 
             def create(
-                self,
-                *,
-                parent: str,
-                body: OmnichannelSetting = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: OmnichannelSetting, **kwargs: typing.Any
             ) -> OmnichannelSettingHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -212,8 +192,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListOmnichannelSettingsResponseHttpRequest: ...
             def list_next(
@@ -225,15 +205,15 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: OmnichannelSetting = ...,
-                updateMask: str = ...,
+                body: OmnichannelSetting,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OmnichannelSettingHttpRequest: ...
             def requestInventoryVerification(
                 self,
                 *,
                 name: str,
-                body: RequestInventoryVerificationRequest = ...,
+                body: RequestInventoryVerificationRequest,
                 **kwargs: typing.Any,
             ) -> RequestInventoryVerificationResponseHttpRequest: ...
             def lfpProviders(self) -> LfpProvidersResource: ...
@@ -241,11 +221,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class OnlineReturnPoliciesResource(googleapiclient.discovery.Resource):
             def create(
-                self,
-                *,
-                parent: str,
-                body: OnlineReturnPolicy = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: OnlineReturnPolicy, **kwargs: typing.Any
             ) -> OnlineReturnPolicyHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -257,8 +233,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListOnlineReturnPoliciesResponseHttpRequest: ...
             def list_next(
@@ -272,11 +248,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class CheckoutSettingsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self,
-                    *,
-                    parent: str,
-                    body: CheckoutSettings = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: CheckoutSettings, **kwargs: typing.Any
                 ) -> CheckoutSettingsHttpRequest: ...
                 def deleteCheckoutSettings(
                     self, *, name: str, **kwargs: typing.Any
@@ -288,32 +260,24 @@ class MerchantResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CheckoutSettings = ...,
-                    updateMask: str = ...,
+                    body: CheckoutSettings,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> CheckoutSettingsHttpRequest: ...
 
             def disable(
-                self,
-                *,
-                name: str,
-                body: DisableProgramRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: DisableProgramRequest, **kwargs: typing.Any
             ) -> ProgramHttpRequest: ...
             def enable(
-                self,
-                *,
-                name: str,
-                body: EnableProgramRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: EnableProgramRequest, **kwargs: typing.Any
             ) -> ProgramHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> ProgramHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListProgramsResponseHttpRequest: ...
             def list_next(
@@ -329,29 +293,29 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: BatchCreateRegionsRequest = ...,
+                body: BatchCreateRegionsRequest,
                 **kwargs: typing.Any,
             ) -> BatchCreateRegionsResponseHttpRequest: ...
             def batchDelete(
                 self,
                 *,
                 parent: str,
-                body: BatchDeleteRegionsRequest = ...,
+                body: BatchDeleteRegionsRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def batchUpdate(
                 self,
                 *,
                 parent: str,
-                body: BatchUpdateRegionsRequest = ...,
+                body: BatchUpdateRegionsRequest,
                 **kwargs: typing.Any,
             ) -> BatchUpdateRegionsResponseHttpRequest: ...
             def create(
                 self,
                 *,
                 parent: str,
-                body: Region = ...,
-                regionId: str = ...,
+                body: Region,
+                regionId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> RegionHttpRequest: ...
             def delete(
@@ -362,8 +326,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListRegionsResponseHttpRequest: ...
             def list_next(
@@ -375,8 +339,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Region = ...,
-                updateMask: str = ...,
+                body: Region,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> RegionHttpRequest: ...
 
@@ -389,8 +353,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAccountRelationshipsResponseHttpRequest: ...
             def list_next(
@@ -402,8 +366,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: AccountRelationship = ...,
-                updateMask: str = ...,
+                body: AccountRelationship,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AccountRelationshipHttpRequest: ...
 
@@ -413,7 +377,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: ApproveAccountServiceRequest = ...,
+                body: ApproveAccountServiceRequest,
                 **kwargs: typing.Any,
             ) -> AccountServiceHttpRequest: ...
             def get(
@@ -423,8 +387,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAccountServicesResponseHttpRequest: ...
             def list_next(
@@ -436,14 +400,14 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: ProposeAccountServiceRequest = ...,
+                body: ProposeAccountServiceRequest,
                 **kwargs: typing.Any,
             ) -> AccountServiceHttpRequest: ...
             def reject(
                 self,
                 *,
                 name: str,
-                body: RejectAccountServiceRequest = ...,
+                body: RejectAccountServiceRequest,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
 
@@ -453,7 +417,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self, *, name: str, **kwargs: typing.Any
             ) -> ShippingSettingsHttpRequest: ...
             def insert(
-                self, *, parent: str, body: ShippingSettings = ..., **kwargs: typing.Any
+                self, *, parent: str, body: ShippingSettings, **kwargs: typing.Any
             ) -> ShippingSettingsHttpRequest: ...
 
         @typing.type_check_only
@@ -470,19 +434,15 @@ class MerchantResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class MeResource(googleapiclient.discovery.Resource):
                 def verifySelf(
-                    self,
-                    *,
-                    account: str,
-                    body: VerifySelfRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, account: str, body: VerifySelfRequest, **kwargs: typing.Any
                 ) -> UserHttpRequest: ...
 
             def create(
                 self,
                 *,
                 parent: str,
-                body: User = ...,
-                userId: str = ...,
+                body: User,
+                userId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> UserHttpRequest: ...
             def delete(
@@ -493,8 +453,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListUsersResponseHttpRequest: ...
             def list_next(
@@ -506,28 +466,28 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: User = ...,
-                updateMask: str = ...,
+                body: User,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> UserHttpRequest: ...
             def me(self) -> MeResource: ...
 
         def createAndConfigure(
-            self, *, body: CreateAndConfigureAccountRequest = ..., **kwargs: typing.Any
+            self, *, body: CreateAndConfigureAccountRequest, **kwargs: typing.Any
         ) -> AccountHttpRequest: ...
         def createTestAccount(
-            self, *, parent: str, body: Account = ..., **kwargs: typing.Any
+            self, *, parent: str, body: Account, **kwargs: typing.Any
         ) -> AccountHttpRequest: ...
         def delete(
-            self, *, name: str, force: bool = ..., **kwargs: typing.Any
+            self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> AccountHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListAccountsResponseHttpRequest: ...
         def list_next(
@@ -539,8 +499,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
             self,
             *,
             provider: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListSubAccountsResponseHttpRequest: ...
         def listSubaccounts_next(
@@ -552,8 +512,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: Account = ...,
-            updateMask: str = ...,
+            body: Account,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> AccountHttpRequest: ...
         def autofeedSettings(self) -> AutofeedSettingsResource: ...
@@ -583,8 +543,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            account: str = ...,
-            regionCode: str = ...,
+            account: str | None = ...,
+            regionCode: str | None = ...,
             **kwargs: typing.Any,
         ) -> AcceptTermsOfServiceResponseHttpRequest: ...
         def get(
@@ -595,8 +555,9 @@ class MerchantResource(googleapiclient.discovery.Resource):
             *,
             kind: typing_extensions.Literal[
                 "TERMS_OF_SERVICE_KIND_UNSPECIFIED", "MERCHANT_CENTER"
-            ] = ...,
-            regionCode: str = ...,
+            ]
+            | None = ...,
+            regionCode: str | None = ...,
             **kwargs: typing.Any,
         ) -> TermsOfServiceHttpRequest: ...
 

@@ -16,7 +16,7 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class OperationsResource(googleapiclient.discovery.Resource):
         def cancel(
-            self, *, name: str, body: CancelOperationRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CancelOperationRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> OperationHttpRequest: ...
@@ -24,10 +24,10 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListOperationsResponseHttpRequest: ...
         def list_next(
@@ -41,85 +41,69 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class ConnectionsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: Connection = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Connection, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def deleteConnection(
-                self,
-                *,
-                name: str,
-                body: DeleteConnectionRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: DeleteConnectionRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def list(
-                self, *, parent: str, network: str = ..., **kwargs: typing.Any
+                self, *, parent: str, network: str | None = ..., **kwargs: typing.Any
             ) -> ListConnectionsResponseHttpRequest: ...
             def patch(
                 self,
                 *,
                 name: str,
-                body: Connection = ...,
-                force: bool = ...,
-                updateMask: str = ...,
+                body: Connection,
+                force: bool | None = ...,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
         @typing.type_check_only
         class DnsRecordSetsResource(googleapiclient.discovery.Resource):
             def add(
-                self,
-                *,
-                parent: str,
-                body: AddDnsRecordSetRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: AddDnsRecordSetRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def get(
                 self,
                 *,
                 parent: str,
-                consumerNetwork: str = ...,
-                domain: str = ...,
-                type: str = ...,
-                zone: str = ...,
+                consumerNetwork: str | None = ...,
+                domain: str | None = ...,
+                type: str | None = ...,
+                zone: str | None = ...,
                 **kwargs: typing.Any,
             ) -> DnsRecordSetHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                consumerNetwork: str = ...,
-                zone: str = ...,
+                consumerNetwork: str | None = ...,
+                zone: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListDnsRecordSetsResponseHttpRequest: ...
             def remove(
                 self,
                 *,
                 parent: str,
-                body: RemoveDnsRecordSetRequest = ...,
+                body: RemoveDnsRecordSetRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def update(
                 self,
                 *,
                 parent: str,
-                body: UpdateDnsRecordSetRequest = ...,
+                body: UpdateDnsRecordSetRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
         @typing.type_check_only
         class DnsZonesResource(googleapiclient.discovery.Resource):
             def add(
-                self,
-                *,
-                parent: str,
-                body: AddDnsZoneRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: AddDnsZoneRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def remove(
-                self,
-                *,
-                parent: str,
-                body: RemoveDnsZoneRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: RemoveDnsZoneRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
 
         @typing.type_check_only
@@ -143,7 +127,7 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: PeeredDnsDomain = ...,
+                            body: PeeredDnsDomain,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def delete(
@@ -157,7 +141,7 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        includeUsedIpRanges: bool = ...,
+                        includeUsedIpRanges: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ConsumerConfigHttpRequest: ...
                     def getVpcServiceControls(
@@ -167,7 +151,7 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: UpdateConsumerConfigRequest = ...,
+                        body: UpdateConsumerConfigRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def dnsZones(self) -> DnsZonesResource: ...
@@ -180,34 +164,34 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class RolesResource(googleapiclient.discovery.Resource):
             def add(
-                self, *, parent: str, body: AddRolesRequest = ..., **kwargs: typing.Any
+                self, *, parent: str, body: AddRolesRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
 
         def addSubnetwork(
-            self, *, parent: str, body: AddSubnetworkRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: AddSubnetworkRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def disableVpcServiceControls(
             self,
             *,
             parent: str,
-            body: DisableVpcServiceControlsRequest = ...,
+            body: DisableVpcServiceControlsRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def enableVpcServiceControls(
             self,
             *,
             parent: str,
-            body: EnableVpcServiceControlsRequest = ...,
+            body: EnableVpcServiceControlsRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def searchRange(
-            self, *, parent: str, body: SearchRangeRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: SearchRangeRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def validate(
             self,
             *,
             parent: str,
-            body: ValidateConsumerConfigRequest = ...,
+            body: ValidateConsumerConfigRequest,
             **kwargs: typing.Any,
         ) -> ValidateConsumerConfigResponseHttpRequest: ...
         def connections(self) -> ConnectionsResource: ...

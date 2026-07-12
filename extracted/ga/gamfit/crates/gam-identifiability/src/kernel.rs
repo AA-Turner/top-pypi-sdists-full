@@ -387,9 +387,9 @@ pub struct AnchorConsistencyMetrics {
 /// Compute anchor counts from an assignment matrix.
 ///
 /// `assignments` is `(N, K)`. A row is an anchor when its maximum-magnitude
-/// entry contributes at least `anchor_dominance ∈ (0, 1]` of the row's L1
+/// entry contributes at least `anchor_dominance ∈ (1/2, 1]` of the row's L1
 /// mass. Zero-mass rows are *not* anchors.
-pub fn anchor_consistency_metrics(
+fn anchor_consistency_metrics(
     assignments: ArrayView2<f64>,
     anchor_dominance: f64,
 ) -> AnchorConsistencyMetrics {
@@ -420,6 +420,157 @@ pub fn anchor_consistency_metrics(
         n_anchors,
         anchors_per_atom,
     }
+}
+
+/// Typed pass/fail verdict for the anchor-consistency identifiability check.
+///
+/// A manifold-SAE with `K` atoms is identified up to permutation of atoms only
+/// when the assignment matrix contains enough *anchor* rows (rows where one
+/// atom carries at least `anchor_dominance` of the row's L1 mass). The
+/// thresholds here are derived from that separability argument, not tuned:
+///
+/// * `enough_anchors_total`: permutation identifiability needs at least one
+///   anchor per atom, hence `n_anchors >= K` is the weakest necessary count.
+/// * `anchors_cover_all_atoms`: an atom with zero anchors has no row that
+///   pins it individually, so it is only identified up to a linear mix with
+///   its neighbours.
+///
+/// `K == 1` passes vacuously: a single atom has no permutation ambiguity.
+///
+/// The verdict lives in the core so the CLI, Rust library, and Python wrapper
+/// all report identical diagnostics; presentation layers only format it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnchorConsistencyPreconditions {
+    /// At least one anchor row exists per atom in aggregate.
+    pub enough_anchors_total: bool,
+    /// Every atom is the dominant atom of at least one anchor row.
+    pub anchors_cover_all_atoms: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnchorConsistencyReport {
+    /// The underlying anchor counts.
+    pub metrics: AnchorConsistencyMetrics,
+    /// The dominance threshold the counts were computed with.
+    pub anchor_dominance: f64,
+    /// Fraction of rows that are anchors (`n_anchors / max(n_rows, 1)`).
+    pub anchor_fraction: f64,
+    /// Preconditions derived from the number of fitted atoms.
+    pub preconditions: AnchorConsistencyPreconditions,
+    /// One human-readable statement per failed precondition.
+    pub violations: Vec<String>,
+    /// One concrete remediation per violation (`len == violations.len()`).
+    pub recommendations: Vec<String>,
+    /// Atoms with zero anchor rows (empty when coverage holds).
+    pub uncovered_atoms: Vec<usize>,
+}
+
+impl AnchorConsistencyReport {
+    /// `true` iff every precondition holds.
+    pub fn passes(&self) -> bool {
+        self.preconditions.enough_anchors_total && self.preconditions.anchors_cover_all_atoms
+    }
+}
+
+/// Default anchor-dominance threshold: the exact floating-point encoding of a
+/// strict majority.
+///
+/// Anchor separability requires the dominant atom to outweigh all remaining
+/// atoms combined (`share > 1/2`). Because [`anchor_consistency_metrics`] uses
+/// `>= threshold`, the next representable `f64` above one-half implements that
+/// theorem-derived strict inequality without an arbitrary robustness margin.
+/// Callers that want a stronger practical margin may request one explicitly.
+pub const ANCHOR_DOMINANCE_DEFAULT: f64 = f64::from_bits(0.5_f64.to_bits() + 1);
+
+/// Run the full anchor-consistency identifiability check and return the typed
+/// verdict. `assignments` is `(N, K)`; `anchor_dominance` defaults to
+/// [`ANCHOR_DOMINANCE_DEFAULT`] when `None`.
+pub fn anchor_consistency_report(
+    assignments: ArrayView2<f64>,
+    anchor_dominance: Option<f64>,
+) -> Result<AnchorConsistencyReport, String> {
+    if let Some(((row, atom), value)) = assignments
+        .indexed_iter()
+        .find(|(_, value)| !value.is_finite())
+    {
+        return Err(format!(
+            "assignments must be finite; entry ({row}, {atom}) is {value}"
+        ));
+    }
+    let anchor_dominance = anchor_dominance.unwrap_or(ANCHOR_DOMINANCE_DEFAULT);
+    if !(anchor_dominance > 0.5 && anchor_dominance <= 1.0) {
+        return Err(format!(
+            "anchor_dominance must be in (0.5, 1]; got {anchor_dominance}"
+        ));
+    }
+    let (_, k) = assignments.dim();
+    if k < 1 {
+        return Err("assignments must have at least one atom column".to_string());
+    }
+    let metrics = anchor_consistency_metrics(assignments, anchor_dominance);
+    let anchor_fraction = metrics.n_anchors as f64 / metrics.n_rows.max(1) as f64;
+
+    let mut violations = Vec::new();
+    let mut recommendations = Vec::new();
+    let mut uncovered_atoms = Vec::new();
+
+    let preconditions = if k == 1 {
+        AnchorConsistencyPreconditions {
+            enough_anchors_total: true,
+            anchors_cover_all_atoms: true,
+        }
+    } else {
+        let enough_anchors = metrics.n_anchors >= k;
+        if !enough_anchors {
+            violations.push(format!(
+                "Only {} anchor row(s) (dominance >= {:.2}) found in a K={}-atom \
+                 model; need at least {}. The recovered atoms are identified only \
+                 up to a linear transformation in atom space.",
+                metrics.n_anchors, anchor_dominance, k, k
+            ));
+            recommendations.push(format!(
+                "Reduce K to <= {}, sharpen the assignment prior (e.g. lower \
+                 temperature / stronger IBP concentration), or collect more \
+                 anchor-like rows where a single atom dominates.",
+                metrics.n_anchors.max(1)
+            ));
+        }
+        uncovered_atoms = metrics
+            .anchors_per_atom
+            .iter()
+            .enumerate()
+            .filter_map(|(j, &count)| (count == 0).then_some(j))
+            .collect();
+        let cover_ok = uncovered_atoms.is_empty();
+        if !cover_ok {
+            violations.push(format!(
+                "Atom(s) {:?} have zero anchor rows; they are not individually \
+                 identifiable and may be redundant or merged with neighbours.",
+                uncovered_atoms
+            ));
+            recommendations.push(format!(
+                "Prune the {} uncovered atom(s) (refit with K={}) or strengthen \
+                 the per-atom sparsity prior so that each atom acquires a \
+                 dominant region.",
+                uncovered_atoms.len(),
+                (k - uncovered_atoms.len()).max(1)
+            ));
+        }
+        AnchorConsistencyPreconditions {
+            enough_anchors_total: enough_anchors,
+            anchors_cover_all_atoms: cover_ok,
+        }
+    };
+
+    Ok(AnchorConsistencyReport {
+        metrics,
+        anchor_dominance,
+        anchor_fraction,
+        preconditions,
+        violations,
+        recommendations,
+        uncovered_atoms,
+    })
 }
 
 /// Stack a list of per-atom decoder blocks (each shape `(basis_size_k, P)`)
@@ -573,5 +724,84 @@ mod tests {
         let m = anchor_consistency_metrics(a.view(), 0.95);
         assert_eq!(m.n_anchors, 0);
         assert_eq!(m.anchors_per_atom, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn anchor_consistency_report_owns_the_pass_fail_verdict() {
+        let a = array![[1.0_f64, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        let report = anchor_consistency_report(a.view(), None).unwrap();
+        assert_eq!(report.anchor_dominance, ANCHOR_DOMINANCE_DEFAULT);
+        assert!(report.passes());
+        assert_eq!(
+            report.preconditions,
+            AnchorConsistencyPreconditions {
+                enough_anchors_total: true,
+                anchors_cover_all_atoms: true,
+            }
+        );
+        assert!(report.uncovered_atoms.is_empty());
+    }
+
+    #[test]
+    fn anchor_consistency_report_derives_thresholds_from_atom_count() {
+        let a = Array2::<f64>::from_elem((7, 4), 0.25);
+        let report = anchor_consistency_report(a.view(), Some(0.95)).unwrap();
+        assert!(!report.passes());
+        assert_eq!(
+            report.preconditions,
+            AnchorConsistencyPreconditions {
+                enough_anchors_total: false,
+                anchors_cover_all_atoms: false,
+            }
+        );
+        assert_eq!(report.uncovered_atoms, vec![0, 1, 2, 3]);
+        assert_eq!(report.violations.len(), 2);
+        assert_eq!(report.recommendations.len(), report.violations.len());
+        assert!(report.violations[0].contains("need at least 4"));
+    }
+
+    #[test]
+    fn anchor_consistency_report_rejects_invalid_dominance() {
+        let a = Array2::<f64>::ones((2, 2));
+        let error = anchor_consistency_report(a.view(), Some(0.0)).unwrap_err();
+        assert!(error.contains("anchor_dominance must be in (0.5, 1]"));
+    }
+
+    #[test]
+    fn default_anchor_rule_is_theorem_derived_strict_majority() {
+        let tied = array![[0.5_f64, 0.5], [0.5, 0.5]];
+        let tied_report = anchor_consistency_report(tied.view(), None).unwrap();
+        assert_eq!(tied_report.metrics.n_anchors, 0);
+
+        let majority = array![[0.5_f64.next_up(), 0.5], [0.5, 0.5_f64.next_up()]];
+        let majority_report = anchor_consistency_report(majority.view(), None).unwrap();
+        assert_eq!(majority_report.metrics.n_anchors, 2);
+        assert!(majority_report.passes());
+    }
+
+    #[test]
+    fn anchor_consistency_report_rejects_non_finite_assignments() {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let assignments = array![[1.0_f64, 0.0], [0.0, value]];
+            let error = anchor_consistency_report(assignments.view(), None).unwrap_err();
+            assert!(error.contains("assignments must be finite"));
+            assert!(error.contains("(1, 1)"));
+        }
+    }
+
+    #[test]
+    fn anchor_consistency_report_distinguishes_count_from_atom_coverage() {
+        let a = array![
+            [1.0_f64, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let report = anchor_consistency_report(a.view(), None).unwrap();
+        assert!(report.preconditions.enough_anchors_total);
+        assert!(!report.preconditions.anchors_cover_all_atoms);
+        assert_eq!(report.uncovered_atoms, vec![2]);
+        assert!(!report.passes());
+        assert_eq!(report.violations.len(), 1);
     }
 }

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2022 Stéphane Caron
 
 """Git utility functions to clone model repositories."""
 
@@ -96,6 +95,11 @@ REPOSITORIES: Dict[str, Repository] = {
         commit="fcc3775453e4da6797cd4eacd3d8321d9906755a",
         cache_path="cassie_mj_description",
     ),
+    "cookie_description": Repository(
+        url="https://codeberg.org/upkie/cookie_description.git",
+        commit="564352e35a0aba0d5e239d4341b851231175dbdc",
+        cache_path="cookie_description",
+    ),
     "differentiable-robot-model": Repository(
         url="https://github.com/facebookresearch/differentiable-robot-model",
         commit="d7bd1b3b8ef1d6dabe9b68474a622185c510e112",
@@ -147,7 +151,7 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "franka_description": Repository(
         url="https://github.com/frankarobotics/franka_description.git",
-        commit="1aa4fd30e6e274cbf5e986a5af8004df32bad284",
+        commit="72baf5bf4e88eaec27f0eb61be1b20a001abf2ab",
         cache_path="franka_description",
     ),
     "GingerURDF": Repository(
@@ -164,6 +168,11 @@ REPOSITORIES: Dict[str, Repository] = {
         url="https://github.com/Halodi/halodi-robot-models.git",
         commit="ba9e7c8cdbd63e20fc6526dbbea1b91c102fb820",
         cache_path="halodi-robot-models",
+    ),
+    "hsrb_common": Repository(
+        url="https://github.com/hsr-project/hsrb_common.git",
+        commit="5ad6946064b6031a2dd90be926e4d9b77f84d785",
+        cache_path="hsrb_common",
     ),
     "i2rt": Repository(
         url="https://github.com/robot-descriptions/i2rt.git",
@@ -245,8 +254,18 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "openarm_mujoco": Repository(
         url="https://github.com/enactic/openarm_mujoco.git",
-        commit="cd30dd4c0a97832d1c063bf759514ed18fbe04a5",
+        commit="5c6e1b4c71cbe27c6a4b58c7f198f080449e1b9c",
         cache_path="openarm_mujoco",
+    ),
+    "pal_hey5": Repository(
+        url="https://github.com/pal-robotics/pal_hey5.git",
+        commit="344de441fa3c378573dd7f6e04dc7ec4f8cb0cab",
+        cache_path="pal_hey5",
+    ),
+    "pal_urdf_utils": Repository(
+        url="https://github.com/pal-robotics/pal_urdf_utils.git",
+        commit="0c732ac5699f777754740bfec46cc618873766fe",
+        cache_path="pal_urdf_utils",
     ),
     "pepper_description": Repository(
         url="https://github.com/jrl-umi3218/pepper_description.git",
@@ -257,6 +276,11 @@ REPOSITORIES: Dict[str, Repository] = {
         url="https://github.com/agilexrobotics/Piper_ros.git",
         commit="f2ec6a67e1f404bcb478529e89861ccdf43fa298",
         cache_path="Piper_ros",
+    ),
+    "pmb2_robot": Repository(
+        url="https://github.com/pal-robotics/pmb2_robot.git",
+        commit="e2c85c8a4564a16511fec4aa27f7362740bae170",
+        cache_path="pmb2_robot",
     ),
     "poppy_ergo_jr_description": Repository(
         url="https://github.com/poppy-project/poppy_ergo_jr_description.git",
@@ -310,7 +334,7 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "ros2_kortex": Repository(
         url="https://github.com/Kinovarobotics/ros2_kortex.git",
-        commit="8bf203423911446de28a2248ec87380b7eea2f90",
+        commit="ca433b079d672100cb1d42ee27049da548c08e2c",
         cache_path="ros2_kortex",
     ),
     "rtmros_nextage": Repository(
@@ -353,10 +377,20 @@ REPOSITORIES: Dict[str, Repository] = {
         commit="1b7cbbce808c25465017ce0a53a4173fcf97b11c",
         cache_path="stretch_urdf",
     ),
+    "stretch4_urdf": Repository(
+        url="https://github.com/hello-robot/stretch4_urdf.git",
+        commit="7b35e66a3d7e3863c7188e46e98c196dcdab2609",
+        cache_path="stretch4_urdf",
+    ),
     "talos-data": Repository(
         url="https://github.com/stack-of-tasks/talos-data.git",
         commit="77169405d6a48a5d3f3f75eb014209f375ff23b6",  # v2.0.0
         cache_path="talos_data",  # match package name
+    ),
+    "tiago_robot": Repository(
+        url="https://github.com/pal-robotics/tiago_robot.git",
+        commit="f1c33c92bdde7c1dd79f0c3e739e98a233dbd30b",
+        cache_path="tiago_robot",
     ),
     "toddlerbot": Repository(
         url="https://github.com/hshi74/toddlerbot.git",

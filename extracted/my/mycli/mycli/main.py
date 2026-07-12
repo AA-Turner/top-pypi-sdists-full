@@ -89,6 +89,26 @@ class CliArgs:
         type=click.Path(),
         help='File or FIFO path containing the password to connect to the db if not specified otherwise.',
     )
+    vault_address: str | None = clickdc.option(
+        type=str,
+        help='EXPERIMENTAL "vault kv get" integration: value for $VAULT_ADDR if unset in the environment or ~/.myclirc.',
+    )
+    vault_mount: str | None = clickdc.option(
+        type=str,
+        help='EXPERIMENTAL "vault kv get" integration: value for -mount if unset in ~/.myclirc.',
+    )
+    vault_secret: str | None = clickdc.option(
+        type=str,
+        help='EXPERIMENTAL "vault kv get" integration: secret name.',
+    )
+    vault_password_field: str | None = clickdc.option(
+        type=str,
+        help='EXPERIMENTAL "vault kv get" integration: field containing the password.',
+    )
+    vault_username_field: str | None = clickdc.option(
+        type=str,
+        help='EXPERIMENTAL "vault kv get" integration: field containing the username.',
+    )
     ssl_mode: str = clickdc.option(
         type=click.Choice(['auto', 'on', 'off']),
         help='Set desired SSL behavior. auto=preferred if TCP/IP, on=required, off=off.',
@@ -274,6 +294,10 @@ class CliArgs:
     ssh_jump: str | None = clickdc.option(
         type=str,
         help='Open an SSH tunnel via [user@]host[:port] and connect to MySQL through it.',
+    )
+    ssh_options: str | None = clickdc.option(
+        type=str,
+        help='Extra CLI arguments for SSH with --ssh-jump, placed after options from myclirc.',
     )
     checkup: bool = clickdc.option(
         is_flag=True,

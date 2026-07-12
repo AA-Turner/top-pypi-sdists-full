@@ -235,8 +235,8 @@ class Type(google.protobuf.message.Message):
         type_variation_reference: builtins.int
         nullability: Global___Type.Nullability.ValueType
         precision: builtins.int
-        """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds, etc.
-        if unset, treat as 6.
+        """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds, 12 is picoseconds
+        Implementations should reject an unset precision.
         """
         def __init__(
             self,
@@ -261,7 +261,7 @@ class Type(google.protobuf.message.Message):
         type_variation_reference: builtins.int
         nullability: Global___Type.Nullability.ValueType
         precision: builtins.int
-        """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds, etc."""
+        """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds, 12 is picoseconds"""
         def __init__(
             self,
             *,

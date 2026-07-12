@@ -45,6 +45,8 @@ pub struct MarketplaceEntryResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub maintainer: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires: Option<dcc_mcp_catalog::CatalogRequirements>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_url: Option<String>,
@@ -261,6 +263,7 @@ pub async fn handle_marketplace_catalog(State(_s): State<AdminState>) -> impl In
                     version: hit.entry.version,
                     min_core_version: hit.entry.min_core_version,
                     maintainer: hit.entry.maintainer,
+                    requires: hit.entry.requires,
                     icon: resolve_icon_url(
                         hit.entry.icon.as_deref(),
                         Some(hit.source.url.as_str()),
@@ -527,6 +530,9 @@ mod tests {
             min_core_version: None,
             install: None,
             maintainer: None,
+            category: None,
+            policy: None,
+            requires: None,
             icon: None,
         };
         assert!(dcc_mcp_marketplace::entry_targets_dcc(&entry, "Maya"));

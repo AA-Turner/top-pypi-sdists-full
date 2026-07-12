@@ -62,6 +62,7 @@ from .data import (
     PublicBridge,
     PublicCamera,
     PublicChime,
+    PublicDeviceModel,
     PublicEvent,
     PublicFile,
     PublicHdrMode,
@@ -135,6 +136,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
+    from uiprotect.data.public_devices import (
+        PublicLightDeviceSettings,
+        PublicLightModeSettings,
+    )
 
     from .data.base import ProtectModelWithId
     from .devices import ProtectDeviceChange
@@ -2202,6 +2207,10 @@ class ProtectApiClient(BaseApiClient):
         detected attributes (license-plate text, face-match name) are not
         exposed over the public API today — fall back to the private path
         via ``event.raw`` when you need them.
+
+        A revoked or invalid API key surfaces as ``WebsocketState.AUTH_FAILED``
+        via ``subscribe_events_websocket_state`` after repeated 401 handshakes;
+        call ``set_api_key()`` with a fresh key to re-arm.
         """
         if self._public_bootstrap is None:
             raise RuntimeError(
@@ -2341,6 +2350,10 @@ class ProtectApiClient(BaseApiClient):
         otherwise swallowed. ``device_mac`` resolves with eventual consistency
         — a device not yet in the bootstrap yields ``None`` until the next
         ``update_public()`` / reconnect resync.
+
+        A revoked or invalid API key surfaces as ``WebsocketState.AUTH_FAILED``
+        via ``subscribe_devices_websocket_state`` after repeated 401 handshakes;
+        call ``set_api_key()`` with a fresh key to re-arm.
         """
         if self._public_bootstrap is None:
             raise RuntimeError(
@@ -3579,6 +3592,11 @@ class ProtectApiClient(BaseApiClient):
         # The budget is per-key; a new key gets a fresh limiter (re-seeded from
         # the next response's RateLimit-Policy header).
         self._public_rate_limiter = PublicApiRateLimiter()
+        # A revoked key parks the public websockets on the long auth-failed
+        # backoff; a fresh key should recover them without waiting it out.
+        for websocket in (self._events_websocket, self._devices_websocket):
+            if websocket is not None:
+                websocket.reset_auth_failure()
 
     def is_api_key_set(self) -> bool:
         """Check if the API key is set."""
@@ -3677,8 +3695,10 @@ class ProtectApiClient(BaseApiClient):
         *,
         name: str | None = None,
         is_light_force_enabled: bool | None = None,
-        light_mode_settings: LightModeSettings | None = None,
-        light_device_settings: LightDeviceSettings | None = None,
+        light_mode_settings: LightModeSettings | PublicLightModeSettings | None = None,
+        light_device_settings: (
+            LightDeviceSettings | PublicLightDeviceSettings | None
+        ) = None,
     ) -> PublicLight:
         """
         Update light settings using public API.
@@ -3722,7 +3742,9 @@ class ProtectApiClient(BaseApiClient):
             json=data,
             public_api=True,
         )
-        return PublicLight.from_unifi_dict(**result, api=self)
+        light = PublicLight.from_unifi_dict(**result, api=self)
+        self._write_through_public_twin(light)
+        return light
 
     @public_get("/v1/cameras", items=PublicCamera)
     async def get_cameras_public(self) -> list[PublicCamera]:
@@ -3757,10 +3779,11 @@ class ProtectApiClient(BaseApiClient):
         """
         Patch camera settings using public API.
 
-        Returns a fresh Camera object deserialized from the PATCH response.
-        The returned object is not merged into the bootstrap cache; callers
-        that need cache consistency should update the relevant fields manually
-        (as the device-level convenience methods already do).
+        Returns a fresh Camera object deserialized from the PATCH response. When
+        a public bootstrap is loaded and holds this camera, the response is also
+        written through into the cached twin (out-of-band ``rtsps_streams`` is
+        preserved); the private bootstrap, if any, is left to the private-tree
+        convenience methods.
         """
         body = self._filter_none(
             (
@@ -3809,7 +3832,9 @@ class ProtectApiClient(BaseApiClient):
             json=body,
             public_api=True,
         )
-        return PublicCamera.from_unifi_dict(**result, api=self)
+        camera = PublicCamera.from_unifi_dict(**result, api=self)
+        self._write_through_public_twin(camera)
+        return camera
 
     @public_get("/v1/chimes", items=PublicChime)
     async def get_chimes_public(self) -> list[PublicChime]:
@@ -3967,7 +3992,9 @@ class ProtectApiClient(BaseApiClient):
             json=body,
             public_api=True,
         )
-        return PublicSensor.from_unifi_dict(**result, api=self)
+        sensor = PublicSensor.from_unifi_dict(**result, api=self)
+        self._write_through_public_twin(sensor)
+        return sensor
 
     # ------------------------------------------------------------------
     # Public API: Sirens
@@ -3989,6 +4016,29 @@ class ProtectApiClient(BaseApiClient):
     def _filter_none(items: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
         """Return a dict from key-value pairs, dropping any pair whose value is None."""
         return {k: v for k, v in items if v is not None}
+
+    def _write_through_public_twin(self, obj: PublicDeviceModel) -> None:
+        """
+        Refresh the cached public-bootstrap twin of ``obj`` from a PATCH response.
+
+        Keeps the public device cache fresh for every mutation path — both the
+        public-tree ``set_*`` setters and the private ``set_*_public`` methods
+        (which drive the same ``update_*_public`` endpoints) — without inserting
+        new devices. A no-op when no public bootstrap is loaded or the device is
+        not cached.
+        """
+        pb = self._public_bootstrap
+        if pb is None:
+            return
+        model = obj.model
+        if model is None:  # pragma: no cover - device models always carry a modelKey
+            return
+        twin = pb.get(model, obj.id)
+        if not isinstance(twin, PublicDeviceModel):
+            return
+        if twin is obj:  # pragma: no cover - a fresh response is never the cached obj
+            return
+        twin._apply_from_response(obj)
 
     @public_get("/v1/sirens", items=Siren)
     async def get_sirens_public(self) -> list[Siren]:

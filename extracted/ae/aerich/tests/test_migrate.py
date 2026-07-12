@@ -1,22 +1,34 @@
 from __future__ import annotations
 
+import logging
+import re
 import shutil
+import sys
 from pathlib import Path
 
 import anyio
 import pytest
 import tortoise
 from pytest_mock import MockerFixture
+from tortoise import Tortoise
 from tortoise.indexes import Index
 
+from aerich._compat import tortoise_version_less_than
 from aerich.ddl.mysql import MysqlDDL
 from aerich.ddl.postgres import PostgresDDL
 from aerich.ddl.sqlite import SqliteDDL
 from aerich.exceptions import NotSupportError
 from aerich.migrate import MIGRATE_TEMPLATE, Migrate
 from aerich.models import Aerich
-from aerich.utils import get_formatted_compressed_data, get_models_describe
+from aerich.utils import (
+    NotInitedError,
+    decompress_dict,
+    get_formatted_compressed_data,
+    get_models_describe,
+)
 from tests._utils import (
+    IS_TORTOISE_V1,
+    Dialect,
     chdir,
     describe_index,
     prepare_py_files,
@@ -25,11 +37,12 @@ from tests._utils import (
     tmp_daily_db,
 )
 from tests.indexes import CustomIndex
+from tests.tortoise_v1_models_state import MODELS_STATE
 
 # tortoise-orm>=0.21 changes IntField constraints
 # from {"ge": 1, "le": 2147483647} to {"ge": -2147483648, "le": 2147483647}
 MIN_INT = 1 if tortoise.__version__ < "0.21" else -2147483648
-old_models_describe = {
+OLD_MODELS_DESCRIBE = {
     "models.Category": {
         "name": "models.Category",
         "app": "models",
@@ -938,7 +951,8 @@ old_models_describe = {
 }
 
 
-def test_migrate(mocker: MockerFixture, capsys):
+@pytest.mark.anyio
+async def test_migrate(mocker: MockerFixture, capsys):
     """
     models.py diff with old_models.py
     - change email pk: id -> email_id
@@ -967,8 +981,15 @@ def test_migrate(mocker: MockerFixture, capsys):
     - rename fk column: Category.user -> Category.owner
     """
     mocker.patch("asyncclick.prompt", side_effect=(True, True, True, True))
+    try:
+        models_describe = get_models_describe("models")
+    except NotInitedError:
+        from conftest import tortoise_orm
 
-    models_describe = get_models_describe("models")
+        await Tortoise.init(config=tortoise_orm)
+        models_describe = get_models_describe("models")
+
+    old_models_describe = decompress_dict(MODELS_STATE) if IS_TORTOISE_V1 else OLD_MODELS_DESCRIBE
     Migrate.app = "models"
     if isinstance(Migrate.ddl, SqliteDDL):
         with pytest.raises(NotSupportError):
@@ -981,7 +1002,11 @@ def test_migrate(mocker: MockerFixture, capsys):
         Migrate.diff_models(old_models_describe, models_describe)
         Migrate.diff_models(models_describe, old_models_describe, False)
         Migrate._merge_operators()
-    warning_msg = "Aerich does not handle 'unique' attribution for m2m field. You may need to change the constraints in db manually."
+    warning_msg = "Aerich does not handle 'unique' attribution for m2m field(models.Category.products). You may need to change the constraints in db manually."
+    ignore_on_delete = "Aerich does not handle 'unique' attribution for m2m field(models.Category.categories). You may need to change the constraints in db manually."
+    ignore_on_delete = (
+        "Ignore 'on_delete' changes 'CASCADE' -> 'NO ACTION' for models.Product.categories"
+    )
     if isinstance(Migrate.ddl, MysqlDDL):
         expected_upgrade_operators = {
             "ALTER TABLE `category` MODIFY COLUMN `name` VARCHAR(200)",
@@ -1026,6 +1051,20 @@ def test_migrate(mocker: MockerFixture, capsys):
             "DROP TABLE IF EXISTS `config_category`",
             "ALTER TABLE `config` MODIFY COLUMN `slug` VARCHAR(20) NOT NULL",
         }
+        if tortoise.__version__ >= "1.0":
+            expected_upgrade_operators |= {
+                "ALTER TABLE `category` DROP FOREIGN KEY `fk_category_user_e2e3874c`",
+                "DROP TABLE IF EXISTS `configs_category`",
+            }
+            expected_upgrade_operators -= {
+                "CREATE TABLE `config_category_map` (\n    `category_id` INT NOT NULL REFERENCES `category` (`id`) ON DELETE CASCADE,\n    `config_id` VARCHAR(20) NOT NULL REFERENCES `config` (`slug`) ON DELETE CASCADE\n) CHARACTER SET utf8mb4",
+                "DROP TABLE IF EXISTS `config_category`",
+            }
+        elif sys.version_info >= (3, 14) or hasattr(Tortoise, "_get_context"):
+            expected_upgrade_operators.add(
+                "ALTER TABLE `config` MODIFY COLUMN `value` JSON NOT NULL"
+            )
+
         upgrade_operators = set(Migrate.upgrade_operators)
         upgrade_more_than_expected = upgrade_operators - expected_upgrade_operators
         assert not upgrade_more_than_expected
@@ -1074,12 +1113,31 @@ def test_migrate(mocker: MockerFixture, capsys):
             "CREATE TABLE `config_category` (\n    `config_id` VARCHAR(20) NOT NULL REFERENCES `config` (`slug`) ON DELETE CASCADE,\n    `category_id` INT NOT NULL REFERENCES `category` (`id`) ON DELETE CASCADE\n) CHARACTER SET utf8mb4",
             "DROP TABLE IF EXISTS `config_category_map`",
         }
+        if tortoise.__version__ >= "1.0":
+            expected_downgrade_operators |= {
+                "CREATE TABLE `configs_category` (\n    `category_id` INT NOT NULL REFERENCES `category` (`id`) ON DELETE CASCADE,\n    `configs_id` VARCHAR(10) NOT NULL REFERENCES `configs` (`slug`) ON DELETE CASCADE\n) CHARACTER SET utf8mb4",
+                "ALTER TABLE `category` ADD CONSTRAINT `fk_category_user_e2e3874c` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE",
+            }
+            expected_downgrade_operators -= {
+                "DROP TABLE IF EXISTS `config_category_map`",
+                "CREATE TABLE `config_category` (\n    `config_id` VARCHAR(20) NOT NULL REFERENCES `config` (`slug`) ON DELETE CASCADE,\n    `category_id` INT NOT NULL REFERENCES `category` (`id`) ON DELETE CASCADE\n) CHARACTER SET utf8mb4",
+            }
+        elif sys.version_info >= (3, 14) or hasattr(Tortoise, "_get_context"):
+            expected_downgrade_operators.add(
+                "ALTER TABLE `config` MODIFY COLUMN `value` TEXT NOT NULL"
+            )
         downgrade_operators = set(Migrate.downgrade_operators)
         downgrade_more_than_expected = downgrade_operators - expected_downgrade_operators
         assert not downgrade_more_than_expected
         downgrade_less_than_expected = expected_downgrade_operators - downgrade_operators
         assert not downgrade_less_than_expected
-        assert warning_msg in capsys.readouterr().out
+        output = capsys.readouterr().out
+        if not IS_TORTOISE_V1 and not tortoise_version_less_than("0.24.2"):
+            # https://github.com/tortoise/tortoise-orm/pull/1903
+            # TortoiseORM 0.24.2 changes:
+            # Use 'unique' instead of 'create_unique_index' for m2m field
+            assert warning_msg in output
+        assert ignore_on_delete in output
 
     elif isinstance(Migrate.ddl, PostgresDDL):
         expected_upgrade_operators = {
@@ -1129,6 +1187,22 @@ def test_migrate(mocker: MockerFixture, capsys):
             'CREATE TABLE "config_category_map" (\n    "category_id" INT NOT NULL REFERENCES "category" ("id") ON DELETE CASCADE,\n    "config_id" VARCHAR(20) NOT NULL REFERENCES "config" ("slug") ON DELETE CASCADE\n)',
             'DROP TABLE IF EXISTS "config_category"',
         }
+        if IS_TORTOISE_V1:
+            expected_upgrade_operators |= {
+                'ALTER TABLE "category" DROP CONSTRAINT IF EXISTS "fk_category_user_e2e3874c"',
+                'DROP TABLE IF EXISTS "configs_category"',
+                "COMMENT ON COLUMN config.\"user_id\" IS 'User'",
+            }
+            expected_upgrade_operators -= {
+                'CREATE TABLE "config_category_map" (\n    "category_id" INT NOT NULL REFERENCES "category" ("id") ON DELETE CASCADE,\n    "config_id" VARCHAR(20) NOT NULL REFERENCES "config" ("slug") ON DELETE CASCADE\n)',
+                'COMMENT ON COLUMN "config"."user_id" IS \'User\'',
+                'DROP TABLE IF EXISTS "config_category"',
+                'ALTER TABLE "config" ALTER COLUMN "value" TYPE JSONB USING "value"::JSONB',
+            }
+        elif sys.version_info >= (3, 14) or hasattr(Tortoise, "_get_context"):
+            expected_upgrade_operators.add(
+                'ALTER TABLE "config" ALTER COLUMN "value" TYPE JSONB USING "value"::JSONB'
+            )
         upgrade_operators = set(Migrate.upgrade_operators)
         upgrade_more_than_expected = upgrade_operators - expected_upgrade_operators
         assert not upgrade_more_than_expected
@@ -1180,12 +1254,35 @@ def test_migrate(mocker: MockerFixture, capsys):
             'CREATE TABLE "config_category" (\n    "config_id" VARCHAR(20) NOT NULL REFERENCES "config" ("slug") ON DELETE CASCADE,\n    "category_id" INT NOT NULL REFERENCES "category" ("id") ON DELETE CASCADE\n)',
             'DROP TABLE IF EXISTS "config_category_map"',
         }
+        if IS_TORTOISE_V1:
+            expected_downgrade_operators |= {
+                'ALTER TABLE "category" RENAME COLUMN "owner_id" TO "user_id"',
+                'ALTER TABLE "product" RENAME COLUMN "pic" TO "image"',
+                'ALTER TABLE "product" RENAME COLUMN "is_deleted" TO "is_delete"',
+                'ALTER TABLE "product" RENAME COLUMN "is_reviewed" TO "is_review"',
+                'ALTER TABLE "category" ADD CONSTRAINT "fk_category_user_e2e3874c" FOREIGN KEY ("user_id") REFERENCES "user" ("id") ON DELETE CASCADE',
+                'CREATE TABLE "configs_category" (\n    "category_id" INT NOT NULL REFERENCES "category" ("id") ON DELETE CASCADE,\n    "configs_id" VARCHAR(10) NOT NULL REFERENCES "configs" ("slug") ON DELETE CASCADE\n)',
+            }
+            expected_downgrade_operators -= {
+                'DROP TABLE IF EXISTS "config_category_map"',
+                'CREATE TABLE "config_category" (\n    "config_id" VARCHAR(20) NOT NULL REFERENCES "config" ("slug") ON DELETE CASCADE,\n    "category_id" INT NOT NULL REFERENCES "category" ("id") ON DELETE CASCADE\n)',
+            }
+        elif sys.version_info >= (3, 14) or hasattr(Tortoise, "_get_context"):
+            expected_downgrade_operators.add(
+                'ALTER TABLE "config" ALTER COLUMN "value" TYPE JSONB USING "value"::JSONB'
+            )
         downgrade_operators = set(Migrate.downgrade_operators)
         downgrade_more_than_expected = downgrade_operators - expected_downgrade_operators
         assert not downgrade_more_than_expected
         downgrade_less_than_expected = expected_downgrade_operators - downgrade_operators
         assert not downgrade_less_than_expected
-        assert warning_msg in capsys.readouterr().out
+        output = capsys.readouterr().out
+        if not IS_TORTOISE_V1 and not tortoise_version_less_than("0.24.2"):
+            # https://github.com/tortoise/tortoise-orm/pull/1903
+            # TortoiseORM 0.24.2 changes:
+            # Use 'unique' instead of 'create_unique_index' for m2m field
+            assert warning_msg in output
+        assert ignore_on_delete in output
 
     elif isinstance(Migrate.ddl, SqliteDDL):
         assert Migrate.upgrade_operators == []
@@ -1318,8 +1415,12 @@ async def test_remove_conflicts(mocker, tmp_migrate_dir) -> None:
     assert new_migration_file and new_migration_file.startswith("1_")
 
 
-def _test_migrate_upgrade(max_model_num: int = 2, offline=False) -> None:
-    run_shell("aerich init -t settings.TORTOISE_ORM", capture_output=False)
+def _test_migrate_upgrade(max_model_num: int = 2, offline=False, messages="") -> None:
+    run_shell(
+        "aerich init -t settings.TORTOISE_ORM",
+        capture_output=False,
+        env={"AERICH_NO_TORTOISE_V1_WARNING": "1"},
+    )
     run_shell("aerich init-db", capture_output=False)
     output = run_shell("pytest -s _tests.py::test_1")
     assert "error" not in output.lower()
@@ -1327,6 +1428,8 @@ def _test_migrate_upgrade(max_model_num: int = 2, offline=False) -> None:
         shutil.move(f"models_{num}.py", "models.py")
         output = run_shell("aerich migrate" + " --offline" * offline)
         assert "error" not in output.lower()
+        for line in messages.strip().splitlines():
+            assert line.strip() in output
         output = run_shell("aerich upgrade")
         assert "error" not in output.lower()
         output = run_shell(f"pytest -s _tests.py::test_{num}")
@@ -1337,6 +1440,34 @@ def _test_migrate_upgrade(max_model_num: int = 2, offline=False) -> None:
 def test_migrate_with_rescursive_m2m(tmp_work_dir):
     prepare_py_files("m2m_rescursive")
     _test_migrate_upgrade()
+
+
+@requires_dialect("sqlite")
+def test_skip_model_name_changes(tmp_work_dir):
+    prepare_py_files("skip_model_name_changes")
+    _test_migrate_upgrade(3)
+    shutil.move("models_4.py", "models.py")
+    output = run_shell("aerich migrate")
+    assert "error" not in output.lower()
+    assert "warning" in output.lower()
+    assert "not support" in output
+    assert "models.UserAge -> models.Users" in output
+    assert "Please check the the migration file content before upgrade!" in output
+    output = run_shell("aerich upgrade")
+    assert "error" not in output.lower()
+    output = run_shell("pytest -s _tests.py::test_4")
+    assert "error" not in output.lower()
+
+
+@requires_dialect("sqlite")
+def test_ignore_on_delete(tmp_work_dir):
+    prepare_py_files("ignore_on_delete")
+    messages = """
+Ignore 'on_delete' changes 'CASCADE' -> 'NO ACTION' for models.Profile.user (You may need to do it in db manually).
+Ignore 'on_delete' changes 'CASCADE' -> 'SET NULL' for models.User.group (You may need to do it in db manually).
+No changes detected
+    """
+    _test_migrate_upgrade(messages=messages)
 
 
 @requires_dialect("postgres")
@@ -1368,5 +1499,56 @@ def test_migrate_custom_index_offline(tmp_work_dir):
 @requires_dialect("postgres", "mysql")
 def test_table_creations(tmp_work_dir):
     prepare_py_files("table_creations")
+    with tmp_daily_db():
+        _test_migrate_upgrade()
+
+
+@pytest.mark.anyio
+async def test_get_last_version(caplog):
+    caplog.set_level(logging.DEBUG)
+    Migrate.app = "models"
+
+    expected_sql = 'SELECT "version" "version" FROM "aerich"'
+    if Dialect.is_mysql():
+        expected_sql = expected_sql.replace('"', "`")
+    await Migrate._get_last_version_num()
+    text1 = caplog.text
+    assert expected_sql in text1
+    caplog.clear()
+
+    select_content = r'SELECT [",a-z]*?"content"[",a-z]* FROM "aerich"'
+    if Dialect.is_mysql():
+        select_content = select_content.replace('"', "`")
+    await Migrate.get_last_version()
+    text2 = caplog.text
+    assert expected_sql not in text2
+    # select content column from aerich may cost too much when content length is large
+    assert re.search(select_content, text2)
+    caplog.clear()
+
+    await Migrate.get_last_version(fields=["id", "version"])
+    text3 = caplog.text
+    assert not re.search(select_content, text3)
+
+
+@requires_dialect("mysql")
+@pytest.mark.anyio
+async def test_get_db_version(monkeypatch):
+    origin_db_version = Migrate._db_version
+    mysql_version = "5.7"
+    monkeypatch.setenv("AERICH_MYSQL_VERSION", mysql_version)
+    await Migrate._get_db_version(Migrate.ddl.client)
+    assert Migrate._db_version != mysql_version
+    await Migrate._get_db_version(Migrate.ddl.client, offline=True)
+    assert Migrate._db_version == mysql_version
+    monkeypatch.setenv("AERICH_MYSQL_VERSION", "8.0")
+    await Migrate._get_db_version(Migrate.ddl.client, offline=True)
+    assert Migrate._db_version == "8.0"
+    Migrate._db_version = origin_db_version
+
+
+@requires_dialect("postgres", "mysql")
+def test_create_multi_foreignkey_tables(tmp_work_dir):
+    prepare_py_files("order_fk")
     with tmp_daily_db():
         _test_migrate_upgrade()

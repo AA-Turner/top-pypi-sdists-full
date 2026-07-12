@@ -27,7 +27,7 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: UserWorkloadsConfigMap = ...,
+                        body: UserWorkloadsConfigMap,
                         **kwargs: typing.Any,
                     ) -> UserWorkloadsConfigMapHttpRequest: ...
                     def delete(
@@ -40,8 +40,8 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListUserWorkloadsConfigMapsResponseHttpRequest: ...
                     def list_next(
@@ -53,7 +53,7 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: UserWorkloadsConfigMap = ...,
+                        body: UserWorkloadsConfigMap,
                         **kwargs: typing.Any,
                     ) -> UserWorkloadsConfigMapHttpRequest: ...
 
@@ -63,7 +63,7 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: UserWorkloadsSecret = ...,
+                        body: UserWorkloadsSecret,
                         **kwargs: typing.Any,
                     ) -> UserWorkloadsSecretHttpRequest: ...
                     def delete(
@@ -76,8 +76,8 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListUserWorkloadsSecretsResponseHttpRequest: ...
                     def list_next(
@@ -89,7 +89,7 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: UserWorkloadsSecret = ...,
+                        body: UserWorkloadsSecret,
                         **kwargs: typing.Any,
                     ) -> UserWorkloadsSecretHttpRequest: ...
 
@@ -99,9 +99,9 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListWorkloadsResponseHttpRequest: ...
                     def list_next(
@@ -114,17 +114,17 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     environment: str,
-                    body: CheckUpgradeRequest = ...,
+                    body: CheckUpgradeRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def create(
-                    self, *, parent: str, body: Environment = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Environment, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def databaseFailover(
                     self,
                     *,
                     environment: str,
-                    body: DatabaseFailoverRequest = ...,
+                    body: DatabaseFailoverRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -134,7 +134,7 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     environment: str,
-                    body: ExecuteAirflowCommandRequest = ...,
+                    body: ExecuteAirflowCommandRequest,
                     **kwargs: typing.Any,
                 ) -> ExecuteAirflowCommandResponseHttpRequest: ...
                 def fetchDatabaseProperties(
@@ -147,8 +147,8 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListEnvironmentsResponseHttpRequest: ...
                 def list_next(
@@ -160,43 +160,43 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     environment: str,
-                    body: LoadSnapshotRequest = ...,
+                    body: LoadSnapshotRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: Environment = ...,
-                    updateMask: str = ...,
+                    body: Environment,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def pollAirflowCommand(
                     self,
                     *,
                     environment: str,
-                    body: PollAirflowCommandRequest = ...,
+                    body: PollAirflowCommandRequest,
                     **kwargs: typing.Any,
                 ) -> PollAirflowCommandResponseHttpRequest: ...
                 def restartWebServer(
                     self,
                     *,
                     name: str,
-                    body: RestartWebServerRequest = ...,
+                    body: RestartWebServerRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def saveSnapshot(
                     self,
                     *,
                     environment: str,
-                    body: SaveSnapshotRequest = ...,
+                    body: SaveSnapshotRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def stopAirflowCommand(
                     self,
                     *,
                     environment: str,
-                    body: StopAirflowCommandRequest = ...,
+                    body: StopAirflowCommandRequest,
                     **kwargs: typing.Any,
                 ) -> StopAirflowCommandResponseHttpRequest: ...
                 def userWorkloadsConfigMaps(
@@ -211,9 +211,9 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    includePastReleases: bool = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    includePastReleases: bool | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListImageVersionsResponseHttpRequest: ...
                 def list_next(
@@ -234,10 +234,10 @@ class CloudComposerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(

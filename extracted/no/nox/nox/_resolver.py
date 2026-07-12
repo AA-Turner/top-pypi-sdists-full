@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {"itertools"}
+
 import itertools
 from collections.abc import Hashable, Iterable, Iterator, Mapping
 from typing import TypeVar
@@ -155,7 +157,6 @@ def lazy_stable_topo_sort(
         Raises:
             ValueError: If a dependency cycle is encountered.
         """
-        nonlocal visited
         # We would like for ``walk`` to be an ordered set so that we get (a) O(1) ``node
         # in walk`` and (b) so that we can use the order to report to the user what the
         # dependency cycle is, if one is encountered. The standard library does not have
@@ -172,8 +173,6 @@ def lazy_stable_topo_sort(
                 for dependency in dependencies[node]
             )
             yield node
-        else:
-            return
 
     def extend_walk(walk: dict[Node, None], node: Node) -> dict[Node, None]:
         """Extend a walk by a node, checking for dependency cycles.
@@ -204,7 +203,5 @@ def lazy_stable_topo_sort(
 
     sort = prepended_by_dependencies(root)
     if drop_root:
-        return filter(
-            lambda node: not (node == root and hash(node) == hash(root)), sort
-        )
+        return (node for node in sort if node != root)
     return sort

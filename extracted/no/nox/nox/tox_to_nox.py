@@ -16,6 +16,15 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "argparse",
+    "configparser",
+    "functools",
+    "pathlib",
+    "re",
+    "subprocess",
+}
+
 import argparse
 import functools
 import os
@@ -89,7 +98,7 @@ def main() -> None:
         # Convert set_env from string to dict
         set_env = {}
         for var in section.get("set_env", "").strip().splitlines():
-            k, v = var.split("=")
+            k, v = var.split("=", 1)
             if k not in {
                 "PYTHONHASHSEED",
                 "PIP_DISABLE_PIP_VERSION_CHECK",
@@ -113,10 +122,7 @@ def main() -> None:
 
         for option in "skip_install", "use_develop":
             if section.get(option):
-                if section[option] == "False":
-                    config[name][option] = False
-                else:
-                    config[name][option] = True
+                config[name][option] = section[option] != "False"
 
         if os.path.isabs(section["base_python"]) or re.match(
             r"py\d+", section["base_python"]
@@ -125,11 +131,16 @@ def main() -> None:
             config[name]["base_python"] = impl + section["py_dot_ver"]
 
         change_dir = Path(section.get("change_dir", ""))
-        rel_to_cwd = change_dir.relative_to(Path.cwd())
-        if str(rel_to_cwd) == ".":
-            config[name]["change_dir"] = None
+        try:
+            rel_to_cwd = change_dir.relative_to(Path.cwd())
+        except ValueError:
+            # change_dir is outside the project root, keep the absolute path
+            config[name]["change_dir"] = change_dir
         else:
-            config[name]["change_dir"] = rel_to_cwd
+            if str(rel_to_cwd) == ".":
+                config[name]["change_dir"] = None
+            else:
+                config[name]["change_dir"] = rel_to_cwd
 
     output = _TEMPLATE.render(config=config, wrapjoin=wrapjoin, fixname=fixname)
 

@@ -24,9 +24,9 @@ class DoubleClickBidManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 queryId: str,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListReportsResponseHttpRequest: ...
             def list_next(
@@ -35,9 +35,7 @@ class DoubleClickBidManagerResource(googleapiclient.discovery.Resource):
                 previous_response: ListReportsResponse,
             ) -> ListReportsResponseHttpRequest | None: ...
 
-        def create(
-            self, *, body: Query = ..., **kwargs: typing.Any
-        ) -> QueryHttpRequest: ...
+        def create(self, *, body: Query, **kwargs: typing.Any) -> QueryHttpRequest: ...
         def delete(
             self, *, queryId: str, **kwargs: typing.Any
         ) -> googleapiclient.http.HttpRequest: ...
@@ -45,9 +43,9 @@ class DoubleClickBidManagerResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListQueriesResponseHttpRequest: ...
         def list_next(
@@ -59,8 +57,8 @@ class DoubleClickBidManagerResource(googleapiclient.discovery.Resource):
             self,
             *,
             queryId: str,
-            body: RunQueryRequest = ...,
-            synchronous: bool = ...,
+            body: RunQueryRequest,
+            synchronous: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ReportHttpRequest: ...
         def reports(self) -> ReportsResource: ...

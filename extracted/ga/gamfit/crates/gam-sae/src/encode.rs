@@ -1,15 +1,17 @@
 //! Kantorovich-certified encode atlas (issue #1010).
 //!
-//! Encoding a row `x ∈ ℝᵖ` against a FROZEN SAE dictionary is, per atom `k`,
-//! the coordinate-only Newton problem
+//! Encoding a row `x ∈ ℝᵖ` against a frozen multi-atom dictionary is the joint
+//! coordinate problem
 //!
 //! ```text
-//! min_t  f_k(t) = ½‖x − z_k · B_kᵀ Φ_k(t)‖² + prior_k(t),
+//! min_{t_1,…,t_K}  ½‖x − Σ_k z_k B_kᵀΦ_k(t_k)‖² + Σ_k prior_k(t_k).
 //! ```
 //!
-//! with the amplitude `z_k` and decoder block `B_k` held fixed (the encode
-//! freezes the dictionary; only the latent coordinate `t` moves). Newton on
-//! `F(t) = ∇f_k(t)` converges quadratically from a start `t₀` into the unique
+//! [`joint_encode_refine_row`] solves that objective with the shared residual.
+//! The per-atom atlas below is an initializer and a standalone single-atom
+//! projection facility; composing its independent optima is not a multi-atom
+//! encode. With the amplitude `z_k` and decoder block `B_k` held fixed, Newton on
+//! a single-atom field `F(t) = ∇f_k(t)` converges from a start `t₀` into the unique
 //! root in a certified ball whenever the **Newton–Kantorovich** quantity
 //!
 //! ```text
@@ -60,6 +62,8 @@
 //!    silently.
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
+use opt::constants::{ARMIJO_C1, BACKTRACK_CONTRACTION};
+use opt::{AcceptedStep, BacktrackConfig, backtracking_line_search};
 
 use crate::candidate_index::{AtomFrameSketch, SaeCandidateIndex, auto_candidate_budget};
 use crate::manifold::{
@@ -722,6 +726,30 @@ pub struct EncodeResult {
     pub encode_uncertified_count: usize,
 }
 
+/// Result of solving the frozen dictionary's joint coordinate objective over a
+/// batch. `converged[row]` is a numerical first-order stationarity verdict for
+/// the shared-residual objective, not a Newton--Kantorovich certificate.
+#[derive(Debug, Clone)]
+pub struct JointEncodeResult {
+    /// Per-atom coordinate blocks, each shaped `n_rows × latent_dim_k`.
+    pub coords: Vec<Array2<f64>>,
+    /// Joint row solve reached the first-order tolerance.
+    pub converged: Vec<bool>,
+    /// Exact tally of `false` entries in `converged`.
+    pub unconverged_count: usize,
+}
+
+impl JointEncodeResult {
+    pub(crate) fn new(coords: Vec<Array2<f64>>, converged: Vec<bool>) -> Self {
+        let unconverged_count = converged.iter().filter(|ok| !**ok).count();
+        Self {
+            coords,
+            converged,
+            unconverged_count,
+        }
+    }
+}
+
 impl EncodeResult {
     pub(crate) fn from_rows(coords: Array2<f64>, certified: Vec<bool>) -> Self {
         let encode_uncertified_count = certified.iter().filter(|c| !**c).count();
@@ -903,6 +931,13 @@ pub(crate) fn family_jet_sups(
             let h = axis_mc.saturating_sub(1) / 2;
             let ev = CylinderHarmonicEvaluator::new(h.max(1), SAE_CYLINDER_LINE_DEGREE)?;
             JetSups::from_family(&ev, chart)
+        }
+        Mobius => {
+            return Err(
+                "EncodeAtlas: Mobius jet bounds require its persisted harmonic and width \
+                 degrees; use the atom's exact analytic jets"
+                    .to_string(),
+            );
         }
         Linear | EuclideanPatch | Poincare => {
             // The patch width fixes max_degree implicitly; bound by a degree that
@@ -1160,6 +1195,350 @@ fn apply_row_metric(u: ArrayView2<'_, f64>, v: ArrayView1<'_, f64>) -> Array1<f6
     u.dot(&utv) // U (Uᵀ v) ∈ ℝ^p
 }
 
+/// Maximum Gauss--Newton iterations for the frozen-dictionary joint row solve.
+const JOINT_ENCODE_MAX_ITER: usize = 64;
+const JOINT_ENCODE_GRAD_TOL: f64 = 1.0e-10;
+const JOINT_ENCODE_STEP_TOL: f64 = 1.0e-12;
+
+/// Floor on the Levenberg--Marquardt damping `λ` for the joint row solve. The
+/// damping is carried and decayed *across* outer Gauss--Newton iterations
+/// (warm-started at this value on entry, then raised on rejection and lowered on
+/// acceptance), so it is a stateful trust-region parameter rather than an
+/// `escalate_ridge` schedule — it is deliberately kept hand-rolled. This is the
+/// initial `λ` seed at the smallest scale that still perturbs the Hessian.
+const JOINT_ENCODE_DAMPING_FLOOR: f64 = 1.0e-10;
+
+/// Multiplicative growth applied to the LM damping `λ` whenever a damped step is
+/// rejected (unfactorable, non-descent, or Armijo-exhausted). Numerically equal
+/// to [`opt::constants::RIDGE_GROWTH`], but this loop is stateful across outer
+/// iterations and is intentionally not routed through `escalate_ridge`.
+const JOINT_ENCODE_DAMPING_GROWTH: f64 = 10.0;
+
+/// Multiplicative decay applied to the LM damping `λ` after an accepted step, so
+/// the next outer iteration starts from a looser trust region. Kept above the
+/// `f64::EPSILON · diag_scale` floor at the use site.
+const JOINT_ENCODE_DAMPING_DECAY: f64 = 3.0;
+
+/// Maximum number of damping-escalation attempts within a single outer
+/// Gauss--Newton iteration before the row is declared non-improvable.
+const JOINT_ENCODE_DAMPING_MAX_ATTEMPTS: usize = 12;
+
+/// Maximum number of Armijo backtracking halvings for the inner line search on
+/// each damped step. Passed as `max_steps` to the shared
+/// [`opt::backtracking_line_search`] primitive.
+const JOINT_ENCODE_ARMIJO_MAX_STEPS: usize = 24;
+
+fn joint_data_value_grad_hess(
+    jac: ArrayView2<'_, f64>,
+    residual: ArrayView1<'_, f64>,
+    metric_factor: Option<ArrayView2<'_, f64>>,
+) -> (f64, Array1<f64>, Array2<f64>) {
+    let q = jac.nrows();
+    let p = jac.ncols();
+    let weighted_residual = match metric_factor.as_ref() {
+        Some(u) => apply_row_metric(u.view(), residual),
+        None => residual.to_owned(),
+    };
+    let value = 0.5 * residual.dot(&weighted_residual);
+    let grad = jac.dot(&weighted_residual);
+    let weighted_jac = match metric_factor.as_ref() {
+        Some(u) => {
+            let mut out = Array2::<f64>::zeros((q, p));
+            for axis in 0..q {
+                out.row_mut(axis)
+                    .assign(&apply_row_metric(u.view(), jac.row(axis)));
+            }
+            out
+        }
+        None => jac.to_owned(),
+    };
+    let hess = jac.dot(&weighted_jac.t());
+    (value, grad, hess)
+}
+
+/// Value, exact gradient, and positive-semidefinite Gauss--Newton curvature for
+/// the shared-residual multi-atom objective. The gradient is exact; the PSD
+/// curvature is used only to choose a descent step, so damping changes neither
+/// the objective nor its stationary points.
+fn joint_encode_value_grad_hess(
+    atoms: &[SaeManifoldAtom],
+    coords: &[Array1<f64>],
+    x: ArrayView1<'_, f64>,
+    amplitudes: ArrayView1<'_, f64>,
+    metric_factor: Option<ArrayView2<'_, f64>>,
+) -> Result<(f64, Array1<f64>, Array2<f64>), String> {
+    let k_atoms = atoms.len();
+    if coords.len() != k_atoms || amplitudes.len() != k_atoms {
+        return Err(format!(
+            "joint encode: {} atoms require {} coordinate blocks and amplitudes; got {} and {}",
+            k_atoms,
+            k_atoms,
+            coords.len(),
+            amplitudes.len()
+        ));
+    }
+    let p = x.len();
+    if let Some(u) = metric_factor.as_ref() {
+        if u.nrows() != p {
+            return Err(format!(
+                "joint encode: metric factor has {} rows but target has {p} outputs",
+                u.nrows()
+            ));
+        }
+    }
+
+    let mut offsets = Vec::with_capacity(k_atoms + 1);
+    offsets.push(0usize);
+    for (atom_idx, atom) in atoms.iter().enumerate() {
+        if atom.output_dim() != p {
+            return Err(format!(
+                "joint encode: atom {atom_idx} output_dim {} != target width {p}",
+                atom.output_dim()
+            ));
+        }
+        if coords[atom_idx].len() != atom.latent_dim {
+            return Err(format!(
+                "joint encode: atom {atom_idx} coordinate length {} != latent_dim {}",
+                coords[atom_idx].len(),
+                atom.latent_dim
+            ));
+        }
+        offsets.push(offsets[atom_idx] + atom.latent_dim);
+    }
+    let q = *offsets.last().unwrap_or(&0);
+    let mut recon = Array1::<f64>::zeros(p);
+    let mut jac = Array2::<f64>::zeros((q, p));
+
+    for (atom_idx, atom) in atoms.iter().enumerate() {
+        let z = amplitudes[atom_idx];
+        if !z.is_finite() {
+            return Err(format!("joint encode: amplitude[{atom_idx}] is not finite"));
+        }
+        let Some(evaluator) = atom.basis_evaluator.as_ref() else {
+            return Err(format!(
+                "joint encode: atom {atom_idx} has no basis evaluator for its live coordinate block"
+            ));
+        };
+        let d = atom.latent_dim;
+        let m = atom.basis_size();
+        let coord = coords[atom_idx]
+            .view()
+            .to_shape((1, d))
+            .map_err(|e| format!("joint encode: atom {atom_idx} coordinate reshape: {e}"))?
+            .to_owned();
+        let (phi, dphi) = evaluator.evaluate(coord.view())?;
+        if phi.dim() != (1, m) || dphi.dim() != (1, m, d) {
+            return Err(format!(
+                "joint encode: atom {atom_idx} evaluator returned phi {:?}, jet {:?}; expected (1,{m}) and (1,{m},{d})",
+                phi.dim(),
+                dphi.dim()
+            ));
+        }
+        let start = offsets[atom_idx];
+        for basis_col in 0..m {
+            let phi_v = phi[[0, basis_col]];
+            for out in 0..p {
+                let b = atom.decoder_coefficients[[basis_col, out]];
+                recon[out] += z * phi_v * b;
+                for axis in 0..d {
+                    jac[[start + axis, out]] += z * dphi[[0, basis_col, axis]] * b;
+                }
+            }
+        }
+    }
+
+    let residual = &recon - &x;
+    let (mut value, mut grad, mut hess) =
+        joint_data_value_grad_hess(jac.view(), residual.view(), metric_factor.clone());
+
+    for (atom_idx, atom) in atoms.iter().enumerate() {
+        let Some(alpha) = atom.ard_precisions.as_deref() else {
+            continue;
+        };
+        let start = offsets[atom_idx];
+        for axis in 0..atom.latent_dim.min(alpha.len()) {
+            if alpha[axis] == 0.0 {
+                continue;
+            }
+            let prior = crate::manifold::ArdAxisPrior::eval(
+                alpha[axis],
+                coords[atom_idx][axis],
+                latent_axis_period(atom, axis),
+            );
+            value += prior.value;
+            grad[start + axis] += prior.grad;
+            hess[[start + axis, start + axis]] += prior.hess.max(0.0);
+        }
+    }
+    Ok((value, grad, hess))
+}
+
+fn joint_encode_damped_step(
+    hess: ArrayView2<'_, f64>,
+    grad: ArrayView1<'_, f64>,
+    damping: f64,
+) -> Result<Option<Array1<f64>>, String> {
+    let q = grad.len();
+    if q == 0 {
+        return Ok(Some(Array1::zeros(0)));
+    }
+    let mut system = Array2::<f64>::zeros((q, q));
+    for i in 0..q {
+        for j in 0..q {
+            system[[i, j]] = 0.5 * (hess[[i, j]] + hess[[j, i]]);
+        }
+        system[[i, i]] += damping;
+    }
+    let (evals, evecs) = system
+        .eigh(Side::Lower)
+        .map_err(|e| format!("joint encode: damped eigensolve failed: {e:?}"))?;
+    if evals.iter().any(|&v| !(v.is_finite() && v > 0.0)) {
+        return Ok(None);
+    }
+    let mut step = Array1::<f64>::zeros(q);
+    for (col, &lambda) in evals.iter().enumerate() {
+        let v = evecs.column(col);
+        let coefficient = -v.dot(&grad) / lambda;
+        for row in 0..q {
+            step[row] += coefficient * v[row];
+        }
+    }
+    if step.iter().any(|v| !v.is_finite()) {
+        Ok(None)
+    } else {
+        Ok(Some(step))
+    }
+}
+
+fn joint_encode_add_step(
+    atoms: &[SaeManifoldAtom],
+    coords: &[Array1<f64>],
+    step: ArrayView1<'_, f64>,
+    scale: f64,
+) -> Vec<Array1<f64>> {
+    let mut out = Vec::with_capacity(atoms.len());
+    let mut offset = 0usize;
+    for (atom_idx, atom) in atoms.iter().enumerate() {
+        let mut next = coords[atom_idx].clone();
+        for axis in 0..atom.latent_dim {
+            next[axis] += scale * step[offset + axis];
+            if let Some(period) = latent_axis_period(atom, axis) {
+                next[axis] = next[axis].rem_euclid(period);
+            }
+        }
+        offset += atom.latent_dim;
+        out.push(next);
+    }
+    out
+}
+
+/// Refine one row against all co-active atoms using the shared reconstruction
+/// residual. Independent atlas projections may be supplied as starts, but every
+/// accepted step and the convergence test use
+/// `Σ_k z_k B_kᵀΦ_k(t_k) - x`, including all cross-atom Jacobian blocks.
+pub(crate) fn joint_encode_refine_row(
+    atoms: &[SaeManifoldAtom],
+    initial_coords: &[Array1<f64>],
+    x: ArrayView1<'_, f64>,
+    amplitudes: ArrayView1<'_, f64>,
+    metric_factor: Option<ArrayView2<'_, f64>>,
+) -> Result<(Vec<Array1<f64>>, bool), String> {
+    let mut coords = initial_coords.to_vec();
+    let q: usize = atoms.iter().map(|a| a.latent_dim).sum();
+    if q == 0 {
+        return Ok((coords, true));
+    }
+    let target_scale = 1.0 + x.dot(&x).sqrt();
+    let mut damping = JOINT_ENCODE_DAMPING_FLOOR;
+
+    for _ in 0..JOINT_ENCODE_MAX_ITER {
+        let (value, grad, hess) =
+            joint_encode_value_grad_hess(atoms, &coords, x, amplitudes, metric_factor.clone())?;
+        let grad_norm = grad.dot(&grad).sqrt();
+        if grad_norm <= JOINT_ENCODE_GRAD_TOL * target_scale {
+            return Ok((coords, true));
+        }
+        let diag_scale = (0..q)
+            .map(|i| hess[[i, i]].abs())
+            .fold(0.0_f64, f64::max)
+            .max(1.0);
+        damping = damping.max(f64::EPSILON * diag_scale);
+
+        let mut accepted = None;
+        for _ in 0..JOINT_ENCODE_DAMPING_MAX_ATTEMPTS {
+            let Some(step) = joint_encode_damped_step(hess.view(), grad.view(), damping)? else {
+                damping *= JOINT_ENCODE_DAMPING_GROWTH;
+                continue;
+            };
+            let directional = grad.dot(&step);
+            if !(directional.is_finite() && directional < 0.0) {
+                damping *= JOINT_ENCODE_DAMPING_GROWTH;
+                continue;
+            }
+            // Armijo backtracking on the shared reconstruction objective, migrated
+            // onto the shared `opt` primitive with bit-for-bit-identical semantics:
+            // initial step 1.0, `BACKTRACK_CONTRACTION` (×0.5) contraction,
+            // `JOINT_ENCODE_ARMIJO_MAX_STEPS` (24) trials, and the exact
+            // sufficient-decrease test `F(t + s·d) ≤ F(t) + c₁·s·∇F·d`
+            // (c₁ = `ARMIJO_C1` = 1e-4, no roundoff cushion — the pre-migration
+            // loop had none). `trial(s)` evaluates the candidate coords (always
+            // well defined, so never `Ok(None)`) and threads them through the
+            // payload so the accepted trial is returned without recomputation.
+            let base_value = value;
+            let step_unit_norm = step.dot(&step).sqrt();
+            let line_search = backtracking_line_search::<Vec<Array1<f64>>, String>(
+                BacktrackConfig {
+                    initial_step: 1.0,
+                    contraction: BACKTRACK_CONTRACTION,
+                    max_steps: JOINT_ENCODE_ARMIJO_MAX_STEPS,
+                },
+                |line_scale| {
+                    let candidate = joint_encode_add_step(atoms, &coords, step.view(), line_scale);
+                    let (candidate_value, _, _) = joint_encode_value_grad_hess(
+                        atoms,
+                        &candidate,
+                        x,
+                        amplitudes,
+                        metric_factor.clone(),
+                    )?;
+                    Ok(Some((candidate_value, candidate)))
+                },
+                |line_scale, candidate_value| {
+                    candidate_value <= base_value + ARMIJO_C1 * line_scale * directional
+                },
+            )?;
+            if let Some(AcceptedStep {
+                step: line_scale,
+                payload: candidate,
+                ..
+            }) = line_search
+            {
+                accepted = Some((candidate, line_scale * step_unit_norm));
+            }
+            if accepted.is_some() {
+                damping = (damping / JOINT_ENCODE_DAMPING_DECAY).max(f64::EPSILON * diag_scale);
+                break;
+            }
+            damping *= JOINT_ENCODE_DAMPING_GROWTH;
+        }
+        let Some((next, step_norm)) = accepted else {
+            return Ok((coords, false));
+        };
+        coords = next;
+        if step_norm <= JOINT_ENCODE_STEP_TOL * target_scale {
+            let (_, final_grad, _) =
+                joint_encode_value_grad_hess(atoms, &coords, x, amplitudes, metric_factor.clone())?;
+            let converged =
+                final_grad.dot(&final_grad).sqrt() <= JOINT_ENCODE_GRAD_TOL * target_scale;
+            return Ok((coords, converged));
+        }
+    }
+    let (_, final_grad, _) =
+        joint_encode_value_grad_hess(atoms, &coords, x, amplitudes, metric_factor)?;
+    let converged = final_grad.dot(&final_grad).sqrt() <= JOINT_ENCODE_GRAD_TOL * target_scale;
+    Ok((coords, converged))
+}
+
 /// Objective-aware gradient/Hessian of the certified encode field (F3). With
 /// [`EncodeObjective::euclidean`] this is bit-for-bit the historical metric-free
 /// field; with a metric it whitens the residual through `M = U Uᵀ`, and with a
@@ -1279,8 +1658,11 @@ pub(crate) fn encode_grad_hess_core(
             if alpha_axis == 0.0 {
                 continue;
             }
-            let pr =
-                crate::manifold::ArdAxisPrior::eval(alpha_axis, t[axis], latent_axis_period(atom, axis));
+            let pr = crate::manifold::ArdAxisPrior::eval(
+                alpha_axis,
+                t[axis],
+                latent_axis_period(atom, axis),
+            );
             g[axis] += pr.grad;
             h[[axis, axis]] += pr.hess;
         }
@@ -1304,6 +1686,8 @@ pub(crate) fn beta_eta_newton(
     // `eigh(Side::Lower)` (which uses the lower triangle) exactly.
     let d = h.nrows();
     if d == 1 {
+        // A coordinate direction is certifiable only when the actual derivative
+        // F'(t) has strictly positive, resolved curvature.
         let h00 = h[[0, 0]];
         if !(h00.is_finite() && h00 > 0.0) {
             return Ok(None);
@@ -1320,46 +1704,94 @@ pub(crate) fn beta_eta_newton(
         let c = h[[1, 1]];
         let tr = a + c;
         let det = a * c - b * b;
-        // λ_min = ½(tr − √((a−c)² + 4b²)); ≥ 0 ⇒ H PSD, > 0 ⇒ PD.
+        // λ_min = ½(tr − √((a−c)² + 4b²)), λ_max = ½(tr + √…); ≥ 0 ⇒ PSD.
         let disc = ((a - c) * (a - c) + 4.0 * b * b).max(0.0).sqrt();
         let lambda_min = 0.5 * (tr - disc);
-        if !(lambda_min.is_finite() && lambda_min > 0.0) {
+        let lambda_max = 0.5 * (tr + disc);
+        let max_abs = lambda_min.abs().max(lambda_max.abs());
+        if !(lambda_min.is_finite() && lambda_max.is_finite() && max_abs > 0.0) {
             return Ok(None);
         }
-        // δ = −H⁻¹g with H⁻¹ = [[c, −b], [−b, a]] / det (det = λ_min·λ_max > 0).
-        let inv_det = 1.0 / det;
-        let g0 = g[0];
-        let g1 = g[1];
-        let d0 = -(c * g0 - b * g1) * inv_det;
-        let d1 = -(a * g1 - b * g0) * inv_det;
-        if !(d0.is_finite() && d1.is_finite()) {
-            return Ok(None);
+        let floor = gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR * max_abs;
+        // Healthy PD block — smallest eigenvalue clears the numerical null band —
+        // keeps the closed-form fast path. A negative or unresolved eigenvalue is
+        // not invertible as F'(t), so ordinary Kantorovich cannot certify it.
+        if lambda_min > floor {
+            // δ = −H⁻¹g with H⁻¹ = [[c, −b], [−b, a]] / det (det = λ_min·λ_max > 0).
+            let inv_det = 1.0 / det;
+            let g0 = g[0];
+            let g1 = g[1];
+            let d0 = -(c * g0 - b * g1) * inv_det;
+            let d1 = -(a * g1 - b * g0) * inv_det;
+            if !(d0.is_finite() && d1.is_finite()) {
+                return Ok(None);
+            }
+            let mut delta = Array1::<f64>::zeros(2);
+            delta[0] = d0;
+            delta[1] = d1;
+            let eta = (d0 * d0 + d1 * d1).sqrt();
+            return Ok(Some((1.0 / lambda_min, eta, delta)));
         }
-        let mut delta = Array1::<f64>::zeros(2);
-        delta[0] = d0;
-        delta[1] = d1;
-        let eta = (d0 * d0 + d1 * d1).sqrt();
-        return Ok(Some((1.0 / lambda_min, eta, delta)));
+        return Ok(None);
     }
-    let (vals, vecs) = h
+    beta_eta_newton_positive_definite(h, g)
+}
+
+/// Spectral path for `d ≥ 3`. Ordinary Newton--Kantorovich requires the inverse
+/// of the actual derivative `F'(t) = H`; quotienting or replacing a null
+/// eigenvalue changes that derivative and therefore cannot certify the returned
+/// iteration. We consequently accept only a numerically resolved positive-
+/// definite Hessian and report every singular/indefinite start as uncertified.
+fn beta_eta_newton_positive_definite(
+    h: ArrayView2<'_, f64>,
+    g: ArrayView1<'_, f64>,
+) -> Result<Option<(f64, f64, Array1<f64>)>, String> {
+    let d = h.nrows();
+    // Symmetrise defensively before the eigendecomposition (the assembled Hessian
+    // is symmetric only up to reduction order), mirroring the evidence routine.
+    let mut sym = Array2::<f64>::zeros((d, d));
+    for i in 0..d {
+        for j in 0..d {
+            let v = 0.5 * (h[[i, j]] + h[[j, i]]);
+            if !v.is_finite() {
+                return Ok(None);
+            }
+            sym[[i, j]] = v;
+        }
+    }
+    let (vals, vecs) = sym
         .eigh(Side::Lower)
         .map_err(|e| format!("beta_eta_newton: eigh failed: {e:?}"))?;
+    let max_abs = vals.iter().fold(
+        0.0_f64,
+        |acc, &v| if v.is_finite() { acc.max(v.abs()) } else { acc },
+    );
+    if !(max_abs.is_finite() && max_abs > 0.0) {
+        return Ok(None);
+    }
+    let floor = gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR * max_abs;
+    if vals
+        .iter()
+        .any(|&lambda| !lambda.is_finite() || lambda <= floor)
+    {
+        return Ok(None);
+    }
     let lambda_min = vals.iter().cloned().fold(f64::INFINITY, f64::min);
     if !(lambda_min.is_finite() && lambda_min > 0.0) {
         return Ok(None);
     }
     let beta = 1.0 / lambda_min;
-    // Newton step δ = −H⁻¹ g via the eigendecomposition: δ = −Σ_i (vᵢᵀg/λᵢ) vᵢ.
+    // Newton step δ = −H⁻¹g via the eigendecomposition of the actual Hessian.
     let mut delta = Array1::<f64>::zeros(d);
     for (col, &lam) in vals.iter().enumerate() {
-        if lam <= 0.0 {
-            return Ok(None);
-        }
         let vi = vecs.column(col);
         let coeff = vi.dot(&g) / lam;
         for row in 0..d {
             delta[row] -= coeff * vi[row];
         }
+    }
+    if delta.iter().any(|v| !v.is_finite()) {
+        return Ok(None);
     }
     let eta = delta.dot(&delta).sqrt();
     Ok(Some((beta, eta, delta)))
@@ -1482,8 +1914,15 @@ fn refine_certified_start(
             return Ok(None);
         }
         t = next;
-        let (cert, next_delta) =
-            row_certificate_core(atom, evaluator, t.view(), x, amplitude, lipschitz, objective)?;
+        let (cert, next_delta) = row_certificate_core(
+            atom,
+            evaluator,
+            t.view(),
+            x,
+            amplitude,
+            lipschitz,
+            objective,
+        )?;
         if !cert.certified() {
             return Ok(None);
         }
@@ -1650,8 +2089,15 @@ fn certify_with_basin_warmup(
     if !in_chart(&t) {
         return Ok(None);
     }
-    let (mut cert, mut delta) =
-        row_certificate_core(atom, evaluator, t.view(), x, amplitude, lipschitz, objective)?;
+    let (mut cert, mut delta) = row_certificate_core(
+        atom,
+        evaluator,
+        t.view(),
+        x,
+        amplitude,
+        lipschitz,
+        objective,
+    )?;
     while !cert.certified() {
         // Not steppable (indefinite / non-finite Hessian): flag.
         if !(cert.h.is_finite() && cert.beta.is_finite() && cert.eta.is_finite()) {
@@ -1664,8 +2110,15 @@ fn certify_with_basin_warmup(
             return Ok(None);
         }
         t = next;
-        let (next_cert, next_delta) =
-            row_certificate_core(atom, evaluator, t.view(), x, amplitude, lipschitz, objective)?;
+        let (next_cert, next_delta) = row_certificate_core(
+            atom,
+            evaluator,
+            t.view(),
+            x,
+            amplitude,
+            lipschitz,
+            objective,
+        )?;
         cert = next_cert;
         delta = next_delta;
         // The warm-up only helps while h keeps *multiplicatively* contracting
@@ -2361,10 +2814,7 @@ impl EncodeAtlas {
             objective,
         )?
         else {
-            return Ok((
-                Array1::<f64>::zeros(d),
-                uncertified_certificate(lipschitz),
-            ));
+            return Ok((Array1::<f64>::zeros(d), uncertified_certificate(lipschitz)));
         };
 
         let cold_start = chart.region.center.clone();
@@ -2381,20 +2831,14 @@ impl EncodeAtlas {
             objective,
         )?
         else {
-            return Ok((
-                amortized_probe.coord,
-                uncertified_certificate(lipschitz),
-            ));
+            return Ok((amortized_probe.coord, uncertified_certificate(lipschitz)));
         };
 
         let gap =
             latent_coordinate_distance(atom, amortized_probe.coord.view(), cold_probe.coord.view());
         let tolerance = distilled_probe_tolerance(&amortized_probe, &cold_probe, amplitude, x);
         if !(gap.is_finite() && gap <= tolerance) {
-            return Ok((
-                amortized_probe.coord,
-                uncertified_certificate(lipschitz),
-            ));
+            return Ok((amortized_probe.coord, uncertified_certificate(lipschitz)));
         }
         // F5: return the certificate at the refined landing coordinate
         // (`final_cert`), consistent with the coord actually returned and with the
@@ -3773,6 +4217,8 @@ pub(crate) fn chart_center_grid(atom: &SaeManifoldAtom, resolution: usize) -> Ar
         // line starts route to the exact fallback honestly.
         Cylinder if d == 2 => cylinder_chart_center_grid(resolution),
         Cylinder => regular_product_grid(d, resolution, -0.5, 0.5, true),
+        Mobius if d == 2 => mobius_chart_center_grid(resolution),
+        Mobius => regular_product_grid(d, resolution, -1.0, 1.0, true),
         Sphere if d == 2 => sphere_latlon_grid(resolution),
         Linear | Sphere | Duchon | EuclideanPatch | Poincare | Precomputed(_) | FiniteSet => {
             // Unbounded / non-compact latents (and the finite-set index axis): a
@@ -3882,6 +4328,27 @@ pub(crate) fn cylinder_chart_center_grid(resolution: usize) -> Array2<f64> {
     grid
 }
 
+/// Möbius double-cover chart grid: angle `s ∈ [0, 2)` and bounded width
+/// `w ∈ [-1, 1]`. The deck identification is encoded by the basis, so the
+/// atlas covers the ordinary cylindrical chart without duplicating a seam.
+pub(crate) fn mobius_chart_center_grid(resolution: usize) -> Array2<f64> {
+    let mut per_axis = resolution.max(2);
+    while per_axis * per_axis > SHAPE_BAND_MAX_POINTS && per_axis > 2 {
+        per_axis -= 1;
+    }
+    let mut grid = Array2::<f64>::zeros((per_axis * per_axis, 2));
+    let width_denom = (per_axis - 1) as f64;
+    for i in 0..per_axis {
+        let angle = 2.0 * i as f64 / per_axis as f64;
+        for j in 0..per_axis {
+            let width = -1.0 + 2.0 * j as f64 / width_denom;
+            grid[[i * per_axis + j, 0]] = angle;
+            grid[[i * per_axis + j, 1]] = width;
+        }
+    }
+    grid
+}
+
 /// Nominal in-chart radius: half the inter-center grid spacing, so charts tile
 /// the domain. For compact latents this is the grid step; for unbounded latents
 /// a unit default that the certified radius refines.
@@ -3908,6 +4375,10 @@ pub(crate) fn chart_nominal_radius(atom: &SaeManifoldAtom, resolution: usize) ->
         // take the tighter (periodic) step `0.5/res` to keep every chart valid
         // on both axes. The certified Kantorovich radius refines it per chart.
         Cylinder => 0.5 / (capped_per_axis(atom.latent_dim, resolution) as f64),
+        // Angle spacing is `2/r` and width spacing is `2/(r-1)`; their
+        // half-spacings are `1/r` and `1/(r-1)`, so the angular axis is the
+        // conservative scalar chart radius.
+        Mobius => 1.0 / (capped_per_axis(atom.latent_dim, resolution) as f64),
         Linear | Duchon | EuclideanPatch | Poincare | Precomputed(_) | FiniteSet => {
             1.0 / (resolution.max(2) as f64)
         }
@@ -3945,7 +4416,7 @@ pub(crate) fn chart_region(
         }
         // Cylinder has no radial kernel block (it is a harmonic × polynomial
         // tensor, not a Duchon radial basis), so it needs no radial r_min/r_max.
-        Periodic | Sphere | Torus | Cylinder | Linear | EuclideanPatch | Poincare
+        Periodic | Sphere | Torus | Cylinder | Mobius | Linear | EuclideanPatch | Poincare
         | Precomputed(_) | FiniteSet => region,
     }
 }
@@ -4094,7 +4565,9 @@ pub fn joint_encode_fallback_fraction(
         // carry no coupling — same `is_some()` predicate the dense path applied via
         // `tangents[k].is_some()`).
         let active: Vec<usize> = (0..k_atoms)
-            .filter(|&k| amplitudes[[row, k]] > amplitude_floor && atoms[k].basis_evaluator.is_some())
+            .filter(|&k| {
+                amplitudes[[row, k]] > amplitude_floor && atoms[k].basis_evaluator.is_some()
+            })
             .collect();
         if active.len() < 2 {
             continue; // no cross blocks: the per-atom certificate composes trivially
@@ -4160,6 +4633,32 @@ mod encode_fix_tests {
         let smooth = Array2::<f64>::eye(m);
         SaeManifoldAtom::new("tiny", kind, latent_dim, phi, jet, dec, smooth)
             .expect("tiny atom builds")
+    }
+
+    #[test]
+    fn joint_normal_equations_use_the_shared_multi_atom_residual() {
+        // u1=(1,0), u2=(1,1), x=(2,1). At t=(0,0), the shared residual is -x.
+        // The joint normal equations recover the unique coefficients (1,1);
+        // independent projections would instead produce (2,1.5).
+        let jac = ndarray::array![[1.0_f64, 0.0], [1.0, 1.0]];
+        let residual = ndarray::array![-2.0_f64, -1.0];
+        let (_value, grad, hess) = joint_data_value_grad_hess(jac.view(), residual.view(), None);
+        let step = joint_encode_damped_step(hess.view(), grad.view(), 1.0e-15)
+            .expect("joint system factors")
+            .expect("joint system is positive definite");
+        assert!(
+            (step[0] - 1.0).abs() < 1.0e-12,
+            "first coefficient={}",
+            step[0]
+        );
+        assert!(
+            (step[1] - 1.0).abs() < 1.0e-12,
+            "second coefficient={}",
+            step[1]
+        );
+        let recon0 = step[0] + step[1];
+        let recon1 = step[1];
+        assert!((recon0 - 2.0).abs() < 1.0e-12 && (recon1 - 1.0).abs() < 1.0e-12);
     }
 
     /// FIX #3: a point on the far side of the wrap seam of a periodic axis is now
@@ -4568,6 +5067,69 @@ mod encode_fix_tests {
         // A genuinely-contracting uncertified step is accepted (no regression).
         assert!(!warmup_should_reject(false, 0.4, 0.9));
     }
+
+    // A singular Hessian is not invertible as the derivative F'(t). Replacing
+    // its null eigenvalue by an arbitrary stiffness describes a different map,
+    // so it must never produce an ordinary Kantorovich certificate.
+    #[test]
+    fn beta_eta_newton_refuses_rank1_null_2x2() {
+        let h = ndarray::array![[4.0_f64, 0.0], [0.0, 0.0]];
+        let g = Array1::from(vec![4.0_f64, 0.0]);
+        assert!(beta_eta_newton(h.view(), g.view()).expect("runs").is_none());
+    }
+
+    /// Refusal is independent of whether the observed gradient happens to have a
+    /// small projection onto the null direction: that observation cannot turn a
+    /// singular derivative into the derivative required by the theorem.
+    #[test]
+    fn beta_eta_newton_refuses_null_with_projected_gradient() {
+        let h = ndarray::array![[4.0_f64, 0.0], [0.0, 0.0]];
+        let g = Array1::from(vec![4.0_f64, 1.0e-3]);
+        assert!(beta_eta_newton(h.view(), g.view()).expect("runs").is_none());
+    }
+
+    /// A genuinely INDEFINITE 2×2 (one negative eigenvalue) is STILL refused —
+    /// deflation must not manufacture a certificate at a saddle/max of the encode
+    /// objective (the pre-existing negative-curvature guard is preserved).
+    #[test]
+    fn beta_eta_newton_refuses_genuine_negative_curvature_2x2() {
+        let h = ndarray::array![[4.0_f64, 0.0], [0.0, -2.0]];
+        let g = Array1::from(vec![1.0_f64, 1.0]);
+        let out = beta_eta_newton(h.view(), g.view()).expect("runs");
+        assert!(
+            out.is_none(),
+            "a negative-curvature (indefinite) start must NOT certify — it is at/past a \
+             basin boundary; deflating it to +1 would be a false certificate"
+        );
+    }
+
+    /// The general eigen path applies the same refusal to a rank-deficient PSD
+    /// block instead of silently changing its spectrum.
+    #[test]
+    fn beta_eta_newton_refuses_rank_deficient_3x3() {
+        let h = ndarray::array![[4.0_f64, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]];
+        let g = Array1::from(vec![4.0_f64, 1.0, 0.0]);
+        assert!(beta_eta_newton(h.view(), g.view()).expect("runs").is_none());
+    }
+
+    /// A healthy positive-definite 2×2 is UNCHANGED by the fix: it keeps the
+    /// closed-form fast path, β = 1/λ_min, and the Newton step solves H·δ = −g.
+    #[test]
+    fn beta_eta_newton_healthy_pd_unchanged() {
+        let h = ndarray::array![[4.0_f64, 1.0], [1.0, 3.0]];
+        let g = Array1::from(vec![2.0_f64, -1.0]);
+        let (beta, eta, delta) = beta_eta_newton(h.view(), g.view())
+            .expect("runs")
+            .expect("a PD block certifies");
+        // λ_min = ½(7 − √5); β = 1/λ_min.
+        let lambda_min = 0.5 * (7.0 - 5.0_f64.sqrt());
+        assert!((beta - 1.0 / lambda_min).abs() < 1e-9, "β={beta}");
+        // Newton normal equations: H·δ = −g.
+        let hd0 = h[[0, 0]] * delta[0] + h[[0, 1]] * delta[1];
+        let hd1 = h[[1, 0]] * delta[0] + h[[1, 1]] * delta[1];
+        assert!((hd0 + g[0]).abs() < 1e-9 && (hd1 + g[1]).abs() < 1e-9);
+        assert!((eta - delta.dot(&delta).sqrt()).abs() < 1e-12);
+    }
 }
 
 #[cfg(test)]
@@ -4643,8 +5205,7 @@ mod joint_fallback_tests {
         let amplitudes = Array2::from_shape_fn((n, k), |_| 0.2 + 1.3 * rng.unit());
         // Coordinates are irrelevant for flat atoms (constant tangent), but the
         // diagnostic still evaluates the jet at them.
-        let coords: Vec<Array2<f64>> =
-            (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
+        let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
         let floor = 1.0e-9;
 
         let sweep = [0.0_f64, 0.2, 0.4, 0.6, 0.8, 0.95];
@@ -4700,8 +5261,7 @@ mod joint_fallback_tests {
         for row in 0..n {
             amplitudes[[row, row % k]] = 1.0;
         }
-        let coords: Vec<Array2<f64>> =
-            (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
+        let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
         let frac = joint_encode_fallback_fraction(&atoms, &coords, amplitudes.view(), 1.0e-9)
             .expect("computes");
         assert!(

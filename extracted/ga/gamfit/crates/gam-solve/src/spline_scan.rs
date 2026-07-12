@@ -46,10 +46,16 @@
 //!   end states, which reproduces the spline's polynomial extrapolation with
 //!   growing variance — bridge-don't-sag is a theorem here.
 //!
-//! The smoothing parameter is selected by maximizing the concentrated diffuse
-//! (restricted) log-likelihood over log λ with a deterministic coarse-grid +
-//! golden-section refinement; σ² is profiled in closed form from the proper
+//! The smoothing parameter is selected by isolating every stationary interval
+//! of the concentrated diffuse restricted log-likelihood over log λ. Exact
+//! analytic score sensitivities are propagated through the filter, and global
+//! curvature bounds drive certified adaptive subdivision; both finite-domain
+//! boundaries compete exactly. σ² is profiled in closed form from the proper
 //! innovations plus the within-tie residual sum.
+
+use gam_math::score_opt::{
+    ClosedInterval, DerivativeEnclosure, ScoreJet, maximize_score_1d,
+};
 
 /// One pooled (distinct-abscissa) observation node.
 #[derive(Clone, Copy, Debug)]
@@ -61,13 +67,9 @@ struct PooledNode {
     w: f64,
 }
 
-/// Deterministic coarse-grid width for the log-λ search.
-const LOG_LAMBDA_GRID: usize = 25;
 /// Search interval for log λ (natural log), generous on both sides.
 const LOG_LAMBDA_LO: f64 = -18.0;
 const LOG_LAMBDA_HI: f64 = 18.0;
-/// Golden-section refinement tolerance on log λ.
-const LOG_LAMBDA_TOL: f64 = 1e-7;
 /// Numerical floor treating a predicted innovation variance as singular.
 const INNOVATION_VAR_FLOOR: f64 = 1e-300;
 
@@ -371,8 +373,15 @@ struct FilterPass {
     steps: Vec<FilterStep>,
     /// Σ over proper steps of `log F̃_t` (innovation variances at σ²=1).
     sum_log_f: f64,
+    /// First and second analytic derivatives of `sum_log_f` with respect to
+    /// `rho = log lambda` (`q = exp(-rho)`).
+    sum_log_f_d1: f64,
+    sum_log_f_d2: f64,
     /// Σ over proper steps of `v_t² / F̃_t`.
     sum_v2_over_f: f64,
+    /// First and second analytic `rho` derivatives of `sum_v2_over_f`.
+    sum_v2_over_f_d1: f64,
+    sum_v2_over_f_d2: f64,
     /// Number of proper (non-diffuse) innovations.
     n_proper: usize,
 }
@@ -385,26 +394,43 @@ fn run_filter(nodes: &[PooledNode], q: f64, order: usize) -> Result<FilterPass, 
     // diffuse rank starts at `order`, consumed by the first `order` distinct
     // abscissae.
     let mut a: Vec2 = [0.0; MAX_ORDER];
+    let mut a_d1: Vec2 = [0.0; MAX_ORDER];
+    let mut a_d2: Vec2 = [0.0; MAX_ORDER];
     let mut p_star: Mat2 = [[0.0; MAX_ORDER]; MAX_ORDER];
+    let mut p_star_d1: Mat2 = [[0.0; MAX_ORDER]; MAX_ORDER];
+    let mut p_star_d2: Mat2 = [[0.0; MAX_ORDER]; MAX_ORDER];
     let mut p_inf: Mat2 = [[0.0; MAX_ORDER]; MAX_ORDER];
     for i in 0..order {
         p_inf[i][i] = 1.0;
     }
     let mut diffuse_rank = order;
     let mut sum_log_f = 0.0;
+    let mut sum_log_f_d1 = 0.0;
+    let mut sum_log_f_d2 = 0.0;
     let mut sum_v2_over_f = 0.0;
+    let mut sum_v2_over_f_d1 = 0.0;
+    let mut sum_v2_over_f_d2 = 0.0;
     let mut n_proper = 0usize;
     for t in 0..n {
         let a_pred = a;
         let p_pred = p_star;
         let r = 1.0 / nodes[t].w;
         let v = nodes[t].y - a[0];
+        let v_d1 = -a_d1[0];
+        let v_d2 = -a_d2[0];
         // H = [1 0 … 0] ⇒ M = P·H' is the first column, F = M[0] (+ r).
         let mut m_star: Vec2 = [0.0; MAX_ORDER];
+        let mut m_star_d1: Vec2 = [0.0; MAX_ORDER];
+        let mut m_star_d2: Vec2 = [0.0; MAX_ORDER];
         for i in 0..order {
             m_star[i] = p_star[i][0];
+            m_star_d1[i] = p_star_d1[i][0];
+            m_star_d2[i] = p_star_d2[i][0];
         }
         let f_star = m_star[0] + r;
+        let f_star_d1 = m_star_d1[0];
+        let f_star_d2 = m_star_d2[0];
+        let mut proper_update = diffuse_rank == 0;
         if diffuse_rank > 0 {
             let mut m_inf: Vec2 = [0.0; MAX_ORDER];
             for i in 0..order {
@@ -416,17 +442,32 @@ fn run_filter(nodes: &[PooledNode], q: f64, order: usize) -> Result<FilterPass, 
                 // standard update; the diffuse step contributes −½·log F_∞ to
                 // the restricted likelihood and consumes one diffuse dimension.
                 for i in 0..order {
-                    a[i] += (m_inf[i] / f_inf) * v;
+                    let k_inf = m_inf[i] / f_inf;
+                    a[i] += k_inf * v;
+                    a_d1[i] += k_inf * v_d1;
+                    a_d2[i] += k_inf * v_d2;
                 }
                 let mut p_new = p_star;
+                let mut p_new_d1 = p_star_d1;
+                let mut p_new_d2 = p_star_d2;
                 for i in 0..order {
                     for j in 0..order {
                         p_new[i][j] += -m_inf[i] * m_star[j] / f_inf - m_star[i] * m_inf[j] / f_inf
                             + m_inf[i] * m_inf[j] * f_star / (f_inf * f_inf);
+                        p_new_d1[i][j] += -m_inf[i] * m_star_d1[j] / f_inf
+                            - m_star_d1[i] * m_inf[j] / f_inf
+                            + m_inf[i] * m_inf[j] * f_star_d1 / (f_inf * f_inf);
+                        p_new_d2[i][j] += -m_inf[i] * m_star_d2[j] / f_inf
+                            - m_star_d2[i] * m_inf[j] / f_inf
+                            + m_inf[i] * m_inf[j] * f_star_d2 / (f_inf * f_inf);
                     }
                 }
                 p_star = p_new;
+                p_star_d1 = p_new_d1;
+                p_star_d2 = p_new_d2;
                 symmetrize(&mut p_star, order);
+                symmetrize(&mut p_star_d1, order);
+                symmetrize(&mut p_star_d2, order);
                 for i in 0..order {
                     for j in 0..order {
                         p_inf[i][j] -= m_inf[i] * m_inf[j] / f_inf;
@@ -438,39 +479,71 @@ fn run_filter(nodes: &[PooledNode], q: f64, order: usize) -> Result<FilterPass, 
                     p_inf = [[0.0; MAX_ORDER]; MAX_ORDER];
                 }
             } else {
-                // Diffuse direction orthogonal to H at this node: ordinary
-                // proper update with P* (F_∞ = 0 ⇒ standard Kalman step).
-                if f_star <= INNOVATION_VAR_FLOOR {
-                    return Err("spline scan: non-positive innovation variance".to_string());
-                }
-                for i in 0..order {
-                    a[i] += (m_star[i] / f_star) * v;
-                }
-                for i in 0..order {
-                    for j in 0..order {
-                        p_star[i][j] -= m_star[i] * m_star[j] / f_star;
-                    }
-                }
-                symmetrize(&mut p_star, order);
-                sum_log_f += f_star.ln();
-                sum_v2_over_f += v * v / f_star;
-                n_proper += 1;
+                // Diffuse direction orthogonal to H: this observation is an
+                // ordinary proper update of P* even though diffuse rank remains.
+                proper_update = true;
             }
-        } else {
+        }
+        if proper_update {
             if f_star <= INNOVATION_VAR_FLOOR {
                 return Err("spline scan: non-positive innovation variance".to_string());
             }
+            let inv_f = 1.0 / f_star;
+            let inv_f2 = inv_f * inv_f;
+            let inv_f3 = inv_f2 * inv_f;
+            let mut gain = [0.0; MAX_ORDER];
+            let mut gain_d1 = [0.0; MAX_ORDER];
+            let mut gain_d2 = [0.0; MAX_ORDER];
             for i in 0..order {
-                a[i] += (m_star[i] / f_star) * v;
+                gain[i] = m_star[i] * inv_f;
+                gain_d1[i] = m_star_d1[i] * inv_f - m_star[i] * f_star_d1 * inv_f2;
+                gain_d2[i] = m_star_d2[i] * inv_f
+                    - 2.0 * m_star_d1[i] * f_star_d1 * inv_f2
+                    - m_star[i] * f_star_d2 * inv_f2
+                    + 2.0 * m_star[i] * f_star_d1 * f_star_d1 * inv_f3;
             }
+            let a_old_d1 = a_d1;
+            let a_old_d2 = a_d2;
+            for i in 0..order {
+                a[i] += gain[i] * v;
+                a_d1[i] = a_old_d1[i] + gain_d1[i] * v + gain[i] * v_d1;
+                a_d2[i] = a_old_d2[i] + gain_d2[i] * v + 2.0 * gain_d1[i] * v_d1 + gain[i] * v_d2;
+            }
+            let mut p_new = p_star;
+            let mut p_new_d1 = p_star_d1;
+            let mut p_new_d2 = p_star_d2;
             for i in 0..order {
                 for j in 0..order {
-                    p_star[i][j] -= m_star[i] * m_star[j] / f_star;
+                    let mm = m_star[i] * m_star[j];
+                    let mm_d1 = m_star_d1[i] * m_star[j] + m_star[i] * m_star_d1[j];
+                    let mm_d2 = m_star_d2[i] * m_star[j]
+                        + 2.0 * m_star_d1[i] * m_star_d1[j]
+                        + m_star[i] * m_star_d2[j];
+                    p_new[i][j] -= mm * inv_f;
+                    p_new_d1[i][j] -= mm_d1 * inv_f - mm * f_star_d1 * inv_f2;
+                    p_new_d2[i][j] -=
+                        mm_d2 * inv_f - 2.0 * mm_d1 * f_star_d1 * inv_f2 - mm * f_star_d2 * inv_f2
+                            + 2.0 * mm * f_star_d1 * f_star_d1 * inv_f3;
                 }
             }
+            p_star = p_new;
+            p_star_d1 = p_new_d1;
+            p_star_d2 = p_new_d2;
             symmetrize(&mut p_star, order);
+            symmetrize(&mut p_star_d1, order);
+            symmetrize(&mut p_star_d2, order);
+
+            let vv = v * v;
+            let vv_d1 = 2.0 * v * v_d1;
+            let vv_d2 = 2.0 * (v_d1 * v_d1 + v * v_d2);
             sum_log_f += f_star.ln();
-            sum_v2_over_f += v * v / f_star;
+            sum_log_f_d1 += f_star_d1 * inv_f;
+            sum_log_f_d2 += f_star_d2 * inv_f - f_star_d1 * f_star_d1 * inv_f2;
+            sum_v2_over_f += vv * inv_f;
+            sum_v2_over_f_d1 += vv_d1 * inv_f - vv * f_star_d1 * inv_f2;
+            sum_v2_over_f_d2 +=
+                vv_d2 * inv_f - 2.0 * vv_d1 * f_star_d1 * inv_f2 - vv * f_star_d2 * inv_f2
+                    + 2.0 * vv * f_star_d1 * f_star_d1 * inv_f3;
             n_proper += 1;
         }
         steps.push(FilterStep {
@@ -484,13 +557,31 @@ fn run_filter(nodes: &[PooledNode], q: f64, order: usize) -> Result<FilterPass, 
             let delta = nodes[t + 1].x - nodes[t].x;
             let f_t = transition(delta, order);
             a = mat_vec(&f_t, &a, order);
+            a_d1 = mat_vec(&f_t, &a_d1, order);
+            a_d2 = mat_vec(&f_t, &a_d2, order);
+            let f_t_t = mat_t(&f_t, order);
+            let q_noise = process_noise(delta, q, order);
             let mut p_next = mat_add(
-                &mat_mul(&mat_mul(&f_t, &p_star, order), &mat_t(&f_t, order), order),
-                &process_noise(delta, q, order),
+                &mat_mul(&mat_mul(&f_t, &p_star, order), &f_t_t, order),
+                &q_noise,
+                order,
+            );
+            let mut p_next_d1 = mat_sub(
+                &mat_mul(&mat_mul(&f_t, &p_star_d1, order), &f_t_t, order),
+                &q_noise,
+                order,
+            );
+            let mut p_next_d2 = mat_add(
+                &mat_mul(&mat_mul(&f_t, &p_star_d2, order), &f_t_t, order),
+                &q_noise,
                 order,
             );
             symmetrize(&mut p_next, order);
+            symmetrize(&mut p_next_d1, order);
+            symmetrize(&mut p_next_d2, order);
             p_star = p_next;
+            p_star_d1 = p_next_d1;
+            p_star_d2 = p_next_d2;
             if diffuse_rank > 0 {
                 let mut pi_next =
                     mat_mul(&mat_mul(&f_t, &p_inf, order), &mat_t(&f_t, order), order);
@@ -502,7 +593,11 @@ fn run_filter(nodes: &[PooledNode], q: f64, order: usize) -> Result<FilterPass, 
     Ok(FilterPass {
         steps,
         sum_log_f,
+        sum_log_f_d1,
+        sum_log_f_d2,
         sum_v2_over_f,
+        sum_v2_over_f_d1,
+        sum_v2_over_f_d2,
         n_proper,
     })
 }
@@ -518,9 +613,11 @@ pub struct SplineScanFit {
     pub knots: Vec<f64>,
     /// Smoothed posterior mean of `f` at each knot.
     pub mean: Vec<f64>,
-    /// Smoothed posterior mean of `f′` at each knot (`0` for order `m = 1`,
-    /// which carries no derivative state).
-    pub deriv: Vec<f64>,
+    /// Smoothed posterior mean of `f′` at each knot, present only for order
+    /// `m ≥ 2`. At `m = 1` the latent process is Brownian motion, which has NO
+    /// pointwise derivative state (it is a.s. nondifferentiable), so this is
+    /// `None` rather than a fabricated zero.
+    pub deriv: Option<Vec<f64>>,
     /// Posterior variance of `f` at each knot (scaled by `sigma2`).
     pub var: Vec<f64>,
     /// Selected (or supplied) log smoothing parameter `log λ`.
@@ -531,11 +628,15 @@ pub struct SplineScanFit {
     /// λ- and data-independent additive constant. Differences across λ are
     /// exact REML criterion differences.
     pub restricted_loglik: f64,
-    /// Raw observation count `n` (pre-pooling; ties collapse to fewer knots).
-    /// The profiled σ² used the restricted residual d.o.f. `n − order`, so this
-    /// is exactly the count needed to recover the Gaussian deviance
-    /// (`σ²·(n − order)`) and the residual d.o.f. for introspection (#1046).
+    /// Raw observation count `n` (pre-pooling; ties collapse to fewer knots),
+    /// retained for the residual d.o.f. `n − order` (#1046).
     pub n_obs: usize,
+    /// Weighted DATA residual sum of squares `Σ wᵢ (yᵢ − f̂(xᵢ))²` at the
+    /// smoothed posterior mean. Stored explicitly because the profiled
+    /// innovations quadratic `σ̂²·(n − order)` is the REML objective's
+    /// quadratic — data residual energy PLUS process/roughness energy at the
+    /// posterior mode — and is therefore NOT the Gaussian deviance.
+    pub data_sse: f64,
     /// Smoothed full states `(f, f′)` per knot.
     smoothed_state: Vec<Vec2>,
     /// Smoothed full state covariances per knot (unit-σ² scale).
@@ -610,14 +711,17 @@ fn pool_nodes(
     Ok((nodes, ssr_within, n))
 }
 
-/// Concentrated diffuse restricted log-likelihood at `log λ` (σ² profiled).
-fn concentrated_criterion(
+/// Concentrated diffuse restricted log-likelihood and its exact first two
+/// derivatives with respect to `log λ` (σ² profiled). The derivatives are
+/// propagated through the same diffuse Kalman recursion as the value; no
+/// finite differencing or surrogate objective is involved.
+fn concentrated_criterion_jet(
     nodes: &[PooledNode],
     ssr_within: f64,
     n_obs: usize,
     log_lambda: f64,
     order: usize,
-) -> Result<f64, String> {
+) -> Result<(f64, f64, f64), String> {
     let pass = run_filter(nodes, (-log_lambda).exp(), order)?;
     // Profiled σ̂² over the proper innovations plus within-tie residuals;
     // the restricted degrees of freedom subtract the diffuse dimension `order`.
@@ -634,8 +738,65 @@ fn concentrated_criterion(
             pass.n_proper
         ));
     }
-    Ok(-0.5 * (pass.sum_log_f + dof * sigma2.ln()))
+    let rss_d1 = pass.sum_v2_over_f_d1;
+    let rss_d2 = pass.sum_v2_over_f_d2;
+    let rss_log_d1 = rss_d1 / rss;
+    let rss_log_d2 = rss_d2 / rss - rss_log_d1 * rss_log_d1;
+    Ok((
+        -0.5 * (pass.sum_log_f + dof * sigma2.ln()),
+        -0.5 * (pass.sum_log_f_d1 + dof * rss_log_d1),
+        -0.5 * (pass.sum_log_f_d2 + dof * rss_log_d2),
+    ))
 }
+
+/// Rigorous interval enclosure of the score's first two derivatives.
+///
+/// After eliminating the diffuse polynomial null space, the Gaussian profile
+/// is an affine covariance pencil. Every determinant mode has response
+/// `u in [0,1]`; every normalized profiled-residual derivative is a convex
+/// average of the same kernels. Consequently
+///
+/// `|L''| <= 1/2 (r/4 + 2 nu)` and
+/// `|L'''| <= 1/2 (r/4 + 6 nu)`,
+///
+/// where `r` is the number of proper innovation modes and `nu=n-order` is the
+/// residual d.f. Within-tie residual energy is lambda-independent and only
+/// tightens these bounds. Endpoint jets plus these analytic Lipschitz bounds
+/// therefore enclose the entire interval without a sampling lattice.
+fn concentrated_criterion_enclosure(
+    nodes: &[PooledNode],
+    ssr_within: f64,
+    n_obs: usize,
+    lo: f64,
+    hi: f64,
+    order: usize,
+) -> Result<DerivativeEnclosure, String> {
+    if !(lo.is_finite() && hi.is_finite() && lo <= hi) {
+        return Err(format!(
+            "spline scan: invalid score-enclosure interval [{lo}, {hi}]"
+        ));
+    }
+    let left = concentrated_criterion_jet(nodes, ssr_within, n_obs, lo, order)?;
+    let right = concentrated_criterion_jet(nodes, ssr_within, n_obs, hi, order)?;
+    let width = hi - lo;
+    let proper_modes = (nodes.len() - order) as f64;
+    let residual_dof = (n_obs - order) as f64;
+    let curvature_abs_bound = 0.5 * (0.25 * proper_modes + 2.0 * residual_dof);
+    let third_abs_bound = 0.5 * (0.25 * proper_modes + 6.0 * residual_dof);
+    let derivative_radius = curvature_abs_bound * width;
+    let curvature_radius = third_abs_bound * width;
+    Ok(DerivativeEnclosure {
+        derivative: ClosedInterval::outward(
+            (left.1 - derivative_radius).min(right.1 - derivative_radius),
+            (left.1 + derivative_radius).max(right.1 + derivative_radius),
+        ),
+        curvature: ClosedInterval::outward(
+            (left.2 - curvature_radius).min(right.2 - curvature_radius),
+            (left.2 + curvature_radius).max(right.2 + curvature_radius),
+        ),
+    })
+}
+
 
 /// Exact diffuse smoother for the `order−1` partially-diffuse leading nodes
 /// (#1044 — the multi-node generalization of the `m = 2` reverse-Markov
@@ -891,12 +1052,23 @@ pub fn fit_spline_scan_at(
 
     let knots: Vec<f64> = nodes.iter().map(|n| n.x).collect();
     let mean: Vec<f64> = sm_state.iter().map(|s| s[0]).collect();
-    // f′ lives at state index 1 — present for order ≥ 2, structurally 0 at m = 1.
-    let deriv: Vec<f64> = sm_state
-        .iter()
-        .map(|s| if order >= 2 { s[1] } else { 0.0 })
-        .collect();
+    // f′ lives at state index 1 — present for order ≥ 2 only; the m = 1 latent
+    // process (Brownian motion) has no derivative state to expose.
+    let deriv: Option<Vec<f64>> = (order >= 2).then(|| sm_state.iter().map(|s| s[1]).collect());
     let var: Vec<f64> = sm_cov.iter().map(|p| p[0][0] * sigma2).collect();
+    // Weighted DATA residual sum of squares at the smoothed mean. Tied rows
+    // pool exactly: Σᵢ wᵢ(yᵢ − f̂ₖ)² = Σᵢ wᵢ(yᵢ − ȳₖ)² + Σₖ Wₖ(ȳₖ − f̂ₖ)²
+    // (within-tie scatter plus pooled-node misfit), so the raw rows the scan
+    // does not retain are not needed.
+    let data_sse = ssr_within
+        + nodes
+            .iter()
+            .zip(mean.iter())
+            .map(|(node, &fhat)| {
+                let r = node.y - fhat;
+                node.w * r * r
+            })
+            .sum::<f64>();
     Ok(SplineScanFit {
         order,
         knots,
@@ -907,6 +1079,7 @@ pub fn fit_spline_scan_at(
         sigma2,
         restricted_loglik,
         n_obs,
+        data_sse,
         smoothed_state: sm_state,
         smoothed_cov: sm_cov,
         rts_gain: gains,
@@ -915,9 +1088,10 @@ pub fn fit_spline_scan_at(
     })
 }
 
-/// Fit with `log λ` selected by the concentrated diffuse REML criterion:
-/// deterministic coarse grid then golden-section refinement (no RNG, no
-/// iteration-count sensitivity — same data ⇒ same fit).
+/// Fit with `log λ` selected by the concentrated diffuse REML criterion.
+/// Every stationary interval in the bounded, scale-equivariant log-λ domain
+/// is isolated using analytic derivatives and rigorous interval bounds; the
+/// two boundary/null-recovery candidates are evaluated exactly.
 pub fn fit_spline_scan(
     x: &[f64],
     y: &[f64],
@@ -952,42 +1126,32 @@ pub fn fit_spline_scan(
     };
     let lo_anchor = LOG_LAMBDA_LO + scale_shift;
     let hi_anchor = LOG_LAMBDA_HI + scale_shift;
-    let crit = |ll: f64| concentrated_criterion(&nodes, ssr_within, n_obs, ll, order);
-    let mut best_i = 0usize;
-    let mut best_v = f64::NEG_INFINITY;
-    let step = (hi_anchor - lo_anchor) / (LOG_LAMBDA_GRID - 1) as f64;
-    for i in 0..LOG_LAMBDA_GRID {
-        let ll = lo_anchor + step * i as f64;
-        let v = crit(ll)?;
-        if v > best_v {
-            best_v = v;
-            best_i = i;
-        }
-    }
-    let mut lo = lo_anchor + step * best_i.saturating_sub(1) as f64;
-    let mut hi = (lo_anchor + step * (best_i + 1) as f64).min(hi_anchor);
-    // Golden-section maximization on [lo, hi].
-    let inv_phi = 0.618_033_988_749_894_9_f64;
-    let mut x1 = hi - inv_phi * (hi - lo);
-    let mut x2 = lo + inv_phi * (hi - lo);
-    let mut f1 = crit(x1)?;
-    let mut f2 = crit(x2)?;
-    while hi - lo > LOG_LAMBDA_TOL {
-        if f1 < f2 {
-            lo = x1;
-            x1 = x2;
-            f1 = f2;
-            x2 = lo + inv_phi * (hi - lo);
-            f2 = crit(x2)?;
-        } else {
-            hi = x2;
-            x2 = x1;
-            f2 = f1;
-            x1 = hi - inv_phi * (hi - lo);
-            f1 = crit(x1)?;
-        }
-    }
-    fit_spline_scan_at(x, y, w, 0.5 * (lo + hi), None, order)
+    let search = maximize_score_1d(
+        lo_anchor,
+        hi_anchor,
+        f64::EPSILON.sqrt(),
+        |ll| {
+            concentrated_criterion_jet(&nodes, ssr_within, n_obs, ll, order).map(
+                |(value, derivative, curvature)| ScoreJet {
+                    value,
+                    derivative,
+                    curvature,
+                },
+            )
+        },
+        |lo, hi| {
+            concentrated_criterion_enclosure(
+                &nodes,
+                ssr_within,
+                n_obs,
+                lo,
+                hi,
+                order,
+            )
+        },
+    )
+    .map_err(|error| format!("spline scan: REML stationary isolation failed: {error}"))?;
+    fit_spline_scan_at(x, y, w, search.optimum.x, None, order)
 }
 
 /// Lossless serializable snapshot of a [`SplineScanFit`] (#1034).
@@ -1026,6 +1190,11 @@ pub struct SplineScanState {
     pub restricted_loglik: f64,
     /// Raw observation count `n` (#1046).
     pub n_obs: u64,
+    /// Weighted data residual sum of squares `Σ wᵢ (yᵢ − f̂(xᵢ))²` at the
+    /// smoothed mean — the Gaussian deviance. Stored because it cannot be
+    /// recovered from the profiled σ² (whose quadratic also carries
+    /// process/roughness energy) and the raw rows are not retained.
+    pub data_sse: f64,
 }
 
 /// Serde default for [`SplineScanState::order`]: historical snapshots predate
@@ -1071,6 +1240,7 @@ impl SplineScanFit {
             sigma2: self.sigma2,
             restricted_loglik: self.restricted_loglik,
             n_obs: self.n_obs as u64,
+            data_sse: self.data_sse,
         }
     }
 
@@ -1131,6 +1301,12 @@ impl SplineScanFit {
                 state.log_lambda, state.sigma2, state.restricted_loglik
             ));
         }
+        if !(state.data_sse.is_finite() && state.data_sse >= 0.0) {
+            return Err(format!(
+                "spline scan state: invalid data_sse {}",
+                state.data_sse
+            ));
+        }
         if state.knots.windows(2).any(|kk| !(kk[0] < kk[1])) {
             return Err("spline scan state: knots must be strictly increasing".to_string());
         }
@@ -1184,12 +1360,13 @@ impl SplineScanFit {
             order,
             knots: state.knots.clone(),
             mean: smoothed_state.iter().map(|s| s[0]).collect(),
-            deriv: smoothed_state.iter().map(|s| s[1]).collect(),
+            deriv: (order >= 2).then(|| smoothed_state.iter().map(|s| s[1]).collect()),
             var: smoothed_cov.iter().map(|c| c[0][0] * sigma2).collect(),
             log_lambda: state.log_lambda,
             sigma2,
             restricted_loglik: state.restricted_loglik,
             n_obs,
+            data_sse: state.data_sse,
             smoothed_state,
             smoothed_cov,
             rts_gain,
@@ -1327,11 +1504,18 @@ impl SplineScanFit {
     }
 
     /// Posterior `(mean, variance)` of the derivative `f′` at a knot index.
-    pub fn deriv_at_knot(&self, t: usize) -> (f64, f64) {
-        (
-            self.smoothed_state[t][1],
-            self.smoothed_cov[t][1][1] * self.sigma2,
-        )
+    ///
+    /// `None` at order `m = 1`: the latent process is Brownian motion, which
+    /// is almost surely nondifferentiable — there is no derivative state, and
+    /// fabricating a "known zero" `(0, 0)` would assert certainty about a
+    /// quantity that does not exist.
+    pub fn deriv_at_knot(&self, t: usize) -> Option<(f64, f64)> {
+        (self.order >= 2).then(|| {
+            (
+                self.smoothed_state[t][1],
+                self.smoothed_cov[t][1][1] * self.sigma2,
+            )
+        })
     }
 
     /// Selected smoothing parameter `λ = e^{log λ}` (#1046).
@@ -1344,18 +1528,65 @@ impl SplineScanFit {
         self.n_obs
     }
 
-    /// Gaussian deviance — the weighted residual sum of squares `Σ wᵢ(yᵢ − f̂ᵢ)²`
-    /// (#1046). The profiled `σ² = RSS / (n − order)` (the restricted residual
-    /// d.o.f.), so `RSS = σ²·(n − order)` recovers the deviance exactly without
-    /// re-touching the raw rows the scan deliberately does not retain.
+    /// Gaussian deviance — the weighted DATA residual sum of squares
+    /// `Σ wᵢ(yᵢ − f̂ᵢ)²` at the smoothed mean (#1046). This is the stored
+    /// `data_sse`, computed against the fitted values at fit time. It is NOT
+    /// `σ̂²·(n − order)`: the profiled σ² divides the REML innovations
+    /// quadratic, which is data residual energy PLUS process/roughness energy
+    /// at the posterior mode (for order 1 on `x = (0,1)`, `y = (0,1)`, unit
+    /// weights and λ = 1 the posterior mean is `(1/3, 2/3)`; the data SSE is
+    /// 2/9 while `σ̂²·(n − order) = 1/3`, the extra 1/9 being penalty energy).
     pub fn deviance(&self) -> f64 {
-        self.sigma2 * (self.n_obs as f64 - self.order as f64).max(0.0)
+        self.data_sse
     }
 }
 
 #[cfg(test)]
 mod tests {
+    /// Value-only diagnostic surface retained for the derivative oracle tests.
+    fn concentrated_criterion(
+        nodes: &[PooledNode],
+        ssr_within: f64,
+        n_obs: usize,
+        log_lambda: f64,
+        order: usize,
+    ) -> Result<f64, String> {
+        Ok(concentrated_criterion_jet(nodes, ssr_within, n_obs, log_lambda, order)?.0)
+    }
     use super::*;
+
+    #[test]
+    fn concentrated_score_jet_matches_test_only_differences() {
+        let x = [0.0, 0.07, 0.19, 0.41, 0.41, 0.68, 1.0, 1.37];
+        let y = [0.2, -0.4, 0.8, 0.1, 0.35, -0.2, 0.7, 0.15];
+        let w = [1.0, 2.0, 0.7, 1.4, 0.9, 3.0, 1.2, 0.8];
+        for order in 1..=MAX_ORDER {
+            let (nodes, within, n_obs) = pool_nodes(&x, &y, &w, order).expect("pooled data");
+            for &rho in &[-4.0, -0.3, 2.5] {
+                let (value, d1, d2) = concentrated_criterion_jet(&nodes, within, n_obs, rho, order)
+                    .expect("analytic score jet");
+                // Finite differences are deliberately confined to this oracle
+                // test; production selection uses the analytic sensitivities.
+                let h = 2.0e-4;
+                let fm = concentrated_criterion(&nodes, within, n_obs, rho - h, order)
+                    .expect("left score");
+                let fp = concentrated_criterion(&nodes, within, n_obs, rho + h, order)
+                    .expect("right score");
+                let d1_fd = (fp - fm) / (2.0 * h);
+                let d2_fd = (fp - 2.0 * value + fm) / (h * h);
+                let d1_scale = 1.0 + d1.abs().max(d1_fd.abs());
+                let d2_scale = 1.0 + d2.abs().max(d2_fd.abs());
+                assert!(
+                    (d1 - d1_fd).abs() <= 2.0e-6 * d1_scale,
+                    "order={order} rho={rho}: analytic d1={d1}, FD={d1_fd}"
+                );
+                assert!(
+                    (d2 - d2_fd).abs() <= 2.0e-4 * d2_scale,
+                    "order={order} rho={rho}: analytic d2={d2}, FD={d2_fd}"
+                );
+            }
+        }
+    }
 
     /// #1034 persistence seam: snapshot → JSON → restore must replay the
     /// Gaussian bridge bit-for-bit — knot posteriors, off-knot bridge,
@@ -1399,10 +1630,15 @@ mod tests {
         assert_eq!(fit.sigma2.to_bits(), restored.sigma2.to_bits());
         assert_eq!(fit.edf().to_bits(), restored.edf().to_bits());
         for t in 0..fit.knots.len() {
-            let (d0, v0) = fit.deriv_at_knot(t);
-            let (d1, v1) = restored.deriv_at_knot(t);
-            assert_eq!(d0.to_bits(), d1.to_bits());
-            assert_eq!(v0.to_bits(), v1.to_bits());
+            match (fit.deriv_at_knot(t), restored.deriv_at_knot(t)) {
+                (Some((d0, v0)), Some((d1, v1))) => {
+                    assert!(order >= 2);
+                    assert_eq!(d0.to_bits(), d1.to_bits());
+                    assert_eq!(v0.to_bits(), v1.to_bits());
+                }
+                (None, None) => assert_eq!(order, 1),
+                _ => panic!("derivative availability drifted across the persistence seam"),
+            }
         }
         // Off-knot bridge, exact knot hit, and both extrapolation sides.
         for &xq in &[-0.2, 0.0, 0.013, 0.5, x[6], 0.987, 1.0, 1.3] {
@@ -1545,7 +1781,47 @@ mod tests {
             "order-1 EDF mismatch: scan={} dense={dense_edf}",
             fit.edf()
         );
-        // Order-1 derivative state is structurally absent.
-        assert!(fit.deriv.iter().all(|&d| d == 0.0));
+        // Order-1 derivative state is structurally absent: Brownian motion has
+        // no pointwise derivative, so the fit must say so rather than report a
+        // fabricated known-zero.
+        assert!(fit.deriv.is_none());
+        assert!(fit.deriv_at_knot(0).is_none());
+    }
+
+    /// `deviance()` must be the weighted DATA residual sum of squares at the
+    /// fitted values, not the profiled REML quadratic. For order 1 on
+    /// `x = (0, 1)`, `y = (0, 1)`, unit weights, λ = 1, the posterior mean is
+    /// `(1/3, 2/3)`: the data SSE is `2·(1/3)² = 2/9`, while
+    /// `σ̂²·(n − order) = 1/3` carries an extra `1/9` of process/roughness
+    /// energy.
+    #[test]
+    fn deviance_is_data_sse_not_penalized_quadratic() {
+        let x = [0.0, 1.0];
+        let y = [0.0, 1.0];
+        let w = [1.0, 1.0];
+        let fit = fit_spline_scan_at(&x, &y, &w, 0.0, None, 1).expect("order-1 fit");
+        // Self-consistency against a direct recomputation at the fitted values.
+        let manual: f64 = x
+            .iter()
+            .zip(&y)
+            .zip(&w)
+            .map(|((&xi, &yi), &wi)| {
+                let (m, _) = fit.predict(xi).expect("predict at knot");
+                wi * (yi - m) * (yi - m)
+            })
+            .sum();
+        assert!(
+            (fit.deviance() - manual).abs() <= 1e-12 * manual.max(1e-300),
+            "deviance {} != recomputed data SSE {manual}",
+            fit.deviance()
+        );
+        assert!(
+            (fit.deviance() - 2.0 / 9.0).abs() < 1e-10,
+            "deviance {} != 2/9",
+            fit.deviance()
+        );
+        // The old proxy is strictly larger: it includes penalty energy.
+        let reml_quadratic = fit.sigma2 * (fit.n_obs as f64 - fit.order as f64);
+        assert!(fit.deviance() < reml_quadratic);
     }
 }

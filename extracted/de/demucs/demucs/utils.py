@@ -5,9 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import defaultdict
+from concurrent.futures import CancelledError
 from contextlib import contextmanager
 import math
 import os
+import sys
 import tempfile
 import typing as tp
 
@@ -76,12 +78,17 @@ def EMA(beta: float = 1):
     total: tp.Dict[str, float] = defaultdict(float)
 
     def _update(metrics: dict, weight: float = 1) -> dict:
-        nonlocal total, fix
         for key, value in metrics.items():
             total[key] = total[key] * beta + weight * float(value)
             fix[key] = fix[key] * beta + weight
         return {key: tot / fix[key] for key, tot in total.items()}
     return _update
+
+
+def fatal(*args) -> tp.NoReturn:
+    """Print a message to stderr and exit with an error code."""
+    print(*args, file=sys.stderr)
+    sys.exit(1)
 
 
 def sizeof_fmt(num: float, suffix: str = 'B'):
@@ -120,19 +127,26 @@ def random_subset(dataset, max_samples: int, seed: int = 42):
 
 class DummyPoolExecutor:
     class DummyResult:
-        def __init__(self, func, *args, **kwargs):
+        def __init__(self, func, _dict, *args, **kwargs):
             self.func = func
+            self._dict = _dict
             self.args = args
             self.kwargs = kwargs
 
         def result(self):
-            return self.func(*self.args, **self.kwargs)
+            if self._dict["run"]:
+                return self.func(*self.args, **self.kwargs)
+            else:
+                raise CancelledError()
 
     def __init__(self, workers=0):
-        pass
+        self._dict = {"run": True}
 
     def submit(self, func, *args, **kwargs):
-        return DummyPoolExecutor.DummyResult(func, *args, **kwargs)
+        return DummyPoolExecutor.DummyResult(func, self._dict, *args, **kwargs)
+
+    def shutdown(self, *_, **__):
+        self._dict["run"] = False
 
     def __enter__(self):
         return self

@@ -26,9 +26,9 @@ class MeetResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListParticipantSessionsResponseHttpRequest: ...
                 def list_next(
@@ -44,9 +44,9 @@ class MeetResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListParticipantsResponseHttpRequest: ...
             def list_next(
@@ -65,8 +65,8 @@ class MeetResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListRecordingsResponseHttpRequest: ...
             def list_next(
@@ -84,8 +84,8 @@ class MeetResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListSmartNotesResponseHttpRequest: ...
             def list_next(
@@ -105,8 +105,8 @@ class MeetResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListTranscriptEntriesResponseHttpRequest: ...
                 def list_next(
@@ -122,8 +122,8 @@ class MeetResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTranscriptsResponseHttpRequest: ...
             def list_next(
@@ -139,9 +139,9 @@ class MeetResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListConferenceRecordsResponseHttpRequest: ...
         def list_next(
@@ -156,23 +156,17 @@ class MeetResource(googleapiclient.discovery.Resource):
 
     @typing.type_check_only
     class SpacesResource(googleapiclient.discovery.Resource):
-        def create(
-            self, *, body: Space = ..., **kwargs: typing.Any
-        ) -> SpaceHttpRequest: ...
+        def create(self, *, body: Space, **kwargs: typing.Any) -> SpaceHttpRequest: ...
         def endActiveConference(
-            self,
-            *,
-            name: str,
-            body: EndActiveConferenceRequest = ...,
-            **kwargs: typing.Any,
+            self, *, name: str, body: EndActiveConferenceRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> SpaceHttpRequest: ...
         def patch(
             self,
             *,
             name: str,
-            body: Space = ...,
-            updateMask: str = ...,
+            body: Space,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> SpaceHttpRequest: ...
 

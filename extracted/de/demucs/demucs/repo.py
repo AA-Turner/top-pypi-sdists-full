@@ -49,6 +49,9 @@ class ModelOnlyRepo:
     def get_model(self, sig: str) -> Model:
         raise NotImplementedError()
 
+    def list_model(self) -> tp.Dict[str, tp.Union[str, Path]]:
+        raise NotImplementedError()
+
 
 class RemoteRepo(ModelOnlyRepo):
     def __init__(self, models: tp.Dict[str, str]):
@@ -63,8 +66,11 @@ class RemoteRepo(ModelOnlyRepo):
         except KeyError:
             raise ModelLoadingError(f'Could not find a pre-trained model with signature {sig}.')
         pkg = torch.hub.load_state_dict_from_url(
-            url, map_location='cpu', check_hash=True)  # type: ignore
+            url, map_location='cpu', check_hash=True, weights_only=False)  # type: ignore
         return load_model(pkg)
+
+    def list_model(self) -> tp.Dict[str, tp.Union[str, Path]]:
+        return self._models  # type: ignore
 
 
 class LocalRepo(ModelOnlyRepo):
@@ -78,7 +84,7 @@ class LocalRepo(ModelOnlyRepo):
         for file in self.root.iterdir():
             if file.suffix == '.th':
                 if '-' in file.stem:
-                    xp_sig, checksum = file.stem.split('-')
+                    xp_sig, checksum = file.stem.rsplit('-', 1)
                     self._checksums[xp_sig] = checksum
                 else:
                     xp_sig = file.stem
@@ -99,6 +105,9 @@ class LocalRepo(ModelOnlyRepo):
         if sig in self._checksums:
             check_checksum(file, self._checksums[sig])
         return load_model(file)
+
+    def list_model(self) -> tp.Dict[str, tp.Union[str, Path]]:
+        return self._models
 
 
 class BagOnlyRepo:
@@ -125,12 +134,16 @@ class BagOnlyRepo:
         except KeyError:
             raise ModelLoadingError(f'{name} is neither a single pre-trained model or '
                                     'a bag of models.')
-        bag = yaml.safe_load(open(yaml_file))
+        with open(yaml_file) as file:
+            bag = yaml.safe_load(file)
         signatures = bag['models']
         models = [self.model_repo.get_model(sig) for sig in signatures]
         weights = bag.get('weights')
         segment = bag.get('segment')
         return BagOfModels(models, weights, segment)
+
+    def list_model(self) -> tp.Dict[str, tp.Union[str, Path]]:
+        return self._bags
 
 
 class AnyModelRepo:
@@ -146,3 +159,9 @@ class AnyModelRepo:
             return self.model_repo.get_model(name_or_sig)
         else:
             return self.bag_repo.get_model(name_or_sig)
+
+    def list_model(self) -> tp.Dict[str, tp.Union[str, Path]]:
+        models = dict(self.model_repo.list_model())
+        for key, value in self.bag_repo.list_model().items():
+            models[key] = value
+        return models

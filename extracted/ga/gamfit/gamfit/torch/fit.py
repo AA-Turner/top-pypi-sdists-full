@@ -20,8 +20,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
-FitMode = Literal["joint", "independent", "auto"]
-
 import torch
 
 from ..smooth import (
@@ -52,7 +50,8 @@ from ._reml import (
     gaussian_reml_fit_with_constraints,
 )
 
-ShapeConstrainedSmooth = BSpline | Duchon
+FitMode = Literal["joint", "independent", "auto"]
+ShapeConstrainedSmooth = BSpline
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +129,71 @@ def _torch_smooth_dispatch_key(class_name: str) -> str:
     return str(dispatch_key(class_name))
 
 
+def _bspline_penalty_np(knots_np: Any, degree: int, order: int, periodic: bool) -> Any:
+    """Exact derivative roughness matching the design ``bspline_basis`` builds.
+
+    The open basis spans ``len(knots) - degree - 1`` columns and takes the
+    open-spline derivative Gram. The periodic basis is cyclic on the
+    knot-interval lattice — ``len(knots) - 1`` columns for any degree — so
+    its penalty integrates wrapped basis derivatives over that SAME period.
+    """
+    if periodic:
+        import numpy as np
+
+        from .._binding import rust_module
+
+        knots_array = np.asarray(knots_np, dtype=float)
+        num_basis = int(knots_array.size - 1)
+        period = float(knots_array[-1] - knots_array[0])
+        return np.asarray(
+            rust_module().cyclic_bspline_roughness_penalty(
+                num_basis,
+                int(degree),
+                period,
+                int(order),
+            ),
+            dtype=float,
+        )
+    from .._api import smoothness_penalty as _smoothness_penalty
+
+    penalty_np, _null_basis = _smoothness_penalty(
+        knots_np, degree=int(degree), order=int(order),
+    )
+    return penalty_np
+
+
+def _resolve_bspline_knots_for_fit(
+    smooth: BSpline, points_1d: torch.Tensor,
+) -> tuple[torch.Tensor, int]:
+    """Resolve the knot vector shared by design, penalty, and shape cone."""
+    knots_spec = smooth.knots
+    if knots_spec is None or isinstance(knots_spec, int):
+        # Auto-knot placement and small-sample degree reduction belong to Rust.
+        # Resolve through that authority so every downstream object uses the
+        # same realized spline chart.
+        from .._api import _resolve_knots
+
+        resolved = _resolve_knots(
+            knots_spec,
+            points_1d.detach().cpu().to(torch.float64).numpy(),
+            label="knots",
+            degree=smooth.degree,
+        )
+        return (
+            torch.as_tensor(
+                resolved.locations, dtype=torch.float64, device=points_1d.device,
+            ),
+            int(resolved.order),
+        )
+    return (
+        _to_tensor(knots_spec, points_1d)
+        .detach()
+        .reshape(-1)
+        .to(torch.float64),
+        int(smooth.degree),
+    )
+
+
 def _marginal_bspline_design_penalty(
     marginal: BSpline, x: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -137,15 +201,14 @@ def _marginal_bspline_design_penalty(
 
     Mirrors the scalar :class:`BSpline` branch exactly: the design carries the
     autograd VJP back to ``x`` through :func:`bspline_basis`, and the penalty
-    shares the SAME resolved knot vector and effective degree as the design so
-    the difference penalty regularizes the basis the design actually spans
-    (auto-knot derivation may downgrade the degree for small n — #340).
+    shares the SAME resolved knot vector, effective degree, and (cyclic vs
+    open) topology as the design so the derivative roughness regularizes the
+    function the design actually spans (auto-knot derivation may downgrade the
+    degree for small n — #340).
 
     ``x`` is the 1D marginal coordinate ``(N,)``. Returns ``(B_x, S_x)`` where
     ``B_x`` is ``(N, k)`` (differentiable) and ``S_x`` is ``(k, k)``.
     """
-    from .._api import smoothness_penalty as _smoothness_penalty
-
     marg_knots = marginal.knots
     if marg_knots is None or isinstance(marg_knots, int):
         from .._api import _resolve_knots
@@ -164,8 +227,8 @@ def _marginal_bspline_design_penalty(
     design = bspline_basis(
         x, knots, degree=eff_degree, periodic=bool(marginal.periodic),
     )
-    penalty_np, _null_basis = _smoothness_penalty(
-        knots_np, degree=eff_degree, order=int(marginal.penalty_order),
+    penalty_np = _bspline_penalty_np(
+        knots_np, eff_degree, int(marginal.penalty_order), bool(marginal.periodic),
     )
     penalty = torch.as_tensor(penalty_np, dtype=torch.float64, device=x.device)
     return design.to(torch.float64), penalty
@@ -185,7 +248,10 @@ def _kron_eye(left: int, mat: torch.Tensor, right: int) -> torch.Tensor:
 
 
 def _build_design_penalty(
-    smooth: Smooth, points: torch.Tensor,
+    smooth: Smooth,
+    points: torch.Tensor,
+    *,
+    resolved_bspline: tuple[torch.Tensor, int] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Build the (design, penalty) pair for one smooth at given input points.
 
@@ -252,35 +318,19 @@ def _build_design_penalty(
                 f"BSpline is 1D-only; got points with d={points.shape[1]}. "
                 "Use TensorBSpline for multi-d with different units, or Duchon for radial."
             )
-        bspline_knots = smooth.knots
-        bspline_degree = smooth.degree
         bspline_periodic = smooth.periodic
         bspline_penalty_order = smooth.penalty_order
-        from .._api import smoothness_penalty as _smoothness_penalty
-        if bspline_knots is None or isinstance(bspline_knots, int):
-            # Resolve auto-knots once (the `None` default and the integer
-            # interior-knot-count form both auto-derive) so the design and the
-            # penalty share the same knot vector AND effective degree. Auto-knot
-            # derivation may downgrade the degree for small n (#340); the design
-            # must not be built at one degree and the penalty at another.
-            from .._api import _resolve_knots
-            resolved = _resolve_knots(
-                bspline_knots,
-                points.squeeze(1).detach().cpu().to(torch.float64).numpy(),
-                label="knots", degree=bspline_degree,
-            )
-            knots_np = resolved.locations
-            eff_degree = int(resolved.order)
-            knots = torch.as_tensor(knots_np, dtype=torch.float64, device=points.device)
-        else:
-            knots = _to_tensor(bspline_knots, points).reshape(-1)
-            knots_np = knots.detach().cpu().to(torch.float64).numpy()
-            eff_degree = bspline_degree
+        knots, eff_degree = (
+            resolved_bspline
+            if resolved_bspline is not None
+            else _resolve_bspline_knots_for_fit(smooth, points.squeeze(1))
+        )
+        knots_np = knots.detach().cpu().numpy()
         design = bspline_basis(
             points.squeeze(1), knots, degree=eff_degree, periodic=bspline_periodic,
         )
-        penalty_np, _null_basis = _smoothness_penalty(
-            knots_np, degree=eff_degree, order=bspline_penalty_order,
+        penalty_np = _bspline_penalty_np(
+            knots_np, eff_degree, bspline_penalty_order, bool(bspline_periodic),
         )
         penalty = torch.as_tensor(penalty_np, dtype=torch.float64, device=points.device)
         return design.to(torch.float64), penalty
@@ -337,28 +387,37 @@ def _build_design_penalty(
         return design.to(torch.float64), penalty.to(torch.float64)
 
     if entry == "pca" and isinstance(smooth, Pca):
+        from .._basis_eval import pca_basis_matrix, pca_training_mean
+
         pca = smooth
         if pca.lazy_path is not None:
             raise NotImplementedError("Pca lazy_path is available on the Rust formula path")
+        design_points = points.to(torch.float64)
+        if pca.centered:
+            # Fitting is the fit/transform boundary: resolve the training mean
+            # here and persist it on the spec so predict-time evaluations
+            # subtract the SAME mean (a fixed affine map), not their own
+            # batch mean.
+            mean_np = pca_training_mean(pca, design_points.detach().cpu().numpy())
+            design_points = design_points - torch.as_tensor(
+                mean_np, dtype=torch.float64, device=points.device
+            ).reshape(1, -1)
         if pca.basis is None:
             if pca.K is None:
                 raise ValueError("Pca requires K when basis is None")
-            x_for_pca = points - points.mean(dim=0, keepdim=True) if pca.centered else points
-            _u, _s, vh = torch.linalg.svd(x_for_pca.to(torch.float64), full_matrices=False)
+            _u, _s, vh = torch.linalg.svd(design_points, full_matrices=False)
             basis = vh[: int(pca.K)].T.contiguous()
+            # Persist the fitted projection so later descriptor evaluations
+            # reuse the map this fit selected.
+            pca.basis = basis.detach().cpu().numpy()
         else:
-            basis = _to_tensor(pca.basis, points).to(torch.float64)
-            if basis.dim() != 2:
-                raise ValueError(f"Pca.basis must be 2D, got shape {tuple(basis.shape)}")
-            if pca.K is not None:
-                basis = basis[:, : int(pca.K)]
+            basis = torch.as_tensor(
+                pca_basis_matrix(pca), dtype=torch.float64, device=points.device
+            )
         if basis.shape[0] != points.shape[1]:
             raise ValueError(
                 f"Pca: points d={points.shape[1]} but basis has {basis.shape[0]} rows"
             )
-        design_points = points.to(torch.float64)
-        if pca.centered:
-            design_points = design_points - design_points.mean(dim=0, keepdim=True)
         design = design_points @ basis
         penalty = torch.eye(
             basis.shape[1], dtype=torch.float64, device=points.device
@@ -374,7 +433,7 @@ def _build_design_penalty(
                 f"TensorBSpline has {len(marginals)} marginals but points have "
                 f"d={points.shape[1]}"
             )
-        # Per-marginal 1D B-spline design + difference penalty (shared knots).
+        # Per-marginal 1D B-spline design + exact derivative Gram (shared knots).
         marg_designs: list[torch.Tensor] = []
         marg_penalties: list[torch.Tensor] = []
         for j, marg in enumerate(marginals):
@@ -528,51 +587,27 @@ def _build_design_penalty(
 
 
 # ---------------------------------------------------------------------------
-# Shape constraints — build A from the smooth's design on a 1D grid
+# Shape constraints — exact B-spline derivative-control cones
 # ---------------------------------------------------------------------------
 
 
-def _shape_constraint_grid_1d(x: torch.Tensor) -> torch.Tensor:
-    """Replicate the Rust grid for 1D shape constraints.
-
-    Build a uniform grid of ``clamp(unique_count, 96, 320)`` points spanning
-    ``[min(x), max(x)]``. Constraint feasibility on this grid implies the
-    shape constraint on the smooth's image under the usual B-spline / RBF
-    density argument.
-    """
-    if x.dim() != 1:
-        raise ValueError(
-            f"shape constraint grid requires a 1D location tensor; got shape "
-            f"{tuple(x.shape)}"
-        )
-    if not torch.isfinite(x).all():
-        raise ValueError("shape constraint requires finite covariate values")
-    x_min = float(x.min().item())
-    x_max = float(x.max().item())
-    if x_max - x_min <= 1e-12 * max(abs(x_min), abs(x_max), 1.0):
-        raise ValueError(
-            "shape-constrained smooth requires a non-degenerate covariate range"
-        )
-    # Match Rust: clamp(unique_count, 96, 320). Approximate unique-count with
-    # nunique via torch.unique for the common case; cheap on the small N
-    # we see in 1D smooth fits.
-    unique_count = int(torch.unique(x).numel())
-    target = max(96, min(320, unique_count))
-    grid = torch.linspace(x_min, x_max, target, dtype=torch.float64, device=x.device)
-    return grid
-
-
 def _build_shape_constraint_inequality(
-    smooth: ShapeConstrainedSmooth, points: torch.Tensor, shape_kind: str,
+    smooth: ShapeConstrainedSmooth,
+    points: torch.Tensor,
+    shape_kind: str,
+    coefficient_count: int,
+    *,
+    resolved_bspline: tuple[torch.Tensor, int] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Build ``(A, b)`` for the inequality system ``A·β ≥ b`` enforcing
-    ``shape_kind`` on ``smooth``'s 1D basis at a dense grid over the data
-    range. Returns finite-difference rows on the grid:
+    """Return ``A·β ≥ 0`` certifying shape on every open knot span.
 
-    * ``monotone_increasing``  → ``(B_grid[i+1] - B_grid[i]) · β ≥ 0``
-    * ``monotone_decreasing``  → negation of the above
-    * ``convex``               → ``(B_grid[i+2] - 2 B_grid[i+1] + B_grid[i]) · β ≥ 0``
-    * ``concave``              → negation of the above
+    For ``f = Σ β_i N_{i,d}``, the first derivative is a degree-``d-1``
+    B-spline whose control coefficients have the signs of
+    ``β[i+1] - β[i]``. The second derivative has the signs of consecutive
+    differences of the Greville-scaled first-derivative controls. Requiring
+    those derivative control coefficients to have the requested sign is a
+    finite spanwise certificate over the continuum; its size depends only on
+    the realized spline basis, never on a sampling resolution.
     """
     points = _coerce_2d(points, "points")
     if points.shape[1] != 1:
@@ -581,54 +616,46 @@ def _build_shape_constraint_inequality(
             f"got d={points.shape[1]}. Multidimensional shape constraints are "
             "not supported on the torch path."
         )
-    grid_1d = _shape_constraint_grid_1d(points.squeeze(1))
-
-    if isinstance(smooth, BSpline):
-        knots = (
-            _to_tensor(smooth.knots, points).reshape(-1)
-            if smooth.knots is not None
-            else None
+    if not torch.isfinite(points).all():
+        raise ValueError("shape constraint requires finite covariate values")
+    if smooth.periodic:
+        raise NotImplementedError(
+            "shape_constraint requires an open BSpline; a globally monotone "
+            "periodic spline is necessarily constant and needs a distinct "
+            "cyclic coefficient chart."
         )
-        b_grid = bspline_basis(
-            grid_1d, knots, degree=smooth.degree, periodic=smooth.periodic,
-        ).to(torch.float64).detach()
-    else:
-        centers = _coerce_2d(_to_tensor(smooth.centers, points), "Duchon.centers")
-        if centers.shape[1] != 1:
-            raise NotImplementedError(
-                "shape_constraint on torch Duchon path requires 1D centers."
-            )
-        per = (
-            tuple(bool(p) for p in smooth.periodic_per_axis)
-            if smooth.periodic_per_axis is not None
-            else None
-        )
-        b_grid = duchon_basis(
-            grid_1d.unsqueeze(1), centers, m=smooth.m, periodic_per_axis=per,
-        ).to(torch.float64).detach()
 
-    sk = shape_kind.lower()
-    if sk in ("monotone_increasing", "monotone_decreasing"):
-        diff = b_grid[1:] - b_grid[:-1]
-        if sk == "monotone_decreasing":
-            diff = -diff
-        a = diff
-    elif sk in ("convex", "concave"):
-        d2 = b_grid[2:] - 2.0 * b_grid[1:-1] + b_grid[:-2]
-        if sk == "concave":
-            d2 = -d2
-        a = d2
-    else:
+    knots, degree = (
+        resolved_bspline
+        if resolved_bspline is not None
+        else _resolve_bspline_knots_for_fit(smooth, points.squeeze(1))
+    )
+    if degree < 1:
+        raise ValueError("shape_constraint requires BSpline degree >= 1")
+    basis_width = int(knots.numel()) - degree - 1
+    if basis_width != coefficient_count:
         raise ValueError(
-            f"unknown shape_constraint kind {shape_kind!r}; expected one of "
-            "monotone_increasing, monotone_decreasing, convex, concave"
+            "shape-constraint spline chart mismatch: knot vector and degree "
+            f"imply {basis_width} coefficients, design has {coefficient_count}"
         )
 
-    # Drop near-zero rows (matches Rust's norm>1e-12 cull).
-    row_norms = a.norm(dim=1)
-    keep = row_norms > 1e-12
-    a = a[keep].contiguous()
-    b = torch.zeros(a.shape[0], dtype=torch.float64, device=a.device)
+    # Knot validation, derivative-control geometry, row scaling, and shape-kind
+    # parsing live in Rust. Torch only transfers the canonical linear cone to
+    # the target device; it does not maintain a second implementation of the
+    # spline mathematics.
+    from .._binding import rust_module
+
+    a_np, b_np = rust_module().bspline_shape_constraints(
+        knots.detach().cpu().numpy(), int(degree), str(shape_kind),
+    )
+    a = torch.as_tensor(a_np, dtype=torch.float64, device=points.device).contiguous()
+    b = torch.as_tensor(b_np, dtype=torch.float64, device=points.device).contiguous()
+    if a.dim() != 2 or a.shape[1] != coefficient_count or b.shape != (a.shape[0],):
+        raise RuntimeError(
+            "Rust shape-constraint payload does not match the realized "
+            f"B-spline chart: A={tuple(a.shape)}, b={tuple(b.shape)}, "
+            f"coefficients={coefficient_count}"
+        )
     return a, b
 
 
@@ -641,9 +668,23 @@ def _fit_single_constrained(
     shape_kind: str,
     init_lambdas: torch.Tensor | None,
 ) -> "FitResult":
-    design, penalty = _build_design_penalty(smooth, points)
+    points_2d = _coerce_2d(points, "points")
+    if not isinstance(smooth, BSpline):
+        raise NotImplementedError(
+            "shape_constraint on the torch fit path requires an open BSpline"
+        )
+    realized_bspline = _resolve_bspline_knots_for_fit(
+        smooth, points_2d.squeeze(1),
+    )
+    design, penalty = _build_design_penalty(
+        smooth, points_2d, resolved_bspline=realized_bspline,
+    )
     a_ineq, b_ineq = _build_shape_constraint_inequality(
-        smooth, points, shape_kind,
+        smooth,
+        points_2d,
+        shape_kind,
+        design.shape[1],
+        resolved_bspline=realized_bspline,
     )
     if smooth.by is not None:
         raise NotImplementedError(
@@ -825,9 +866,9 @@ def fit(
     """
     # Shape constraints route through the constrained Gaussian REML driver
     # in gam-pyffi (active-set + tangent-projected outer REML). Supported on
-    # the torch path only for a single 1D smooth (BSpline / Duchon with
-    # d==1); a multi-smooth list with constraints, or constrained
-    # multivariate smooths, are rejected with a clear error.
+    # the torch path only for a single open 1D B-spline, whose derivative
+    # control coefficients give an exact spanwise certificate. A multi-smooth
+    # list, radial basis, periodic basis, or multivariate smooth is rejected.
     _shape = shape_kind_for_smooths_arg(smooths)
 
     if isinstance(smooths, Smooth) and _shape is not None:
@@ -846,10 +887,10 @@ def fit(
                 f"{tuple(response_in.shape)}. Multi-output responses with "
                 "constraints are not yet supported."
             )
-        if not isinstance(smooths, (BSpline, Duchon)):
+        if not isinstance(smooths, BSpline):
             raise NotImplementedError(
                 "shape_constraint not supported on the torch path for "
-                f"{type(smooths).__name__}; supported: BSpline, Duchon (d=1)."
+                f"{type(smooths).__name__}; supported: open BSpline."
             )
         return _fit_single_constrained(
             smooths, points, response_in, weights=weights, shape_kind=_shape,
@@ -861,7 +902,6 @@ def fit(
         response = response.unsqueeze(1)
     if response.dim() != 2:
         raise ValueError(f"response must be 1D or 2D, got shape {tuple(response.shape)}")
-    N = response.shape[0]
     response_f64 = response.to(torch.float64)
 
     weights_f64 = (

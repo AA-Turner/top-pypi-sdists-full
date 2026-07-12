@@ -24,17 +24,13 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 ) -> FileUploadHttpRequest: ...
 
             def create(
-                self, *, parent: str, body: DataSource = ..., **kwargs: typing.Any
+                self, *, parent: str, body: DataSource, **kwargs: typing.Any
             ) -> DataSourceHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def fetch(
-                self,
-                *,
-                name: str,
-                body: FetchDataSourceRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: FetchDataSourceRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -43,8 +39,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListDataSourcesResponseHttpRequest: ...
             def list_next(
@@ -56,8 +52,8 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: DataSource = ...,
-                updateMask: str = ...,
+                body: DataSource,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> DataSourceHttpRequest: ...
             def fileUploads(self) -> FileUploadsResource: ...

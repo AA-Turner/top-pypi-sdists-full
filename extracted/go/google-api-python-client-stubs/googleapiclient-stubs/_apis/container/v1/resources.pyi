@@ -23,9 +23,9 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListUsableSubnetworksResponseHttpRequest: ...
                 def list_next(
@@ -46,81 +46,85 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: CompleteNodePoolUpgradeRequest = ...,
+                        body: CompleteNodePoolUpgradeRequest,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: CreateNodePoolRequest = ...,
+                        body: CreateNodePoolRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        clusterId: str = ...,
-                        nodePoolId: str = ...,
-                        projectId: str = ...,
-                        zone: str = ...,
+                        clusterId: str | None = ...,
+                        nodePoolId: str | None = ...,
+                        projectId: str | None = ...,
+                        zone: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def fetchNodePoolUpgradeInfo(
-                        self, *, name: str, version: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        version: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> NodePoolUpgradeInfoHttpRequest: ...
                     def get(
                         self,
                         *,
                         name: str,
-                        clusterId: str = ...,
-                        nodePoolId: str = ...,
-                        projectId: str = ...,
-                        zone: str = ...,
+                        clusterId: str | None = ...,
+                        nodePoolId: str | None = ...,
+                        projectId: str | None = ...,
+                        zone: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> NodePoolHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        clusterId: str = ...,
-                        projectId: str = ...,
-                        zone: str = ...,
+                        clusterId: str | None = ...,
+                        projectId: str | None = ...,
+                        zone: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListNodePoolsResponseHttpRequest: ...
                     def rollback(
                         self,
                         *,
                         name: str,
-                        body: RollbackNodePoolUpgradeRequest = ...,
+                        body: RollbackNodePoolUpgradeRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setAutoscaling(
                         self,
                         *,
                         name: str,
-                        body: SetNodePoolAutoscalingRequest = ...,
+                        body: SetNodePoolAutoscalingRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setManagement(
                         self,
                         *,
                         name: str,
-                        body: SetNodePoolManagementRequest = ...,
+                        body: SetNodePoolManagementRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setSize(
                         self,
                         *,
                         name: str,
-                        body: SetNodePoolSizeRequest = ...,
+                        body: SetNodePoolSizeRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def update(
                         self,
                         *,
                         name: str,
-                        body: UpdateNodePoolRequest = ...,
+                        body: UpdateNodePoolRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -137,35 +141,35 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CompleteIPRotationRequest = ...,
+                    body: CompleteIPRotationRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: CreateClusterRequest = ...,
+                    body: CreateClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    clusterId: str = ...,
-                    projectId: str = ...,
-                    zone: str = ...,
+                    clusterId: str | None = ...,
+                    projectId: str | None = ...,
+                    zone: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchClusterUpgradeInfo(
-                    self, *, name: str, version: str = ..., **kwargs: typing.Any
+                    self, *, name: str, version: str | None = ..., **kwargs: typing.Any
                 ) -> ClusterUpgradeInfoHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    clusterId: str = ...,
-                    projectId: str = ...,
-                    zone: str = ...,
+                    clusterId: str | None = ...,
+                    projectId: str | None = ...,
+                    zone: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ClusterHttpRequest: ...
                 def getJwks(
@@ -175,93 +179,69 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    projectId: str = ...,
-                    zone: str = ...,
+                    projectId: str | None = ...,
+                    zone: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListClustersResponseHttpRequest: ...
                 def setAddons(
                     self,
                     *,
                     name: str,
-                    body: SetAddonsConfigRequest = ...,
+                    body: SetAddonsConfigRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setLegacyAbac(
-                    self,
-                    *,
-                    name: str,
-                    body: SetLegacyAbacRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: SetLegacyAbacRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def setLocations(
-                    self,
-                    *,
-                    name: str,
-                    body: SetLocationsRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: SetLocationsRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def setLogging(
                     self,
                     *,
                     name: str,
-                    body: SetLoggingServiceRequest = ...,
+                    body: SetLoggingServiceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setMaintenancePolicy(
                     self,
                     *,
                     name: str,
-                    body: SetMaintenancePolicyRequest = ...,
+                    body: SetMaintenancePolicyRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setMasterAuth(
-                    self,
-                    *,
-                    name: str,
-                    body: SetMasterAuthRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: SetMasterAuthRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def setMonitoring(
                     self,
                     *,
                     name: str,
-                    body: SetMonitoringServiceRequest = ...,
+                    body: SetMonitoringServiceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setNetworkPolicy(
                     self,
                     *,
                     name: str,
-                    body: SetNetworkPolicyRequest = ...,
+                    body: SetNetworkPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setResourceLabels(
-                    self,
-                    *,
-                    name: str,
-                    body: SetLabelsRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: SetLabelsRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def startIpRotation(
                     self,
                     *,
                     name: str,
-                    body: StartIPRotationRequest = ...,
+                    body: StartIPRotationRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def update(
-                    self,
-                    *,
-                    name: str,
-                    body: UpdateClusterRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: UpdateClusterRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def updateMaster(
-                    self,
-                    *,
-                    name: str,
-                    body: UpdateMasterRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: UpdateMasterRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def nodePools(self) -> NodePoolsResource: ...
                 def well_known(self) -> WellKnownResource: ...
@@ -272,24 +252,24 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    operationId: str = ...,
-                    projectId: str = ...,
-                    zone: str = ...,
+                    operationId: str | None = ...,
+                    projectId: str | None = ...,
+                    zone: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    projectId: str = ...,
-                    zone: str = ...,
+                    projectId: str | None = ...,
+                    zone: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
 
@@ -297,8 +277,8 @@ class ContainerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                projectId: str = ...,
-                zone: str = ...,
+                projectId: str | None = ...,
+                zone: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ServerConfigHttpRequest: ...
             def clusters(self) -> ClustersResource: ...
@@ -317,7 +297,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        body: SetNodePoolAutoscalingRequest = ...,
+                        body: SetNodePoolAutoscalingRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def create(
@@ -326,7 +306,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         zone: str,
                         clusterId: str,
-                        body: CreateNodePoolRequest = ...,
+                        body: CreateNodePoolRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -336,11 +316,15 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        name: str = ...,
+                        name: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def fetchNodePoolUpgradeInfo(
-                        self, *, name: str, version: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        version: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> NodePoolUpgradeInfoHttpRequest: ...
                     def get(
                         self,
@@ -349,7 +333,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        name: str = ...,
+                        name: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> NodePoolHttpRequest: ...
                     def list(
@@ -358,7 +342,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         zone: str,
                         clusterId: str,
-                        parent: str = ...,
+                        parent: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListNodePoolsResponseHttpRequest: ...
                     def rollback(
@@ -368,7 +352,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        body: RollbackNodePoolUpgradeRequest = ...,
+                        body: RollbackNodePoolUpgradeRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setManagement(
@@ -378,7 +362,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        body: SetNodePoolManagementRequest = ...,
+                        body: SetNodePoolManagementRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setSize(
@@ -388,7 +372,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        body: SetNodePoolSizeRequest = ...,
+                        body: SetNodePoolSizeRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def update(
@@ -398,7 +382,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                         zone: str,
                         clusterId: str,
                         nodePoolId: str,
-                        body: UpdateNodePoolRequest = ...,
+                        body: UpdateNodePoolRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -408,7 +392,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetAddonsConfigRequest = ...,
+                    body: SetAddonsConfigRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def completeIpRotation(
@@ -417,7 +401,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: CompleteIPRotationRequest = ...,
+                    body: CompleteIPRotationRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def create(
@@ -425,7 +409,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     zone: str,
-                    body: CreateClusterRequest = ...,
+                    body: CreateClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -434,11 +418,11 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    name: str = ...,
+                    name: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchClusterUpgradeInfo(
-                    self, *, name: str, version: str = ..., **kwargs: typing.Any
+                    self, *, name: str, version: str | None = ..., **kwargs: typing.Any
                 ) -> ClusterUpgradeInfoHttpRequest: ...
                 def get(
                     self,
@@ -446,7 +430,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    name: str = ...,
+                    name: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ClusterHttpRequest: ...
                 def legacyAbac(
@@ -455,7 +439,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetLegacyAbacRequest = ...,
+                    body: SetLegacyAbacRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
@@ -463,7 +447,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     zone: str,
-                    parent: str = ...,
+                    parent: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListClustersResponseHttpRequest: ...
                 def locations(
@@ -472,7 +456,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetLocationsRequest = ...,
+                    body: SetLocationsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def logging(
@@ -481,7 +465,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetLoggingServiceRequest = ...,
+                    body: SetLoggingServiceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def master(
@@ -490,7 +474,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: UpdateMasterRequest = ...,
+                    body: UpdateMasterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def monitoring(
@@ -499,7 +483,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetMonitoringServiceRequest = ...,
+                    body: SetMonitoringServiceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def resourceLabels(
@@ -508,7 +492,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetLabelsRequest = ...,
+                    body: SetLabelsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setMaintenancePolicy(
@@ -517,7 +501,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetMaintenancePolicyRequest = ...,
+                    body: SetMaintenancePolicyRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setMasterAuth(
@@ -526,7 +510,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetMasterAuthRequest = ...,
+                    body: SetMasterAuthRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setNetworkPolicy(
@@ -535,7 +519,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: SetNetworkPolicyRequest = ...,
+                    body: SetNetworkPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def startIpRotation(
@@ -544,7 +528,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: StartIPRotationRequest = ...,
+                    body: StartIPRotationRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def update(
@@ -553,7 +537,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     clusterId: str,
-                    body: UpdateClusterRequest = ...,
+                    body: UpdateClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def nodePools(self) -> NodePoolsResource: ...
@@ -566,7 +550,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     operationId: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
@@ -575,7 +559,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     zone: str,
                     operationId: str,
-                    name: str = ...,
+                    name: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
@@ -583,7 +567,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     zone: str,
-                    parent: str = ...,
+                    parent: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
 
@@ -592,7 +576,7 @@ class ContainerResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 zone: str,
-                name: str = ...,
+                name: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ServerConfigHttpRequest: ...
             def clusters(self) -> ClustersResource: ...

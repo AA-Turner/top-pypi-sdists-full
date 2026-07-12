@@ -56,32 +56,118 @@ class TestGarminClient:
         assert profile.id == 12345
         assert profile.profile_id == 67890
 
-    async def test_get_activities(self):
-        """Test get_activities_by_date returns list and preserves fields."""
+    async def test_get_activities_by_recency(self):
+        """Test get_activities queries by start/limit without date filters."""
         auth = _make_auth()
         client = GarminClient(auth)
 
-        payload = [
-            {
-                "activityId": 1,
-                "activityName": "Morning Run",
-                "activityType": {"typeKey": "running"},
-                "startTimeLocal": "2024-01-01T08:00:00",
-                "startTimeGMT": "2024-01-01T07:00:00",
-                "distance": 5000.0,
-                "duration": 1800.0,
-            }
-        ]
+        payload = [{"activityId": 1, "activityName": "Old Ride"}]
 
-        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-            mock_thread.return_value = _mock_response(payload)
-            end_date = date.today()
-            start_date = end_date - timedelta(days=7)
-            activities = await client.get_activities_by_date(start_date, end_date)
+        with patch.object(client, "_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = payload
+            activities = await client.get_activities(0, 10)
 
-        assert len(activities) == 1
-        assert activities[0]["activityName"] == "Morning Run"
-        assert activities[0]["distance"] == 5000.0
+        assert activities == payload
+        params = mock_req.call_args.kwargs.get("params") or mock_req.call_args[0][2]
+        assert params == {"start": 0, "limit": 10}
+
+    async def test_fetch_activity_data_uses_recency_not_window(self):
+        """Test fetch_activity_data returns lastActivity even for old activities (#519)."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        old_activity = {
+            "activityId": 42,
+            "activityName": "Winter Run",
+            "activityType": {"typeKey": "running"},
+            "startTimeGMT": "2024-01-01T07:00:00",
+            "hasPolyline": False,
+        }
+
+        with (
+            patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
+            patch.object(
+                client, "get_workouts", new_callable=AsyncMock
+            ) as mock_workouts,
+            patch.object(
+                client, "get_activity_hr_in_timezones", new_callable=AsyncMock
+            ) as mock_hr,
+        ):
+            mock_acts.return_value = [old_activity]
+            mock_workouts.return_value = []
+            mock_hr.return_value = []
+            data = await client.fetch_activity_data()
+
+        mock_acts.assert_awaited_once_with(0, 10)
+        assert data["lastActivity"]["activityId"] == 42
+        assert len(data["lastActivities"]) == 1
+
+    async def test_get_body_composition_falls_back_to_weight_latest(self):
+        """Test get_body_composition uses weight/latest when the 30-day window is empty."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        latest_payload = {"weight": 89400.0, "bmi": 26.4, "bodyFat": 23.6}
+
+        async def fake_request(method, url, params=None, **kwargs):
+            if "weight/latest" in url:
+                return latest_payload
+            return {"dailyWeightSummaries": [], "totalAverage": {}}
+
+        with patch.object(client, "_request", side_effect=fake_request):
+            body = await client.get_body_composition(date(2026, 7, 11))
+
+        assert body == latest_payload
+
+    async def test_fetch_blood_pressure_uses_year_window(self):
+        """Test fetch_blood_pressure_data queries a 365-day range."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with patch.object(
+            client, "get_blood_pressure", new_callable=AsyncMock
+        ) as mock_bp:
+            mock_bp.return_value = {}
+            await client.fetch_blood_pressure_data(date(2026, 7, 11))
+
+        start, end = mock_bp.call_args[0]
+        assert end == date(2026, 7, 11)
+        assert (end - start).days == 365
+
+    def test_trim_activity_keeps_ebike_fields(self):
+        """Test _trim_activity preserves e-bike fields and drops unknown keys."""
+        from ha_garmin.client import _trim_activity
+
+        activity = {
+            "activityId": 2,
+            "activityType": {"typeKey": "e_bike_fitness"},
+            "eBikeBatteryRemaining": 42,
+            "eBikeBatteryUsage": 19,
+            "eBikeMaxAssistModes": 7,
+            "eBikeAssistModeInfoDTOList": None,
+            "someUnknownField": "dropped",
+        }
+
+        trimmed = _trim_activity(activity)
+
+        assert trimmed["eBikeBatteryRemaining"] == 42
+        assert trimmed["eBikeBatteryUsage"] == 19
+        assert trimmed["eBikeMaxAssistModes"] == 7
+        assert trimmed["activityType"] == "e_bike_fitness"
+        assert "eBikeAssistModeInfoDTOList" not in trimmed
+        assert "someUnknownField" not in trimmed
+
+    def test_trim_activity_no_ebike_fields_absent(self):
+        """Test _trim_activity does not inject e-bike keys for non-e-bike activities."""
+        from ha_garmin.client import _trim_activity
+
+        trimmed = _trim_activity(
+            {"activityId": 3, "activityType": {"typeKey": "running"}}
+        )
+
+        assert "eBikeBatteryRemaining" not in trimmed
+        assert "eBikeBatteryUsage" not in trimmed
+        assert "eBikeMaxAssistModes" not in trimmed
 
     async def test_get_devices(self):
         """Test get_devices returns list."""
@@ -105,6 +191,153 @@ class TestGarminClient:
         assert len(devices) == 1
         assert devices[0]["displayName"] == "Forerunner 955"
         assert devices[0]["batteryLevel"] == 85
+
+    async def test_get_device_solar_data(self):
+        """Test get_device_solar_data unwraps deviceSolarInput."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        payload = {
+            "deviceSolarInput": {
+                "deviceId": 123,
+                "solarDailyDataDTOs": [
+                    {
+                        "solarInputReadings": [
+                            {
+                                "readingTimestampGmt": "2026-07-09T10:00:00.0",
+                                "solarUtilization": 42.5,
+                                "activityTimeGainMs": 60000,
+                            }
+                        ]
+                    }
+                ],
+            }
+        }
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = _mock_response(payload)
+            solar = await client.get_device_solar_data(123)
+
+        readings = solar["solarDailyDataDTOs"][0]["solarInputReadings"]
+        assert readings[0]["solarUtilization"] == 42.5
+
+    async def test_get_device_solar_data_not_solar(self):
+        """Test get_device_solar_data returns empty dict for non-solar devices."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = _mock_response({})
+            solar = await client.get_device_solar_data(123)
+
+        assert solar == {}
+
+    async def test_download_activity_gpx(self):
+        """Test download_activity returns raw bytes for export formats."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        gpx_bytes = b'<?xml version="1.0"?><gpx></gpx>'
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.content = gpx_bytes
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = resp
+            data = await client.download_activity(12345, "gpx")
+
+        assert data == gpx_bytes
+
+    async def test_download_activity_fit_extracts_zip(self):
+        """Test download_activity fit format extracts the file from the zip."""
+        import io
+        import zipfile
+
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        fit_bytes = b"\x0e\x10fake-fit-content"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("12345.fit", fit_bytes)
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.content = buf.getvalue()
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            # First to_thread call is the HTTP request, second is zip extraction
+            def dispatch(func, *args, **kwargs):
+                if mock_thread.call_count == 1:
+                    return resp
+                return func(*args, **kwargs)
+
+            mock_thread.side_effect = dispatch
+            data = await client.download_activity(12345, "fit")
+
+        assert data == fit_bytes
+
+    async def test_download_activity_invalid_format(self):
+        """Test download_activity rejects unknown formats."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with pytest.raises(ValueError, match="Invalid file format"):
+            await client.download_activity(12345, "pdf")
+
+    async def test_get_device_last_used(self):
+        """Test get_device_last_used converts upload time to UTC datetime."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        payload = {
+            "userDeviceId": 3627212773,
+            "lastUsedDeviceApplicationKey": "venu4",
+            "lastUsedDeviceName": "Venu 4 - 45mm",
+            "lastUsedDeviceUploadTime": 1783686462000,
+            "imageUrl": "https://example.com/venu4.png",
+        }
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = _mock_response(payload)
+            last_used = await client.get_device_last_used()
+
+        assert last_used["lastUsedDeviceName"] == "Venu 4 - 45mm"
+        assert "lastUsedDeviceUploadTime" not in last_used
+        sync_time = last_used["lastSyncTime"]
+        assert sync_time == datetime.fromtimestamp(1783686462, tz=UTC)
+        assert sync_time.tzinfo is not None
+
+    def test_trim_device_keeps_essentials(self):
+        """Test _trim_device keeps identity fields and drops capability flags."""
+        from ha_garmin.client import _trim_device
+
+        device = {
+            "deviceId": 3627212773,
+            "unitId": 3627212773,
+            "displayName": "Venu 4 - 45mm",
+            "productDisplayName": "Venu 4 - 45mm",
+            "applicationKey": "venu4",
+            "serialNumber": "8PM119893",
+            "partNumber": "006-B4643-00",
+            "productSku": "010-03014-00",
+            "imageUrl": "https://example.com/venu4.png",
+            "primary": True,
+            "primaryActivityTrackerIndicator": True,
+            "deviceCategories": ["FITNESS", "WELLNESS"],
+            "wifi": True,
+            "runningWorkoutCapable": True,
+            "minGCMAndroidVersion": 10149,
+            "bestInClassVideoLink": None,
+        }
+
+        trimmed = _trim_device(device)
+
+        assert trimmed["deviceId"] == 3627212773
+        assert trimmed["serialNumber"] == "8PM119893"
+        assert trimmed["deviceCategories"] == ["FITNESS", "WELLNESS"]
+        assert "runningWorkoutCapable" not in trimmed
+        assert "minGCMAndroidVersion" not in trimmed
+        assert "bestInClassVideoLink" not in trimmed
 
     async def test_fetch_core_data_sleep_fields(self):
         """Test fetch_core_data returns all sleep fields including nap and unmeasurable."""
@@ -422,6 +655,183 @@ class TestGarminClient:
         assert entry["carbs"] == ""
         assert entry["protein"] == ""
         assert entry["fat"] == ""
+
+    async def test_get_nutrition_log_returns_dict(self):
+        """Test get_nutrition_log returns dict from API response."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        payload = {
+            "dailyNutritionContent": {"calories": 500},
+            "mealDetails": [],
+        }
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = _mock_response(payload)
+            result = await client.get_nutrition_log()
+
+        assert result == payload
+
+    async def test_get_nutrition_log_404_returns_empty(self):
+        """Test get_nutrition_log returns {} on 404 (no Connect+)."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = _mock_response({}, status=404)
+            result = await client.get_nutrition_log()
+
+        assert result == {}
+
+    async def test_fetch_nutrition_data_full_day(self):
+        """Test fetch_nutrition_data transforms a real Connect+ nutrition log."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        log_payload = {
+            "mealDate": "2026-07-06",
+            "dailyNutritionGoals": {
+                "calories": 1650,
+                "carbs": 165.0,
+                "fat": 55.0,
+                "protein": 124.0,
+            },
+            "dailyNutritionContent": {
+                "calories": 902,
+                "carbs": 91.0,
+                "fat": 53.0,
+                "protein": 15.0,
+            },
+            "mealDetails": [
+                {
+                    "meal": {"mealName": "BREAKFAST"},
+                    "mealNutritionContent": {
+                        "calories": 2,
+                        "carbs": 0.0,
+                        "protein": 0.0,
+                        "fat": 0.0,
+                    },
+                    "loggedFoods": [
+                        {"logTimestamp": "2026-07-06T06:00:00.000Z"},
+                    ],
+                },
+                {
+                    "meal": {"mealName": "LUNCH"},
+                    "mealNutritionContent": {
+                        "calories": 650,
+                        "carbs": 54.0,
+                        "protein": 11.0,
+                        "fat": 43.0,
+                    },
+                    "loggedFoods": [
+                        {"logTimestamp": "2026-07-06T10:56:43.000Z"},
+                    ],
+                },
+                {
+                    "meal": {"mealName": "DINNER"},
+                    "mealNutritionContent": {
+                        "calories": 250,
+                        "carbs": 37.0,
+                        "protein": 4.0,
+                        "fat": 10.0,
+                    },
+                    "loggedFoods": [
+                        {"logTimestamp": "2026-07-06T17:42:31.000Z"},
+                    ],
+                },
+                {
+                    "meal": {"mealName": "SNACKS"},
+                    "loggedFoods": [],
+                },
+            ],
+        }
+
+        with patch.object(
+            client, "get_nutrition_log", new_callable=AsyncMock
+        ) as mock_get:
+            mock_get.return_value = log_payload
+            data = await client.fetch_nutrition_data()
+
+        assert data["nutritionConsumedCalories"] == 902
+        assert data["nutritionConsumedProtein"] == 15.0
+        assert data["nutritionConsumedFat"] == 53.0
+        assert data["nutritionConsumedCarbs"] == 91.0
+        assert data["nutritionCalorieGoal"] == 1650
+        assert data["nutritionProteinGoal"] == 124.0
+        assert data["nutritionFatGoal"] == 55.0
+        assert data["nutritionCarbsGoal"] == 165.0
+        assert data["nutritionRemainingCalories"] == 748
+        assert data["nutritionLoggedEntries"] == 3
+        assert data["nutritionLastLoggedTime"] == datetime(
+            2026, 7, 6, 17, 42, 31, tzinfo=UTC
+        )
+        assert len(data["nutritionMeals"]) == 4
+        assert data["nutritionMeals"][0] == {
+            "meal": "BREAKFAST",
+            "calories": 2,
+            "protein": 0.0,
+            "fat": 0.0,
+            "carbs": 0.0,
+            "entries": 1,
+        }
+        assert data["nutritionMeals"][1]["entries"] == 1
+        assert data["nutritionMeals"][3]["entries"] == 0
+
+    async def test_fetch_nutrition_data_empty_day(self):
+        """Test fetch_nutrition_data returns zeros for an empty day."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        log_payload = {
+            "dailyNutritionGoals": {
+                "calories": 2400,
+                "protein": 140.0,
+                "fat": 80.0,
+                "carbs": 270.0,
+            },
+            "dailyNutritionContent": {
+                "calories": 0,
+                "protein": 0.0,
+                "fat": 0.0,
+                "carbs": 0.0,
+            },
+            "mealDetails": [
+                {
+                    "meal": {"mealName": "BREAKFAST"},
+                    "mealNutritionContent": {
+                        "calories": 0,
+                        "protein": 0.0,
+                        "fat": 0.0,
+                        "carbs": 0.0,
+                    },
+                    "loggedFoods": [],
+                },
+            ],
+        }
+
+        with patch.object(
+            client, "get_nutrition_log", new_callable=AsyncMock
+        ) as mock_get:
+            mock_get.return_value = log_payload
+            data = await client.fetch_nutrition_data()
+
+        assert data["nutritionConsumedCalories"] == 0
+        assert data["nutritionConsumedProtein"] == 0.0
+        assert data["nutritionLoggedEntries"] == 0
+        assert data["nutritionLastLoggedTime"] is None
+
+    async def test_fetch_nutrition_data_unavailable(self):
+        """Test fetch_nutrition_data returns {} when nutrition is unavailable."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with patch.object(
+            client, "get_nutrition_log", new_callable=AsyncMock
+        ) as mock_get:
+            mock_get.return_value = {}
+            data = await client.fetch_nutrition_data()
+
+        assert data == {}
 
     async def test_get_menstrual_calendar_backwards_dates(self):
         """Test get_menstrual_calendar raises ValueError if start_date > end_date."""

@@ -18,21 +18,17 @@ class CloudProfilerResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class ProfilesResource(googleapiclient.discovery.Resource):
             def create(
-                self,
-                *,
-                parent: str,
-                body: CreateProfileRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: CreateProfileRequest, **kwargs: typing.Any
             ) -> ProfileHttpRequest: ...
             def createOffline(
-                self, *, parent: str, body: Profile = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Profile, **kwargs: typing.Any
             ) -> ProfileHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListProfilesResponseHttpRequest: ...
             def list_next(
@@ -44,8 +40,8 @@ class CloudProfilerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Profile = ...,
-                updateMask: str = ...,
+                body: Profile,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ProfileHttpRequest: ...
 

@@ -22,14 +22,13 @@ from starlette.status import (
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
-    HTTP_422_UNPROCESSABLE_ENTITY,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 from starlette.templating import Jinja2Templates
 from starlette_admin._types import RequestAction
 from starlette_admin.auth import BaseAuthProvider
 from starlette_admin.exceptions import ActionFailed, FormValidationError
-from starlette_admin.helpers import get_file_icon, not_none
+from starlette_admin.helpers import HTTP_422, get_file_icon, not_none
 from starlette_admin.i18n import (
     I18nConfig,
     LocaleMiddleware,
@@ -326,15 +325,11 @@ class BaseAdmin:
             if order_by:
                 error = model._validate_order_by(request, order_by)
                 if error:
-                    return JSONResponse(
-                        {"detail": error}, status_code=HTTP_422_UNPROCESSABLE_ENTITY
-                    )
+                    return JSONResponse({"detail": error}, status_code=HTTP_422)
             if isinstance(where, dict):
                 error = model._validate_where(request, where)
                 if error:
-                    return JSONResponse(
-                        {"detail": error}, status_code=HTTP_422_UNPROCESSABLE_ENTITY
-                    )
+                    return JSONResponse({"detail": error}, status_code=HTTP_422)
             items = await model.find_all(
                 request=request,
                 skip=skip,
@@ -477,7 +472,7 @@ class BaseAdmin:
                 request=request,
                 name=model.create_template,
                 context=config,
-                status_code=HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422,
             )
         pk = await model.get_pk_value(request, obj)
         url = request.url_for(self.route_name + ":list", identity=model.identity)
@@ -526,7 +521,7 @@ class BaseAdmin:
                 request=request,
                 name=model.edit_template,
                 context=config,
-                status_code=HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422,
             )
         pk = await model.get_pk_value(request, obj)
         url = request.url_for(self.route_name + ":list", identity=model.identity)

@@ -44,6 +44,17 @@ DEFAULTS: dict[str, object] = {
     # instead of guessing. Retrieval is keyword-overlap; only relevant recipes are
     # added (none = nothing injected). Set false to disable.
     "recipes": True,
+    # Keep the structured objective + acceptance criteria (task_state.py) in the
+    # system prompt every turn so they survive context compaction — the model can't
+    # drift off the original goal on a long task. Set false to disable.
+    "task_anchor": True,
+    # Verification gate (PRD Epic B): if the model claims "done" after changing
+    # files but never ran a test/check/its own code, nudge it to verify first
+    # instead of accepting completion. Bounded. Set false to disable.
+    "verify_gate": True,
+    # Durable per-session execution trace (events.py) written as JSONL to
+    # ~/.drydock/events/ — inspect/diagnose/replay a task. Set false to disable.
+    "event_log": True,
     "theme": "harbor",
     # Optional SECOND model ("advisor") for a stronger second opinion — e.g. a
     # Gemini OpenAI-compatible endpoint on another box. Empty = disabled. The

@@ -52,6 +52,119 @@ pub(crate) fn block_gemm_subtract_matches_dense_on_sparse_column_support() {
     }
 }
 
+fn beta_gauge_evidence_fixture(gauge_row: [f64; 3]) -> ArrowSchurSystem {
+    let mut sys = ArrowSchurSystem::new(0, 0, 3);
+    sys.hbb = array![
+        [gauge_row[0], gauge_row[1], gauge_row[2]],
+        [gauge_row[1], 4.0, 1.0],
+        [gauge_row[2], 1.0, 5.0]
+    ];
+    sys.gb = array![-13.0, -2.0, 1.0];
+    sys.set_beta_gauge_quotient(
+        ArrowBetaGaugeQuotient::new(vec![array![1.0, 0.0, 0.0]]).expect("gauge"),
+    )
+    .expect("matching border");
+    sys
+}
+
+/// #2022 evidence-side scale quotient: arbitrary curvature and cross-curvature
+/// on a declared gauge orbit cannot change the quotient logdet, inverse, or
+/// analytic logdet gradient. The matrix-free operator must represent the same
+/// `P S P + Q Q^T` as dense Cholesky.
+#[test]
+pub(crate) fn beta_gauge_quotient_value_inverse_and_gradient_are_orbit_invariant_2022() {
+    let sys_a = beta_gauge_evidence_fixture([7.0, 2.0, -3.0]);
+    let sys_b = beta_gauge_evidence_fixture([-11.0, 9.0, 8.0]);
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_, _, cache_a) =
+        solve_arrow_newton_step_with_options(&sys_a, 0.0, 0.0, &options).expect("factor A");
+    let (_, _, cache_b) =
+        solve_arrow_newton_step_with_options(&sys_b, 0.0, 0.0, &options).expect("factor B");
+
+    let expected_logdet = 19.0_f64.ln();
+    assert_abs_diff_eq!(
+        cache_a.arrow_log_det().expect("quotient logdet A"),
+        expected_logdet,
+        epsilon = 2e-14
+    );
+    assert_eq!(
+        cache_a.arrow_log_det().unwrap().to_bits(),
+        cache_b.arrow_log_det().unwrap().to_bits(),
+        "gauge-row curvature must contribute exactly log(1)=0"
+    );
+
+    let rhs = array![13.0, 2.0, -1.0];
+    let inv_a = cache_a.schur_inverse_apply(rhs.view()).expect("inverse A");
+    let inv_b = cache_b.schur_inverse_apply(rhs.view()).expect("inverse B");
+    let expected = array![0.0, 11.0 / 19.0, -6.0 / 19.0];
+    for i in 0..3 {
+        assert_abs_diff_eq!(inv_a[i], expected[i], epsilon = 2e-14);
+        assert_abs_diff_eq!(inv_b[i], expected[i], epsilon = 2e-14);
+    }
+    assert_abs_diff_eq!(inv_a[0], 0.0, epsilon = 1e-15);
+
+    let quotient_inverse = cache_a.schur_inverse_block(0..3).expect("dense inverse");
+    let derivative_a = array![[31.0, 4.0, -7.0], [4.0, 0.7, -0.2], [-7.0, -0.2, 0.3]];
+    let derivative_b = array![[-99.0, -6.0, 12.0], [-6.0, 0.7, -0.2], [12.0, -0.2, 0.3]];
+    let trace = |derivative: &Array2<f64>| -> f64 {
+        let mut value = 0.0;
+        for i in 0..3 {
+            for j in 0..3 {
+                value += quotient_inverse[[i, j]] * derivative[[j, i]];
+            }
+        }
+        value
+    };
+    assert_abs_diff_eq!(trace(&derivative_a), 5.1 / 19.0, epsilon = 2e-14);
+    assert_eq!(
+        trace(&derivative_a).to_bits(),
+        trace(&derivative_b).to_bits(),
+        "analytic tr(H_quot^-1 dH) must discard every gauge-supported derivative"
+    );
+
+    let factors = ArrowFactorSlab::from_blocks(Vec::new());
+    let backend = CpuBatchedBlockSolver;
+    let mf_a = reduced_schur_inverse_apply(
+        &sys_a, &factors, 0.0, &backend, None, None, &rhs, None, 1e-13, 32,
+    )
+    .expect("matrix-free inverse A");
+    let mf_b = reduced_schur_inverse_apply(
+        &sys_b, &factors, 0.0, &backend, None, None, &rhs, None, 1e-13, 32,
+    )
+    .expect("matrix-free inverse B");
+    for i in 0..3 {
+        assert_abs_diff_eq!(mf_a[i], expected[i], epsilon = 2e-13);
+        assert_abs_diff_eq!(mf_b[i], expected[i], epsilon = 2e-13);
+    }
+
+    let (_, slq_a) = matrix_free_arrow_evidence_log_det(
+        &sys_a,
+        0.0,
+        0.0,
+        &options,
+        32,
+        3,
+        SCHUR_SLQ_LOGDET_SEED,
+    )
+    .expect("matrix-free logdet A");
+    let (_, slq_b) = matrix_free_arrow_evidence_log_det(
+        &sys_b,
+        0.0,
+        0.0,
+        &options,
+        32,
+        3,
+        SCHUR_SLQ_LOGDET_SEED,
+    )
+    .expect("matrix-free logdet B");
+    assert_abs_diff_eq!(slq_a.estimate, expected_logdet, epsilon = 2e-12);
+    assert_eq!(
+        slq_a.estimate.to_bits(),
+        slq_b.estimate.to_bits(),
+        "dense and matrix-free quotient operators must erase the same gauge row"
+    );
+}
+
 /// `SparseBlockKroneckerPenaltyOp` must reproduce the dense
 /// `KroneckerPenaltyOp { factor_a: G, factor_b: I_p }` on every interface
 /// (matvec, gradient, diagonal, to_dense) when the sparse block set covers
@@ -1911,9 +2024,7 @@ pub(crate) fn ill_conditioning_tolerated_returns_cache_with_exact_logdet() {
 
     // Cache log-determinant (Σ log|H_tt^i| + log|S_β|) must equal the exact
     // dense log|H|, regardless of conditioning — the whole point.
-    let log_det_cache = cache
-        .arrow_log_det()
-        .expect("authoritative joint logdet");
+    let log_det_cache = cache.arrow_log_det().expect("authoritative joint logdet");
 
     // Dense reference: assemble H and take log|H| = 2 Σ log L_ii.
     let dim = n * d + k;
@@ -2478,7 +2589,6 @@ pub(crate) fn streaming_cross_row_woodbury_log_det_honors_pd_floor_1795() {
         "floored cross-row Woodbury log-det must be finite and positive, got {correction}"
     );
 }
-
 
 /// #1795 — the cross-row IBP preconditioner builder is another reduced-Schur
 /// factorization entry point. It must use the same spectral PD-floor as the
@@ -3945,8 +4055,11 @@ pub(crate) fn sae_pcg_operand_byte_report_categorises_both_lanes_1017() {
     let p = 5usize;
     // Legacy sparse lane: 2 rows, supports of 3 and 2 atoms; local_jac 4+6 f64.
     let a_phi: std::sync::Arc<[Vec<(usize, f64)>]> = std::sync::Arc::from(
-        vec![vec![(0usize, 1.0), (2, 0.5), (7, -0.3)], vec![(1usize, 1.0), (4, 0.2)]]
-            .into_boxed_slice(),
+        vec![
+            vec![(0usize, 1.0), (2, 0.5), (7, -0.3)],
+            vec![(1usize, 1.0), (4, 0.2)],
+        ]
+        .into_boxed_slice(),
     );
     let jac: std::sync::Arc<[Vec<f64>]> =
         std::sync::Arc::from(vec![vec![1.0; 4], vec![2.0; 6]].into_boxed_slice());
@@ -3965,7 +4078,10 @@ pub(crate) fn sae_pcg_operand_byte_report_categorises_both_lanes_1017() {
     assert_eq!(r.a_phi_bytes, 5 * std::mem::size_of::<(usize, f64)>());
     assert_eq!(r.local_jac_elems, 10);
     assert_eq!(r.local_jac_bytes, 10 * 8);
-    assert_eq!(r.row_htbeta_bytes, 0, "legacy lane has no dense per-row cross");
+    assert_eq!(
+        r.row_htbeta_bytes, 0,
+        "legacy lane has no dense per-row cross"
+    );
     assert_eq!(r.frame_blocks_bytes, 0);
     assert_eq!(r.total_bytes, r.a_phi_bytes + r.local_jac_bytes);
 
@@ -3989,7 +4105,10 @@ pub(crate) fn sae_pcg_operand_byte_report_categorises_both_lanes_1017() {
     };
     let rf = framed.operand_byte_report();
     assert!(rf.framed, "frame = Some must report the framed dense lane");
-    assert_eq!(rf.row_htbeta_rows, 2, "two rows carry a non-empty cross slab");
+    assert_eq!(
+        rf.row_htbeta_rows, 2,
+        "two rows carry a non-empty cross slab"
+    );
     assert_eq!(rf.row_htbeta_bytes, 8 * 8, "4 + 4 f64 across the two rows");
     assert_eq!(
         rf.total_bytes,
@@ -4963,6 +5082,76 @@ fn composite_penalty_parallel_prefix_matches_serial_bit_exact() {
 /// The matrix-free reduced-Schur log-determinant `slq_reduced_schur_log_det`
 /// (Stochastic Lanczos Quadrature on the `schur_matvec` apply, NO dense `k×k`
 /// Schur formed) must agree with the exact dense evidence log|S| it replaces —
+/// #1017 CPU perf: `cholesky_lower` routes the wide reduced Schur (k ≥ 128)
+/// through faer's blocked LLT instead of the scalar triple loop. The blocked
+/// factor must reconstruct the SAME SPD matrix (`A = L Lᵀ`) as the scalar
+/// reference to a tight tolerance, be exactly lower-triangular (zero strictly
+/// above the diagonal), and yield the same log-determinant — otherwise the
+/// reduced solve and REML evidence that consume it would drift. Fixture width
+/// 200 clears the `FAER_CHOLESKY_MIN = 128` gate so this exercises the faer
+/// branch (the small direct-Schur tests below stay on the scalar path).
+#[test]
+fn cholesky_lower_faer_path_matches_scalar_reference_on_wide_schur() {
+    let k = 200usize;
+    // Well-conditioned SPD: MᵀM + k·I.
+    let mut m = Array2::<f64>::zeros((k, k));
+    for i in 0..k {
+        for j in 0..k {
+            m[[i, j]] = 0.001 * (((i + 3) * (j + 1)) as f64).sin();
+        }
+    }
+    let mut a = m.t().dot(&m);
+    for i in 0..k {
+        a[[i, i]] += k as f64;
+    }
+    // Scalar reference (pre-#1017 body), independent of the routine under test.
+    let mut ref_l = Array2::<f64>::zeros((k, k));
+    for i in 0..k {
+        for j in 0..=i {
+            let mut sum = a[[i, j]];
+            for kk in 0..j {
+                sum -= ref_l[[i, kk]] * ref_l[[j, kk]];
+            }
+            ref_l[[i, j]] = if i == j {
+                sum.sqrt()
+            } else {
+                sum / ref_l[[j, j]]
+            };
+        }
+    }
+    let l = cholesky_lower(&a).expect("wide SPD reduced Schur must factor");
+    let mut max_factor_diff = 0.0_f64;
+    for i in 0..k {
+        for j in 0..k {
+            if j > i {
+                assert_eq!(l[[i, j]], 0.0, "faer factor must be lower-triangular at ({i},{j})");
+            } else {
+                max_factor_diff = max_factor_diff.max((l[[i, j]] - ref_l[[i, j]]).abs());
+            }
+        }
+    }
+    // Reconstruction A ≈ L Lᵀ and log-det parity are the load-bearing invariants;
+    // the raw factor entries may differ by the blocked vs scalar rounding.
+    let recon = l.dot(&l.t());
+    let mut max_recon = 0.0_f64;
+    for i in 0..k {
+        for j in 0..k {
+            max_recon = max_recon.max((recon[[i, j]] - a[[i, j]]).abs());
+        }
+    }
+    assert!(
+        max_recon < 1e-8,
+        "faer Cholesky must reconstruct A to 1e-8 (max |LLᵀ-A| = {max_recon})"
+    );
+    let logdet_faer: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
+    let logdet_ref: f64 = (0..k).map(|i| 2.0 * ref_l[[i, i]].ln()).sum();
+    assert!(
+        (logdet_faer - logdet_ref).abs() < 1e-9,
+        "faer vs scalar log-det mismatch: {logdet_faer} vs {logdet_ref} \
+         (max factor entry diff {max_factor_diff})"
+    );
+}
+
 /// the route both dense evidence paths REFUSE above the in-core budget at the
 /// K=32k manifold border. Also asserts SLQ reproducibility and that the one-call
 /// `matrix_free_arrow_evidence_log_det` returns the exact `log_det_tt` (same
@@ -4987,8 +5176,17 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
     let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
 
     // Matrix-free SLQ estimate — never forms S.
-    let slq =
-        slq_reduced_schur_log_det(&sys, &htt_factors, ridge_beta, &backend, None, 48, 60, seed);
+    let slq = slq_reduced_schur_log_det(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        48,
+        60,
+        seed,
+    );
     let rel = (slq.estimate - exact_logdet).abs() / exact_logdet.abs();
     eprintln!(
         "matrix-free reduced-Schur log|S|: slq={:.6} exact={:.6} rel={:.3e} std_err={:.3e}",
@@ -5002,8 +5200,17 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
     );
 
     // Deterministic for a fixed seed (the REML evidence outer loop requires it).
-    let slq_again =
-        slq_reduced_schur_log_det(&sys, &htt_factors, ridge_beta, &backend, None, 48, 60, seed);
+    let slq_again = slq_reduced_schur_log_det(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        48,
+        60,
+        seed,
+    );
     assert_eq!(
         slq.estimate, slq_again.estimate,
         "matrix-free reduced-Schur SLQ log-det must be bit-reproducible for a fixed seed"
@@ -5074,7 +5281,10 @@ fn matrix_free_arrow_evidence_surrogate_none_matches_slq_some_builds_and_reuses(
         &sys, 0.0, ridge_beta, &options, 48, 60, seed, None,
     )
     .expect("None-lane surrogate entry must succeed");
-    assert_eq!(tt_none, tt_ref, "log_det_tt must be bit-identical to the SLQ convenience");
+    assert_eq!(
+        tt_none, tt_ref,
+        "log_det_tt must be bit-identical to the SLQ convenience"
+    );
     assert_eq!(
         schur_none, slq_ref.estimate,
         "None-lane log|S| must be the bit-identical SLQ estimate"
@@ -5093,7 +5303,10 @@ fn matrix_free_arrow_evidence_surrogate_none_matches_slq_some_builds_and_reuses(
         deflation_target_std_err_rel: 1e-4,
     };
     let mut state = SurrogateLaneState::new(cfg);
-    assert!(state.plan().is_none(), "a fresh lane has no plan until first evaluated");
+    assert!(
+        state.plan().is_none(),
+        "a fresh lane has no plan until first evaluated"
+    );
     let (tt_some, schur_some) = matrix_free_arrow_evidence_log_det_surrogate(
         &sys,
         0.0,
@@ -5105,11 +5318,20 @@ fn matrix_free_arrow_evidence_surrogate_none_matches_slq_some_builds_and_reuses(
         Some(&mut state),
     )
     .expect("Some-lane surrogate entry must succeed");
-    assert_eq!(tt_some, tt_ref, "log_det_tt is factorization-only, independent of the log|S| lane");
-    assert!(state.plan().is_some(), "the first Some evaluation must build+freeze the plan");
+    assert_eq!(
+        tt_some, tt_ref,
+        "log_det_tt is factorization-only, independent of the log|S| lane"
+    );
+    assert!(
+        state.plan().is_some(),
+        "the first Some evaluation must build+freeze the plan"
+    );
     let rel = (schur_some - exact_logdet).abs() / exact_logdet.abs();
     eprintln!("surrogate-lane log|S|={schur_some:.6} exact={exact_logdet:.6} rel={rel:.3e}");
-    assert!(rel < 0.05, "surrogate-lane log|S| rel err {rel:.3e} exceeds 5%");
+    assert!(
+        rel < 0.05,
+        "surrogate-lane log|S| rel err {rel:.3e} exceeds 5%"
+    );
 
     // (c) Second call at the same dim reuses the frozen plan ⇒ bit-identical.
     let (_tt2, schur_reuse) = matrix_free_arrow_evidence_log_det_surrogate(
@@ -5185,9 +5407,17 @@ fn rational_reduced_schur_log_det_matches_dense_evidence() {
     // is padded two decades each side — so assert a factor-of-2 band rather than a
     // tight eigenvalue tolerance, which would be flaky when the top two
     // eigenvalues are close (slow power-iteration convergence).
-    let lambda_max =
-        reduced_schur_lambda_max(&sys, &htt_factors, ridge_beta, &backend, None, 80, seed)
-            .expect("power iteration must produce a finite positive λ_max");
+    let lambda_max = reduced_schur_lambda_max(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        80,
+        seed,
+    )
+    .expect("power iteration must produce a finite positive λ_max");
     assert!(
         lambda_max <= true_lambda_max * (1.0 + 1e-9),
         "power-iteration Rayleigh quotient cannot exceed the true λ_max \
@@ -5206,7 +5436,8 @@ fn rational_reduced_schur_log_det_matches_dense_evidence() {
         ridge_beta,
         &backend,
         None,
-        64,   // num_probes
+        None,
+        64, // num_probes
         seed,
         1e-9, // rel_tol (quadrature)
         40,   // power_iters
@@ -5228,7 +5459,18 @@ fn rational_reduced_schur_log_det_matches_dense_evidence() {
 
     // Bit-reproducible for a fixed seed.
     let (_plan2, eval2) = rational_reduced_schur_log_det(
-        &sys, &htt_factors, ridge_beta, &backend, None, 64, seed, 1e-9, 40, 1e-11, 20_000,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        64,
+        seed,
+        1e-9,
+        40,
+        1e-11,
+        20_000,
     )
     .expect("rational surrogate must re-evaluate");
     assert_eq!(
@@ -5270,7 +5512,18 @@ fn rational_reduced_schur_directional_matches_fd_of_surrogate() {
 
     // Build the surrogate value + solve bundle once from S.
     let (plan, eval) = rational_reduced_schur_log_det(
-        &sys, &htt_factors, ridge_beta, &backend, None, 16, seed, 1e-10, 60, 1e-13, 40_000,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        16,
+        seed,
+        1e-10,
+        60,
+        1e-13,
+        40_000,
     )
     .expect("rational surrogate must evaluate");
     let grad = rational_reduced_schur_directional(&plan, &eval, &d_matvec)
@@ -5298,7 +5551,10 @@ fn rational_reduced_schur_directional_matches_fd_of_surrogate() {
         "reduced-Schur surrogate directional {grad:.9e} vs its own FD {fd:.9e} (rel {rel:.3e})"
     );
     // Sign sanity: an SPD ∂S direction increases log det.
-    assert!(grad > 0.0, "SPD ∂S must increase the surrogate log det, got {grad}");
+    assert!(
+        grad > 0.0,
+        "SPD ∂S must increase the surrogate log det, got {grad}"
+    );
 }
 
 /// `rational_reduced_schur_plan_derived` (the build-once companion): the derived
@@ -5334,7 +5590,20 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
 
     // Bare pilot (rank-0): the variance the deflation must beat.
     let bare = rational_reduced_schur_plan_derived(
-        &sys, &htt_factors, ridge_beta, &backend, None, 32, seed, 1e-9, 40, 1e-11, 20_000, 0, 4,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        32,
+        seed,
+        1e-9,
+        40,
+        1e-11,
+        20_000,
+        0,
+        4,
         0.0,
     )
     .expect("bare plan must build");
@@ -5355,6 +5624,7 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
         ridge_beta,
         &backend,
         None,
+        None,
         32,
         seed,
         1e-9,
@@ -5366,7 +5636,9 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
         target_rel,
     )
     .expect("derived plan must build");
-    let derived_eval = derived.evaluate(&matvec, 1e-11, 20_000).expect("derived eval");
+    let derived_eval = derived
+        .evaluate(&matvec, 1e-11, 20_000)
+        .expect("derived eval");
     eprintln!(
         "derived-rank plan: est={:.6} exact={:.6} bare_std_err={:.3e} derived_std_err={:.3e}",
         derived_eval.estimate, exact_logdet, bare_eval.std_err, derived_eval.std_err
@@ -5382,6 +5654,33 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
          (bare={:.3e}, derived={:.3e})",
         bare_eval.std_err,
         derived_eval.std_err
+    );
+
+    // The rank ceiling is resource admission, not a license to consume an
+    // under-certified stochastic criterion. A zero requested bar cannot be met
+    // by one deflated direction with a finite probe block, so the plan must
+    // refuse instead of returning the deepest attempted Q.
+    let under_certified = rational_reduced_schur_plan_derived(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        32,
+        seed,
+        1e-9,
+        40,
+        1e-11,
+        20_000,
+        1,
+        2,
+        0.0,
+    );
+    assert!(
+        under_certified.is_none(),
+        "derived surrogate must refuse when its rank ceiling is exhausted before \
+         the requested Hutchinson error bar is certified"
     );
 }
 
@@ -5436,6 +5735,7 @@ fn hutchinson_reduced_schur_inverse_trace_matches_dense() {
         ridge_beta,
         &backend,
         None,
+        None,
         &plan.probes,
         None,
         1e-12,
@@ -5469,7 +5769,16 @@ fn hutchinson_reduced_schur_inverse_trace_matches_dense() {
 
     // Determinism: the fixed probe set + deterministic CG reproduce bit-for-bit.
     let sinv2 = reduced_schur_inverse_probe_solves(
-        &sys, &htt_factors, ridge_beta, &backend, None, &plan.probes, None, 1e-12, 50_000,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        &plan.probes,
+        None,
+        1e-12,
+        50_000,
     )
     .expect("S⁻¹ v_j bundle must re-solve");
     let tr2 = hutchinson_reduced_schur_inverse_trace(&plan.probes, &sinv2, &|v| v.to_owned())
@@ -5537,6 +5846,7 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
         ridge_beta,
         &backend,
         None,
+        None,
         &rhs,
         None,
         1e-12,
@@ -5554,7 +5864,16 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
 
     // Bit-reproducible for a fixed rhs (the REML gradient lane requires it).
     let mf_x2 = reduced_schur_inverse_apply(
-        &sys, &htt_factors, ridge_beta, &backend, None, &rhs, None, 1e-12, 50_000,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        None,
+        &rhs,
+        None,
+        1e-12,
+        50_000,
     )
     .expect("matrix-free S⁻¹ rhs must re-solve");
     assert_eq!(mf_x, mf_x2, "single-rhs S⁻¹ solve must be bit-reproducible");
@@ -5568,6 +5887,7 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
         ridge_beta,
         &backend,
         None,
+        None,
         &rhs,
         Some(&dense_x),
         1e-12,
@@ -5578,6 +5898,222 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
     assert!(
         warm_rel < 1e-6,
         "warm-starting from the exact solution must return it (rel {warm_rel:.3e})"
+    );
+}
+
+/// #2230 production seam: the full-arrow matrix-free operator and arbitrary-RHS
+/// inverse used by the SAE exact-stationarity IFT solve must represent the same
+/// undamped bordered Hessian as the dense factor cache. This pins both halves:
+/// `Bv` (including reconstruction of `H_betabeta` from the reduced Schur) and
+/// `B^-1 r` (matrix-free beta CG plus exact row back-substitution).
+#[test]
+fn matrix_free_full_arrow_apply_and_inverse_match_dense_cache() {
+    let (n, d, k) = (24usize, 3usize, 48usize);
+    let sys = dense_direct_system(n, d, k);
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_, _, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
+        .expect("undamped dense oracle factorization");
+
+    let t_len = cache.delta_t_len();
+    let vector_t = Array1::<f64>::from_shape_fn(t_len, |index| {
+        0.2 * ((index as f64 + 1.0) * 0.37).sin()
+    });
+    let vector_beta = Array1::<f64>::from_shape_fn(k, |index| {
+        0.15 * ((index as f64 + 2.0) * 0.23).cos()
+    });
+    let (dense_t, dense_beta) = arrow_operator_apply(
+        &sys,
+        0.0,
+        0.0,
+        vector_t.view(),
+        vector_beta.view(),
+    );
+    let (matrix_free_t, matrix_free_beta) = matrix_free_arrow_operator_apply(
+        &sys,
+        &cache,
+        vector_t.view(),
+        vector_beta.view(),
+    )
+    .expect("matrix-free full-arrow apply");
+    let apply_error = (&matrix_free_t - &dense_t)
+        .mapv(|value| value * value)
+        .sum()
+        + (&matrix_free_beta - &dense_beta)
+            .mapv(|value| value * value)
+            .sum();
+    let apply_scale = dense_t.mapv(|value| value * value).sum()
+        + dense_beta.mapv(|value| value * value).sum();
+    assert!(
+        apply_error.sqrt() <= 1.0e-11 * apply_scale.sqrt().max(1.0),
+        "matrix-free Bv must match the dense assembled operator: rel={:.3e}",
+        apply_error.sqrt() / apply_scale.sqrt().max(1.0)
+    );
+
+    let rhs_t = Array1::<f64>::from_shape_fn(t_len, |index| {
+        0.1 * ((index as f64 + 3.0) * 0.41).cos()
+    });
+    let rhs_beta = Array1::<f64>::from_shape_fn(k, |index| {
+        0.12 * ((index as f64 + 4.0) * 0.19).sin()
+    });
+    let (dense_solved_t, dense_solved_beta) = cache
+        .full_inverse_apply(rhs_t.view(), rhs_beta.view())
+        .expect("dense full-arrow inverse");
+    let (matrix_free_solved_t, matrix_free_solved_beta) = matrix_free_arrow_inverse_apply(
+        &sys,
+        &cache,
+        rhs_t.view(),
+        rhs_beta.view(),
+        1.0e-12,
+        50_000,
+    )
+    .expect("matrix-free full-arrow inverse");
+    let inverse_error = (&matrix_free_solved_t - &dense_solved_t)
+        .mapv(|value| value * value)
+        .sum()
+        + (&matrix_free_solved_beta - &dense_solved_beta)
+            .mapv(|value| value * value)
+            .sum();
+    let inverse_scale = dense_solved_t.mapv(|value| value * value).sum()
+        + dense_solved_beta.mapv(|value| value * value).sum();
+    assert!(
+        inverse_error.sqrt() <= 1.0e-7 * inverse_scale.sqrt().max(1.0),
+        "matrix-free B^-1 r must match the dense cache solve to CG accuracy: rel={:.3e}",
+        inverse_error.sqrt() / inverse_scale.sqrt().max(1.0)
+    );
+}
+
+/// #1017 resident-context parity: [`ReducedSchurOperator`] on the CPU lane
+/// (`gpu_matvec == None`) must be BIT-IDENTICAL to the inline `schur_matvec`
+/// closure it replaces across the rational-logdet / SLQ ladder. The whole point
+/// of the widened-lifetime operator is that staging it once and reusing it across
+/// every shifted solve cannot move a single ULP versus the per-solve-closure form.
+#[test]
+fn reduced_schur_operator_cpu_lane_is_bit_identical_to_schur_matvec() {
+    let (n, d, k) = (32usize, 3usize, 64usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+
+    // The CPU operator: no device matvec attached, so every apply routes through
+    // `schur_matvec` with the shared (here `None`) residency.
+    let op = ReducedSchurOperator::new(&sys, &htt_factors, ridge_beta, &backend, None);
+
+    // Several deterministic Rademacher probes — the operator's `apply` /
+    // `apply_owned` must reproduce a direct `schur_matvec` call byte-for-byte.
+    let mut state = 0x1017_0FEE_C0DE_u64;
+    for _ in 0..5 {
+        let v = Array1::<f64>::from_shape_fn(k, |_| {
+            if gam_linalg::utils::splitmix64(&mut state) & 1 == 1 {
+                1.0
+            } else {
+                -1.0
+            }
+        });
+        let mut expected = Array1::<f64>::zeros(k);
+        schur_matvec(
+            &sys,
+            &htt_factors,
+            ridge_beta,
+            &v,
+            &mut expected,
+            &backend,
+            None,
+        );
+
+        let got_view = op.apply(v.view());
+        assert_eq!(
+            got_view, expected,
+            "ReducedSchurOperator::apply must be bit-identical to schur_matvec"
+        );
+        let got_owned = op.apply_owned(&v);
+        assert_eq!(
+            got_owned, expected,
+            "ReducedSchurOperator::apply_owned must be bit-identical to schur_matvec"
+        );
+    }
+}
+
+/// #1017 resident-context lifecycle: a device operator attached via
+/// [`ReducedSchurOperator::with_gpu_matvec`] is staged ONCE and every shifted
+/// solve of a ladder reuses it — the "upload once per criterion evaluation"
+/// contract, verified with a mock [`GpuSchurMatvec`] that counts its applies. The
+/// operator must (a) route ALL applies to the single attached device matvec
+/// (never fall back to the CPU `schur_matvec`), and (b) never rebuild it per
+/// apply — the call count equals the number of ladder applies exactly.
+#[test]
+fn reduced_schur_operator_device_matvec_is_uploaded_once_and_reused() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let (n, d, k) = (8usize, 2usize, 16usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+
+    // Mock device operator: an identity apply `out = x` that counts every call.
+    // Building the Arc ONCE models the "upload once"; the counter proves reuse.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_c = Arc::clone(&calls);
+    let gpu: GpuSchurMatvec = Arc::new(move |x: &Array1<f64>, out: &mut Array1<f64>| {
+        calls_c.fetch_add(1, Ordering::Relaxed);
+        out.assign(x);
+    });
+
+    // Attach the resident device operator to a single operator instance.
+    let op = ReducedSchurOperator::new(&sys, &htt_factors, ridge_beta, &backend, None)
+        .with_gpu_matvec(Some(&gpu));
+
+    // A ladder of applies (mimicking the shift ladder's repeated matvecs). Each
+    // must be served by the attached device operator, not the CPU path: the
+    // identity output proves the device lane was taken (a real `schur_matvec` on
+    // this SPD system would NOT return the input unchanged).
+    const APPLIES: usize = 11;
+    for i in 0..APPLIES {
+        let v = Array1::<f64>::from_elem(k, (i as f64) + 1.0);
+        let got = op.apply(v.view());
+        assert_eq!(
+            got, v,
+            "the attached device matvec (identity) must serve every apply"
+        );
+    }
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        APPLIES,
+        "the resident device operator must be reused across every ladder apply \
+         (uploaded once, not rebuilt per solve)"
+    );
+
+    // With NO device operator the SAME operator config falls back to the CPU
+    // `schur_matvec` — the byte-identical default lane.
+    let cpu_op = ReducedSchurOperator::new(&sys, &htt_factors, ridge_beta, &backend, None);
+    let probe = Array1::<f64>::from_elem(k, 1.0);
+    let mut expected = Array1::<f64>::zeros(k);
+    schur_matvec(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &probe,
+        &mut expected,
+        &backend,
+        None,
+    );
+    assert_eq!(
+        cpu_op.apply(probe.view()),
+        expected,
+        "gpu_matvec=None must route to schur_matvec (byte-identical CPU fallback)"
+    );
+    // And the device apply-count is untouched by the CPU-lane operator.
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        APPLIES,
+        "the CPU-lane operator must not touch the device matvec"
     );
 }
 
@@ -5597,8 +6133,14 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
 /// bounded co-visibility partition and the component-partition builders agree.
 #[test]
 pub(crate) fn covisibility_cap_is_derived_from_factor_budget() {
-    let b = ((CLUSTER_SCHUR_FACTOR_BYTES_BUDGET / 8) as f64).sqrt().floor() as usize;
-    assert_eq!(covisibility_cluster_max_cols(), b, "cap must equal ⌊√(budget/8)⌋");
+    let b = ((CLUSTER_SCHUR_FACTOR_BYTES_BUDGET / 8) as f64)
+        .sqrt()
+        .floor() as usize;
+    assert_eq!(
+        covisibility_cluster_max_cols(),
+        b,
+        "cap must equal ⌊√(budget/8)⌋"
+    );
     assert_eq!(
         covisibility_cluster_max_cols(),
         CLUSTER_JACOBI_MAX_CLUSTER,
@@ -5641,8 +6183,7 @@ fn correction_lambda_max(
 ) -> f64 {
     let k = sys.k;
     // Deterministic non-degenerate seed.
-    let mut v: Array1<f64> =
-        Array1::from_iter((0..k).map(|j| ((j + 1) as f64 * 0.7).sin() + 0.3));
+    let mut v: Array1<f64> = Array1::from_iter((0..k).map(|j| ((j + 1) as f64 * 0.7).sin() + 0.3));
     let mut nrm = v.dot(&v).sqrt();
     if nrm > 0.0 {
         v /= nrm;
@@ -5791,7 +6332,10 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
         0.02,
     );
     let k = sys.k;
-    assert!(k > cap, "fixture must exceed the cluster cap (k={k}, cap={cap})");
+    assert!(
+        k > cap,
+        "fixture must exceed the cluster cap (k={k}, cap={cap})"
+    );
 
     let backend = CpuBatchedBlockSolver;
     let ridge_beta = 1e-8;
@@ -5815,7 +6359,10 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
     // groups: n_groups clusters, each exactly one group's columns.
     let graph = BetaCouplingGraph::build(
         &sys.block_offsets,
-        &sys.rows.iter().map(|r| r.htbeta.clone()).collect::<Vec<_>>(),
+        &sys.rows
+            .iter()
+            .map(|r| r.htbeta.clone())
+            .collect::<Vec<_>>(),
     );
     assert_eq!(
         graph.component_partition().len(),
@@ -5860,24 +6407,50 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
         let bare_factors = backend
             .factor_blocks(&bare.rows, 0.0, bare.d, false)
             .expect("bare factors");
-        let jac =
-            JacobiPreconditioner::from_arrow_schur(&bare, &bare_factors, ridge_beta, &backend, None)
-                .expect("scalar Jacobi build");
+        let jac = JacobiPreconditioner::from_arrow_schur(
+            &bare,
+            &bare_factors,
+            ridge_beta,
+            &backend,
+            None,
+        )
+        .expect("scalar Jacobi build");
         run_pcg_with_preconditioner(
-            &bare, &bare_factors, ridge_beta, &rhs, |r| jac.apply(r), &pcg, &trust, &backend,
-            None, None, None,
+            &bare,
+            &bare_factors,
+            ridge_beta,
+            &rhs,
+            |r| jac.apply(r),
+            &pcg,
+            &trust,
+            &backend,
+            None,
+            None,
+            None,
         )
         .expect("scalar-Jacobi PCG")
     };
 
     // (b) Co-visibility cluster-Jacobi.
     let covis_pc = ClusterJacobiPreconditioner::from_arrow_schur_covisibility(
-        &sys, &htt_factors, ridge_beta, &backend,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
     )
     .expect("co-visibility cluster build");
     let (covis_sol, covis_diag) = run_pcg_with_preconditioner(
-        &sys, &htt_factors, ridge_beta, &rhs, |r| covis_pc.apply(r), &pcg, &trust, &backend,
-        None, None, None,
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &rhs,
+        |r| covis_pc.apply(r),
+        &pcg,
+        &trust,
+        &backend,
+        None,
+        None,
+        None,
     )
     .expect("co-visibility PCG");
 
@@ -5900,12 +6473,14 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
     assert!(
         matches!(scalar_diag.stopping_reason, PcgStopReason::Converged),
         "scalar-Jacobi baseline must converge (iters={}, rel_resid={:e})",
-        scalar_diag.iterations, scalar_diag.final_relative_residual
+        scalar_diag.iterations,
+        scalar_diag.final_relative_residual
     );
     assert!(
         matches!(covis_diag.stopping_reason, PcgStopReason::Converged),
         "co-visibility cluster-Jacobi must converge (iters={}, rel_resid={:e})",
-        covis_diag.iterations, covis_diag.final_relative_residual
+        covis_diag.iterations,
+        covis_diag.final_relative_residual
     );
     let mut max_abs = 0.0f64;
     let mut ref_norm = 0.0f64;
@@ -5913,8 +6488,15 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
         max_abs = max_abs.max((scalar_sol[j] - covis_sol[j]).abs());
         ref_norm = ref_norm.max(scalar_sol[j].abs());
     }
-    let rel = if ref_norm > 0.0 { max_abs / ref_norm } else { max_abs };
-    assert!(rel < 1e-6, "covis and scalar solves must agree (same S); rel diff {rel:e}");
+    let rel = if ref_norm > 0.0 {
+        max_abs / ref_norm
+    } else {
+        max_abs
+    };
+    assert!(
+        rel < 1e-6,
+        "covis and scalar solves must agree (same S); rel diff {rel:e}"
+    );
 
     // Regression — modest, structurally-derived bound (NOT tuned to the measured
     // gap). The co-visibility clusters are the planted groups, so cluster-Jacobi
@@ -5928,12 +6510,14 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
     assert!(
         covis_diag.iterations < scalar_diag.iterations,
         "co-visibility must strictly reduce PCG iterations vs scalar Jacobi: covis={} scalar={}",
-        covis_diag.iterations, scalar_diag.iterations
+        covis_diag.iterations,
+        scalar_diag.iterations
     );
     assert!(
         covis_diag.iterations * 2 <= scalar_diag.iterations,
         "co-visibility must at least halve PCG iterations vs scalar Jacobi (derived floor): \
          covis={} scalar={}",
-        covis_diag.iterations, scalar_diag.iterations
+        covis_diag.iterations,
+        scalar_diag.iterations
     );
 }

@@ -25,12 +25,12 @@ class IamResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            body: GoogleIamV2betaPolicy = ...,
-            policyId: str = ...,
+            body: GoogleIamV2betaPolicy,
+            policyId: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def delete(
-            self, *, name: str, etag: str = ..., **kwargs: typing.Any
+            self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def get(
             self, *, name: str, **kwargs: typing.Any
@@ -39,8 +39,8 @@ class IamResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleIamV2betaListPoliciesResponseHttpRequest: ...
         def listPolicies_next(
@@ -49,7 +49,7 @@ class IamResource(googleapiclient.discovery.Resource):
             previous_response: GoogleIamV2betaListPoliciesResponse,
         ) -> GoogleIamV2betaListPoliciesResponseHttpRequest | None: ...
         def update(
-            self, *, name: str, body: GoogleIamV2betaPolicy = ..., **kwargs: typing.Any
+            self, *, name: str, body: GoogleIamV2betaPolicy, **kwargs: typing.Any
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def operations(self) -> OperationsResource: ...
 

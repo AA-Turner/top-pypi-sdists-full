@@ -1,5 +1,5 @@
 //! #2230/#2087 — the outer REML ρ-search must descend the basin LOWER ENVELOPE
-//! `V*(ρ) = min_b V_b(ρ)` over a small bundle of saved inner basins, not the
+//! `V*(ρ) = min_b V_b(ρ)` over a memory-admitted bundle of saved inner basins, not the
 //! hysteretic single warm-start trajectory `V_{b(warm,ρ)}(ρ)` whose value JUMPS
 //! at basin-boundary crossings (the measured pathology: hours of `[#1026]
 //! restoring inner-fit reconstruction incumbent` churn = the outer line search
@@ -177,20 +177,18 @@ fn two_circle_objective(
 }
 
 /// (A) A two-basin fit engages the envelope, keeps the bundle BOUNDED by the
-/// derived `max_members`, and still fits. The bounded bundle size is the finite
-/// state that replaces the unbounded restore-churn the single trajectory
-/// produced (task 8a: an equivalent counter — the max bundle size — stays ≤ a
-/// small derived bound).
+/// exact, memory-admitted envelope and still fits. The member count must remain
+/// within the cgroup-aware retained-state capacity; reaching that capacity is a
+/// typed refusal rather than a silent branch eviction.
 #[test]
-fn two_basin_outer_fit_engages_bounded_envelope() {
+fn two_basin_outer_fit_engages_exact_envelope() {
     let n = 96;
     let p = 48;
     let k = 2;
     let (mut objective, z, seed) = two_circle_objective(n, p, k, 2, 8);
     let n_params = seed.len();
-    OuterProblem::new(n_params)
+    let result = OuterProblem::new(n_params)
         .with_initial_rho(seed)
-        .with_max_iter(4)
         .with_seed_config(gam_problem::SeedConfig {
             max_seeds: 1,
             seed_budget: 1,
@@ -198,6 +196,15 @@ fn two_basin_outer_fit_engages_bounded_envelope() {
         })
         .run(&mut objective, "SAE manifold basin envelope")
         .expect("two-basin outer REML fit must terminate");
+    assert!(result.converged, "the envelope fit must be certified");
+    let certificate = result
+        .criterion_certificate
+        .as_ref()
+        .expect("converged envelope fit carries an analytic certificate");
+    assert!(certificate.stationarity.projected_norm() <= certificate.stationarity.bound());
+    objective
+        .certify_outer_result(&result)
+        .expect("envelope OuterResult certifies the installed state");
     let telemetry = objective.probe_telemetry();
 
     // The dense-admitted value lanes ran the envelope (not the streaming/freeze
@@ -206,15 +213,17 @@ fn two_basin_outer_fit_engages_bounded_envelope() {
         telemetry.basin_envelope_evals > 0,
         "the basin envelope must engage on a dense-admitted two-circle fit"
     );
-    // The bundle stayed BOUNDED by the derived cap `max_members = clamp(K,2,4)`.
-    let cap = k.clamp(2, 4);
+    // The exact bundle stayed within the memory-derived capacity. This is not a
+    // present-value pruning rule: every admitted branch remains retained.
     assert!(
-        telemetry.basin_max_members >= 1 && telemetry.basin_max_members <= cap,
-        "bundle size {} must stay in 1..={cap} (bounded state, not unbounded churn)",
-        telemetry.basin_max_members
+        telemetry.basin_member_capacity >= telemetry.basin_max_members
+            && telemetry.basin_max_members >= 1,
+        "bundle size {} must fit memory-derived capacity {}",
+        telemetry.basin_max_members,
+        telemetry.basin_member_capacity,
     );
     // The fit still recovers materially positive reconstruction variance.
-    let fitted = objective.into_fitted();
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let ev = global_ev(z.view(), fitted.term.fitted().view());
     assert!(ev > 0.3, "two-circle K=2 envelope fit EV {ev} too low");
 }
@@ -242,8 +251,7 @@ fn freeze_contract_bypasses_the_bundle() {
         "the freeze lane must never run the basin envelope"
     );
     assert_eq!(
-        telemetry.basin_max_members,
-        0,
+        telemetry.basin_max_members, 0,
         "the freeze lane must never seed the basin bundle"
     );
 }
@@ -285,15 +293,17 @@ fn fixed_rho_envelope_value_is_stable_across_re_evaluation() {
         (c2 - c1).abs() <= tol && (c3 - c1).abs() <= tol,
         "fixed-ρ envelope not stable: c1={c1} c2={c2} c3={c3} (tol {tol})"
     );
-    // The envelope engaged on every visit and the bundle stayed bounded.
+    // The envelope engaged on every visit and all retained states fit the
+    // memory-derived exact-envelope capacity.
     assert_eq!(
         telemetry.basin_envelope_evals, 3,
         "three eval_cost calls must run exactly three envelope evals"
     );
-    let cap = k.clamp(2, 4);
     assert!(
-        telemetry.basin_max_members >= 1 && telemetry.basin_max_members <= cap,
-        "bundle size {} outside 1..={cap}",
-        telemetry.basin_max_members
+        telemetry.basin_member_capacity >= telemetry.basin_max_members
+            && telemetry.basin_max_members >= 1,
+        "bundle size {} exceeds memory-derived capacity {}",
+        telemetry.basin_max_members,
+        telemetry.basin_member_capacity,
     );
 }

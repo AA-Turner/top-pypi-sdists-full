@@ -40,16 +40,92 @@
 //! **Training** is alternating minimisation, mirroring [`super::update`]:
 //! encode+route every row → refresh the shared scalar `γ` in closed form → update
 //! each block frame by a method-of-optimal-directions cross-moment followed by a
-//! polar reprojection back onto the Stiefel manifold → revive dead blocks
-//! (AuxK-style, seeded from the worst-reconstructed residual ROWS — never PCs, the
-//! house rule) → re-encode and score EV for the stopping rule. No dense `N×K`
-//! object is ever formed: routing is block-tiled exactly as the atom lane tiles
-//! columns.
+//! polar reprojection back onto the Stiefel manifold → propose residual-row births
+//! for dead blocks (never PCs) → commit each only under strict full-corpus RSS
+//! improvement and a positive realised-rank evidence margin → re-encode and score
+//! EV for the stopping rule. No dense `N×K` object is ever formed: routing is
+//! block-tiled exactly as the atom lane tiles columns.
 
 use super::scoring::TopSSelector;
 use crate::frames::GrassmannFrame;
 use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Axis};
 use rayon::prelude::*;
+use std::fmt;
+
+/// Typed failure from [`fit_block_sparse_dictionary`].
+#[derive(Clone, Debug)]
+pub enum BlockSparseFitError {
+    InvalidInput {
+        reason: String,
+    },
+    NumericalFailure {
+        reason: String,
+    },
+    NonConvergence {
+        epochs: usize,
+        explained_variance: f64,
+        ev_residual: f64,
+        gamma_residual: f64,
+        frame_residual: f64,
+        routing_residual: f64,
+        reconstruction_residual: f64,
+        tolerance: f64,
+        accepted_births: usize,
+        polar_failures: usize,
+    },
+}
+
+impl BlockSparseFitError {
+    fn invalid_input(reason: impl Into<String>) -> Self {
+        Self::InvalidInput {
+            reason: reason.into(),
+        }
+    }
+}
+
+impl From<String> for BlockSparseFitError {
+    fn from(reason: String) -> Self {
+        Self::NumericalFailure { reason }
+    }
+}
+
+impl From<BlockSparseFitError> for String {
+    fn from(error: BlockSparseFitError) -> Self {
+        error.to_string()
+    }
+}
+
+impl fmt::Display for BlockSparseFitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidInput { reason } | Self::NumericalFailure { reason } => {
+                f.write_str(reason)
+            }
+            Self::NonConvergence {
+                epochs,
+                explained_variance,
+                ev_residual,
+                gamma_residual,
+                frame_residual,
+                routing_residual,
+                reconstruction_residual,
+                tolerance,
+                accepted_births,
+                polar_failures,
+            } => write!(
+                f,
+                "fit_block_sparse_dictionary did not converge after {epochs} epochs: EV \
+                 {explained_variance:.6}, EV residual {ev_residual:.3e}, gamma residual \
+                 {gamma_residual:.3e}, frame-projector residual {frame_residual:.3e}, \
+                 routing residual {routing_residual:.3e}, reconstruction residual \
+                 {reconstruction_residual:.3e} (tolerance {tolerance:.3e}), accepted \
+                 births {accepted_births}, polar failures {polar_failures}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for BlockSparseFitError {}
 
 /// Shared (NOT per-block) hyper-parameters for the block-sparse lane. As in
 /// [`super::SparseDictConfig`] every knob is a single scalar shared across the
@@ -74,8 +150,10 @@ pub struct BlockSparseConfig {
     /// Ridge on the per-block frame cross-moment refresh (Tikhonov on the polar
     /// step's cross-moment); keeps a thinly-used block's polar well posed.
     pub frame_ridge: f64,
-    /// AuxK dead-block revival budget `k_aux`: at most this many worst-utilised
-    /// (effectively dead) blocks are reseeded per epoch onto worst-residual rows.
+    /// AuxK dead-block birth-proposal budget `k_aux`: at most this many dead
+    /// blocks are transactionally tested per epoch against worst-residual rows.
+    /// A proposal is not installed unless exact RSS and rank-charge evidence both
+    /// improve strictly.
     pub aux_k: usize,
     /// Flag-gated MATRYOSHKA-PREFIX readout. When enabled, the returned fit
     /// carries log-spaced prefix losses over the final block ordering so an
@@ -95,9 +173,56 @@ impl BlockSparseConfig {
         }
     }
 
+    /// Construct a block dictionary from a **scalar** capacity and scalar
+    /// per-row active budget.
+    ///
+    /// This is the comparison-safe constructor: `n_atoms` counts decoder rows
+    /// and `active_atoms` counts active scalar coordinates, exactly as they do
+    /// for a scalar TopK SAE.  Both quantities must partition into complete
+    /// blocks.  There is deliberately no rounding or clamping: changing either
+    /// quantity would launder capacity or sparsity through the block layout.
+    pub fn from_scalar_budget(
+        n_atoms: usize,
+        active_atoms: usize,
+        block_size: usize,
+    ) -> Result<Self, String> {
+        if block_size == 0 {
+            return Err("block sparse scalar budget requires block_size >= 1".to_string());
+        }
+        if n_atoms == 0 {
+            return Err("block sparse scalar budget requires n_atoms >= 1".to_string());
+        }
+        if active_atoms == 0 || active_atoms > n_atoms {
+            return Err(format!(
+                "block sparse scalar budget requires active_atoms in [1, {n_atoms}]; got {active_atoms}"
+            ));
+        }
+        if n_atoms % block_size != 0 {
+            return Err(format!(
+                "block sparse scalar capacity K={n_atoms} is not divisible by block_size={block_size}"
+            ));
+        }
+        if active_atoms % block_size != 0 {
+            return Err(format!(
+                "block sparse scalar active budget s={active_atoms} is not divisible by block_size={block_size}"
+            ));
+        }
+        Ok(Self {
+            n_blocks: n_atoms / block_size,
+            block_size,
+            block_topk: active_atoms / block_size,
+            ..Self::default()
+        })
+    }
+
     /// Dictionary width `K = G·b`.
     pub fn n_atoms(&self) -> usize {
         self.n_blocks * self.block_size
+    }
+
+    /// Maximum active scalar coordinates per row, `block_topk * block_size`.
+    pub fn active_atoms(&self) -> usize {
+        self.block_topk * self.block_size
     }
 }
 
@@ -127,7 +252,10 @@ impl Default for BlockSparseConfig {
 #[derive(Clone, Debug)]
 pub struct BlockSparseFit {
     /// Decoder, `K×P` (`K = G·b`), block `g` occupying rows `[g·b, g·b+b)`; each
-    /// block's `b` rows are orthonormal (`D_g D_gᵀ = I_b`).
+    /// identified block's `b` rows are orthonormal (`D_g D_gᵀ = I_b`). The
+    /// explicit all-zero-data boundary has a zero decoder because its subspaces
+    /// are unidentifiable and `gamma = 0` makes its out-of-sample map identically
+    /// zero.
     pub decoder: Array2<f32>,
     /// Selected block indices per row, `N×k`.
     pub blocks: Array2<u32>,
@@ -156,12 +284,54 @@ pub struct BlockSparseFit {
     pub explained_variance: f64,
     /// Number of epochs actually run.
     pub epochs: usize,
-    /// Whether the EV-improvement tolerance was reached.
-    pub converged: bool,
+    /// Checkable fixed-point certificate for the final full alternation.
+    pub convergence: BlockSparseConvergence,
     /// Block budget `k` actually used (`min(block_topk, G)`).
     pub block_topk: usize,
     /// Block size `b` actually used.
     pub block_size: usize,
+}
+
+/// Fixed-point evidence attached to every converged [`BlockSparseFit`].
+#[derive(Clone, Copy, Debug)]
+pub struct BlockSparseConvergence {
+    /// Explained-variance displacement under one replayed full alternation.
+    pub ev_residual: f64,
+    /// Relative shared-scale displacement under that alternation.
+    pub gamma_residual: f64,
+    /// Maximum gauge-invariant projector displacement over all blocks.
+    pub frame_residual: f64,
+    /// Gauge-invariant displacement of the exposed block routing, measured from
+    /// the selected blocks' code norms.
+    pub routing_residual: f64,
+    /// Reconstruction displacement relative to the input data energy.
+    pub reconstruction_residual: f64,
+    /// Accepted residual-row births in the replayed alternation. A successful
+    /// certificate always records zero.
+    pub accepted_births: usize,
+    /// Failed polar subsolves in the replayed alternation. A successful
+    /// certificate always records zero.
+    pub polar_failures: usize,
+    pub tolerance: f64,
+}
+
+impl BlockSparseConvergence {
+    /// A certificate whose every residual is exactly zero against a positive
+    /// tolerance, with no accepted births or polar failures — a trivially
+    /// converged full-alternation fixed point. Used to mint [`BlockSparseFit`]
+    /// values from fixed, hand-authored block routings.
+    pub fn trivially_converged() -> Self {
+        Self {
+            ev_residual: 0.0,
+            gamma_residual: 0.0,
+            frame_residual: 0.0,
+            routing_residual: 0.0,
+            reconstruction_residual: 0.0,
+            accepted_births: 0,
+            polar_failures: 0,
+            tolerance: 1e-6,
+        }
+    }
 }
 
 impl BlockSparseFit {
@@ -419,6 +589,7 @@ pub(super) fn gram_schmidt_rows(block: &mut Array2<f32>) {
 /// One row's block routing: the selected block indices and their signed codes.
 /// `pub(super)` so the streaming lane ([`super::block_stream`]) can consume the
 /// same per-row codes the one-shot trainer produces.
+#[derive(Clone)]
 pub(super) struct RowBlockCode {
     /// Selected block indices, length `k` (padded with block 0 + zero gate/code
     /// when the row had fewer than `k` blocks with positive gate).
@@ -434,7 +605,7 @@ pub(super) struct RowBlockCode {
 /// `N×K`. Returns each row's top-`k` `(block, gate)` shortlist. Mirrors
 /// [`super::scoring::TileScorer::route_minibatch`] but the tile GEMM produces
 /// per-block group ℓ₂ gates rather than per-atom scores.
-fn route_block_minibatch(
+pub(super) fn route_block_minibatch(
     block_rows: ArrayView2<'_, f32>,
     decoder: ArrayView2<'_, f32>,
     n_blocks: usize,
@@ -523,18 +694,16 @@ pub(super) fn route_and_code_all(
 }
 
 /// Route one minibatch's blocks, dispatching to the CUDA block-gate router when a
-/// device residency mode asks for it and a CUDA runtime is actually present, and
+/// GPU policy asks for it and a CUDA runtime is actually present, and
 /// to the CPU router ([`route_block_minibatch`]) otherwise.
 ///
-/// The dispatch honours the process-wide [`gam_gpu::GpuMode`]: `Off` (or any
-/// device-absent host, which is all of CI) always takes the exact CPU router, so
-/// device-absent behaviour is bit-for-bit unchanged; `Auto` uses the device when
-/// admitted and above break-even and transparently falls back to the CPU oracle
-/// otherwise (the fallback is logged once by the block-gate router, never
-/// silent); `Required` propagates a device fault as a typed `Err` up through the
-/// fallible fit rather than degrading silently. The device route carries the
-/// #2227 bounded-progress checkpoints, so a device stall surfaces as a
-/// tile-attributed error instead of a silent hang.
+/// The dispatch honours the process-wide [`gam_gpu::GpuPolicy`]. `Off` always
+/// takes the exact CPU router. `Auto` uses the device when admitted and falls
+/// back to the CPU oracle when it is unavailable, below break-even, or faults.
+/// `Required` is fail-closed for every refusal, including an unavailable runtime
+/// and a below-break-even shape. The device route carries the #2227
+/// bounded-progress checkpoints, so a device stall surfaces as a tile-attributed
+/// error instead of a silent hang.
 fn route_block_minibatch_dispatch(
     mb: ArrayView2<'_, f32>,
     decoder: ArrayView2<'_, f32>,
@@ -545,29 +714,24 @@ fn route_block_minibatch_dispatch(
 ) -> Result<Vec<Vec<(u32, f32)>>, String> {
     #[cfg(target_os = "linux")]
     {
-        let mode = gam_gpu::gpu_mode();
-        if mode != gam_gpu::GpuMode::Off && gam_gpu::GpuRuntime::global().is_some() {
-            // Under `Auto`, only hand a minibatch to the device when the score
-            // work clears the launch break-even; below it we take the exact CPU
-            // router (`route_block_minibatch`) so device-present hosts keep
-            // bit-for-bit CPU behaviour instead of switching to the block-gate
-            // CPU oracle's scalar-dot ties. `Required` always routes through the
-            // device entry point, which fails closed on a below-break-even block.
-            let admitted = gam_gpu::DictionaryScoreRoutePlan::default_for_shape(
-                mb.nrows(),
-                decoder.nrows(),
-                decoder.ncols(),
-            )
-            .device_admitted;
-            if mode == gam_gpu::GpuMode::Required || admitted {
-                let (selections, _path, _dtoh) =
-                    super::block_scoring_gpu::route_blocks_required(mb, decoder, b, k, mode)
-                        .map_err(|err| err.to_string())?;
-                return Ok(selections);
-            }
+        let policy = gam_gpu::global_policy();
+        if policy != gam_gpu::GpuPolicy::Off {
+            let (selections, _path, _dtoh) =
+                super::block_scoring_gpu::route_blocks_required(mb, decoder, b, k, policy)
+                    .map_err(|err| err.to_string())?;
+            return Ok(selections);
         }
     }
-    Ok(route_block_minibatch(mb, decoder, n_blocks, b, k, block_tile))
+    #[cfg(not(target_os = "linux"))]
+    if gam_gpu::global_policy() == gam_gpu::GpuPolicy::Required {
+        return Err(
+            "block-gate route GpuPolicy::Required: CUDA routing is only compiled on Linux"
+                .to_string(),
+        );
+    }
+    Ok(route_block_minibatch(
+        mb, decoder, n_blocks, b, k, block_tile,
+    ))
 }
 
 /// Fixed-width sparse code for one row from its `(block, gate)` shortlist: the
@@ -612,7 +776,7 @@ fn code_row(
 }
 
 // ---------------------------------------------------------------------------
-// γ refresh, frame refresh, revival, EV.
+// γ refresh, frame refresh, evidence-adjudicated births, EV.
 // ---------------------------------------------------------------------------
 
 /// Per-row un-scaled projection sum `p_i = Σ_{g∈S_i} x_i P_g` (the reconstruction
@@ -651,17 +815,44 @@ fn projection_sum_row(
     out
 }
 
+/// Decode one stored sparse row exactly as [`BlockSparseFit::reconstruct`] will.
+/// Keeping the alternation and its certificate on the stored code values avoids
+/// certifying a freshly re-derived tied projection while returning different
+/// arrays.
+pub(super) fn reconstruct_stored_code_row(
+    code: &RowBlockCode,
+    decoder: ArrayView2<'_, f32>,
+    b: usize,
+) -> Array1<f32> {
+    let mut out = Array1::<f32>::zeros(decoder.ncols());
+    for (slot, &block) in code.blocks.iter().enumerate() {
+        if code.gates[slot] == 0.0 {
+            continue;
+        }
+        let block = block as usize;
+        for r in 0..b {
+            let value = code.codes[slot * b + r];
+            if value == 0.0 {
+                continue;
+            }
+            let atom = decoder.row(block * b + r);
+            for column in 0..decoder.ncols() {
+                out[column] += value * atom[column];
+            }
+        }
+    }
+    out
+}
+
 /// Closed-form refresh of the shared tied scalar
 /// `γ* = (Σ_i ⟨x_i, p_i⟩) / (Σ_i ‖p_i‖²)`, where `p_i = Σ_{g∈S_i} x_i P_g`. This is
 /// the exact least-squares `γ` given the current frames and routing (decode is
-/// `γ p_i`). Returns the previous `γ` if the denominator underflows (no block
-/// fired anywhere).
+/// `γ p_i`). The exact no-projection boundary is the null scale `γ = 0`.
 fn refresh_gamma(
     x: ArrayView2<'_, f32>,
     codes: &[RowBlockCode],
     decoder: ArrayView2<'_, f32>,
     b: usize,
-    prev_gamma: f32,
 ) -> f32 {
     let mut num = 0.0f64;
     let mut den = 0.0f64;
@@ -673,11 +864,7 @@ fn refresh_gamma(
             den += p_i[c] as f64 * p_i[c] as f64;
         }
     }
-    if den <= 1.0e-24 {
-        prev_gamma
-    } else {
-        (num / den) as f32
-    }
+    if den == 0.0 { 0.0 } else { (num / den) as f32 }
 }
 
 /// Refresh every block frame by a method-of-optimal-directions cross-moment
@@ -691,16 +878,16 @@ fn refresh_gamma(
 /// cross-moment `M_g = Σ_i r_{ig}ᵀ z_{ig}` (`P×b`). We accumulate `M_g` for every
 /// block, add a tiny ridge on its Gram for a thinly-used block, and polar it via
 /// [`GrassmannFrame::polar_update`]. Blocks that no row selected accumulate a zero
-/// `M_g` and keep their current frame in place (they are revived separately).
+/// `M_g` and keep their current frame in place (they may be proposed for birth
+/// separately).
 fn refresh_frames(
     x: ArrayView2<'_, f32>,
     codes: &[RowBlockCode],
     decoder: &mut Array2<f32>,
-    gamma: f32,
     n_blocks: usize,
     b: usize,
     ridge: f64,
-) {
+) -> usize {
     let p = x.ncols();
     // Cross-moments M_g (P×b), one per block.
     let mut cm: Vec<Array2<f64>> = (0..n_blocks)
@@ -711,17 +898,10 @@ fn refresh_frames(
     for (i, code) in codes.iter().enumerate() {
         let xi = x.row(i);
         // Full reconstruction x̂_i under the current frames/γ.
-        let selected: Vec<u32> = code
-            .blocks
-            .iter()
-            .zip(code.gates.iter())
-            .filter(|&(_, &gate)| gate != 0.0)
-            .map(|(&g, _)| g)
-            .collect();
-        if selected.is_empty() {
+        if code.gates.iter().all(|&gate| gate == 0.0) {
             continue;
         }
-        let recon = reconstruct_row(xi, decoder.view(), &selected, gamma, b);
+        let recon = reconstruct_stored_code_row(code, decoder.view(), b);
         for (j, &g) in code.blocks.iter().enumerate() {
             if code.gates[j] == 0.0 {
                 continue;
@@ -747,6 +927,7 @@ fn refresh_frames(
         }
     }
 
+    let mut polar_failures = 0usize;
     for g in 0..n_blocks {
         if !touched[g] {
             continue;
@@ -762,46 +943,67 @@ fn refresh_frames(
                 }
             }
         }
-        if let Ok(frame) = GrassmannFrame::polar_update(cm[g].view()) {
-            let u = frame.frame(); // P×b column-orthonormal
-            let sv = frame.gauge_singular_values();
-            let full_rank = sv.len() == b && sv.iter().all(|&s| s > 1.0e-9);
-            if full_rank && u.ncols() == b {
-                for r in 0..b {
-                    for c in 0..p {
-                        decoder[[g * b + r, c]] = u[[c, r]] as f32;
+        match GrassmannFrame::polar_update(cm[g].view()) {
+            Ok(frame) => {
+                let u = frame.frame(); // P×b column-orthonormal
+                let sv = frame.gauge_singular_values();
+                let largest_sv = sv.first().copied().unwrap_or(0.0);
+                let numerical_rank_floor = largest_sv * f64::EPSILON * p.max(b) as f64;
+                let full_rank = sv.len() == b
+                    && largest_sv.is_finite()
+                    && sv
+                        .iter()
+                        .all(|&s| s.is_finite() && s > numerical_rank_floor);
+                if full_rank && u.ncols() == b {
+                    for r in 0..b {
+                        for c in 0..p {
+                            decoder[[g * b + r, c]] = u[[c, r]] as f32;
+                        }
                     }
+                } else {
+                    polar_failures += 1;
                 }
             }
+            Err(_) => polar_failures += 1,
         }
         // A degenerate cross-moment (rank-deficient) leaves the block's current
-        // (already orthonormal) frame in place; revival handles a truly dead block.
+        // (already orthonormal) frame in place; birth arbitration handles a truly
+        // dead block.
     }
+    polar_failures
 }
 
-/// AuxK-style dead-block revival (house rule: seed from residual ROWS, never PCs).
+/// AuxK-style dead-block birth proposals (seed from residual ROWS, never PCs).
 ///
 /// Identify the `k_aux` **worst-utilised** blocks (fewest rows selected this
 /// epoch); any that are effectively dead (utilisation below one row) are reseeded.
-/// A revived block's `b` orthonormal rows are Gram–Schmidt orthonormalised from
+/// A candidate block's `b` orthonormal rows are Gram–Schmidt orthonormalised from
 /// the `b` worst-reconstructed residual ROWS (each dead block takes a distinct
-/// contiguous group of high-residual rows, so revived blocks do not duplicate).
+/// contiguous group of high-residual rows, so candidates do not duplicate).
 /// This is the block analogue of the atom lane's dead-feature resampling and of
-/// the AuxK auxiliary-reconstruction loss, but installs a genuine `St(b, P)` frame
-/// spanning the directions the model most fails to explain.
+/// the AuxK auxiliary-reconstruction loss, but only CONSTRUCTS a genuine
+/// `St(b, P)` candidate spanning the directions the model most fails to explain.
+/// Installation is owned by the exact transaction below.
 ///
-/// Returns the number of blocks revived (0 leaves the decoder untouched).
-fn revive_dead_blocks(
+/// A residual-row birth candidate. Constructing a candidate never mutates the
+/// live dictionary: [`advance_block_sparse_state`] installs one candidate at a
+/// time and commits it only after a full reroute proves a strict improvement of
+/// the exact training criterion.
+struct BlockBirthProposal {
+    block: usize,
+    proposed_frame: Array2<f32>,
+}
+
+fn dead_block_birth_proposals(
     x: ArrayView2<'_, f32>,
     codes: &[RowBlockCode],
-    decoder: &mut Array2<f32>,
-    gamma: f32,
+    decoder: ArrayView2<'_, f32>,
     n_blocks: usize,
     b: usize,
     aux_k: usize,
-) -> usize {
+) -> Vec<BlockBirthProposal> {
     if aux_k == 0 {
-        return 0;
+        return Vec::new();
     }
     let n = x.nrows();
     let p = x.ncols();
@@ -825,7 +1027,7 @@ fn revive_dead_blocks(
         .filter(|&g| usage[g] == 0) // only truly dead blocks are reseeded
         .collect();
     if candidates.is_empty() {
-        return 0;
+        return Vec::new();
     }
 
     // Per-row residual energy under the current model.
@@ -834,14 +1036,7 @@ fn revive_dead_blocks(
     for i in 0..n {
         let xi = x.row(i);
         let code = &codes[i];
-        let selected: Vec<u32> = code
-            .blocks
-            .iter()
-            .zip(code.gates.iter())
-            .filter(|&(_, &gate)| gate != 0.0)
-            .map(|(&g, _)| g)
-            .collect();
-        let recon = reconstruct_row(xi, decoder.view(), &selected, gamma, b);
+        let recon = reconstruct_stored_code_row(code, decoder.view(), b);
         let mut acc = 0.0f64;
         for c in 0..p {
             let rc = xi[c] - recon[c];
@@ -860,11 +1055,11 @@ fn revive_dead_blocks(
             .then(a.cmp(&c))
     });
 
-    let mut revived = 0usize;
+    let mut proposals = Vec::new();
     let mut cursor = 0usize;
     for &g in candidates.iter() {
         // Take the next b distinct high-residual rows for this block's frame.
-        if cursor >= n || resid_norm2[row_order[cursor]] <= 1.0e-12 {
+        if cursor >= n || resid_norm2[row_order[cursor]] == 0.0 {
             break; // no residual left to seed from
         }
         let mut seed = Array2::<f32>::zeros((b, p));
@@ -880,24 +1075,33 @@ fn revive_dead_blocks(
             }
         }
         gram_schmidt_rows(&mut seed);
-        for r in 0..b {
-            for c in 0..p {
-                decoder[[g * b + r, c]] = seed[[r, c]];
-            }
-        }
-        revived += 1;
+        proposals.push(BlockBirthProposal {
+            block: g,
+            proposed_frame: seed,
+        });
     }
-    revived
+    proposals
 }
 
 /// Held-in explained variance `1 − RSS/TSS` of the block reconstruction.
-fn explained_variance(
+fn reconstruction_rss(
     x: ArrayView2<'_, f32>,
     codes: &[RowBlockCode],
     decoder: ArrayView2<'_, f32>,
-    gamma: f32,
     b: usize,
 ) -> f64 {
+    let mut rss = 0.0_f64;
+    for (row, code) in codes.iter().enumerate() {
+        let reconstruction = reconstruct_stored_code_row(code, decoder, b);
+        for column in 0..x.ncols() {
+            let residual = x[[row, column]] as f64 - reconstruction[column] as f64;
+            rss += residual * residual;
+        }
+    }
+    rss
+}
+
+fn centered_total_sum_squares(x: ArrayView2<'_, f32>) -> f64 {
     let n = x.nrows();
     let p = x.ncols();
     let mut means = vec![0.0f64; p];
@@ -907,34 +1111,37 @@ fn explained_variance(
             means[c] += xi[c] as f64;
         }
     }
-    for c in 0..p {
-        means[c] /= n as f64;
+    for mean in &mut means {
+        *mean /= n as f64;
     }
-    let mut rss = 0.0f64;
-    let mut tss = 0.0f64;
-    for i in 0..n {
-        let xi = x.row(i);
-        let code = &codes[i];
-        let selected: Vec<u32> = code
-            .blocks
-            .iter()
-            .zip(code.gates.iter())
-            .filter(|&(_, &gate)| gate != 0.0)
-            .map(|(&g, _)| g)
-            .collect();
-        let recon = reconstruct_row(xi, decoder, &selected, gamma, b);
-        for c in 0..p {
-            let r = xi[c] as f64 - recon[c] as f64;
-            rss += r * r;
-            let t = xi[c] as f64 - means[c];
-            tss += t * t;
+    let mut tss = 0.0_f64;
+    for row in 0..n {
+        for column in 0..p {
+            let centered = x[[row, column]] as f64 - means[column];
+            tss += centered * centered;
         }
     }
-    if tss <= 1.0e-24 {
-        if rss <= 1.0e-24 { 1.0 } else { 0.0 }
+    tss
+}
+
+fn explained_variance_from_rss(rss: f64, tss: f64) -> f64 {
+    if tss == 0.0 {
+        if rss == 0.0 { 1.0 } else { 0.0 }
     } else {
         1.0 - rss / tss
     }
+}
+
+fn explained_variance(
+    x: ArrayView2<'_, f32>,
+    codes: &[RowBlockCode],
+    decoder: ArrayView2<'_, f32>,
+    b: usize,
+) -> f64 {
+    explained_variance_from_rss(
+        reconstruction_rss(x, codes, decoder, b),
+        centered_total_sum_squares(x),
+    )
 }
 
 fn log_spaced_prefix_atom_counts(n_blocks: usize, b: usize) -> Vec<usize> {
@@ -963,14 +1170,15 @@ fn prefix_reconstruction_loss(
     let mut acc = 0.0f64;
     for (i, code) in codes.iter().enumerate() {
         let xi = x.row(i);
-        let selected: Vec<u32> = code
-            .blocks
+        let reconstruction = reconstruct_stored_code_row(code, decoder, b);
+        acc += xi
             .iter()
-            .zip(code.gates.iter())
-            .filter(|&(_, &gate)| gate != 0.0)
-            .map(|(&block, _)| block)
-            .collect();
-        acc += row_loss(xi, decoder, &selected, gamma, b);
+            .zip(reconstruction.iter())
+            .map(|(&observed, &fitted)| {
+                let residual = observed as f64 - fitted as f64;
+                residual * residual
+            })
+            .sum::<f64>();
     }
     Ok(acc / x.nrows() as f64)
 }
@@ -1110,79 +1318,766 @@ pub(super) fn stable_rank_symmetric(c: ArrayView2<'_, f64>) -> f32 {
 // Seeding + validation + driver.
 // ---------------------------------------------------------------------------
 
-/// Deterministically seed the block frames from a farthest-point pass over the
-/// rows (reusing the atom lane's [`super::update::seed_decoder`] to pick `K`
-/// distinct direction rows), then orthonormalise each block's `b` rows so every
-/// frame starts as a genuine `St(b, P)` point.
+/// Deterministically seed whole subspaces with a block-aware farthest-point
+/// pass.  Scalar farthest-point seeding followed by grouping adjacent rows can
+/// put directions from unrelated subspaces in the same block.  Every such
+/// mixed block may still receive traffic, so dead-block revival cannot repair
+/// the resulting live local optimum.
+///
+/// This is the block analogue of k-means++ / k-subspaces++:
+///
+/// 1. the next block starts at the row farthest from its nearest completed
+///    block projector;
+/// 2. the remaining axes maximize uncovered energy times both their affinity
+///    to, and novelty beyond, the partial block;
+/// 3. nearest-projector residuals are updated after the completed Stiefel frame.
+///
+/// Orthogonal unrelated subspaces have zero affinity, so they cannot be folded
+/// into the same block while a rank-completing row from the anchor subspace is
+/// available.  Work is `O(N P G b)`, matching the scalar `K = G b` pass up to
+/// the small block factor, and the only corpus-sized scratch is `O(N)` -- no
+/// dense `N x K` or second `N x P` object is formed.
 pub(super) fn seed_frames(x: ArrayView2<'_, f32>, n_blocks: usize, b: usize) -> Array2<f32> {
-    let k = n_blocks * b;
-    let mut decoder = super::update::seed_decoder(x, k);
+    let n = x.nrows();
+    let p = x.ncols();
+    let row_energy: Vec<f64> = x
+        .axis_iter(Axis(0))
+        .map(|row| row.iter().map(|&value| (value as f64).powi(2)).sum())
+        .collect();
+    let mut nearest_projector_residual = row_energy.clone();
+    let mut decoder = Array2::<f32>::zeros((n_blocks * b, p));
+
     for g in 0..n_blocks {
-        let mut block = decoder.slice(ndarray::s![g * b..g * b + b, ..]).to_owned();
-        orthonormalize_block(&mut block);
-        for r in 0..b {
-            for c in 0..decoder.ncols() {
-                decoder[[g * b + r, c]] = block[[r, c]];
+        let anchor = (0..n)
+            .max_by(|&left, &right| {
+                nearest_projector_residual[left]
+                    .total_cmp(&nearest_projector_residual[right])
+                    .then_with(|| right.cmp(&left))
+            })
+            .expect("validated non-empty block dictionary input");
+
+        let mut axes: Vec<Vec<f64>> = Vec::with_capacity(b);
+        let mut partial_capture = vec![0.0_f64; n];
+        for axis_index in 0..b {
+            let row_index = if axis_index == 0 {
+                anchor
+            } else {
+                (0..n)
+                    .max_by(|&left, &right| {
+                        let score = |row: usize| {
+                            let captured = partial_capture[row].min(row_energy[row]);
+                            let novel = (row_energy[row] - captured).max(0.0);
+                            nearest_projector_residual[row] * captured * novel
+                        };
+                        score(left)
+                            .total_cmp(&score(right))
+                            .then_with(|| {
+                                nearest_projector_residual[left]
+                                    .total_cmp(&nearest_projector_residual[right])
+                            })
+                            .then_with(|| right.cmp(&left))
+                    })
+                    .expect("validated non-empty block dictionary input")
+            };
+
+            let mut candidate: Vec<f64> =
+                x.row(row_index).iter().map(|&value| value as f64).collect();
+            let input_norm = row_energy[row_index].sqrt();
+            // Two-pass modified Gram--Schmidt removes the component in the
+            // partial frame to input precision before the axis is normalized.
+            for _ in 0..2 {
+                for axis in &axes {
+                    let projection: f64 = candidate
+                        .iter()
+                        .zip(axis.iter())
+                        .map(|(left, right)| left * right)
+                        .sum();
+                    for (value, direction) in candidate.iter_mut().zip(axis.iter()) {
+                        *value -= projection * direction;
+                    }
+                }
             }
+            let mut norm = candidate
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt();
+            let input_roundoff = f32::EPSILON as f64 * (p.max(1) as f64).sqrt() * input_norm;
+            if norm <= input_roundoff {
+                // The observed rows no longer add rank to this frame.  Complete
+                // the required St(b,P) point with the canonical coordinate
+                // whose residual against the partial frame is largest.  This
+                // is deterministic and threshold-free; p >= b guarantees a
+                // positive direction.
+                let mut best = vec![0.0_f64; p];
+                let mut best_norm2 = f64::NEG_INFINITY;
+                for coordinate in 0..p {
+                    let mut direction = vec![0.0_f64; p];
+                    direction[coordinate] = 1.0;
+                    for axis in &axes {
+                        let projection: f64 = direction
+                            .iter()
+                            .zip(axis.iter())
+                            .map(|(left, right)| left * right)
+                            .sum();
+                        for (value, basis_value) in direction.iter_mut().zip(axis.iter()) {
+                            *value -= projection * basis_value;
+                        }
+                    }
+                    let norm2 = direction.iter().map(|value| value * value).sum::<f64>();
+                    if norm2 > best_norm2 {
+                        best_norm2 = norm2;
+                        best = direction;
+                    }
+                }
+                norm = best_norm2.sqrt();
+                candidate = best;
+            }
+            for value in &mut candidate {
+                *value /= norm;
+            }
+            axes.push(candidate);
+
+            let axis = axes.last().expect("axis was just installed");
+            for row in 0..n {
+                let projection: f64 = x
+                    .row(row)
+                    .iter()
+                    .zip(axis.iter())
+                    .map(|(&value, direction)| value as f64 * direction)
+                    .sum();
+                partial_capture[row] += projection * projection;
+            }
+        }
+
+        let mut block = Array2::<f32>::zeros((b, p));
+        for row in 0..b {
+            for column in 0..p {
+                block[[row, column]] = axes[row][column] as f32;
+            }
+        }
+        orthonormalize_block(&mut block);
+        for row in 0..b {
+            for column in 0..p {
+                decoder[[g * b + row, column]] = block[[row, column]];
+            }
+        }
+
+        for row in 0..n {
+            let mut captured = 0.0_f64;
+            for axis in 0..b {
+                let projection: f64 = x
+                    .row(row)
+                    .iter()
+                    .zip(block.row(axis).iter())
+                    .map(|(&value, &direction)| value as f64 * direction as f64)
+                    .sum();
+                captured += projection * projection;
+            }
+            let residual = (row_energy[row] - captured).max(0.0);
+            nearest_projector_residual[row] = nearest_projector_residual[row].min(residual);
         }
     }
     decoder
 }
 
-fn validate(x: ArrayView2<'_, f32>, config: &BlockSparseConfig) -> Result<(), String> {
+/// Relative Grassmann-projector displacement between two block dictionaries.
+/// For each block this evaluates `||DᵀD-EᵀE||_F` from only `b×b` frame
+/// overlaps. The expression uses the measured projector norms rather than
+/// assuming exact floating-point orthonormality, so identical stored frames have
+/// exactly zero residual. Every term is invariant to independent `O(b)` changes
+/// of basis in either frame.
+fn frame_fixed_point_residual(
+    previous: ArrayView2<'_, f32>,
+    next: ArrayView2<'_, f32>,
+    n_blocks: usize,
+    b: usize,
+) -> f64 {
+    let mut maximum = 0.0_f64;
+    for block in 0..n_blocks {
+        let mut previous_norm2 = 0.0_f64;
+        let mut next_norm2 = 0.0_f64;
+        let mut overlap = 0.0_f64;
+        for left_axis in 0..b {
+            for right_axis in 0..b {
+                let mut previous_dot = 0.0_f64;
+                let mut next_dot = 0.0_f64;
+                let mut cross_dot = 0.0_f64;
+                for column in 0..previous.ncols() {
+                    previous_dot += previous[[block * b + left_axis, column]] as f64
+                        * previous[[block * b + right_axis, column]] as f64;
+                    next_dot += next[[block * b + left_axis, column]] as f64
+                        * next[[block * b + right_axis, column]] as f64;
+                    cross_dot += previous[[block * b + left_axis, column]] as f64
+                        * next[[block * b + right_axis, column]] as f64;
+                }
+                previous_norm2 += previous_dot * previous_dot;
+                next_norm2 += next_dot * next_dot;
+                overlap += cross_dot * cross_dot;
+            }
+        }
+        let scale = previous_norm2 + next_norm2;
+        let distance2 = (scale - 2.0 * overlap).max(0.0);
+        let residual = if scale == 0.0 {
+            if distance2 == 0.0 { 0.0 } else { f64::INFINITY }
+        } else {
+            (distance2 / scale).sqrt()
+        };
+        maximum = maximum.max(residual);
+    }
+    maximum
+}
+
+fn relative_scalar_change(previous: f32, current: f32) -> f64 {
+    let previous = previous as f64;
+    let current = current as f64;
+    (current - previous).abs() / previous.abs().max(current.abs()).max(f64::MIN_POSITIVE)
+}
+
+#[derive(Clone)]
+struct BlockSparseState {
+    decoder: Array2<f32>,
+    codes: Vec<RowBlockCode>,
+    gamma: f32,
+    explained_variance: f64,
+}
+
+struct BlockSparseStep {
+    next: BlockSparseState,
+    accepted_births: usize,
+    polar_failures: usize,
+}
+
+fn stored_code_gate(code: &RowBlockCode, slot: usize, b: usize) -> f64 {
+    code.codes[slot * b..slot * b + b]
+        .iter()
+        .map(|&value| {
+            let value = value as f64;
+            value * value
+        })
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn gate_for_block(code: &RowBlockCode, block: u32, b: usize) -> f64 {
+    code.blocks
+        .iter()
+        .enumerate()
+        .filter(|&(slot, candidate)| *candidate == block && code.gates[slot] != 0.0)
+        .map(|(slot, _)| stored_code_gate(code, slot, b))
+        .sum()
+}
+
+/// Gauge-invariant fixed-point residuals for the exposed sparse routing and its
+/// reconstruction. Routing compares the `l2` norm of each selected block code;
+/// reconstruction compares the actual stored-code decodes without allocating an
+/// `N×P` matrix. Both residuals are relative squared displacements, matching the
+/// scale-free tolerance used by the atom dictionary lane.
+fn routing_and_reconstruction_residuals(
+    x: ArrayView2<'_, f32>,
+    previous: &BlockSparseState,
+    next: &BlockSparseState,
+    b: usize,
+) -> (f64, f64) {
+    let mut gate_delta2 = 0.0_f64;
+    let mut gate_scale2 = 0.0_f64;
+    let mut reconstruction_delta2 = 0.0_f64;
+    let mut data_scale2 = 0.0_f64;
+
+    for row in 0..x.nrows() {
+        let old_code = &previous.codes[row];
+        let new_code = &next.codes[row];
+        for (slot, &block) in old_code.blocks.iter().enumerate() {
+            if old_code.gates[slot] == 0.0 {
+                continue;
+            }
+            let old_gate = stored_code_gate(old_code, slot, b);
+            let new_gate = gate_for_block(new_code, block, b);
+            let delta = new_gate - old_gate;
+            gate_delta2 += delta * delta;
+            gate_scale2 += old_gate * old_gate + new_gate * new_gate;
+        }
+        for (slot, &block) in new_code.blocks.iter().enumerate() {
+            if new_code.gates[slot] == 0.0
+                || old_code
+                    .blocks
+                    .iter()
+                    .enumerate()
+                    .any(|(old_slot, candidate)| {
+                        *candidate == block && old_code.gates[old_slot] != 0.0
+                    })
+            {
+                continue;
+            }
+            let new_gate = stored_code_gate(new_code, slot, b);
+            gate_delta2 += new_gate * new_gate;
+            gate_scale2 += new_gate * new_gate;
+        }
+
+        let old_reconstruction = reconstruct_stored_code_row(old_code, previous.decoder.view(), b);
+        let new_reconstruction = reconstruct_stored_code_row(new_code, next.decoder.view(), b);
+        for column in 0..x.ncols() {
+            let delta = new_reconstruction[column] as f64 - old_reconstruction[column] as f64;
+            reconstruction_delta2 += delta * delta;
+            let observed = x[[row, column]] as f64;
+            data_scale2 += observed * observed;
+        }
+    }
+
+    let routing_residual = if gate_scale2 == 0.0 {
+        if gate_delta2 == 0.0 {
+            0.0
+        } else {
+            f64::INFINITY
+        }
+    } else {
+        gate_delta2 / gate_scale2
+    };
+    let reconstruction_residual = if data_scale2 == 0.0 {
+        if reconstruction_delta2 == 0.0 {
+            0.0
+        } else {
+            f64::INFINITY
+        }
+    } else {
+        reconstruction_delta2 / data_scale2
+    };
+    (routing_residual, reconstruction_residual)
+}
+
+fn route_and_close_gamma(
+    x: ArrayView2<'_, f32>,
+    decoder: ArrayView2<'_, f32>,
+    gamma_seed: f32,
+    config: &BlockSparseConfig,
+    k: usize,
+) -> Result<(f32, Vec<RowBlockCode>), String> {
+    let routed = route_and_code_all(
+        x,
+        decoder,
+        gamma_seed,
+        config.n_blocks,
+        config.block_size,
+        k,
+        config.minibatch,
+        config.block_tile,
+    )?;
+    let gamma = refresh_gamma(x, &routed, decoder, config.block_size);
+    if !gamma.is_finite() || gamma < 0.0 {
+        return Err(format!(
+            "fit_block_sparse_dictionary gamma refresh produced invalid scale {gamma}"
+        ));
+    }
+    let codes = route_and_code_all(
+        x,
+        decoder,
+        gamma,
+        config.n_blocks,
+        config.block_size,
+        k,
+        config.minibatch,
+        config.block_tile,
+    )?;
+    Ok((gamma, codes))
+}
+
+/// Put a state into the deterministic MATRYOSHKA block labelling before it can
+/// be certified. Decoder rows and stored sparse indices are permuted together,
+/// so this is an exact representation change: codes, gates, gamma, routing, and
+/// reconstruction do not need to be recomputed afterward.
+fn canonicalize_matryoshka_state(state: &mut BlockSparseState, config: &BlockSparseConfig) {
+    if !config.matryoshka_prefix {
+        return;
+    }
+    let order = matryoshka_block_order(&state.codes, config.n_blocks, config.block_size);
+    if order
+        .iter()
+        .enumerate()
+        .all(|(index, &block)| index == block)
+    {
+        return;
+    }
+    reorder_decoder_blocks(&mut state.decoder, &order, config.block_size);
+    let mut old_to_new = vec![0usize; config.n_blocks];
+    for (new_block, &old_block) in order.iter().enumerate() {
+        old_to_new[old_block] = new_block;
+    }
+    for code in &mut state.codes {
+        for (slot, block) in code.blocks.iter_mut().enumerate() {
+            if code.gates[slot] != 0.0 {
+                *block = old_to_new[*block as usize] as u32;
+            }
+        }
+    }
+}
+
+fn proposal_is_selected(codes: &[RowBlockCode], block: usize, b: usize) -> bool {
+    codes.iter().any(|code| {
+        code.blocks.iter().enumerate().any(|(slot, &candidate)| {
+            candidate as usize == block
+                && code.gates[slot] != 0.0
+                && stored_code_gate(code, slot, b) > 0.0
+        })
+    })
+}
+
+fn block_code_gram(codes: &[RowBlockCode], block: usize, b: usize) -> (usize, Array2<f64>) {
+    let mut usage = 0usize;
+    let mut gram = Array2::<f64>::zeros((b, b));
+    for code in codes {
+        for (slot, &candidate) in code.blocks.iter().enumerate() {
+            if candidate as usize != block || code.gates[slot] == 0.0 {
+                continue;
+            }
+            usage += 1;
+            let z = &code.codes[slot * b..slot * b + b];
+            for left in 0..b {
+                for right in 0..b {
+                    gram[[left, right]] += z[left] as f64 * z[right] as f64;
+                }
+            }
+        }
+    }
+    (usage, gram)
+}
+
+/// Exact evidence admission for a residual-row block birth. `improvement_rss`
+/// is the full-pass baseline RSS minus candidate RSS on identical rows. The
+/// candidate is admissible only when this is strictly positive and its
+/// incremental Gaussian deviance gain exceeds the SAME realised-rank charge
+/// used by the Tier-1 certification ledger.
+///
+/// `None` is a categorical certificate refusal: zero/tied usage, non-positive
+/// improvement, rank-zero reconstruction, or a singular code Gram provides no
+/// Laplace-valid birth. It is not replaced by a numerical surrogate.
+pub(super) fn block_birth_evidence_margin(
+    block: usize,
+    improvement_rss: f64,
+    candidate_rss: f64,
+    usage: usize,
+    code_gram: &Array2<f64>,
+    decoder: ArrayView2<'_, f32>,
+    n_rows: usize,
+    output_dim: usize,
+    b: usize,
+) -> Result<Option<f64>, String> {
+    if !(improvement_rss.is_finite() && improvement_rss > 0.0)
+        || !(candidate_rss.is_finite() && candidate_rss >= 0.0)
+        || usage == 0
+    {
+        return Ok(None);
+    }
+    if code_gram.dim() != (b, b) || block * b + b > decoder.nrows() {
+        return Err(format!(
+            "block birth certificate shape mismatch: block={block}, b={b}, Gram={:?}, decoder={:?}",
+            code_gram.dim(),
+            decoder.dim(),
+        ));
+    }
+    let frame = decoder
+        .slice(ndarray::s![block * b..block * b + b, ..])
+        .mapv(f64::from);
+    let dispersion = candidate_rss / (n_rows as f64 * output_dim as f64);
+    let d_eff = match crate::manifold::realised_rank_charge_dof(
+        code_gram,
+        &frame,
+        usage as f64,
+        output_dim as f64,
+        dispersion,
+        0.0,
+        None,
+    ) {
+        Ok(value) if value.is_finite() && value > 0.0 => value,
+        Ok(_) => return Ok(None),
+        Err(error) => {
+            log::debug!(
+                "block birth {block} has no positive-definite evidence certificate: {error}"
+            );
+            return Ok(None);
+        }
+    };
+    let deviance_gain = if dispersion == 0.0 {
+        f64::INFINITY
+    } else {
+        0.5 * improvement_rss / dispersion
+    };
+    let charge = 0.5 * d_eff * (n_rows.max(2) as f64).ln();
+    Ok(Some(deviance_gain - charge))
+}
+
+/// Install one birth candidate transactionally. Every live field is passed by
+/// mutable reference so the commit point is explicit; until both the exact RSS
+/// comparison and rank-charge certificate pass, only the decoder frame is
+/// tentatively changed. Every rejection or evaluation error restores that frame
+/// before returning.
+fn try_commit_block_birth(
+    x: ArrayView2<'_, f32>,
+    decoder: &mut Array2<f32>,
+    gamma: &mut f32,
+    codes: &mut Vec<RowBlockCode>,
+    rss: &mut f64,
+    criterion: &mut f64,
+    tss: f64,
+    proposal: &BlockBirthProposal,
+    config: &BlockSparseConfig,
+    k: usize,
+) -> Result<bool, String> {
+    let b = config.block_size;
+    if proposal_is_selected(codes, proposal.block, b) {
+        return Ok(false);
+    }
+    let start = proposal.block * b;
+    let end = start + b;
+    let previous_frame = decoder.slice(ndarray::s![start..end, ..]).to_owned();
+    decoder
+        .slice_mut(ndarray::s![start..end, ..])
+        .assign(&proposal.proposed_frame);
+
+    let candidate = route_and_close_gamma(x, decoder.view(), *gamma, config, k);
+    let (candidate_gamma, candidate_codes) = match candidate {
+        Ok(candidate) => candidate,
+        Err(error) => {
+            decoder
+                .slice_mut(ndarray::s![start..end, ..])
+                .assign(&previous_frame);
+            return Err(error);
+        }
+    };
+    let candidate_rss = reconstruction_rss(x, &candidate_codes, decoder.view(), b);
+    let candidate_criterion = explained_variance_from_rss(candidate_rss, tss);
+    if !candidate_criterion.is_finite() {
+        decoder
+            .slice_mut(ndarray::s![start..end, ..])
+            .assign(&previous_frame);
+        return Err(
+            "fit_block_sparse_dictionary birth proposal produced non-finite explained variance"
+                .to_string(),
+        );
+    }
+    let improvement_rss = *rss - candidate_rss;
+    let (usage, code_gram) = block_code_gram(&candidate_codes, proposal.block, b);
+    let evidence_margin = match block_birth_evidence_margin(
+        proposal.block,
+        improvement_rss,
+        candidate_rss,
+        usage,
+        &code_gram,
+        decoder.view(),
+        x.nrows(),
+        x.ncols(),
+        b,
+    ) {
+        Ok(margin) => margin,
+        Err(error) => {
+            decoder
+                .slice_mut(ndarray::s![start..end, ..])
+                .assign(&previous_frame);
+            return Err(error);
+        }
+    };
+    if proposal_is_selected(&candidate_codes, proposal.block, b)
+        && evidence_margin.is_some_and(|margin| margin > 0.0)
+    {
+        *gamma = candidate_gamma;
+        *codes = candidate_codes;
+        *rss = candidate_rss;
+        *criterion = candidate_criterion;
+        Ok(true)
+    } else {
+        decoder
+            .slice_mut(ndarray::s![start..end, ..])
+            .assign(&previous_frame);
+        Ok(false)
+    }
+}
+
+/// Replay one complete deterministic alternation from `current`. The caller
+/// compares `current` with the returned image and, on convergence, returns
+/// `current`: the model API therefore exposes exactly the state whose full-step
+/// residual was measured.
+fn advance_block_sparse_state(
+    x: ArrayView2<'_, f32>,
+    current: &BlockSparseState,
+    config: &BlockSparseConfig,
+    k: usize,
+) -> Result<BlockSparseStep, String> {
+    let b = config.block_size;
+    let gamma_for_refresh = refresh_gamma(x, &current.codes, current.decoder.view(), b);
+    if !gamma_for_refresh.is_finite() || gamma_for_refresh < 0.0 {
+        return Err(format!(
+            "fit_block_sparse_dictionary gamma refresh produced invalid scale {gamma_for_refresh}"
+        ));
+    }
+    let codes_for_refresh = route_and_code_all(
+        x,
+        current.decoder.view(),
+        gamma_for_refresh,
+        config.n_blocks,
+        b,
+        k,
+        config.minibatch,
+        config.block_tile,
+    )?;
+
+    let mut decoder = current.decoder.clone();
+    let polar_failures = refresh_frames(
+        x,
+        &codes_for_refresh,
+        &mut decoder,
+        config.n_blocks,
+        b,
+        config.frame_ridge,
+    );
+    let proposals = dead_block_birth_proposals(
+        x,
+        &codes_for_refresh,
+        decoder.view(),
+        config.n_blocks,
+        b,
+        config.aux_k,
+    );
+
+    // Close the ordinary gamma/frame alternation before considering births. A
+    // dead block is a quiescent part of this baseline model, not an instruction
+    // to mutate it. Each residual-row frame is then tried as an isolated
+    // transaction: install, reroute the complete corpus, and commit only when
+    // the block receives a nonzero tied code AND the exact training EV strictly
+    // improves. Rejection restores the frame byte-for-byte; gamma, routing, and
+    // criterion were kept in locals and therefore never leave the prior state.
+    let (mut gamma, mut codes) =
+        route_and_close_gamma(x, decoder.view(), gamma_for_refresh, config, k)?;
+    let tss = centered_total_sum_squares(x);
+    let mut rss = reconstruction_rss(x, &codes, decoder.view(), b);
+    let mut criterion = explained_variance_from_rss(rss, tss);
+    if !criterion.is_finite() {
+        return Err("fit_block_sparse_dictionary produced non-finite explained variance".into());
+    }
+    let mut accepted_births = 0usize;
+    for proposal in proposals {
+        if try_commit_block_birth(
+            x,
+            &mut decoder,
+            &mut gamma,
+            &mut codes,
+            &mut rss,
+            &mut criterion,
+            tss,
+            &proposal,
+            config,
+            k,
+        )? {
+            accepted_births += 1;
+        }
+    }
+    let mut next = BlockSparseState {
+        decoder,
+        codes,
+        gamma,
+        explained_variance: criterion,
+    };
+    canonicalize_matryoshka_state(&mut next, config);
+
+    Ok(BlockSparseStep {
+        next,
+        accepted_births,
+        polar_failures,
+    })
+}
+
+fn validate(x: ArrayView2<'_, f32>, config: &BlockSparseConfig) -> Result<(), BlockSparseFitError> {
     if x.nrows() == 0 || x.ncols() == 0 {
-        return Err("fit_block_sparse_dictionary requires a non-empty N×P matrix".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary requires a non-empty N×P matrix",
+        ));
     }
     if !x.iter().all(|v| v.is_finite()) {
-        return Err("fit_block_sparse_dictionary input must be finite".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary input must be finite",
+        ));
     }
     if config.n_blocks == 0 {
-        return Err("fit_block_sparse_dictionary requires n_blocks >= 1".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary requires n_blocks >= 1",
+        ));
     }
     if config.block_size == 0 {
-        return Err("fit_block_sparse_dictionary requires block_size >= 1".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary requires block_size >= 1",
+        ));
     }
     if config.block_size > x.ncols() {
-        return Err(format!(
+        return Err(BlockSparseFitError::invalid_input(format!(
             "fit_block_sparse_dictionary block_size b={} cannot exceed output dim P={} \
              (a block's b orthonormal rows must fit in ℝ^P)",
             config.block_size,
             x.ncols()
-        ));
+        )));
     }
     if config.block_topk == 0 {
-        return Err("fit_block_sparse_dictionary requires block_topk >= 1".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary requires block_topk >= 1",
+        ));
+    }
+    if config.block_topk > config.n_blocks {
+        return Err(BlockSparseFitError::invalid_input(format!(
+            "fit_block_sparse_dictionary block_topk={} exceeds n_blocks={}; the active budget is never clamped",
+            config.block_topk, config.n_blocks
+        )));
     }
     if config.max_epochs == 0 {
-        return Err("fit_block_sparse_dictionary requires max_epochs >= 1".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary requires max_epochs >= 1",
+        ));
     }
     if !(config.frame_ridge.is_finite() && config.frame_ridge >= 0.0) {
-        return Err("fit_block_sparse_dictionary frame_ridge must be finite and >= 0".to_string());
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary frame_ridge must be finite and >= 0",
+        ));
     }
-    if !config.tolerance.is_finite() {
-        return Err("fit_block_sparse_dictionary tolerance must be finite".to_string());
+    if !(config.tolerance.is_finite() && config.tolerance >= 0.0) {
+        return Err(BlockSparseFitError::invalid_input(
+            "fit_block_sparse_dictionary tolerance must be finite and non-negative",
+        ));
     }
     Ok(())
 }
 
 /// Fit a block-sparse dictionary to `x` (`N×P`): `G` blocks of `b` orthonormal
 /// atoms, block-TopK routing by group ℓ₂ gate, tied signed codes with one shared
-/// scalar `γ`, Stiefel-constrained frames refreshed by polar steps, and AuxK
-/// dead-block revival. Never forms a dense `N×K` object.
+/// scalar `γ`, Stiefel-constrained frames refreshed by polar steps, and
+/// evidence-adjudicated AuxK dead-block births. Never forms a dense `N×K` object.
+///
+/// # One-engine position (design gam#2232, Increment 5b)
+///
+/// A block IS a framed Euclidean `d = b` atom of the one engine: decoder
+/// `B_g = C_g·U_gᵀ` with `U_g ∈ Gr(b, P)` (the same profiled-frame
+/// representation the curved engine's `decoder_frame` / `factored_border_dim`
+/// carry), block-TopK = hard top-k support at atom granularity, and the
+/// within-block code `z_g` = the atom's Euclidean latent coordinate. This
+/// alternation — projection code solve on orthonormal frames, polar frame
+/// refresh — is the BLOCK FAST KERNEL of that model (the `d = b` sibling of
+/// [`super::update::run_linear_fast_kernel`]): the code solve is the exact
+/// degenerate arrow-Schur inner solve for read-only gates on linear atoms
+/// (projection, no ridge pair to unify), and the polar step is the Grassmann
+/// retraction of the framed decoder refresh. The single public entry
+/// (`sae_manifold_fit`, `atom_topology="linear"` + uniform `d_atom = b ≥ 2` +
+/// hard top-k) reaches this kernel through
+/// [`crate::front_door::admit_linear_dictionary`] — an explicit
+/// linear-dictionary request is a modeling choice admitted at ANY `K`, not a
+/// shape-derived demotion.
 pub fn fit_block_sparse_dictionary(
     x: ArrayView2<'_, f32>,
     config: &BlockSparseConfig,
-) -> Result<BlockSparseFit, String> {
+) -> Result<BlockSparseFit, BlockSparseFitError> {
     validate(x, config)?;
     let n = x.nrows();
     let g = config.n_blocks;
     let b = config.block_size;
     let k = config.block_topk.min(g).max(1);
 
-    let mut decoder = seed_frames(x, g, b);
-    let mut gamma = 1.0f32;
-
-    let mut codes = route_and_code_all(
+    let decoder = seed_frames(x, g, b);
+    let gamma = 1.0f32;
+    let codes = route_and_code_all(
         x,
         decoder.view(),
         gamma,
@@ -1192,51 +2087,97 @@ pub fn fit_block_sparse_dictionary(
         config.minibatch,
         config.block_tile,
     )?;
+    let seed_ev = explained_variance(x, &codes, decoder.view(), b);
+    let mut state = BlockSparseState {
+        decoder,
+        codes,
+        gamma,
+        explained_variance: seed_ev,
+    };
+    canonicalize_matryoshka_state(&mut state, config);
 
-    let mut prev_ev = f64::NEG_INFINITY;
     let mut converged = false;
     let mut epochs_run = 0usize;
+    let mut ev_residual = f64::INFINITY;
+    let mut gamma_residual = f64::INFINITY;
+    let mut frame_residual = f64::INFINITY;
+    let routing_residual: f64;
+    let reconstruction_residual: f64;
+    let mut accepted_births = 0usize;
+    let mut polar_failures = 0usize;
 
     for epoch in 0..config.max_epochs {
         epochs_run = epoch + 1;
+        let step = advance_block_sparse_state(x, &state, config, k)?;
+        ev_residual = relative_scalar_change(
+            state.explained_variance as f32,
+            step.next.explained_variance as f32,
+        );
+        gamma_residual = relative_scalar_change(state.gamma, step.next.gamma);
+        frame_residual =
+            frame_fixed_point_residual(state.decoder.view(), step.next.decoder.view(), g, b);
+        accepted_births = step.accepted_births;
+        polar_failures = step.polar_failures;
+        state = step.next;
 
-        // (γ) closed-form shared scalar given current frames/routing.
-        gamma = refresh_gamma(x, &codes, decoder.view(), b, gamma);
-
-        // (frames) MOD cross-moment + polar reprojection onto St(b, P).
-        refresh_frames(x, &codes, &mut decoder, gamma, g, b, config.frame_ridge);
-
-        // (revival) AuxK dead-block reseeding from worst-residual rows.
-        let revived = revive_dead_blocks(x, &codes, &mut decoder, gamma, g, b, config.aux_k);
-
-        // (re-encode) fresh routing + codes against the refreshed frames — these
-        // define the post-epoch model, feed the next epoch, and score EV.
-        codes = route_and_code_all(
-            x,
-            decoder.view(),
-            gamma,
-            g,
-            b,
-            k,
-            config.minibatch,
-            config.block_tile,
-        )?;
-
-        let ev = explained_variance(x, &codes, decoder.view(), gamma, b);
-        let improve = ev - prev_ev;
-        // As in the atom lane: do not declare convergence while dead blocks are
-        // still being revived (a plateau mid-population would freeze a still-dead
-        // tail). Once no block is revived, the ordinary EV-plateau test governs.
-        if revived == 0 && improve.abs() <= config.tolerance && epoch > 0 {
+        let fixed_point_residual = ev_residual.max(gamma_residual).max(frame_residual);
+        if accepted_births == 0
+            && polar_failures == 0
+            && fixed_point_residual <= config.tolerance
+            && epoch > 0
+        {
             converged = true;
             break;
         }
-        prev_ev = ev;
     }
+
+    // Certificate replay: ONE more full alternation from the (candidate)
+    // fixed point, recording the gauge-invariant routing / reconstruction
+    // displacements it causes. This is the "fixed-point evidence" the
+    // convergence struct documents — measured by replay, never used as the
+    // per-epoch stop rule (a strict per-epoch routing gate at high `K` churns
+    // near degeneracy and can never clear a 1e-6 tolerance).
+    {
+        let replay = advance_block_sparse_state(x, &state, config, k)?;
+        let (routing, reconstruction) =
+            routing_and_reconstruction_residuals(x, &state, &replay.next, b);
+        routing_residual = routing;
+        reconstruction_residual = reconstruction;
+        if converged && (replay.accepted_births != 0 || replay.polar_failures != 0) {
+            // A replay that still births or fails polar subsolves is not a
+            // certified fixed point — surface it as the evidence values.
+            accepted_births = replay.accepted_births;
+            polar_failures = replay.polar_failures;
+            converged = false;
+        }
+    }
+
+    if !converged {
+        return Err(BlockSparseFitError::NonConvergence {
+            epochs: epochs_run,
+            explained_variance: state.explained_variance,
+            ev_residual,
+            gamma_residual,
+            frame_residual,
+            routing_residual,
+            reconstruction_residual,
+            tolerance: config.tolerance,
+            accepted_births,
+            polar_failures,
+        });
+    }
+
+    let BlockSparseState {
+        mut decoder,
+        mut codes,
+        gamma,
+        explained_variance: _,
+    } = state;
 
     // One final γ refresh against the last routing so the returned scalar is the
     // exact least-squares fit to the returned frames + codes.
-    gamma = refresh_gamma(x, &codes, decoder.view(), b, gamma);
+    let gamma_prev = gamma;
+    let gamma = refresh_gamma(x, &codes, decoder.view(), b);
     if config.matryoshka_prefix {
         let order = matryoshka_block_order(&codes, g, b);
         reorder_decoder_blocks(&mut decoder, &order, b);
@@ -1250,8 +2191,25 @@ pub fn fit_block_sparse_dictionary(
             config.minibatch,
             config.block_tile,
         )?;
+    } else if gamma_prev > 0.0 && gamma != gamma_prev {
+        // The signed code is LINEAR in γ (`z_g = γ·w_g`) and the routing order
+        // is γ-invariant, so rescaling the last encode by `γ_new/γ_old` IS the
+        // exact re-encode under the final γ. Without it the packed codes stay
+        // at the pre-refresh scale while `gates`, `gamma`, and the EV below use
+        // the refreshed one — the artifact would violate its own invariants
+        // (`reconstruct()` disagreeing with `explained_variance`, and
+        // `gate ≠ ‖z_g‖₂`).
+        let rescale = gamma / gamma_prev;
+        for code in codes.iter_mut() {
+            for z in code.codes.iter_mut() {
+                *z *= rescale;
+            }
+            for gate in code.gates.iter_mut() {
+                *gate *= rescale;
+            }
+        }
     }
-    let final_ev = explained_variance(x, &codes, decoder.view(), gamma, b);
+    let final_ev = explained_variance(x, &codes, decoder.view(), b);
     let (block_utilization, block_stable_rank) = block_reports(&codes, g, b, n);
     let prefix_losses = if config.matryoshka_prefix {
         matryoshka_prefix_losses(
@@ -1296,7 +2254,16 @@ pub fn fit_block_sparse_dictionary(
         matryoshka_prefix_losses: prefix_losses,
         explained_variance: final_ev,
         epochs: epochs_run,
-        converged,
+        convergence: BlockSparseConvergence {
+            ev_residual,
+            gamma_residual,
+            frame_residual,
+            routing_residual,
+            reconstruction_residual,
+            accepted_births,
+            polar_failures,
+            tolerance: config.tolerance,
+        },
         block_topk: k,
         block_size: b,
     })

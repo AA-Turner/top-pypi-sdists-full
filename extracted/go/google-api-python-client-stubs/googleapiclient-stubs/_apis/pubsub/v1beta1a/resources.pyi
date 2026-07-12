@@ -16,10 +16,10 @@ class PubsubResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class SubscriptionsResource(googleapiclient.discovery.Resource):
         def acknowledge(
-            self, *, body: AcknowledgeRequest = ..., **kwargs: typing.Any
+            self, *, body: AcknowledgeRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def create(
-            self, *, body: Subscription = ..., **kwargs: typing.Any
+            self, *, body: Subscription, **kwargs: typing.Any
         ) -> SubscriptionHttpRequest: ...
         def delete(
             self, *, subscription: str, **kwargs: typing.Any
@@ -30,9 +30,9 @@ class PubsubResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            maxResults: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListSubscriptionsResponseHttpRequest: ...
         def list_next(
@@ -41,31 +41,29 @@ class PubsubResource(googleapiclient.discovery.Resource):
             previous_response: ListSubscriptionsResponse,
         ) -> ListSubscriptionsResponseHttpRequest | None: ...
         def modifyAckDeadline(
-            self, *, body: ModifyAckDeadlineRequest = ..., **kwargs: typing.Any
+            self, *, body: ModifyAckDeadlineRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def modifyPushConfig(
-            self, *, body: ModifyPushConfigRequest = ..., **kwargs: typing.Any
+            self, *, body: ModifyPushConfigRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def pull(
-            self, *, body: PullRequest = ..., **kwargs: typing.Any
+            self, *, body: PullRequest, **kwargs: typing.Any
         ) -> PullResponseHttpRequest: ...
         def pullBatch(
-            self, *, body: PullBatchRequest = ..., **kwargs: typing.Any
+            self, *, body: PullBatchRequest, **kwargs: typing.Any
         ) -> PullBatchResponseHttpRequest: ...
 
     @typing.type_check_only
     class TopicsResource(googleapiclient.discovery.Resource):
-        def create(
-            self, *, body: Topic = ..., **kwargs: typing.Any
-        ) -> TopicHttpRequest: ...
+        def create(self, *, body: Topic, **kwargs: typing.Any) -> TopicHttpRequest: ...
         def delete(self, *, topic: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, topic: str, **kwargs: typing.Any) -> TopicHttpRequest: ...
         def list(
             self,
             *,
-            maxResults: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListTopicsResponseHttpRequest: ...
         def list_next(
@@ -74,10 +72,10 @@ class PubsubResource(googleapiclient.discovery.Resource):
             previous_response: ListTopicsResponse,
         ) -> ListTopicsResponseHttpRequest | None: ...
         def publish(
-            self, *, body: PublishRequest = ..., **kwargs: typing.Any
+            self, *, body: PublishRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def publishBatch(
-            self, *, body: PublishBatchRequest = ..., **kwargs: typing.Any
+            self, *, body: PublishBatchRequest, **kwargs: typing.Any
         ) -> PublishBatchResponseHttpRequest: ...
 
     def new_batch_http_request(

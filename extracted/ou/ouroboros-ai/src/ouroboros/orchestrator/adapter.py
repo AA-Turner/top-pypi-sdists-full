@@ -18,10 +18,11 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
+import math
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
@@ -168,6 +169,66 @@ def _format_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
     if detail and len(detail) > 80:
         detail = detail[:77] + "..."
     return f"{tool_name}: {detail}" if detail else tool_name
+
+
+_USAGE_TOKEN_KEYS: tuple[str, ...] = (
+    "input_tokens",
+    "output_tokens",
+    "cached_input_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "total_tokens",
+)
+
+
+class _InvalidUsage:
+    """Sentinel type preserving malformed usage across message normalization."""
+
+
+_INVALID_USAGE = _InvalidUsage()
+
+
+def _normalized_usage(obj: object) -> dict[str, int | float] | _InvalidUsage | None:
+    """Extract an all-or-nothing dict of valid token counts from usage.
+
+    Reads only the known token keys (:data:`_USAGE_TOKEN_KEYS`) from either a
+    ``Mapping`` or an attribute-bearing object. If any *present* recognized key
+    is non-numeric, boolean, negative, non-finite, or too large to convert to a
+    finite float, the whole payload is rejected. Silently dropping one malformed
+    component would undercount spend and can manufacture a false frugality PASS.
+    Returns :data:`_INVALID_USAGE` for malformed recognized telemetry and
+    ``None`` for an absent/empty measurement. Keeping those states distinct lets
+    the leaf-level harvester invalidate the whole attempt even when a later
+    message carries valid counters. Never raises.
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, (str, bytes, bool, int, float, list, tuple, set)):
+        return _INVALID_USAGE
+    result: dict[str, int | float] = {}
+    missing = object()
+    for key in _USAGE_TOKEN_KEYS:
+        if isinstance(obj, Mapping):
+            if key not in obj:
+                continue
+            value = obj[key]
+        else:
+            try:
+                value = getattr(obj, key, missing)
+            except Exception:
+                return _INVALID_USAGE
+            if value is missing:
+                continue
+        if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+            return _INVALID_USAGE
+        try:
+            normalized = float(value)
+        except (OverflowError, TypeError, ValueError):
+            return _INVALID_USAGE
+        if not math.isfinite(normalized) or normalized < 0:
+            return _INVALID_USAGE
+        result[key] = value
+    return result or None
 
 
 def _optional_str(value: object) -> str | None:
@@ -875,6 +936,15 @@ class RuntimeCapabilities:
     # enforced — keeping the proof's enforced rows truthful. ``None`` means "no
     # per-level restriction" (any level is enforced when support is NATIVE).
     enforceable_reasoning_efforts: frozenset[str] | None = None
+    # The per-call model-tier lever for frugality routing (RFC #1405 sibling): how
+    # the runtime honors a ``model`` override handed to ``execute_task`` for a
+    # single call. Like ``reasoning_effort_support`` it defaults to IGNORED — most
+    # runtimes pin one model at construction and cannot re-target per call. A
+    # runtime opts in to NATIVE only when it can verifiably route a per-call model
+    # id to its backend (Claude SDK ``model`` option, claude-worker/codex
+    # ``--model`` argv). This lets the orchestrator route a cheaper model to a
+    # decomposed child and escalate on retry only where the choice is enforced.
+    model_override_support: ParamSupport = ParamSupport.IGNORED
     # How the orchestrator may fan work out to sub-agents on this backend (see
     # :class:`SubagentOrchestration`). Defaults to NONE so a backend opts in to
     # INTERNAL/EXTERNAL only when its surface demonstrably supports it — this is
@@ -1093,13 +1163,14 @@ class ClaudeAgentAdapter:
     @property
     def capabilities(self) -> RuntimeCapabilities:
         # The Claude runtime drives the Claude Agent SDK, which honors the
-        # per-call ``effort`` option natively (see execute_task), so it opts in
-        # to NATIVE reasoning-effort support. Other capabilities match the
-        # first-class default.
+        # per-call ``effort`` and ``model`` options natively (see execute_task),
+        # so it opts in to NATIVE reasoning-effort AND model-override support.
+        # Other capabilities match the first-class default.
         return replace(
             FULL_CAPABILITIES,
             reasoning_effort_support=ParamSupport.NATIVE,
             enforceable_reasoning_efforts=CLAUDE_REASONING_EFFORT_LEVELS,
+            model_override_support=ParamSupport.NATIVE,
         )
 
     def _is_transient_error(self, error: Exception) -> bool:
@@ -1375,6 +1446,7 @@ class ClaudeAgentAdapter:
         resume_handle: RuntimeHandle | None = None,
         resume_session_id: str | None = None,
         reasoning_effort: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Execute a task and yield progress messages.
 
@@ -1387,6 +1459,9 @@ class ClaudeAgentAdapter:
             system_prompt: Optional custom system prompt.
             resume_handle: Backend-neutral handle to resume from.
             resume_session_id: Legacy Claude session ID to resume from.
+            model: Per-call model override from model-tier routing. When set it
+                WINS over the constructor pin (``self._model``); when ``None``
+                (the default) behavior is byte-identical to before.
 
         Yields:
             AgentMessage for each SDK message (assistant reasoning, tool calls, results).
@@ -1474,8 +1549,14 @@ class ClaudeAgentAdapter:
                     ]
                 }
 
-                if self._model:
-                    options_kwargs["model"] = self._model
+                # Per-call model-tier override (RFC #1405 sibling) wins over the
+                # constructor pin; ``model is None`` falls back to ``self._model``
+                # so existing call sites are byte-identical. The Claude Agent SDK
+                # honors ``model`` natively per call, which is what makes
+                # ``model_override_support = NATIVE`` truthful for this runtime.
+                effective_model = model or self._model
+                if effective_model:
+                    options_kwargs["model"] = effective_model
 
                 if reasoning_effort:
                     # Effort-first investment dial (RFC #1405). The Claude Agent
@@ -1650,6 +1731,12 @@ class ClaudeAgentAdapter:
                     tool_input = getattr(block, "input", {}) or {}
                     data["tool_input"] = tool_input
                     data["tool_detail"] = _format_tool_detail(tool_name, tool_input)
+                    tool_call_id = getattr(block, "id", None) or getattr(block, "tool_use_id", None)
+                    if isinstance(tool_call_id, str) and tool_call_id.strip():
+                        # Preserve the SDK correlation id so later evidence
+                        # validation can pair a mutation request with its actual
+                        # (possibly failed) ToolResultBlock.
+                        data["tool_call_id"] = tool_call_id.strip()
 
                 elif block_type == "ThinkingBlock":
                     thinking = getattr(block, "thinking", "") or getattr(block, "text", "")
@@ -1668,6 +1755,23 @@ class ClaudeAgentAdapter:
             data["subtype"] = getattr(sdk_message, "subtype", "success")
             data["is_error"] = getattr(sdk_message, "is_error", False)
             data["session_id"] = getattr(sdk_message, "session_id", None)
+            # Surface token usage so a later executor can attribute per-AC spend.
+            # The SDK ResultMessage carries ``usage`` (a dict) and
+            # ``total_cost_usd``; normalize defensively and omit anything
+            # malformed (the deterministic proof treats such as missing).
+            usage = _normalized_usage(getattr(sdk_message, "usage", None))
+            if usage is _INVALID_USAGE:
+                data["usage_invalid"] = True
+            elif usage is not None:
+                data["usage"] = usage
+            total_cost_usd = getattr(sdk_message, "total_cost_usd", None)
+            if (
+                total_cost_usd is not None
+                and not isinstance(total_cost_usd, bool)
+                and isinstance(total_cost_usd, (int, float))
+                and math.isfinite(total_cost_usd)
+            ):
+                data["total_cost_usd"] = total_cost_usd
             log.info(
                 "orchestrator.adapter.result_message",
                 result_content=content[:200] if content else "empty",
@@ -1689,12 +1793,43 @@ class ClaudeAgentAdapter:
 
         elif class_name == "UserMessage":
             msg_type = "user"
-            # Tool result message
+            # Tool result message. Claude's SDK reports ToolResultBlock on a
+            # UserMessage and, historically, this adapter kept only its prose.
+            # Preserve the call id + structured error bit so failed Edit/Write
+            # calls can never become accepted mutation evidence.
             content_blocks = getattr(sdk_message, "content", [])
             for block in content_blocks:
                 if hasattr(block, "content"):
                     content = str(block.content)[:500]
-                    break
+                block_type = type(block).__name__
+                tool_call_id = getattr(block, "tool_use_id", None) or getattr(block, "id", None)
+                is_tool_result = block_type == "ToolResultBlock" or isinstance(tool_call_id, str)
+                if not is_tool_result:
+                    continue
+                msg_type = "tool_result"
+                data["subtype"] = "tool_result"
+                if isinstance(tool_call_id, str) and tool_call_id.strip():
+                    data["tool_call_id"] = tool_call_id.strip()
+                result_tool_name = getattr(block, "tool_name", None) or getattr(block, "name", None)
+                if isinstance(result_tool_name, str) and result_tool_name.strip():
+                    tool_name = result_tool_name.strip()
+                raw_is_error = getattr(block, "is_error", None)
+                if isinstance(raw_is_error, bool):
+                    data["is_error"] = raw_is_error
+                if isinstance(raw_is_error, bool):
+                    data["tool_result"] = {
+                        "content": [],
+                        "text_content": content,
+                        "is_error": raw_is_error,
+                        "meta": {
+                            **(
+                                {"tool_call_id": tool_call_id.strip()}
+                                if isinstance(tool_call_id, str) and tool_call_id.strip()
+                                else {}
+                            )
+                        },
+                    }
+                break
 
         else:
             # Unknown message type

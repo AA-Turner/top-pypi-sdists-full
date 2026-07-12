@@ -55,9 +55,9 @@ use std::sync::Arc;
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
-use gam_problem::RowMetric;
-use gam_linalg::faer_ndarray::{FaerCholesky, FaerEigh};
 use faer::Side;
+use gam_linalg::faer_ndarray::{FaerCholesky, FaerEigh};
+use gam_problem::RowMetric;
 
 /// Number of (scale | factor) ↔ (factor | scale) alternation sweeps. Fixed and
 /// deterministic: the alternation is a smooth descent on the structured-Gaussian
@@ -351,10 +351,8 @@ impl StructuredResidualModel {
                 for &b in row_bin.iter() {
                     bin_count[b] += 1.0;
                 }
-                let mean_scale = (0..bins)
-                    .map(|b| bin_count[b] * bin_scale[b])
-                    .sum::<f64>()
-                    / n as f64;
+                let mean_scale =
+                    (0..bins).map(|b| bin_count[b] * bin_scale[b]).sum::<f64>() / n as f64;
                 if mean_scale > 0.0 {
                     bin_scale.mapv_inplace(|v| v / mean_scale);
                 }
@@ -574,16 +572,63 @@ impl StructuredResidualModel {
                 }
             }
         }
-        // Row-major flat factor matrix: u[n, i*p + k] = U_n[i, k].
+        // Row-major flat factor matrix: u[n, i*p + k] = U_n[i, k]. Each row's
+        // Woodbury assemble + p×p Cholesky is independent of every other row's
+        // (no cross-row reduction), so the stack parallelizes over rows with
+        // BIT-IDENTICAL output — every row runs the exact serial arithmetic and
+        // writes only its own p² chunk. This was the dominant serial wall of the
+        // #974 metric install (n_rows × O(p³) on one core while the inner fit
+        // parallelizes cleanly). Same engagement discipline as
+        // `scaled_second_moment`: only above a row threshold (serial avoids
+        // rayon overhead on small stacks) and only when not already inside a
+        // rayon worker (nested calls keep the outer region's cores). Error
+        // selection stays deterministic: the indexed collect preserves row
+        // order, and the first `Some` scanned in that order is the same
+        // lowest-row error the serial loop returned.
         let mut u = Array2::<f64>::zeros((n_rows, p * p));
-        for row in 0..n_rows {
-            let precision = self.row_precision(&d_inv, &b, &bt, &m0, row)?;
-            let factor = lower_cholesky_psd(&precision)?;
-            for i in 0..p {
-                for k in 0..p {
-                    u[[row, i * p + k]] = factor[[i, k]];
+        let first_error = {
+            use rayon::prelude::*;
+            const PARALLEL_ROW_MIN: usize = 64;
+            let build_row = |row: usize, urow: &mut [f64]| -> Option<String> {
+                let precision = match self.row_precision(&d_inv, &b, &bt, &m0, row) {
+                    Ok(m) => m,
+                    Err(err) => return Some(err),
+                };
+                let factor = match lower_cholesky_psd(&precision) {
+                    Ok(f) => f,
+                    Err(err) => return Some(err),
+                };
+                for i in 0..p {
+                    for k in 0..p {
+                        urow[i * p + k] = factor[[i, k]];
+                    }
                 }
+                None
+            };
+            let u_flat = u.as_slice_mut().ok_or_else(|| {
+                "StructuredResidualModel::row_metric: factor stack must be standard-layout"
+                    .to_string()
+            })?;
+            if p > 0 && n_rows >= PARALLEL_ROW_MIN && rayon::current_thread_index().is_none() {
+                u_flat
+                    .par_chunks_mut(p * p)
+                    .enumerate()
+                    .map(|(row, urow)| build_row(row, urow))
+                    .collect::<Vec<Option<String>>>()
+                    .into_iter()
+                    .flatten()
+                    .next()
+            } else if p > 0 {
+                u_flat
+                    .chunks_mut(p * p)
+                    .enumerate()
+                    .find_map(|(row, urow)| build_row(row, urow))
+            } else {
+                None
             }
+        };
+        if let Some(err) = first_error {
+            return Err(err);
         }
         RowMetric::whitened_structured(Arc::new(u), p, p)
     }
@@ -599,6 +644,28 @@ impl StructuredResidualModel {
         Self::fit(input)?.row_metric(n)
     }
 
+    /// The model's isotropic (iid-MLE) dispersion: the per-coordinate average of
+    /// its own fitted total residual variance,
+    /// ```text
+    ///   φ̂ = (1/p) · mean_row tr(Σ̂(row)) = mean(c)·‖Λ‖²_F / p + mean(d).
+    /// ```
+    /// This is the honest single-scalar summary of the SAME second moment the
+    /// structured model fits — the scale an iid Gaussian residual model would
+    /// estimate from these residuals. Used as the first-pass damping anchor in
+    /// [`Self::row_metric_damped`] (#2243 cap #2): anchoring at `φ̂·I` instead of
+    /// the unit `I_p` means near-noiseless data is whitened by its MEASURED
+    /// noise, so the downstream unit-dispersion REML criterion prices the
+    /// smoothing penalty against the real dispersion rather than an assumed
+    /// unit one. Floored at `f64::MIN_POSITIVE` so the blend stays SPD.
+    pub fn isotropic_dispersion(&self) -> f64 {
+        let p = self.p.max(1) as f64;
+        let n = self.row_scale.len().max(1) as f64;
+        let mean_c = self.row_scale.iter().copied().sum::<f64>() / n;
+        let lambda_energy: f64 = self.lambda.iter().map(|v| v * v).sum();
+        let mean_d = self.diagonal.iter().copied().sum::<f64>() / p;
+        (mean_c * lambda_energy / p + mean_d).max(f64::MIN_POSITIVE)
+    }
+
     /// Damped per-row metric for the #2021 driver: blend covariances in the
     /// **covariance domain** (before the Woodbury→Cholesky) between this model's
     /// estimate and a previous one,
@@ -607,14 +674,18 @@ impl StructuredResidualModel {
     /// ```
     /// where `Σ̂_t(row) = c_t(z)·ΛΛᵀ + D` is this model's per-row covariance
     /// (built from the hoisted-M0 / occupancy-weighted `c(z)` path), and
-    /// `Σ_prev(row)` is `prev`'s per-row covariance when `Some`, else `I_p`. The
-    /// returned factor `U_n` satisfies `U_n U_nᵀ = Σ_t(row)^{-1}`, packaged as a
-    /// [`RowMetric`](gam_problem::RowMetric).
+    /// `Σ_prev(row)` is `prev`'s per-row covariance when `Some`, else the
+    /// MEASURED iid anchor `φ̂·I_p` ([`Self::isotropic_dispersion`], #2243 cap
+    /// #2: a unit `I_p` anchor silently assumed unit noise, which on
+    /// near-noiseless data pinned the whitened likelihood — and therefore the
+    /// REML smoothing balance — at a noise scale ~1/φ̂ too coarse, i.e. the
+    /// clean-data over-penalization).
     ///
-    /// Endpoints (exact, byte-identical to the undamped producers):
-    /// * `γ = 1.0` ⇒ this model's [`Self::row_metric`] exactly (Woodbury path);
-    /// * `γ = 0.0` ⇒ `prev`'s [`Self::row_metric`] when `Some`, else the
-    ///   Euclidean identity metric.
+    /// Endpoints (exact):
+    /// * `γ = 1.0` ⇒ this model's [`Self::row_metric`] exactly (Woodbury path,
+    ///   byte-identical);
+    /// * `γ = 0.0` ⇒ `prev`'s [`Self::row_metric`] when `Some` (byte-identical),
+    ///   else the measured-scale identity `(φ̂·I)^{-1}` factors.
     ///
     /// `γ` must be finite and in `[0, 1]`; when `prev` is `Some` it must share
     /// this model's `p` and row count.
@@ -655,13 +726,18 @@ impl StructuredResidualModel {
             return self.row_metric(n_rows);
         }
         if gamma == 0.0 {
-            return match prev {
-                Some(pv) => pv.row_metric(n_rows),
-                None => RowMetric::euclidean(n_rows, self.p),
-            };
+            if let Some(pv) = prev {
+                return pv.row_metric(n_rows);
+            }
+            // prev = None falls through to the general path: the blend is then
+            // exactly the measured-scale identity `φ̂·I` (#2243 cap #2), not the
+            // unit Euclidean identity.
         }
 
         let p = self.p;
+        // #2243 cap #2 — the first-pass (prev = None) damping anchor is the
+        // model's own measured isotropic dispersion, hoisted out of the row loop.
+        let iid_anchor = self.isotropic_dispersion();
         // Row-INDEPENDENT outer products ΛΛᵀ (this model and, if present, prev):
         // only the per-row activity scale c(z) multiplies them, so hoist the Gram
         // out of the per-row loop (mirroring the row_metric / penalized_log_evidence
@@ -669,56 +745,122 @@ impl StructuredResidualModel {
         let self_gram = outer_product(&self.lambda);
         let prev_gram = prev.map(|pv| outer_product(&pv.lambda));
 
+        // Per-row blend + invert + Cholesky, parallelized over rows exactly as
+        // in [`Self::row_metric`]: rows are independent (each writes only its
+        // own p² chunk of `u`, no cross-row reduction), so the parallel stack is
+        // bit-identical to the serial one, with the same engagement discipline
+        // (row threshold, never nested inside a rayon worker) and the same
+        // deterministic lowest-row error selection.
         let mut u = Array2::<f64>::zeros((n_rows, p * p));
-        for row in 0..n_rows {
-            let c = self.row_scale[row].max(f64::MIN_POSITIVE);
-            // γ · Σ̂_t = γ·(c·ΛΛᵀ + D).
-            let mut sigma = Array2::<f64>::zeros((p, p));
-            for a in 0..p {
-                for b in 0..p {
-                    sigma[[a, b]] = gamma * c * self_gram[[a, b]];
-                }
-                sigma[[a, a]] += gamma * self.diagonal[a];
+        let first_error = {
+            use rayon::prelude::*;
+            const PARALLEL_ROW_MIN: usize = 64;
+            let build_row = |row: usize, urow: &mut [f64]| -> Option<String> {
+                self.damped_row_factor(
+                    row,
+                    gamma,
+                    prev,
+                    iid_anchor,
+                    &self_gram,
+                    prev_gram.as_ref(),
+                    urow,
+                )
+                .err()
+            };
+            let u_flat = u
+                .as_slice_mut()
+                .ok_or_else(|| "StructuredResidualModel::row_metric_damped: factor stack must be standard-layout".to_string())?;
+            if p > 0 && n_rows >= PARALLEL_ROW_MIN && rayon::current_thread_index().is_none() {
+                u_flat
+                    .par_chunks_mut(p * p)
+                    .enumerate()
+                    .map(|(row, urow)| build_row(row, urow))
+                    .collect::<Vec<Option<String>>>()
+                    .into_iter()
+                    .flatten()
+                    .next()
+            } else if p > 0 {
+                u_flat
+                    .chunks_mut(p * p)
+                    .enumerate()
+                    .find_map(|(row, urow)| build_row(row, urow))
+            } else {
+                None
             }
-            // (1−γ) · Σ_prev  (prev's per-row Σ, or I_p when prev is None).
-            match prev {
-                Some(pv) => {
-                    let cp = pv.row_scale[row].max(f64::MIN_POSITIVE);
-                    let pg = prev_gram.as_ref().unwrap();
-                    for a in 0..p {
-                        for b in 0..p {
-                            sigma[[a, b]] += (1.0 - gamma) * cp * pg[[a, b]];
-                        }
-                        sigma[[a, a]] += (1.0 - gamma) * pv.diagonal[a];
+        };
+        if let Some(err) = first_error {
+            return Err(err);
+        }
+        RowMetric::whitened_structured(Arc::new(u), p, p)
+    }
+
+    /// One row of the damped-metric stack: assemble the convex-blend covariance
+    /// `Σ_t(row) = γ·(c·ΛΛᵀ + D) + (1−γ)·Σ_prev(row)`, symmetrize, invert, and
+    /// write the lower-Cholesky precision factor into `urow` (row-major `p×p`).
+    /// Factored out of [`Self::row_metric_damped`] so the serial and parallel
+    /// row drivers share one arithmetic body. `iid_anchor` is the measured
+    /// isotropic dispersion `φ̂` used as `Σ_prev = φ̂·I` when `prev` is `None`
+    /// (#2243 cap #2).
+    fn damped_row_factor(
+        &self,
+        row: usize,
+        gamma: f64,
+        prev: Option<&StructuredResidualModel>,
+        iid_anchor: f64,
+        self_gram: &Array2<f64>,
+        prev_gram: Option<&Array2<f64>>,
+        urow: &mut [f64],
+    ) -> Result<(), String> {
+        let p = self.p;
+        let c = self.row_scale[row].max(f64::MIN_POSITIVE);
+        // γ · Σ̂_t = γ·(c·ΛΛᵀ + D).
+        let mut sigma = Array2::<f64>::zeros((p, p));
+        for a in 0..p {
+            for b in 0..p {
+                sigma[[a, b]] = gamma * c * self_gram[[a, b]];
+            }
+            sigma[[a, a]] += gamma * self.diagonal[a];
+        }
+        // (1−γ) · Σ_prev  (prev's per-row Σ, or I_p when prev is None).
+        match prev {
+            Some(pv) => {
+                let cp = pv.row_scale[row].max(f64::MIN_POSITIVE);
+                let pg = prev_gram.as_ref().unwrap();
+                for a in 0..p {
+                    for b in 0..p {
+                        sigma[[a, b]] += (1.0 - gamma) * cp * pg[[a, b]];
                     }
-                }
-                None => {
-                    for a in 0..p {
-                        sigma[[a, a]] += 1.0 - gamma;
-                    }
+                    sigma[[a, a]] += (1.0 - gamma) * pv.diagonal[a];
                 }
             }
-            // Symmetrize against round-off before inversion.
-            for a in 0..p {
-                for b in (a + 1)..p {
-                    let avg = 0.5 * (sigma[[a, b]] + sigma[[b, a]]);
-                    sigma[[a, b]] = avg;
-                    sigma[[b, a]] = avg;
-                }
-            }
-            // Σ_t is a convex combination of SPD matrices (D ≻ 0 / I ≻ 0) ⇒ SPD.
-            // Precision = Σ_t^{-1} via a Cholesky solve against I_p, then the U_n
-            // factor is the lower-Cholesky of the precision (row_metric's U
-            // convention).
-            let precision = invert_spd(&sigma)?;
-            let factor = lower_cholesky_psd(&precision)?;
-            for i in 0..p {
-                for k in 0..p {
-                    u[[row, i * p + k]] = factor[[i, k]];
+            None => {
+                // First-pass anchor: the MEASURED iid dispersion φ̂·I, not the
+                // unit identity (#2243 cap #2 — clean-data over-penalization).
+                for a in 0..p {
+                    sigma[[a, a]] += (1.0 - gamma) * iid_anchor;
                 }
             }
         }
-        RowMetric::whitened_structured(Arc::new(u), p, p)
+        // Symmetrize against round-off before inversion.
+        for a in 0..p {
+            for b in (a + 1)..p {
+                let avg = 0.5 * (sigma[[a, b]] + sigma[[b, a]]);
+                sigma[[a, b]] = avg;
+                sigma[[b, a]] = avg;
+            }
+        }
+        // Σ_t is a convex combination of SPD matrices (D ≻ 0 / I ≻ 0) ⇒ SPD.
+        // Precision = Σ_t^{-1} via a Cholesky solve against I_p, then the U_n
+        // factor is the lower-Cholesky of the precision (row_metric's U
+        // convention).
+        let precision = invert_spd(&sigma)?;
+        let factor = lower_cholesky_psd(&precision)?;
+        for i in 0..p {
+            for k in 0..p {
+                urow[i * p + k] = factor[[i, k]];
+            }
+        }
+        Ok(())
     }
 
     /// Per-row precision `Σ_n^{-1}` via the Woodbury identity (an `r × r` solve),
@@ -1682,26 +1824,28 @@ mod tests {
             bin_cnt[row_bin[i]] += 1.0;
         }
         let bin_raw: Vec<f64> = (0..bins)
-            .map(|b| if bin_cnt[b] > 0.0 { bin_sum[b] / bin_cnt[b] } else { 1.0 })
+            .map(|b| {
+                if bin_cnt[b] > 0.0 {
+                    bin_sum[b] / bin_cnt[b]
+                } else {
+                    1.0
+                }
+            })
             .collect();
 
         // Occupancy-weighted mean-1 (Fix A) vs bin-uniform mean-1 (old).
         let mean_occ = (0..bins).map(|b| bin_cnt[b] * bin_raw[b]).sum::<f64>() / n as f64;
         let occupied: Vec<usize> = (0..bins).filter(|&b| bin_cnt[b] > 0.0).collect();
-        let mean_uni =
-            occupied.iter().map(|&b| bin_raw[b]).sum::<f64>() / occupied.len() as f64;
-        let row_scale_occ: Array1<f64> =
-            (0..n).map(|i| bin_raw[row_bin[i]] / mean_occ).collect();
-        let row_scale_uni: Array1<f64> =
-            (0..n).map(|i| bin_raw[row_bin[i]] / mean_uni).collect();
+        let mean_uni = occupied.iter().map(|&b| bin_raw[b]).sum::<f64>() / occupied.len() as f64;
+        let row_scale_occ: Array1<f64> = (0..n).map(|i| bin_raw[row_bin[i]] / mean_occ).collect();
+        let row_scale_uni: Array1<f64> = (0..n).map(|i| bin_raw[row_bin[i]] / mean_uni).collect();
 
         // One (Λ, D | scale) extraction from the deflated moment, mirroring the
         // production first sweep, returning the reconstruction ΛΛᵀ + D.
         let extract_recon = |row_scale: &Array1<f64>| -> Array2<f64> {
             let s = scaled_second_moment(residuals.view(), row_scale);
             let (evals, evecs) = symmetric_eig_ascending(&s).expect("eig");
-            let mean_diag =
-                raw_diag.iter().map(|&v| v.max(diag_floor)).sum::<f64>() / p as f64;
+            let mean_diag = raw_diag.iter().map(|&v| v.max(diag_floor)).sum::<f64>() / p as f64;
             let col = p - 1;
             let amp = (evals[col] - mean_diag).max(0.0).sqrt();
             let mut lam = Array1::<f64>::zeros(p);
@@ -1780,7 +1924,10 @@ mod tests {
         let lambda0 = ndarray::array![1.5, 1.2, -0.4, 0.3];
         let (n, model) = fit_small_model(0x14057B7EF767814F_u64, &lambda0);
         let p = 4usize;
-        assert!(model.factor_rank() >= 1, "need a factor for a non-trivial Σ_n");
+        assert!(
+            model.factor_rank() >= 1,
+            "need a factor for a non-trivial Σ_n"
+        );
 
         let metric = model.row_metric(n).expect("row_metric");
         assert!(
@@ -1846,7 +1993,9 @@ mod tests {
         // γ = 1 ⇒ byte-identical to this model's row_metric, regardless of prev.
         let base = model.row_metric(n).expect("row_metric");
         for prev_opt in [None, Some(&prev)] {
-            let damped = model.row_metric_damped(n, 1.0, prev_opt).expect("damped γ=1");
+            let damped = model
+                .row_metric_damped(n, 1.0, prev_opt)
+                .expect("damped γ=1");
             for row in [0usize, n / 2, n - 1] {
                 for i in 0..p {
                     for k in 0..p {
@@ -1860,20 +2009,30 @@ mod tests {
             }
         }
 
-        // γ = 0, prev = None ⇒ Euclidean identity: quad_form = ‖v‖².
-        let ident = model.row_metric_damped(n, 0.0, None).expect("damped γ=0 None");
+        // γ = 0, prev = None ⇒ the MEASURED-scale identity (#2243 cap #2):
+        // Σ = φ̂·I with φ̂ the model's own isotropic dispersion, so
+        // quad_form = ‖v‖² / φ̂ (a unit-I anchor would silently assume unit
+        // noise and over-penalize clean data).
+        let ident = model
+            .row_metric_damped(n, 0.0, None)
+            .expect("damped γ=0 None");
+        let phi = model.isotropic_dispersion();
+        assert!(phi.is_finite() && phi > 0.0, "φ̂ must be positive");
         let sumsq: f64 = v.iter().map(|x| x * x).sum();
+        let expected = sumsq / phi;
         for row in [0usize, n / 2, n - 1] {
             let q = ident.quad_form(row, v.view());
             assert!(
-                (q - sumsq).abs() <= 1e-12 * (1.0 + sumsq),
-                "γ=0/None must be the identity metric: quad_form {q} vs ‖v‖² {sumsq}"
+                (q - expected).abs() <= 1e-9 * (1.0 + expected),
+                "γ=0/None must be the measured-scale identity: quad_form {q} vs ‖v‖²/φ̂ {expected}"
             );
         }
 
         // γ = 0, prev = Some ⇒ byte-identical to prev.row_metric.
         let prev_metric = prev.row_metric(n).expect("prev row_metric");
-        let damped0 = model.row_metric_damped(n, 0.0, Some(&prev)).expect("damped γ=0 Some");
+        let damped0 = model
+            .row_metric_damped(n, 0.0, Some(&prev))
+            .expect("damped γ=0 Some");
         for row in [0usize, n / 2, n - 1] {
             for i in 0..p {
                 for k in 0..p {
@@ -1887,10 +2046,15 @@ mod tests {
         }
 
         // 0 < γ < 1 ⇒ valid SPD metric.
-        let mid = model.row_metric_damped(n, 0.5, Some(&prev)).expect("damped γ=0.5");
+        let mid = model
+            .row_metric_damped(n, 0.5, Some(&prev))
+            .expect("damped γ=0.5");
         for row in [0usize, n / 2, n - 1] {
             let q = mid.quad_form(row, v.view());
-            assert!(q.is_finite() && q > 0.0, "γ=0.5 metric must be SPD; got {q}");
+            assert!(
+                q.is_finite() && q > 0.0,
+                "γ=0.5 metric must be SPD; got {q}"
+            );
         }
 
         // Invalid γ rejected.
@@ -1971,6 +2135,9 @@ mod tests {
         assert!(cur.promotion_candidates(Some(&prev), 1.5, 1.0).is_err());
         assert!(cur.promotion_candidates(Some(&prev), -0.1, 1.0).is_err());
         assert!(cur.promotion_candidates(Some(&prev), 0.9, -1.0).is_err());
-        assert!(cur.promotion_candidates(Some(&prev), f64::NAN, 1.0).is_err());
+        assert!(
+            cur.promotion_candidates(Some(&prev), f64::NAN, 1.0)
+                .is_err()
+        );
     }
 }

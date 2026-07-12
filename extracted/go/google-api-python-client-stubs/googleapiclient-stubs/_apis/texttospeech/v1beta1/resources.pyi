@@ -26,10 +26,10 @@ class TexttospeechResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -42,7 +42,7 @@ class TexttospeechResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: SynthesizeLongAudioRequest = ...,
+                body: SynthesizeLongAudioRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def operations(self) -> OperationsResource: ...
@@ -52,13 +52,13 @@ class TexttospeechResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class TextResource(googleapiclient.discovery.Resource):
         def synthesize(
-            self, *, body: SynthesizeSpeechRequest = ..., **kwargs: typing.Any
+            self, *, body: SynthesizeSpeechRequest, **kwargs: typing.Any
         ) -> SynthesizeSpeechResponseHttpRequest: ...
 
     @typing.type_check_only
     class VoicesResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, languageCode: str = ..., **kwargs: typing.Any
+            self, *, languageCode: str | None = ..., **kwargs: typing.Any
         ) -> ListVoicesResponseHttpRequest: ...
 
     def new_batch_http_request(

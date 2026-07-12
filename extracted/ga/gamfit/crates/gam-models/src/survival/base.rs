@@ -1,17 +1,19 @@
-use gam_linalg::faer_ndarray::{fast_atv, fast_av, fast_xt_diag_x, fast_xt_diag_y};
 use crate::custom_family::{
     BlockWorkingSet, CustomFamily, FamilyEvaluation, ParameterBlockState,
     projected_linear_constraint_stationarity_vector,
 };
-use gam_linalg::matrix::SymmetricMatrix;
 use crate::model_types::EstimationError;
+use gam_linalg::faer_ndarray::{fast_atv, fast_av, fast_xt_diag_x, fast_xt_diag_y};
+use gam_linalg::matrix::SymmetricMatrix;
+use gam_problem::{Coefficients, LinearPredictor};
 use gam_solve::pirls::{
     LinearInequalityConstraints, WorkingModel as PirlsWorkingModel, WorkingState, array1_l2_norm,
 };
-use gam_problem::{Coefficients, LinearPredictor};
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayView3, Axis};
+use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, constants, escalate_ridge};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::convert::Infallible;
 use std::ops::Range;
 use std::sync::LazyLock;
 use thiserror::Error;
@@ -448,10 +450,7 @@ impl CustomFamily for CauseSpecificRoystonParmarFamily {
         Some((0..specs.len()).collect())
     }
 
-    fn coefficient_hessian_cost(
-        &self,
-        specs: &[crate::custom_family::ParameterBlockSpec],
-    ) -> u64 {
+    fn coefficient_hessian_cost(&self, specs: &[crate::custom_family::ParameterBlockSpec]) -> u64 {
         crate::custom_family::default_coefficient_hessian_cost(specs)
     }
 
@@ -607,6 +606,17 @@ impl CustomFamily for CauseSpecificRoystonParmarFamily {
     }
 }
 
+/// The LIVE third-order tower `∂_dir H` for the cause-specific NLL: the
+/// per-predictor directional weights (`w_exit`, `w_entry`, `w_derivative`)
+/// scattered through the exit / entry / derivative designs.
+///
+/// #932 documented performance exception: this diagonal-in-(η1,η0,s) closed form
+/// (and its fourth-order sibling `cause_specific_hessian_second_directional_derivative`)
+/// STAYS in the production Newton path; it is not cut over to the generic gam-math
+/// `Tower4` jet, which would materialise a full per-row dense 4th-order tensor on
+/// this inner-solve path. It is instead pinned as a non-ignored jet oracle at
+/// ≤1e-9, with an independent central-difference witness, in
+/// `tests::jet_cause_specific_production_parity::cause_specific_live_tower_matches_jet_and_fd`.
 fn cause_specific_hessian_directional_derivative(
     block: &CauseSpecificRoystonParmarBlock,
     beta: &Array1<f64>,
@@ -1218,16 +1228,30 @@ impl WorkingModelSurvival {
         }
     }
 
-    fn stabilized_structural_derivative(&self, deriv: f64) -> Option<f64> {
+    /// Clamped structural derivative: `max(deriv, floor)` for derivatives
+    /// above the roundoff tolerance, `None` outside structural monotonicity
+    /// or for genuinely negative derivatives.
+    ///
+    /// Returns `(value, slope)` where `slope` is the exact derivative of the
+    /// clamp itself: 1 on the identity branch, 0 on the floored branch.
+    /// Every consumer that differentiates through the structural derivative
+    /// MUST scale its derivative-channel terms by `slope` — the floored
+    /// branch is locally constant in β, so gradients and Hessians of
+    /// `ln(value)` and `1/value` are exactly zero there. Emitting the
+    /// reciprocal-scale terms of the UNclamped expression (≈1e12 gradient,
+    /// ≈1e24 curvature at deriv = 5e-13) against a value branch that is flat
+    /// desynchronizes the objective from its derivatives.
+    fn stabilized_structural_derivative(&self, deriv: f64) -> Option<(f64, f64)> {
         const STRUCTURAL_MONO_ROUNDOFF_TOL: f64 = 1e-7;
+        const STRUCTURAL_DERIV_FLOOR: f64 = 1e-12;
         if !self.structurally_monotonic {
             return None;
         }
-        if deriv >= 1e-12 {
-            return Some(deriv);
+        if deriv >= STRUCTURAL_DERIV_FLOOR {
+            return Some((deriv, 1.0));
         }
         if deriv >= -STRUCTURAL_MONO_ROUNDOFF_TOL {
-            return Some(1e-12);
+            return Some((STRUCTURAL_DERIV_FLOOR, 0.0));
         }
         None
     }
@@ -1678,8 +1702,7 @@ impl WorkingModelSurvival {
     /// vector, sets the smoothing blocks' `λ_k` here, and re-runs the inner
     /// constrained PIRLS, so the monotone I-spline baseline can adapt its
     /// wiggliness instead of being pinned at a fixed seed. `lambdas` must have
-    /// one entry per penalty block. The fixed stabilization ridge keeps its
-    /// caller-set value (the optimizer never proposes a new one for it).
+    /// one entry per penalty block.
     pub fn set_penalty_lambdas(&mut self, lambdas: &[f64]) -> Result<(), EstimationError> {
         if lambdas.len() != self.penalties.blocks.len() {
             crate::bail_invalid_estim!(
@@ -1857,9 +1880,9 @@ impl WorkingModelSurvival {
             };
             let interval_scaled = h_e_scaled - h_s_scaled;
             let interval = Self::scaled_exp_component(interval_scale, interval_scaled)?;
-            let deriv = self
+            let (deriv, deriv_slope) = self
                 .stabilized_structural_derivative(derivative_raw[i])
-                .unwrap_or(derivative_raw[i]);
+                .unwrap_or((derivative_raw[i], 1.0));
             // Monotonicity of η(t) = log H(t) is a structural property of the
             // whole Royston-Parmar spline. If d_eta/dt is *strictly negative*
             // at any observed exit time, the cumulative hazard H(t) decreases
@@ -1908,7 +1931,10 @@ impl WorkingModelSurvival {
             w_hess_entry[i] = w_entry_i;
 
             if d > 0.0 {
-                let inv_deriv = 1.0 / deriv;
+                // `deriv_slope` is the derivative of the structural clamp: on
+                // the floored branch the NLL's `ln(deriv)` term is locally
+                // constant in β, so its score and curvature channels vanish.
+                let inv_deriv = deriv_slope / deriv;
                 nll += -w * (eta_exit[i] + deriv.ln());
                 w_event[i] = w;
                 w_event_inv_deriv[i] = w * inv_deriv;
@@ -1962,8 +1988,8 @@ impl WorkingModelSurvival {
         h += &self.derivative_xt_diag_x(w_event_outer);
 
         // Norm of the unpenalized score, captured before adding the penalty
-        // and ridge contributions, for the scale-invariant convergence
-        // certificate (||score||_2 + ||S*beta||_2 (+ ridge*||beta||_2)).
+        // contribution, for the scale-invariant convergence certificate
+        // (||score||_2 + ||S*beta||_2).
         let score_norm = array1_l2_norm(&grad);
 
         let penaltygrad = self.penalties.gradient(beta);
@@ -1974,29 +2000,12 @@ impl WorkingModelSurvival {
         totalgrad += &penaltygrad;
 
         self.penalties.addhessian_inplace(&mut h);
-        // SURVIVAL_STABILIZATION_RIDGE is an `ExplicitPrior`-kind
-        // stabilization in the canonical ledger taxonomy
-        // (`gam_problem::StabilizationKind::ExplicitPrior`): δ enters the
-        // gradient (`grad += δ β`), the Hessian (`H += δ I`), the scalar
-        // penalty term added to the objective (`0.5 δ ‖β‖²`), and is
-        // serialized through `WorkingState::ridge_used` so downstream
-        // covariance and survival_ridge_lambda accounting remain
-        // consistent. The canonical ledger record is
-        //   StabilizationLedger::explicit_prior(δ, RidgeMatrixForm::ScaledIdentity)
-        // chosen_by = FixedConstant. Coordinated with main.rs
-        // `survival_ridge_lambda` field.
-        const SURVIVAL_STABILIZATION_RIDGE: f64 = 1e-8;
-        let ridge_used = SURVIVAL_STABILIZATION_RIDGE;
-        for d in 0..p {
-            h[[d, d]] += ridge_used;
-        }
-        totalgrad += &beta.mapv(|v| ridge_used * v);
-        // Keep scalar objective term consistent with:
-        //   grad += ridge * beta,  Hess += ridge * I
-        // which correspond to 0.5 * ridge * ||beta||^2.
-        let ridge_penalty = 0.5 * ridge_used * beta.dot(beta);
-        let ridge_grad_norm = ridge_used * array1_l2_norm(beta);
-
+        // No coefficient ridge is fused into this objective. Indefinite or
+        // rank-deficient curvature along the Newton path is the SOLVER's
+        // problem: the working-model driver applies Levenberg–Marquardt
+        // damping (H + λD²)δ = −g that vanishes at convergence, so the
+        // converged estimator is a stationary point of the exact penalized
+        // likelihood and is invariant under coefficient rescaling.
         let log_likelihood = -nll;
         let deviance = 2.0 * nll;
 
@@ -2006,11 +2015,11 @@ impl WorkingModelSurvival {
             hessian: gam_linalg::matrix::SymmetricMatrix::Dense(h),
             log_likelihood,
             deviance,
-            penalty_term: penalty_dev + ridge_penalty,
+            penalty_term: penalty_dev,
             firth: gam_solve::pirls::FirthDiagnostics::Inactive,
-            ridge_used,
+            ridge_used: 0.0,
             hessian_curvature: gam_solve::pirls::HessianCurvatureKind::Observed,
-            gradient_natural_scale: score_norm + penaltygrad_norm + ridge_grad_norm,
+            gradient_natural_scale: score_norm + penaltygrad_norm,
         })
     }
 
@@ -2113,16 +2122,20 @@ impl WorkingModelSurvival {
             }
 
             // Event part: d/dbeta [ gsd gsd^T / s^2 - diag(he) - diag(hsd / s) ][u_k]
-            let s_i = self
+            let (s_i, s_slope) = self
                 .stabilized_structural_derivative(deriv_raw[i])
-                .unwrap_or(deriv_raw[i]);
+                .unwrap_or((deriv_raw[i], 1.0));
             if !s_i.is_finite() {
                 return Err(EstimationError::ParameterConstraintViolation(format!(
                     "survival monotonicity violated in unified trace contraction at row {i}: \
                      d_eta/dt={s_i:.3e} <= tolerance={guard:.3e}",
                 )));
             }
-            if self.event_target[i] > 0 {
+            if self.event_target[i] > 0 && s_slope != 0.0 {
+                // On the floored clamp branch (slope 0) the event Hessian
+                // block is identically zero in a neighborhood of β, so its
+                // directional derivative vanishes and the whole event part is
+                // skipped.
                 if s_i < guard_numerical {
                     return Err(EstimationError::ParameterConstraintViolation(format!(
                         "survival monotonicity violated in unified trace contraction at row {i}: \
@@ -2244,9 +2257,9 @@ impl WorkingModelSurvival {
             // censored) falsifies S(t); event rows additionally need
             // `deriv > guard` because `1/deriv` enters their score.
             let deriv_raw = derivative_raw[i];
-            let deriv = self
+            let (deriv, deriv_slope) = self
                 .stabilized_structural_derivative(deriv_raw)
-                .unwrap_or(deriv_raw);
+                .unwrap_or((deriv_raw, 1.0));
             let mono_floor = if d > 0.0 {
                 derivative_guard_numerical
             } else {
@@ -2258,7 +2271,9 @@ impl WorkingModelSurvival {
                 )));
             }
             if d > 0.0 {
-                r_deriv[i] = -w * d / deriv;
+                // The clamp slope zeroes the residual on the floored branch,
+                // matching update_state's flat `ln(deriv)` value there.
+                r_deriv[i] = -w * d * deriv_slope / deriv;
             }
         }
 
@@ -2282,6 +2297,7 @@ impl WorkingModelSurvival {
         state: &WorkingState,
         rho: &Array1<f64>,
     ) -> Result<(f64, Array1<f64>), EstimationError> {
+        use gam_problem::{EvalMode, PseudoLogdetMode};
         use gam_solve::estimate::reml::assembly::{
             InnerAssembly, PenaltyBlockDesc, penalty_coords_from_blocks,
         };
@@ -2289,7 +2305,6 @@ impl WorkingModelSurvival {
             DenseSpectralOperator, DispersionHandling, PenaltyLogdetDerivs,
             compute_block_penalty_logdet_derivs,
         };
-        use gam_problem::{EvalMode, PseudoLogdetMode};
 
         let p = beta.len();
         let active_penalty_blocks: Vec<&PenaltyBlock> = self
@@ -2557,7 +2572,6 @@ impl WorkingModelSurvival {
             coefficient_lower_bounds: None,
             linear_constraints: None,
             initial_lm_lambda: None,
-            geodesic_acceleration: false,
             arrow_schur: None,
         };
         let summary = gam_solve::pirls::runworking_model_pirls(
@@ -2592,14 +2606,17 @@ impl WorkingModelSurvival {
         {
             const POLISH_MAX_ITERS: usize = 400;
             const POLISH_TOL: f64 = 1e-13;
-            // Armijo sufficient-decrease constant and backtracking factor.
-            const ARMIJO_C: f64 = 1e-4;
-            const BACKTRACK: f64 = 0.5;
+            // Armijo sufficient-decrease constant and backtracking factor —
+            // the shared opt tuning constants; only the halving
+            // budget (80, deeper than the shared 60) is site-specific.
+            const ARMIJO_C: f64 = constants::ARMIJO_C1;
+            const BACKTRACK: f64 = constants::BACKTRACK_CONTRACTION;
             const MAX_BACKTRACK: usize = 80;
             let p = beta.len();
-            // Penalized inner objective f(β) = −ℓ(β) + ½β'Sβ + ½ridge‖β‖² whose
-            // gradient is exactly `state.gradient` and whose Hessian is exactly
-            // `state.hessian`. `update_state` exposes the pieces directly.
+            // Penalized inner objective f(β) = −ℓ(β) + ½β'Sβ whose gradient is
+            // exactly `state.gradient` and whose UNDAMPED Hessian is exactly
+            // `state.hessian`. `update_state` exposes the pieces directly; the
+            // Levenberg–Marquardt shift below exists only while solving a step.
             let penalized_objective =
                 |st: &WorkingState| -> f64 { -st.log_likelihood + st.penalty_term };
             for _ in 0..POLISH_MAX_ITERS {
@@ -2642,75 +2659,82 @@ impl WorkingModelSurvival {
                 // the smallest SPD shift, and for an SPD system rᵀ(H+λI)⁻¹r > 0
                 // EXACTLY (Cholesky is backward-stable, no clamping), so the
                 // Newton direction is a guaranteed descent direction.
-                let mut step: Option<Array1<f64>> = None;
-                let mut dir_deriv = 0.0_f64;
-                for lm_pow in 0..18 {
-                    let lambda_lm = if lm_pow == 0 {
-                        0.0
-                    } else {
-                        1e-12 * h_scale * 10f64.powi(lm_pow)
-                    };
+                // The attempt certifies a DESCENT direction, not mere
+                // factorability: Cholesky must succeed, the solve must stay
+                // finite, and the directional derivative must clear the
+                // sign floor. ∇fᵀd = rᵀ(−step) = −r·(H+λI)⁻¹r < 0 exactly
+                // for SPD systems.
+                let try_lm = |lambda_lm: f64| -> Option<(Array1<f64>, f64)> {
                     let mut h_reg = h.clone();
                     for d in 0..p {
                         h_reg[[d, d]] += lambda_lm;
                     }
-                    let factor = match gam_linalg::faer_ndarray::FaerCholesky::cholesky(
-                        &h_reg,
-                        faer::Side::Lower,
-                    ) {
-                        Ok(f) => f,
-                        Err(_) => continue,
-                    };
+                    let factor =
+                        gam_linalg::faer_ndarray::FaerCholesky::cholesky(&h_reg, faer::Side::Lower)
+                            .ok()?;
                     let candidate_step = factor.solvevec(&r);
                     if candidate_step.iter().any(|v| !v.is_finite()) {
-                        continue;
+                        return None;
                     }
-                    // ∇fᵀd = rᵀ(−step) = −r·(H+λI)⁻¹r < 0 exactly for SPD systems.
                     let dd = -r.dot(&candidate_step);
-                    if dd.is_finite() && dd < -1e-14 * r_norm * r_norm {
-                        step = Some(candidate_step);
-                        dir_deriv = dd;
-                        break;
-                    }
-                }
-                let (step, dir_deriv) = match step {
-                    Some(s) => (s, dir_deriv),
-                    None => {
+                    (dd.is_finite() && dd < -1e-14 * r_norm * r_norm)
+                        .then_some((candidate_step, dd))
+                };
+                // Bare λ=0 attempt first, then 17 decades from 1e-11·h_scale
+                // (the pre-migration `1e-12·h_scale·10^pow` for pow = 1..18).
+                let (step, dir_deriv) = try_lm(0.0)
+                    .or_else(|| {
+                        escalate_ridge(RidgeSchedule::geometric(1e-11 * h_scale, 17), try_lm)
+                            .ok()
+                            .map(|success| success.value)
+                    })
+                    .unwrap_or_else(|| {
                         // Steepest-descent fallback: d = −r ⇒ step = +r (we step
                         // β − step), ∇fᵀd = −‖r‖² < 0.
                         (r.clone(), -r_norm * r_norm)
-                    }
-                };
-                let mut alpha = 1.0_f64;
-                let mut accepted = false;
-                for _ in 0..MAX_BACKTRACK {
-                    let trial = &beta - &(alpha * &step);
-                    if let Ok(ts) = candidate.update_state(&trial) {
+                    });
+                // Accept on EITHER a sufficient objective decrease (Armijo,
+                // the global-convergence guarantee on the convex objective)
+                // OR a strict residual-norm decrease. Near the solution the
+                // penalized objective is flat to f64 roundoff (f0 ≈ ft), so a
+                // pure-Armijo test backtracks α→0 and crawls (the asymmetric
+                // ρ=3.99999 stall: 200 iters at 3.7e-7 vs 12 iters at the
+                // other two ρ). The ‖r‖-decrease arm lets the exact Cholesky
+                // Newton step (α=1) through, restoring quadratic convergence
+                // to ~1e-12 symmetrically across all three FD points so the
+                // centered FD of the value surface is itself exact.
+                //
+                // The dual criterion reads BOTH the trial objective and the
+                // trial residual norm, so the decision lives inside the trial
+                // closure: a rejected candidate returns `Ok(None)` (shrink)
+                // exactly like an invalid `update_state`, and the accept
+                // predicate is the constant `true`.
+                let accepted = match backtracking_line_search::<_, Infallible>(
+                    BacktrackConfig {
+                        contraction: BACKTRACK,
+                        max_steps: MAX_BACKTRACK,
+                        ..BacktrackConfig::default()
+                    },
+                    |alpha| {
+                        let trial = &beta - &(alpha * &step);
+                        let Ok(ts) = candidate.update_state(&trial) else {
+                            return Ok(None);
+                        };
                         let ft = penalized_objective(&ts);
                         let tn = ts.gradient.iter().map(|v| v * v).sum::<f64>().sqrt();
-                        // Accept on EITHER a sufficient objective decrease (Armijo,
-                        // the global-convergence guarantee on the convex objective)
-                        // OR a strict residual-norm decrease. Near the solution the
-                        // penalized objective is flat to f64 roundoff (f0 ≈ ft), so a
-                        // pure-Armijo test backtracks α→0 and crawls (the asymmetric
-                        // ρ=3.99999 stall: 200 iters at 3.7e-7 vs 12 iters at the
-                        // other two ρ). The ‖r‖-decrease arm lets the exact Cholesky
-                        // Newton step (α=1) through, restoring quadratic convergence
-                        // to ~1e-12 symmetrically across all three FD points so the
-                        // centered FD of the value surface is itself exact.
                         let armijo_ok = ft.is_finite() && ft <= f0 + ARMIJO_C * alpha * dir_deriv;
                         let residual_ok = tn.is_finite() && tn < r_norm;
-                        if armijo_ok || residual_ok {
-                            beta = trial;
-                            accepted = true;
-                            break;
-                        }
-                    }
-                    alpha *= BACKTRACK;
-                }
-                if !accepted {
+                        Ok((armijo_ok || residual_ok).then_some((ft, trial)))
+                    },
+                    |_alpha, _ft| true,
+                ) {
+                    Ok(result) => result,
+                    Err(never) => match never {},
+                };
+                let Some(ls) = accepted else {
                     break;
-                }
+                };
+                beta = ls.payload;
             }
         }
 
@@ -2737,7 +2761,9 @@ impl SurvivalDerivProvider {
     }
 }
 
-impl gam_solve::estimate::reml::reml_outer_engine::HessianDerivativeProvider for SurvivalDerivProvider {
+impl gam_solve::estimate::reml::reml_outer_engine::HessianDerivativeProvider
+    for SurvivalDerivProvider
+{
     fn hessian_derivative_correction(
         &self,
         v_k: &Array1<f64>,
@@ -2946,42 +2972,12 @@ pub fn assemble_competing_risks_cif_from_endpoints(
     })
 }
 
+/// `(node, weight)` pairs of the `n`-point Gauss-Legendre rule on `[-1, 1]`;
+/// the canonical generator lives in `gam-math` (previously triplicated
+/// across gam-terms / gam-model-kernels / gam-models).
 fn compute_gauss_legendre_nodes(n: usize) -> Vec<(f64, f64)> {
-    let mut nodesweights = Vec::with_capacity(n);
-    let m = n.div_ceil(2);
-
-    for i in 0..m {
-        let mut z = (std::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
-        let mut pp = 0.0;
-
-        for _ in 0..100 {
-            let mut p1 = 1.0;
-            let mut p2 = 0.0;
-            for j in 0..n {
-                let p3 = p2;
-                p2 = p1;
-                p1 = ((2.0 * j as f64 + 1.0) * z * p2 - j as f64 * p3) / (j as f64 + 1.0);
-            }
-            pp = n as f64 * (z * p1 - p2) / (z * z - 1.0);
-            let z_prev = z;
-            z = z_prev - p1 / pp;
-            if (z - z_prev).abs() < 1e-14 {
-                break;
-            }
-        }
-
-        let x = z;
-        let w = 2.0 / ((1.0 - z * z) * pp * pp);
-        if !n.is_multiple_of(2) && i == m - 1 {
-            nodesweights.push((0.0, w));
-        } else {
-            nodesweights.push((-x, w));
-            nodesweights.push((x, w));
-        }
-    }
-
-    nodesweights.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-    nodesweights
+    let (nodes, weights) = gam_math::special::gauss_legendre(n);
+    nodes.into_iter().zip(weights).collect()
 }
 
 fn gauss_legendre_quadrature() -> &'static [(f64, f64)] {
@@ -3149,6 +3145,212 @@ impl PirlsWorkingModel for WorkingModelSurvival {
 mod tests {
     use super::*;
     use ndarray::{Array1, Array2, Array3, array, s};
+
+    /// #932 production single-source parity for the cause-specific Royston-Parmar
+    /// derivative tower. The earlier cutover added only a gam-math oracle that
+    /// replicated the production `w_exit`/`w_entry`/`w_derivative` weight formulas
+    /// verbatim; this module INVOKES production
+    /// (`evaluate_cause_specific_block`, `cause_specific_hessian_directional_derivative`,
+    /// `cause_specific_hessian_second_directional_derivative`) and pins each
+    /// channel against the universal gam-math jet at ≤1e-9, plus an independent
+    /// central-difference witness of the live third/fourth against the live lower
+    /// order. The live hand tower is retained (documented performance exception at
+    /// the code site).
+    mod jet_cause_specific_production_parity {
+        use super::*;
+        use gam_math::jet_scalar::JetScalar;
+        use gam_math::jet_tower::{
+            RowNllProgramGeneric, generic_fourth_contracted, generic_row_kernel,
+            generic_third_contracted,
+        };
+
+        /// The cause-specific row NLL written ONCE through the jet scalar:
+        /// `ℓ = w·[e^{η1} − 1{entry}·e^{η0} − δ·(η1 + ln s)]`, additively separable
+        /// over the three predictors (primary 0 = exit index `η1`, primary 1 =
+        /// entry index `η0`, primary 2 = spline derivative `s > 0`). The entry gate
+        /// `1{entry}` and event gate `δ` enter as per-row constants.
+        struct CauseSpecificJetRow {
+            has_entry: bool,
+            event: bool,
+            w: f64,
+            base: [f64; 3],
+        }
+
+        impl RowNllProgramGeneric<3> for CauseSpecificJetRow {
+            fn n_rows(&self) -> usize {
+                1
+            }
+            fn primaries(&self, row: usize) -> Result<[f64; 3], String> {
+                if row != 0 {
+                    return Err(format!(
+                        "CauseSpecificJetRow holds exactly one row; got row {row}"
+                    ));
+                }
+                Ok(self.base)
+            }
+            fn row_nll_generic<S: JetScalar<3>>(
+                &self,
+                row: usize,
+                p: &[S; 3],
+            ) -> Result<S, String> {
+                if row != 0 {
+                    return Err(format!(
+                        "CauseSpecificJetRow holds exactly one row; got row {row}"
+                    ));
+                }
+                let mut ell = p[0].exp();
+                if self.has_entry {
+                    ell = ell.sub(&p[1].exp());
+                }
+                if self.event {
+                    ell = ell.sub(&p[0].add(&p[2].ln()));
+                }
+                Ok(ell.scale(self.w))
+            }
+        }
+
+        /// A single-row cause-specific block with the design collapsed to the 3×3
+        /// identity (`x_exit = e0`, `x_entry = e1`, `x_derivative = e2`, zero
+        /// offsets), so β directly parameterises `(η1, η0, s)` and a coefficient
+        /// direction IS the predictor-space direction — pinning the per-row
+        /// β-space kernels against the jet's predictor-space contractions with no
+        /// design projection in the way.
+        fn identity_block(w: f64, has_entry: bool, event: bool) -> CauseSpecificRoystonParmarBlock {
+            let age_entry = if has_entry { 1.0 } else { 0.0 };
+            CauseSpecificRoystonParmarBlock {
+                age_entry: array![age_entry],
+                age_exit: array![2.0],
+                event_target: array![if event { 1u8 } else { 0u8 }],
+                sampleweight: array![w],
+                x_entry: array![[0.0, 1.0, 0.0]],
+                x_exit: array![[1.0, 0.0, 0.0]],
+                x_derivative: array![[0.0, 0.0, 1.0]],
+                offset_eta_entry: array![0.0],
+                offset_eta_exit: array![0.0],
+                offset_derivative_exit: array![0.0],
+                derivative_floor: 0.0,
+            }
+        }
+
+        fn close(hand: f64, jet: f64, tol: f64, label: &str) {
+            let band = tol + tol * hand.abs().max(jet.abs());
+            assert!(
+                (hand - jet).abs() <= band,
+                "{label}: hand {hand:+.15e} vs jet {jet:+.15e} (|Δ|={:.3e} band {band:.3e})",
+                (hand - jet).abs()
+            );
+        }
+
+        const JET_TOL: f64 = 1e-9;
+
+        fn run_corner(has_entry: bool, event: bool) {
+            // β = (η1, η0, s); s > 0 for the event ln-derivative term.
+            let beta = array![0.4_f64, -0.3_f64, 1.3_f64];
+            let d_beta = array![0.7_f64, -0.5_f64, 0.6_f64];
+            let v_beta = array![-0.2_f64, 0.8_f64, -0.4_f64];
+            let w = 1.4_f64;
+            let block = identity_block(w, has_entry, event);
+            let prog = CauseSpecificJetRow {
+                has_entry,
+                event,
+                w,
+                base: [beta[0], beta[1], beta[2]],
+            };
+            let label = format!("entry={has_entry} event={event}");
+
+            // ── Value / gradient / Hessian: LIVE evaluate vs jet ──────────────
+            let (ll, grad, hess) =
+                evaluate_cause_specific_block(&block, &beta).expect("evaluate block");
+            let (jet_v, jet_g, jet_h) = generic_row_kernel(&prog, 0).expect("jet kernel");
+            close(jet_v, -ll, JET_TOL, &format!("{label} value"));
+            for a in 0..3 {
+                close(jet_g[a], -grad[a], JET_TOL, &format!("{label} grad[{a}]"));
+                for b in 0..3 {
+                    close(jet_h[a][b], hess[[a, b]], JET_TOL, &format!("{label} H[{a}][{b}]"));
+                }
+            }
+
+            // ── Third: LIVE directional derivative vs jet ─────────────────────
+            let dh = cause_specific_hessian_directional_derivative(&block, &beta, &d_beta)
+                .expect("live third");
+            let dir = [d_beta[0], d_beta[1], d_beta[2]];
+            let jet_t3 = generic_third_contracted(&prog, 0, &dir).expect("jet third");
+            for a in 0..3 {
+                for b in 0..3 {
+                    close(
+                        jet_t3[a][b],
+                        dh[[a, b]],
+                        JET_TOL,
+                        &format!("{label} third[{a}][{b}]"),
+                    );
+                }
+            }
+
+            // ── Fourth: LIVE second directional derivative vs jet ─────────────
+            let d2h =
+                cause_specific_hessian_second_directional_derivative(&block, &beta, &d_beta, &v_beta)
+                    .expect("live fourth");
+            let uu = [d_beta[0], d_beta[1], d_beta[2]];
+            let vv = [v_beta[0], v_beta[1], v_beta[2]];
+            let jet_t4 = generic_fourth_contracted(&prog, 0, &uu, &vv).expect("jet fourth");
+            for a in 0..3 {
+                for b in 0..3 {
+                    close(
+                        jet_t4[a][b],
+                        d2h[[a, b]],
+                        JET_TOL,
+                        &format!("{label} fourth[{a}][{b}]"),
+                    );
+                }
+            }
+
+            // ── Independent FD witness (NO jet) ───────────────────────────────
+            // ∂_d_beta H via central difference of the LIVE evaluate Hessian.
+            let h_fd = 1e-5;
+            let bp = &beta + &(&d_beta * h_fd);
+            let bm = &beta - &(&d_beta * h_fd);
+            let (_, _, hp) = evaluate_cause_specific_block(&block, &bp).expect("evaluate +");
+            let (_, _, hm) = evaluate_cause_specific_block(&block, &bm).expect("evaluate -");
+            for a in 0..3 {
+                for b in 0..3 {
+                    let fd = (hp[[a, b]] - hm[[a, b]]) / (2.0 * h_fd);
+                    close(dh[[a, b]], fd, 1e-5, &format!("{label} FD third[{a}][{b}]"));
+                }
+            }
+            // ∂_v of the LIVE third (fixed direction d_beta) vs the LIVE fourth.
+            let dhp = cause_specific_hessian_directional_derivative(&block, &bp_along(&beta, &v_beta, h_fd), &d_beta)
+                .expect("live third +");
+            let dhm = cause_specific_hessian_directional_derivative(&block, &bm_along(&beta, &v_beta, h_fd), &d_beta)
+                .expect("live third -");
+            for a in 0..3 {
+                for b in 0..3 {
+                    let fd = (dhp[[a, b]] - dhm[[a, b]]) / (2.0 * h_fd);
+                    close(d2h[[a, b]], fd, 1e-5, &format!("{label} FD fourth[{a}][{b}]"));
+                }
+            }
+        }
+
+        fn bp_along(beta: &Array1<f64>, v: &Array1<f64>, h: f64) -> Array1<f64> {
+            beta + &(v * h)
+        }
+        fn bm_along(beta: &Array1<f64>, v: &Array1<f64>, h: f64) -> Array1<f64> {
+            beta - &(v * h)
+        }
+
+        /// The LIVE cause-specific value / gradient / Hessian / third / fourth hand
+        /// tower reproduces the universal gam-math jet at ≤1e-9, and the live
+        /// third/fourth reproduce an independent central-difference of the live
+        /// lower order — across all four (event × entry) corners that gate the
+        /// entry and event predictor channels on and off.
+        #[test]
+        fn cause_specific_live_tower_matches_jet_and_fd() {
+            for &has_entry in &[false, true] {
+                for &event in &[false, true] {
+                    run_corner(has_entry, event);
+                }
+            }
+        }
+    }
 
     #[test]
     fn competing_risks_cif_constant_hazard_matches_closed_form() {
@@ -3935,7 +4137,7 @@ mod tests {
     }
 
     #[test]
-    fn survivalridge_penalty_scalar_matchesgradienthessian_scaling() {
+    fn survival_working_state_is_ridge_free() {
         let age_entry = array![1.0_f64, 2.0_f64];
         let age_exit = array![2.0_f64, 3.5_f64];
         let event_target = array![1u8, 0u8];
@@ -3971,7 +4173,11 @@ mod tests {
         .expect("construct survival model");
 
         let state = model.update_state(&beta).expect("survival state");
-        let expected_penalty = penalties.deviance(&beta) + 0.5 * state.ridge_used * beta.dot(&beta);
+        assert_eq!(
+            state.ridge_used, 0.0,
+            "survival objective must not fuse a coefficient ridge"
+        );
+        let expected_penalty = penalties.deviance(&beta);
         assert!(
             (state.penalty_term - expected_penalty).abs() < 1e-12,
             "penalty_term mismatch: state={} expected={}",
@@ -4055,7 +4261,7 @@ mod tests {
     }
 
     #[test]
-    fn survivalgradient_matchesobjectivefdwithridge_scaling() {
+    fn survivalgradient_matches_ridge_free_objective_fd() {
         let age_entry = array![1.0_f64, 2.0_f64, 3.0_f64];
         let age_exit = array![2.0_f64, 3.5_f64, 4.0_f64];
         let event_target = array![1u8, 0u8, 1u8];
@@ -4195,8 +4401,8 @@ mod tests {
     }
 
     fn laml_test_logdet_h(state: &WorkingState) -> f64 {
-        use gam_solve::estimate::reml::reml_outer_engine::{spectral_epsilon, spectral_regularize};
         use gam_linalg::faer_ndarray::FaerEigh;
+        use gam_solve::estimate::reml::reml_outer_engine::{spectral_epsilon, spectral_regularize};
 
         let h_dense = state.hessian.to_dense();
         let (evals, _) = h_dense.eigh(faer::Side::Lower).expect("eigh");
@@ -4205,6 +4411,29 @@ mod tests {
             .iter()
             .map(|&sigma| spectral_regularize(sigma, eps).ln())
             .sum()
+    }
+
+    #[test]
+    fn survival_solver_damping_converges_undamped_objective() {
+        let rho = -0.35_f64;
+        let model = laml_fd_test_model(rho.exp());
+        let beta0 = array![-2.5_f64, 1.0];
+        let (converged_model, beta) = model
+            .reconverge_survival_inner_mode(&[rho], &beta0)
+            .expect("converge survival mode with solver-only damping");
+        let state = converged_model
+            .update_state(&beta)
+            .expect("evaluate undamped objective at converged mode");
+
+        assert_eq!(
+            state.ridge_used, 0.0,
+            "solver damping must not enter the converged statistical objective"
+        );
+        let undamped_stationarity = array1_l2_norm(&state.gradient);
+        assert!(
+            undamped_stationarity <= 1.0e-9,
+            "solver must converge the undamped objective; ||gradient||={undamped_stationarity:.3e}"
+        );
     }
 
     #[test]
@@ -4865,7 +5094,7 @@ mod tests {
         let logdet_h: f64 = {
             use gam_problem::PseudoLogdetMode;
             use gam_solve::estimate::reml::reml_outer_engine::{
-                DenseSpectralOperator, HessianOperator,
+                DenseSpectralOperator, HessianFactorization,
             };
             let has_left_truncation = age_entry.iter().any(|&t| t > ENTRY_AT_ORIGIN_THRESHOLD);
             let mode = if has_left_truncation {

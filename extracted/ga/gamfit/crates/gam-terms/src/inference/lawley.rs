@@ -149,6 +149,17 @@ pub struct RowKappas {
     pub k3_1: f64,
 }
 
+/// Penalized expected-information geometry shared by the Lawley value and its
+/// log-smoothing-parameter derivatives.
+struct LawleyPairGeometry {
+    /// `J^-1`, where `J = X^T W X + S_lambda`.
+    inverse_information: Array2<f64>,
+    /// `E = X J^-1 X^T`.
+    pair_influence: Array2<f64>,
+    /// `diag(E)`.
+    leverage: Array1<f64>,
+}
+
 impl RowKappas {
     /// Scale every cumulant by a prior weight `w`: a row observed with weight
     /// `w` contributes `w·ℓᵢ` to the log-likelihood (for binomial data `w`
@@ -270,11 +281,11 @@ impl RowExpectedJets {
 /// function on the null model) is the second-order mean shift of the LR
 /// statistic; feed `q + ε_k − ε_{k−q}` to
 /// [`crate::inference::higher_order::bartlett_factor_from_mean`].
-pub fn lawley_epsilon(
+fn lawley_pair_geometry(
     x: ArrayView2<'_, f64>,
     kappas: &[RowKappas],
     penalty: Option<ArrayView2<'_, f64>>,
-) -> Result<f64, String> {
+) -> Result<LawleyPairGeometry, String> {
     let n = x.nrows();
     let k = x.ncols();
     if n == 0 || k == 0 {
@@ -323,6 +334,22 @@ pub fn lawley_epsilon(
     let e_pairs = x.dot(&j_inv).dot(&x.t());
     let h = e_pairs.diag().to_owned();
 
+    Ok(LawleyPairGeometry {
+        inverse_information: j_inv,
+        pair_influence: e_pairs,
+        leverage: h,
+    })
+}
+
+/// Evaluate Lawley's epsilon polynomial on a precomputed pair geometry.
+fn lawley_epsilon_from_geometry(
+    kappas: &[RowKappas],
+    geometry: &LawleyPairGeometry,
+) -> Result<f64, String> {
+    let n = kappas.len();
+    let e_pairs = &geometry.pair_influence;
+    let h = &geometry.leverage;
+
     // λ₄ = Σ_i a_i h_i².
     let mut lambda4 = 0.0;
     for (i, row_kappas) in kappas.iter().enumerate() {
@@ -352,6 +379,15 @@ pub fn lawley_epsilon(
         ));
     }
     Ok(epsilon)
+}
+
+pub fn lawley_epsilon(
+    x: ArrayView2<'_, f64>,
+    kappas: &[RowKappas],
+    penalty: Option<ArrayView2<'_, f64>>,
+) -> Result<f64, String> {
+    let geometry = lawley_pair_geometry(x, kappas, penalty)?;
+    lawley_epsilon_from_geometry(kappas, &geometry)
 }
 
 /// Row cap for LR consumers that build the `O(n²)`-memory pair matrix `E` per
@@ -466,16 +502,200 @@ pub struct RhoPenaltyComponent {
     pub s_component: Array2<f64>,
 }
 
-/// Step in `ρ = log λ` for the deterministic central-difference curvature of the
-/// conditional Lawley mean shift `Δε(ρ)`. `Δε` is a smooth *deterministic*
-/// function of ρ (ρ enters only through `S_λ = Σ_b e^{ρ_b} S_b` inside the SPD
-/// information `J`), so a central difference of the known scalar is exact to its
-/// truncation order — no statistical approximation is introduced (only numerical
-/// differentiation of a closed form, verified against the analytic Gaussian-zero
-/// anchor and a Richardson refinement in tests). `0.05` resolves the `O(n⁻¹)`
-/// shift's curvature comfortably while keeping the `O(h²)` truncation far below
-/// the `O(n⁻²)` Bartlett target.
-const RHO_VARIATION_STEP: f64 = 0.05;
+/// Lawley's epsilon and its exact Hessian in the fitted log-smoothing
+/// coordinates. The row cumulants are fixed at the null fit; rho enters only
+/// through `J = X^T W X + S_lambda` and
+///
+/// ```text
+/// d_b J^-1    = -J^-1 S_b J^-1,
+/// d_bc J^-1   = J^-1 S_c J^-1 S_b J^-1
+///              + J^-1 S_b J^-1 S_c J^-1
+///              - 1[b=c] J^-1 S_b J^-1.
+/// ```
+///
+/// The final term is the second derivative of `exp(rho_b) S_b`. Chaining these
+/// identities through `E = X J^-1 X^T`, `h = diag(E)`, and the explicit Lawley
+/// polynomial gives the Hessian below without numerical differentiation.
+fn lawley_epsilon_rho_hessian(
+    x: ArrayView2<'_, f64>,
+    kappas: &[RowKappas],
+    penalty: ArrayView2<'_, f64>,
+    components: &[RhoPenaltyComponent],
+) -> Result<(f64, Array2<f64>), String> {
+    let k = x.ncols();
+    let m = components.len();
+    for (b, component) in components.iter().enumerate() {
+        if component.s_component.nrows() != k || component.s_component.ncols() != k {
+            return Err(format!(
+                "lawley_epsilon_rho_hessian: component {b} is {}x{}, expected {k}x{k}",
+                component.s_component.nrows(),
+                component.s_component.ncols()
+            ));
+        }
+    }
+
+    let geometry = lawley_pair_geometry(x, kappas, Some(penalty))?;
+    let epsilon = lawley_epsilon_from_geometry(kappas, &geometry)?;
+    let inverse = &geometry.inverse_information;
+
+    // Positive kernels K S_b K. Their negatives are the first derivatives of
+    // K = J^-1. They live in coefficient space (m * k^2), while the O(n^2)
+    // row-pair derivatives are materialized one pair at a time below so peak
+    // memory does not grow with the smoothing-parameter count.
+    let inverse_sandwiches: Vec<Array2<f64>> = components
+        .iter()
+        .map(|component| inverse.dot(&component.s_component).dot(inverse))
+        .collect();
+
+    let fourth_weights: Array1<f64> = kappas
+        .iter()
+        .map(|row| row.k4 / 4.0 - row.k3_1 + row.k2_11)
+        .collect();
+    let k3: Array1<f64> = kappas.iter().map(|row| row.k3).collect();
+    let k21: Array1<f64> = kappas.iter().map(|row| row.k2_1).collect();
+    let base_pairs = &geometry.pair_influence;
+    let base_leverage = &geometry.leverage;
+    let n = x.nrows();
+    let mut hessian = Array2::<f64>::zeros((m, m));
+
+    for b in 0..m {
+        let pairs_b = -x.dot(&inverse_sandwiches[b]).dot(&x.t());
+        let leverage_b = pairs_b.diag().to_owned();
+        for c in b..m {
+            let pairs_c_storage = (c != b).then(|| -x.dot(&inverse_sandwiches[c]).dot(&x.t()));
+            let pairs_c = pairs_c_storage.as_ref().unwrap_or(&pairs_b);
+            let leverage_c_storage = pairs_c_storage
+                .as_ref()
+                .map(|pairs| pairs.diag().to_owned());
+            let leverage_c = leverage_c_storage.as_ref().unwrap_or(&leverage_b);
+
+            let mut inverse_second = inverse_sandwiches[c]
+                .dot(&components[b].s_component)
+                .dot(inverse);
+            inverse_second += &inverse_sandwiches[b]
+                .dot(&components[c].s_component)
+                .dot(inverse);
+            if b == c {
+                inverse_second -= &inverse_sandwiches[b];
+            }
+            let pairs_bc = x.dot(&inverse_second).dot(&x.t());
+            let leverage_bc = pairs_bc.diag();
+
+            // d_bc sum_i a_i h_i^2.
+            let mut curvature = 0.0;
+            for i in 0..n {
+                curvature += 2.0
+                    * fourth_weights[i]
+                    * (leverage_b[i] * leverage_c[i] + base_leverage[i] * leverage_bc[i]);
+            }
+
+            // d_bc sum_ij { E_ij^3 B_ij + h_i h_j E_ij C_ij }.
+            for i in 0..n {
+                for j in 0..n {
+                    let pair = base_pairs[[i, j]];
+                    let pair_b = pairs_b[[i, j]];
+                    let pair_c = pairs_c[[i, j]];
+                    let pair_bc = pairs_bc[[i, j]];
+                    let cross = k3[i] * k3[j];
+                    let mixed = -k3[i] * k21[j] + k21[i] * k21[j];
+                    let cubic_weight = cross / 6.0 + mixed;
+                    let leverage_weight = cross / 4.0 + mixed;
+
+                    curvature +=
+                        cubic_weight * (6.0 * pair * pair_b * pair_c + 3.0 * pair * pair * pair_bc);
+
+                    let hi = base_leverage[i];
+                    let hj = base_leverage[j];
+                    let hi_b = leverage_b[i];
+                    let hj_b = leverage_b[j];
+                    let hi_c = leverage_c[i];
+                    let hj_c = leverage_c[j];
+                    let hi_bc = leverage_bc[i];
+                    let hj_bc = leverage_bc[j];
+                    let product_second = hi_bc * hj * pair
+                        + hi_b * hj_c * pair
+                        + hi_b * hj * pair_c
+                        + hi_c * hj_b * pair
+                        + hi * hj_bc * pair
+                        + hi * hj_b * pair_c
+                        + hi_c * hj * pair_b
+                        + hi * hj_c * pair_b
+                        + hi * hj * pair_bc;
+                    curvature += leverage_weight * product_second;
+                }
+            }
+
+            if !curvature.is_finite() {
+                return Err(format!(
+                    "lawley_epsilon_rho_hessian: non-finite curvature H[{b},{c}]"
+                ));
+            }
+            hessian[[b, c]] = curvature;
+            hessian[[c, b]] = curvature;
+        }
+    }
+
+    Ok((epsilon, hessian))
+}
+
+/// Conditional Lawley LR mean shift and its exact rho Hessian. The nuisance
+/// model uses the same component submatrices as the fixed-lambda mean-shift
+/// subtraction, so both the value and every derivative are full minus null.
+fn lawley_lr_mean_shift_rho_hessian(
+    x: ArrayView2<'_, f64>,
+    kappas: &[RowKappas],
+    penalty: ArrayView2<'_, f64>,
+    tested: std::ops::Range<usize>,
+    components: &[RhoPenaltyComponent],
+) -> Result<(f64, Array2<f64>), String> {
+    let n = x.nrows();
+    let k = x.ncols();
+    if tested.start >= tested.end || tested.end > k {
+        return Err(format!(
+            "lawley_lr_mean_shift_with_rho_variation: tested block {}..{} out of range for {k} columns",
+            tested.start, tested.end
+        ));
+    }
+
+    let (epsilon_full, hessian_full) = lawley_epsilon_rho_hessian(x, kappas, penalty, components)?;
+    let nuisance: Vec<usize> = (0..k).filter(|column| !tested.contains(column)).collect();
+    if nuisance.is_empty() {
+        return Ok((epsilon_full, hessian_full));
+    }
+
+    let null_dim = nuisance.len();
+    let mut x_null = Array2::<f64>::zeros((n, null_dim));
+    for (null_column, &full_column) in nuisance.iter().enumerate() {
+        x_null
+            .column_mut(null_column)
+            .assign(&x.column(full_column));
+    }
+    let mut penalty_null = Array2::<f64>::zeros((null_dim, null_dim));
+    for (null_row, &full_row) in nuisance.iter().enumerate() {
+        for (null_column, &full_column) in nuisance.iter().enumerate() {
+            penalty_null[[null_row, null_column]] = penalty[[full_row, full_column]];
+        }
+    }
+    let components_null: Vec<RhoPenaltyComponent> = components
+        .iter()
+        .map(|component| {
+            let mut submatrix = Array2::<f64>::zeros((null_dim, null_dim));
+            for (null_row, &full_row) in nuisance.iter().enumerate() {
+                for (null_column, &full_column) in nuisance.iter().enumerate() {
+                    submatrix[[null_row, null_column]] =
+                        component.s_component[[full_row, full_column]];
+                }
+            }
+            RhoPenaltyComponent {
+                s_component: submatrix,
+            }
+        })
+        .collect();
+    let (epsilon_null, hessian_null) =
+        lawley_epsilon_rho_hessian(x_null.view(), kappas, penalty_null.view(), &components_null)?;
+
+    Ok((epsilon_full - epsilon_null, hessian_full - hessian_null))
+}
 
 /// The ρ̂-sampling-variation contribution to the penalized-null Bartlett mean
 /// shift (#939 deliverable 2, the genuinely-new penalized theory piece).
@@ -494,20 +714,13 @@ const RHO_VARIATION_STEP: f64 = 0.05;
 ///
 /// * `∂²Δε/∂ρ_b ∂ρ_{b'}` — the curvature of the *deterministic* conditional
 ///   shift in the log-smoothing parameters. ρ enters `Δε` only through
-///   `S_λ = Σ_b e^{ρ_b} S_b` folded into the SPD information `J`, so scaling each
-///   `components[b].s_component` by `e^{±h}` and central-differencing the known
-///   scalar `Δε` recovers the Hessian exactly (to `O(h²)`, well inside the
-///   `O(n⁻²)` Bartlett target). Cross terms use the symmetric 4-point stencil.
+///   `S_λ = Σ_b e^{ρ_b} S_b` folded into the SPD information `J`. The exact
+///   inverse derivative identities for `J⁻¹`, including the diagonal
+///   `∂²S_λ/∂ρ_b² = S_b` term, are chained through Lawley's explicit
+///   pair-influence polynomial.
 /// * `Cov(ρ̂)` — the inverse REML/LAML **outer Hessian** (the #740 quantity the
 ///   solver already maintains), passed as `rho_cov` (`m × m` for `m`
 ///   smoothing parameters). This is the sampling covariance of ρ̂.
-///
-/// For a single smoothing parameter, returns the normal-reference expectation
-/// `E[Δε(ρ̂)]` directly by Gauss-Hermite quadrature. This avoids treating the
-/// second-order delta term as the target when the REML/LAML log-λ uncertainty is
-/// large enough for higher even derivatives of `Δε(ρ)` to be visible in the LR
-/// first moment. For multi-parameter smooths the function retains the
-/// curvature/covariance delta assembly below.
 ///
 /// Returns the **total** mean shift `Δε(ρ̂)`. The
 /// caller forms the Bartlett factor `c = 1 + Δε(ρ̂)/d` exactly as for the
@@ -575,116 +788,24 @@ pub fn lawley_lr_mean_shift_with_rho_variation(
         }
     }
 
-    // Conditional shift Δε(ρ̂): the existing fixed-λ Lawley mean shift at the
-    // fitted total penalty.
-    let conditional = lawley_lr_mean_shift(x, kappas, Some(penalty), tested.clone())?;
-
-    // Δε at a perturbed log-smoothing vector: total penalty
-    // S_λ(t) = Σ_b e^{t_b} S_b. With S_λ = Σ_b S_b at the fitted point (t = 0),
-    // a shift t_b replaces the b-th block S_b by (e^{t_b} − 1)·S_b added on top.
-    let shift_at = |steps: &[(usize, f64)]| -> Result<f64, String> {
-        let mut s = penalty.to_owned();
-        for &(b, t) in steps {
-            // ∂S_λ/∂ρ_b = S_b, so e^{t}·S_b replaces S_b: add (e^{t} − 1)·S_b.
-            let scale = t.exp() - 1.0;
-            s.scaled_add(scale, &components[b].s_component);
-        }
-        lawley_lr_mean_shift(x, kappas, Some(s.view()), tested.clone())
-    };
-
-    if m == 1 {
-        let var = rho_cov[[0, 0]];
-        if var < -1e-14 {
+    for b in 0..m {
+        if rho_cov[[b, b]] < -1e-14 {
             return Err(format!(
-                "lawley_lr_mean_shift_with_rho_variation: rho_cov[0,0] must be non-negative; got {var}"
+                "lawley_lr_mean_shift_with_rho_variation: rho_cov[{b},{b}] must be non-negative; got {}",
+                rho_cov[[b, b]]
             ));
         }
-        if var <= 1e-14 {
-            return Ok(conditional);
-        }
-        // 15-point Gauss-Hermite rule for
-        // E[f(ρ + Z)] = π^{-1/2} Σ w_i f(ρ + √(2 Var) x_i), Z ~ N(0, Var).
-        // The conditional anchor is at ρ, so the quadrature abscissa is the
-        // perturbation t = √(2 Var) x_i passed to `shift_at`.
-        const GH15_X: [f64; 15] = [
-            -4.499990707309391,
-            -3.669950373404453,
-            -2.967166927905603,
-            -2.325732486173858,
-            -1.719992575186489,
-            -1.136115585210921,
-            -0.565069583255576,
-            0.0,
-            0.565069583255576,
-            1.136115585210921,
-            1.719992575186489,
-            2.325732486173858,
-            2.967166927905603,
-            3.669950373404453,
-            4.499990707309391,
-        ];
-        const GH15_W: [f64; 15] = [
-            1.522475804253517e-9,
-            1.059115547711067e-6,
-            0.0001000044412324999,
-            0.002778068842912776,
-            0.03078003387254608,
-            0.1584889157959357,
-            0.4120286874988986,
-            0.5641003087264175,
-            0.4120286874988986,
-            0.1584889157959357,
-            0.03078003387254608,
-            0.002778068842912776,
-            0.0001000044412324999,
-            1.059115547711067e-6,
-            1.522475804253517e-9,
-        ];
-        let scale = (2.0 * var).sqrt();
-        let mut total = 0.0;
-        for (&x_i, &w_i) in GH15_X.iter().zip(GH15_W.iter()) {
-            total += w_i * shift_at(&[(0, scale * x_i)])?;
-        }
-        let total = total / std::f64::consts::PI.sqrt();
-        if !total.is_finite() {
-            return Err(
-                "lawley_lr_mean_shift_with_rho_variation: non-finite quadrature total shift"
-                    .to_string(),
-            );
-        }
-        return Ok(total);
     }
 
-    let h = RHO_VARIATION_STEP;
-    // Hessian of Δε in ρ by symmetric finite differences of the deterministic
-    // scalar. Diagonal: standard 3-point second derivative; off-diagonal: the
-    // 4-point mixed-partial stencil.
-    let mut quad = 0.0; // ½ Σ_{b,b'} H_{bb'} Cov_{bb'}
-    let base = conditional;
+    let (conditional, hessian) =
+        lawley_lr_mean_shift_rho_hessian(x, kappas, penalty, tested, components)?;
+    let mut quad = 0.0;
     for b in 0..m {
-        let fp = shift_at(&[(b, h)])?;
-        let fm = shift_at(&[(b, -h)])?;
-        let hbb = (fp - 2.0 * base + fm) / (h * h);
-        if !hbb.is_finite() {
-            return Err(format!(
-                "lawley_lr_mean_shift_with_rho_variation: non-finite curvature H[{b},{b}]"
-            ));
-        }
-        quad += 0.5 * hbb * rho_cov[[b, b]];
+        quad += 0.5 * hessian[[b, b]] * rho_cov[[b, b]];
         for c in (b + 1)..m {
-            let fpp = shift_at(&[(b, h), (c, h)])?;
-            let fpm = shift_at(&[(b, h), (c, -h)])?;
-            let fmp = shift_at(&[(b, -h), (c, h)])?;
-            let fmm = shift_at(&[(b, -h), (c, -h)])?;
-            let hbc = (fpp - fpm - fmp + fmm) / (4.0 * h * h);
-            if !hbc.is_finite() {
-                return Err(format!(
-                    "lawley_lr_mean_shift_with_rho_variation: non-finite curvature H[{b},{c}]"
-                ));
-            }
-            // Symmetric covariance: H_{bc}=H_{cb}, Cov_{bc}=Cov_{cb} ⇒ two equal
-            // off-diagonal contributions, i.e. ½·2·H_{bc}Cov_{bc} = H_{bc}Cov_{bc}.
-            quad += hbc * rho_cov[[b, c]];
+            // Symmetric Hessian and covariance contribute the off-diagonal term
+            // twice inside the one-half trace contraction.
+            quad += hessian[[b, c]] * rho_cov[[b, c]];
         }
     }
 
@@ -1316,6 +1437,48 @@ mod tests {
         );
     }
 
+    /// Closed form for an intercept-only Lawley model with log-smoothing
+    /// components `s_b = exp(rho_b) s_b^unit`. Every entry of
+    /// `E = X J^-1 X^T` and every leverage equals `1 / J`, hence
+    /// `epsilon(J) = A / J^2 + D / J^3`. Differentiating that identity gives an
+    /// independent exact oracle for every diagonal and cross-rho curvature.
+    fn intercept_lawley_value_and_rho_hessian(
+        kappas: &[RowKappas],
+        component_strengths: &[f64],
+    ) -> (f64, Array2<f64>) {
+        let information =
+            kappas.iter().map(|row| -row.k2).sum::<f64>() + component_strengths.iter().sum::<f64>();
+        let fourth_sum = kappas
+            .iter()
+            .map(|row| row.k4 / 4.0 - row.k3_1 + row.k2_11)
+            .sum::<f64>();
+        let mut sixth_sum = 0.0;
+        for row_i in kappas {
+            for row_j in kappas {
+                let cross = row_i.k3 * row_j.k3;
+                let mixed = -row_i.k3 * row_j.k2_1 + row_i.k2_1 * row_j.k2_1;
+                sixth_sum += cross / 6.0 + mixed + cross / 4.0 + mixed;
+            }
+        }
+        let value = fourth_sum / information.powi(2) + sixth_sum / information.powi(3);
+        let derivative_information =
+            -2.0 * fourth_sum / information.powi(3) - 3.0 * sixth_sum / information.powi(4);
+        let second_information =
+            6.0 * fourth_sum / information.powi(4) + 12.0 * sixth_sum / information.powi(5);
+        let hessian = Array2::from_shape_fn(
+            (component_strengths.len(), component_strengths.len()),
+            |(b, c)| {
+                let cross = second_information * component_strengths[b] * component_strengths[c];
+                if b == c {
+                    cross + derivative_information * component_strengths[b]
+                } else {
+                    cross
+                }
+            },
+        );
+        (value, hessian)
+    }
+
     /// DELIVERABLE (2), ρ̂-variation anchor — Gaussian known variance: `Δε ≡ 0`
     /// at every λ, so its ρ-curvature is identically zero and the ρ̂-variation
     /// correction is exactly 0 regardless of `Cov(ρ̂)`. The total shift must
@@ -1353,108 +1516,63 @@ mod tests {
         );
     }
 
-    /// DELIVERABLE (2), ρ̂-variation core — the correction is exactly
-    /// `½·Hᵨᵨ·Var(ρ̂)` for a single smoothing parameter, where `Hᵨᵨ = Δε''(ρ)`
-    /// is the second ρ-derivative of the deterministic conditional shift. This
-    /// test pins three things on a Poisson/log smooth (non-zero ε):
-    ///   (i)   the total = conditional + ½ H Var, with H matching an INDEPENDENT
-    ///         high-accuracy (Richardson-extrapolated) finite difference of
-    ///         `lawley_lr_mean_shift` in ρ — proving the internal stencil is the
-    ///         curvature it claims to be;
-    ///   (ii)  zero ρ-variance recovers the conditional shift exactly (the
-    ///         correction switches off as λ → fixed);
-    ///   (iii) the correction is genuinely non-zero (the curvature and variance
-    ///         are both non-zero), so the ρ̂-variation term is load-bearing.
+    /// The exact matrix derivative reduces to the independent scalar identity
+    /// `epsilon(J) = A/J^2 + D/J^3` for an intercept-only model. This pins the
+    /// diagonal rho curvature, its covariance contraction, and the zero-
+    /// variance limit without a numerical derivative oracle.
     #[test]
-    fn rho_variation_correction_matches_curvature_times_variance() {
-        let n = 50usize;
-        let mut x = Array2::<f64>::ones((n, 2));
+    fn rho_variation_hessian_matches_closed_form_intercept() {
+        let n = 31usize;
+        let x = Array2::<f64>::ones((n, 1));
         let mut kappas = Vec::with_capacity(n);
         for i in 0..n {
-            let z = i as f64 / n as f64 - 0.5;
-            x[[i, 1]] = z;
-            let eta = 0.3 + 0.6 * z;
+            let eta = -0.4 + 0.8 * i as f64 / (n - 1) as f64;
             kappas.push(
                 RowExpectedJets::poisson_log(eta)
                     .kappas()
                     .expect("poisson kappas"),
             );
         }
-        // One smoothing parameter (λ = 3) penalizing the second column.
-        let lambda = 3.0_f64;
-        let mut s_comp = Array2::<f64>::zeros((2, 2));
-        s_comp[[1, 1]] = lambda;
+        let strength = 3.25;
+        let s_comp = Array2::from_elem((1, 1), strength);
         let penalty = s_comp.clone();
         let components = vec![RhoPenaltyComponent {
-            s_component: s_comp.clone(),
+            s_component: s_comp,
         }];
-        let tested = 1..2;
+        let (expected_conditional, expected_hessian) =
+            intercept_lawley_value_and_rho_hessian(&kappas, &[strength]);
+        let (conditional, hessian) =
+            lawley_lr_mean_shift_rho_hessian(x.view(), &kappas, penalty.view(), 0..1, &components)
+                .expect("analytic rho Hessian");
+        assert!((conditional - expected_conditional).abs() < 1e-13);
+        assert!((hessian[[0, 0]] - expected_hessian[[0, 0]]).abs() < 1e-13);
+        assert!(expected_hessian[[0, 0]].abs() > 1e-9);
 
-        // Conditional (fixed-λ) shift.
-        let conditional =
-            lawley_lr_mean_shift(x.view(), &kappas, Some(penalty.view()), tested.clone())
-                .expect("conditional shift");
-
-        // INDEPENDENT curvature Δε''(ρ): scale the WHOLE block by e^{t} (ρ = log λ
-        // ⇒ S_λ(t) = e^{t}·λ·S_unit) and Richardson-combine two central
-        // differences for an O(h⁴)-accurate second derivative.
-        let de_at = |t: f64| {
-            let mut s = Array2::<f64>::zeros((2, 2));
-            s[[1, 1]] = lambda * t.exp();
-            lawley_lr_mean_shift(x.view(), &kappas, Some(s.view()), tested.clone())
-                .expect("perturbed shift")
-        };
-        let h = 0.05_f64;
-        let d2_h = (de_at(h) - 2.0 * conditional + de_at(-h)) / (h * h);
-        let d2_2h = (de_at(2.0 * h) - 2.0 * conditional + de_at(-2.0 * h)) / (4.0 * h * h);
-        // Richardson: (4·D(h) − D(2h))/3 cancels the O(h²) term.
-        let curvature = (4.0 * d2_h - d2_2h) / 3.0;
-        assert!(
-            curvature.abs() > 1e-9,
-            "fixture must have non-zero ρ-curvature; got {curvature}"
-        );
-
-        let var_rho = 0.8_f64; // Var(ρ̂) (an inverse-outer-Hessian magnitude)
+        let var_rho = 0.8;
         let rho_cov = Array2::from_shape_vec((1, 1), vec![var_rho]).unwrap();
         let total = lawley_lr_mean_shift_with_rho_variation(
             x.view(),
             &kappas,
             penalty.view(),
-            tested.clone(),
+            0..1,
             &components,
             rho_cov.view(),
         )
         .expect("rho-variation shift");
+        let expected_total = expected_conditional + 0.5 * expected_hessian[[0, 0]] * var_rho;
+        assert!((total - expected_total).abs() < 1e-13);
 
-        // (i) total = conditional + ½ H Var, H from the independent Richardson FD.
-        let expected = conditional + 0.5 * curvature * var_rho;
-        assert!(
-            (total - expected).abs() < 1e-6 * (1.0 + expected.abs()),
-            "ρ̂-variation total {total} must equal conditional + ½ H Var = {expected} \
-             (conditional={conditional}, H={curvature}, Var={var_rho})"
-        );
-        // (iii) the ρ̂-variation correction is genuinely non-zero.
-        assert!(
-            (total - conditional).abs() > 1e-9,
-            "ρ̂-variation correction must be non-zero (H={curvature}, Var={var_rho}); \
-             total={total} conditional={conditional}"
-        );
-
-        // (ii) zero variance recovers the conditional shift exactly.
         let zero_cov = Array2::from_shape_vec((1, 1), vec![0.0]).unwrap();
         let total_zero = lawley_lr_mean_shift_with_rho_variation(
             x.view(),
             &kappas,
             penalty.view(),
-            tested.clone(),
+            0..1,
             &components,
             zero_cov.view(),
         )
         .expect("zero-variance shift");
-        assert!(
-            (total_zero - conditional).abs() < 1e-12,
-            "zero ρ-variance must recover the conditional shift: {total_zero} vs {conditional}"
-        );
+        assert_eq!(total_zero.to_bits(), conditional.to_bits());
     }
 
     /// DELIVERABLE (2) — the ρ̂-variation **factor** entry point
@@ -1580,33 +1698,26 @@ mod tests {
         );
     }
 
-    /// DELIVERABLE (2), ρ̂-variation cross terms — for two smoothing parameters
-    /// the correction is `½ Σ_{b,b'} H_{bb'} Cov_{bb'}`, and the off-diagonal
-    /// (mixed-partial) stencil must match an independent product-of-steps FD.
-    /// Pins that the symmetric cross contribution `H_{01}Cov_{01}` is included
-    /// (a diagonal-only assembly would miss it).
+    /// Two log-smoothing components acting on one intercept have the exact
+    /// cross curvature `f''(J) s_0 s_1`. This verifies both that matrix cross
+    /// derivatives are assembled analytically and that the symmetric covariance
+    /// contraction includes them.
     #[test]
     fn rho_variation_includes_symmetric_cross_terms() {
-        let n = 40usize;
-        let mut x = Array2::<f64>::ones((n, 3));
+        let n = 37usize;
+        let x = Array2::<f64>::ones((n, 1));
         let mut kappas = Vec::with_capacity(n);
         for i in 0..n {
-            let z = i as f64 / n as f64 - 0.5;
-            x[[i, 1]] = z;
-            x[[i, 2]] = z * z - 0.1;
-            let eta = 0.2 + 0.5 * z - 0.3 * x[[i, 2]];
+            let eta = -0.7 + 1.1 * i as f64 / (n - 1) as f64;
             kappas.push(
                 RowExpectedJets::binomial_logit(eta)
                     .kappas()
                     .expect("binomial kappas"),
             );
         }
-        // Two smoothing parameters, one on column 1, one on column 2.
-        let (l1, l2) = (2.0_f64, 4.0_f64);
-        let mut s1 = Array2::<f64>::zeros((3, 3));
-        s1[[1, 1]] = l1;
-        let mut s2 = Array2::<f64>::zeros((3, 3));
-        s2[[2, 2]] = l2;
+        let (l1, l2) = (2.0, 4.0);
+        let s1 = Array2::from_elem((1, 1), l1);
+        let s2 = Array2::from_elem((1, 1), l2);
         let penalty = &s1 + &s2;
         let components = vec![
             RhoPenaltyComponent {
@@ -1616,25 +1727,18 @@ mod tests {
                 s_component: s2.clone(),
             },
         ];
-        // Test the joint nuisance/smooth block {1,2} against the intercept.
-        let tested = 1..3;
-        let conditional =
-            lawley_lr_mean_shift(x.view(), &kappas, Some(penalty.view()), tested.clone())
-                .expect("conditional");
-
-        // Independent Hessian by FD on the deterministic shift as a function of
-        // (t0, t1): block b scaled by e^{t_b}.
-        let de = |t0: f64, t1: f64| {
-            let mut s = Array2::<f64>::zeros((3, 3));
-            s[[1, 1]] = l1 * t0.exp();
-            s[[2, 2]] = l2 * t1.exp();
-            lawley_lr_mean_shift(x.view(), &kappas, Some(s.view()), tested.clone())
-                .expect("perturbed")
-        };
-        let h = 0.05_f64;
-        let h00 = (de(h, 0.0) - 2.0 * conditional + de(-h, 0.0)) / (h * h);
-        let h11 = (de(0.0, h) - 2.0 * conditional + de(0.0, -h)) / (h * h);
-        let h01 = (de(h, h) - de(h, -h) - de(-h, h) + de(-h, -h)) / (4.0 * h * h);
+        let (expected_conditional, expected_hessian) =
+            intercept_lawley_value_and_rho_hessian(&kappas, &[l1, l2]);
+        let (conditional, hessian) =
+            lawley_lr_mean_shift_rho_hessian(x.view(), &kappas, penalty.view(), 0..1, &components)
+                .expect("analytic cross-rho Hessian");
+        assert!((conditional - expected_conditional).abs() < 1e-13);
+        for b in 0..2 {
+            for c in 0..2 {
+                assert!((hessian[[b, c]] - expected_hessian[[b, c]]).abs() < 1e-13);
+            }
+        }
+        assert!(expected_hessian[[0, 1]].abs() > 1e-9);
 
         // A full (non-diagonal) ρ-covariance.
         let rho_cov = Array2::from_shape_vec((2, 2), vec![0.7, 0.2, 0.2, 0.5]).unwrap();
@@ -1642,28 +1746,77 @@ mod tests {
             x.view(),
             &kappas,
             penalty.view(),
-            tested.clone(),
+            0..1,
             &components,
             rho_cov.view(),
         )
         .expect("rho-variation shift");
 
-        // Expected = conditional + ½(H00 V00 + H11 V11) + H01 V01 (symmetric cross).
-        let expected = conditional
-            + 0.5 * (h00 * rho_cov[[0, 0]] + h11 * rho_cov[[1, 1]])
-            + h01 * rho_cov[[0, 1]];
-        assert!(
-            (total - expected).abs() < 1e-6 * (1.0 + expected.abs()),
-            "two-parameter ρ̂-variation {total} must equal {expected} \
-             (H00={h00}, H11={h11}, H01={h01})"
-        );
-        // The cross term is non-trivial — a diagonal-only assembly would differ.
-        let diag_only = conditional + 0.5 * (h00 * rho_cov[[0, 0]] + h11 * rho_cov[[1, 1]]);
+        let expected = expected_conditional
+            + 0.5
+                * (expected_hessian[[0, 0]] * rho_cov[[0, 0]]
+                    + expected_hessian[[1, 1]] * rho_cov[[1, 1]])
+            + expected_hessian[[0, 1]] * rho_cov[[0, 1]];
+        assert!((total - expected).abs() < 1e-13);
+        let diag_only = expected_conditional
+            + 0.5
+                * (expected_hessian[[0, 0]] * rho_cov[[0, 0]]
+                    + expected_hessian[[1, 1]] * rho_cov[[1, 1]]);
         assert!(
             (total - diag_only).abs() > 1e-9,
-            "cross term H01·Cov01 must be included (off-diagonal non-zero): \
-             total={total} diag_only={diag_only}"
+            "cross curvature must contribute to the total"
         );
+    }
+
+    /// Block-separated designs make the full Lawley epsilon the sum of the two
+    /// independent blocks. Subtracting the nuisance block must therefore erase
+    /// both its value and every rho derivative, while retaining the tested
+    /// block's closed-form intercept curvature.
+    #[test]
+    fn rho_hessian_nuisance_subtraction_is_exact_for_separated_blocks() {
+        let (nuisance_rows, tested_rows) = (13usize, 17usize);
+        let n = nuisance_rows + tested_rows;
+        let mut x = Array2::<f64>::zeros((n, 2));
+        let mut kappas = Vec::with_capacity(n);
+        for i in 0..nuisance_rows {
+            x[[i, 0]] = 1.0;
+            let eta = -0.2 + 0.3 * i as f64 / (nuisance_rows - 1) as f64;
+            kappas.push(RowExpectedJets::poisson_log(eta).kappas().unwrap());
+        }
+        let mut tested_kappas = Vec::with_capacity(tested_rows);
+        for i in 0..tested_rows {
+            x[[nuisance_rows + i, 1]] = 1.0;
+            let eta = 0.1 + 0.5 * i as f64 / (tested_rows - 1) as f64;
+            let row = RowExpectedJets::poisson_log(eta).kappas().unwrap();
+            tested_kappas.push(row);
+            kappas.push(row);
+        }
+
+        let (nuisance_strength, tested_strength) = (1.7, 2.4);
+        let mut nuisance_component = Array2::<f64>::zeros((2, 2));
+        nuisance_component[[0, 0]] = nuisance_strength;
+        let mut tested_component = Array2::<f64>::zeros((2, 2));
+        tested_component[[1, 1]] = tested_strength;
+        let penalty = &nuisance_component + &tested_component;
+        let components = vec![
+            RhoPenaltyComponent {
+                s_component: nuisance_component,
+            },
+            RhoPenaltyComponent {
+                s_component: tested_component,
+            },
+        ];
+
+        let (shift, hessian) =
+            lawley_lr_mean_shift_rho_hessian(x.view(), &kappas, penalty.view(), 1..2, &components)
+                .expect("separated-block rho Hessian");
+        let (expected_shift, expected_tested_hessian) =
+            intercept_lawley_value_and_rho_hessian(&tested_kappas, &[tested_strength]);
+        assert!((shift - expected_shift).abs() < 1e-13);
+        assert!(hessian[[0, 0]].abs() < 1e-13);
+        assert!(hessian[[0, 1]].abs() < 1e-13);
+        assert!(hessian[[1, 0]].abs() < 1e-13);
+        assert!((hessian[[1, 1]] - expected_tested_hessian[[0, 0]]).abs() < 1e-13);
     }
 
     /// Shape guards: component/cov dimension mismatches are rejected.

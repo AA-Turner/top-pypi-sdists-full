@@ -28,6 +28,8 @@
 //! [`SaeMigrationLedger::pc_reseed_events`] so the acceptance bar
 //! (`assert_no_pc_reseed`) fails loudly.
 
+use std::collections::HashMap;
+
 use gam_solve::structure_search::{MoveVerdict, SearchLedger, StructureMove};
 
 /// Natural-log base, the nats → bits conversion constant (`ln 2`).
@@ -170,10 +172,16 @@ pub enum SaeMove {
     Birth { stage: MoveStage, seed: BirthSeed },
     /// An atom on `stage` died and fell back toward the residual-factor pool,
     /// for `reason`.
-    Death { stage: MoveStage, reason: MoveReason },
+    Death {
+        stage: MoveStage,
+        reason: MoveReason,
+    },
     /// A proposed move onto `stage` was refused (the evidence did not buy it),
     /// for `reason`. The prior structure is kept.
-    Refuse { stage: MoveStage, reason: MoveReason },
+    Refuse {
+        stage: MoveStage,
+        reason: MoveReason,
+    },
 }
 
 impl SaeMove {
@@ -236,6 +244,14 @@ pub struct MigrationMove {
     pub evidence: MoveEvidence,
     /// Joint objective `J` after the round (`NaN` for a structural tally).
     pub objective: f64,
+    /// #2233 closed-form MDL birth pre-screen: the predicted net
+    /// description-length change (bits) the pre-screen computed for this move at
+    /// PROPOSAL time, before any refit. `Some` only for a residual-factor
+    /// [`SaeMove::Birth`] the pre-screen scored (the prediction the post-refit
+    /// `evidence.dl_bits` realizes — a logged predicted-vs-realized calibration
+    /// pair); `None` for every move the pre-screen does not price (deaths,
+    /// refusals, fusions/fissions/glues, curl births, structural tallies).
+    pub predicted_dl_bits: Option<f64>,
 }
 
 /// The unified migration ledger: every birth / death / refusal, in order, plus
@@ -298,6 +314,7 @@ impl SaeMigrationLedger {
             count,
             evidence,
             objective,
+            predicted_dl_bits: None,
         });
     }
 
@@ -317,6 +334,7 @@ impl SaeMigrationLedger {
             count,
             evidence,
             objective,
+            predicted_dl_bits: None,
         });
     }
 
@@ -336,6 +354,7 @@ impl SaeMigrationLedger {
             count,
             evidence,
             objective,
+            predicted_dl_bits: None,
         });
     }
 
@@ -366,9 +385,29 @@ impl SaeMigrationLedger {
     /// refusal priced by the banked e-process evidence (`bits_from_nats(log_e)`).
     /// Keeps the e-process gating untouched — this is the read-out of its
     /// verdicts into the one move currency, not a second gate.
-    pub fn record_search_round(&mut self, round: usize, ledger: &SearchLedger) {
+    ///
+    /// `birth_predictions` maps a birth candidate index (the index a
+    /// [`StructureMove::Birth`] carries) to the #2233 closed-form pre-screen's
+    /// predicted ΔMDL (bits) for that residual-factor birth. Each proposed birth's
+    /// prediction is stamped onto its folded record's `predicted_dl_bits`, so the
+    /// post-refit verdict (`evidence.dl_bits`) and the pre-refit prediction sit on
+    /// the SAME record — the predicted-vs-realized calibration pair. A birth not in
+    /// the map (a curl birth, or any round scored before the pre-screen existed) is
+    /// left `None`; pass an empty map when no predictions are available.
+    pub fn record_search_round(
+        &mut self,
+        round: usize,
+        ledger: &SearchLedger,
+        birth_predictions: &HashMap<usize, f64>,
+    ) {
         for record in &ledger.moves {
             let stage = structure_move_stage(&record.mv);
+            // The pre-screen prices residual-factor births only; every other move
+            // (and every unscored birth) carries no prediction.
+            let predicted = match &record.mv {
+                StructureMove::Birth { candidate } => birth_predictions.get(candidate).copied(),
+                _ => None,
+            };
             match &record.verdict {
                 // An accepted birth / fission / fusion / glue is a birth from the
                 // residual-factor pool (structure search never PC-reseeds); an
@@ -434,6 +473,13 @@ impl SaeMigrationLedger {
                     MoveEvidence::none(),
                     f64::NAN,
                 ),
+            }
+            // Every verdict arm records exactly one move; stamp the pre-screen
+            // prediction onto it when this move is a scored residual-factor birth.
+            if predicted.is_some() {
+                if let Some(last) = self.moves.last_mut() {
+                    last.predicted_dl_bits = predicted;
+                }
             }
         }
     }

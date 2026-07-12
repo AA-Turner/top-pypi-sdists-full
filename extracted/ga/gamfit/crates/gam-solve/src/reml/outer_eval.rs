@@ -1,9 +1,9 @@
-//! Outer REML runtime: runtime state + IFT/ALO caches, the analytic
+//! Outer REML runtime: runtime state + IFT caches, the analytic
 //! gradient/Hessian engine, and the outer objective evaluation, organized into
 //! real concern modules.
 //!
 //! - [`state_caches`]: the `RemlState`/`EvalShared` runtime state, the
-//!   process-wide IFT/ALO/hypergradient caches, and the fingerprinting and
+//!   process-wide IFT/hypergradient caches, and the fingerprinting and
 //!   spec helpers that feed them.
 //! - [`gradient_hessian`]: the analytic REML gradient + Hessian assembly,
 //!   Tierney–Kadane correction, mode-response, and IFT warm-start prediction.
@@ -24,11 +24,7 @@ pub(crate) use super::sparse_penalty_block_count_from_canonical;
 pub(crate) use gam_terms::construction::{
     create_balanced_penalty_root_from_canonical, precompute_reparam_invariant_from_canonical,
 };
-pub(crate) use gam_linalg::faer_ndarray::array2_to_matmut;
-pub(crate) use gam_linalg::utils::{
-    StableSolver, boundary_hit_indices, symmetric_spectrum_condition_number,
-};
-pub(crate) use crate::mixture_link::inverse_link_has_fisher_weight_jet;
+pub(crate) use gam_linalg::utils::{boundary_hit_indices, symmetric_spectrum_condition_number};
 pub(crate) use crate::pirls::PirlsWorkspace;
 use crate::estimate::reml::inner_strategy::HessianEvalStrategyKind;
 pub(crate) use crate::persistent_warm_start::{
@@ -38,7 +34,7 @@ pub(crate) use gam_problem::{
     GlmLikelihoodSpec, InverseLink, LikelihoodSpec, LinkFunction, ResponseFamily, RhoPrior,
     SasLinkState, StandardLink,
 };
-pub(crate) use gam_problem::{HessianResult, OuterEval};
+pub(crate) use gam_problem::{HessianValue, OuterEval};
 pub(crate) use gam_runtime::warm_start::Fingerprinter;
 // #1521 trait-inversion: the `BlockExcessTarget` evaluator trait (implemented by
 // `Gam784BlockTarget`, consumed by the up-tier #784 sampler) lives in the neutral
@@ -47,7 +43,7 @@ pub(crate) use gam_problem::laplace_sampler_contract::BlockExcessTarget;
 pub(crate) use ndarray::{Array1, Array2, ArrayView1, s};
 pub(crate) use std::collections::{HashMap, VecDeque};
 pub(crate) use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-pub(crate) use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+pub(crate) use std::sync::{Arc, Mutex, OnceLock};
 
 #[path = "gradient_hessian.rs"]
 mod gradient_hessian;

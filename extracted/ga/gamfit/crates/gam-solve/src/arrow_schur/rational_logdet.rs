@@ -52,7 +52,7 @@
 //! `S` is never formed.
 
 use super::prelude::*;
-use gam_linalg::utils::splitmix64;
+use gam_linalg::utils::{splitmix64, splitmix64_hash};
 
 /// Top-subspace (Hutch++) deflation configuration for the surrogate. When a plan
 /// carries one, [`RationalLogdetPlan::evaluate`] peels an `r`-dimensional
@@ -158,23 +158,24 @@ impl RationalLogdetPlan {
         {
             return None;
         }
-        let mut probes = Vec::with_capacity(num_probes);
-        for p in 0..num_probes {
-            let mut v = Array1::<f64>::zeros(dim);
-            let mut state = seed.wrapping_add(p as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-            let mut bits: u64 = 0;
-            let mut remaining: u32 = 0;
-            for value in v.iter_mut() {
-                if remaining == 0 {
-                    bits = splitmix64(&mut state);
-                    remaining = 64;
-                }
-                *value = if bits & 1 == 1 { 1.0 } else { -1.0 };
-                bits >>= 1;
-                remaining -= 1;
-            }
-            probes.push(v);
-        }
+        // ONE sequential master stream for ALL probes. The former per-probe
+        // initial state `(seed + p)·γ` (γ = the splitmix64 increment) made
+        // probe `p` of seed `s` BIT-IDENTICAL to probe `p+1` of seed `s−1`
+        // (a splitmix stream from x₀ emits the words at x₀+γ, x₀+2γ, …, so
+        // any two starts differing by a multiple of γ are the same stream
+        // shifted), and within one plan made probe `p+1`'s word stream probe
+        // `p`'s shifted by one word — a sliding window sharing sign words
+        // between consecutive probes. Each probe was still individually
+        // uniform Rademacher (Hutchinson stays unbiased), but the probes were
+        // NOT jointly independent: the std_err bookkeeping and any
+        // seed-averaged inference (the wide-κ multiseed discriminator, whose
+        // 96 seeds at unit spacing drew ~128 distinct probe vectors instead
+        // of 3072 and reported a common Hutchinson fluctuation as a "5.57σ
+        // deterministic bias") were invalidated. Sequential consumption from
+        // one hashed master state has no window structure and no cross-seed
+        // stream aliasing; determinism per seed (the CRN contract) is kept.
+        let mut master = splitmix64_hash(seed);
+        let probes = rademacher_block(&mut master, num_probes, dim);
         // Bracket-centred exp-sinh DE nodes for the shifted representation
         //
         //   log x = log c + ∫₀^∞ ( 1/(c+t) − 1/(x+t) ) dt,   c = √(λ_min·λ_max),
@@ -265,6 +266,59 @@ impl RationalLogdetPlan {
         let basis = build_deflation_basis(matvec, self.dim, rank, subspace_iters, seed);
         self.deflation = (!basis.is_empty()).then_some(DeflationSpec { basis });
         self
+    }
+
+    /// Attach TWO-SIDED spectral deflation: freeze an orthonormal basis `Q`
+    /// spanning BOTH the `top_rank` largest-λ directions (block power on `S`) and
+    /// the `bottom_rank` smallest-λ directions (inverse iteration on `S⁻¹`, matrix-
+    /// free via CG), merged and re-orthonormalised into one basis.
+    ///
+    /// This is the wide-κ variance-reduction lever. The surrogate's Hutchinson bar
+    /// is `√(2·‖offdiag(P·log(S/c)·P)‖_F²)` — purely off-diagonal, so a
+    /// diagonal/scalar control variate buys NOTHING (Rademacher already resolves
+    /// the diagonal exactly). The off-diagonal mass of `log(S/c)` is loaded
+    /// SYMMETRICALLY onto the two spectral tails (`|log(λ/c)|` peaks at both
+    /// `λ_max` and `λ_min`), so the one-sided [`Self::with_deflation`] removes only
+    /// half of it and stalls near `½·lnκ`-scale error bars at wide κ. Peeling both
+    /// tails is a rank-`(top+bottom)` low-rank control variate whose deterministic
+    /// `tr(Qᵀ log(S/c) Q)` block (term1) is computed exactly and whose complement
+    /// carries only the interior — small — off-diagonal mass. At EQUAL total rank
+    /// this cuts the wide-κ bar by ≈`√2`·(tail/interior ratio) over one-sided
+    /// deflation; the decomposition stays EXACT for any orthonormal `Q`, so the
+    /// value is never biased (only the bar shrinks). `top_rank = bottom_rank = 0`
+    /// reduces to the bare-Hutchinson plan.
+    ///
+    /// The `cg` budget `(rel_tol, max_iters)` bounds the inverse-iteration solves;
+    /// it may be loose (an approximate bottom `Q` only relaxes the variance
+    /// reduction, never biases the estimate). Build this once at the plan's ρ, from
+    /// the same operator the evaluations use.
+    pub fn with_two_sided_deflation(
+        mut self,
+        matvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
+        top_rank: usize,
+        bottom_rank: usize,
+        subspace_iters: usize,
+        seed: u64,
+        cg: (f64, usize),
+    ) -> Option<Self> {
+        let (cg_rel_tol, cg_max_iters) = cg;
+        let mut cols = build_deflation_basis(matvec, self.dim, top_rank, subspace_iters, seed);
+        cols.extend(build_inverse_deflation_basis(
+            matvec,
+            self.dim,
+            bottom_rank,
+            subspace_iters,
+            seed,
+            cg_rel_tol,
+            cg_max_iters,
+        )?);
+        // Merge the two orthonormal families into ONE orthonormal basis (the top
+        // and bottom blocks are near-orthogonal but not exactly; the second MGS
+        // pass in `orthonormalize` cleans the cross terms and drops any collapsed
+        // column, so `Q` stays exactly orthonormal — the property term1 needs).
+        let basis = orthonormalize(&cols);
+        self.deflation = (!basis.is_empty()).then_some(DeflationSpec { basis });
+        Some(self)
     }
 
     /// Evaluate the surrogate `L̃ ≈ log det S` through `matvec(v) = S·v`.
@@ -439,9 +493,12 @@ impl RationalLogdetPlan {
 }
 
 /// Plain CG on `(A + t·I) y = b` through the un-shifted `matvec(v) = A·v`,
-/// warm-started from `y0`. Returns the solution and the iteration count, or
-/// `None` on a non-finite breakdown (SPD + t > 0 makes that a caller bug or a
-/// non-finite operator, both of which must surface).
+/// warm-started from `y0`. Returns the solution and the iteration count only
+/// after the TRUE residual meets `rel_tol`; exhaustion and non-finite/SPD
+/// breakdowns return `None`. Returning an iteration-capped last iterate would
+/// make the value consume an approximate inverse while the derivative formula
+/// differentiates an exact inverse, re-opening the #2080 objective/gradient
+/// desynchronisation this module exists to prevent.
 fn shifted_cg(
     matvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
     t: f64,
@@ -450,6 +507,9 @@ fn shifted_cg(
     rel_tol: f64,
     max_iters: usize,
 ) -> Option<(Array1<f64>, usize)> {
+    if !(rel_tol.is_finite() && rel_tol > 0.0) {
+        return None;
+    }
     let apply = |v: ArrayView1<f64>| -> Array1<f64> {
         let mut out = matvec(v);
         out.scaled_add(t, &v.to_owned());
@@ -482,7 +542,12 @@ fn shifted_cg(
         rs = rs_new;
         iters += 1;
     }
-    Some((y, iters))
+    // CG's recursively updated residual can drift from the actual residual on
+    // an ill-conditioned shifted system. The inverse bundle is admissible only
+    // when the operator's true residual meets the requested contract.
+    let true_residual = b - &apply(y.view());
+    let true_residual_norm = true_residual.dot(&true_residual).sqrt();
+    (true_residual_norm.is_finite() && true_residual_norm <= tol).then_some((y, iters))
 }
 
 /// Modified Gram-Schmidt orthonormalisation of a column block, DROPPING any
@@ -512,16 +577,47 @@ fn orthonormalize(cols: &[Array1<f64>]) -> Vec<Array1<f64>> {
             v.scaled_add(-proj, basis);
         }
         let norm = v.dot(&v).sqrt();
-        let collapsed = !(norm_after_first.is_finite())
-            || norm_after_first <= 1e-12 * v0_norm.max(1e-300)
+        // Numerical rank, not a tuned absolute knob: below √ε of the source
+        // column's norm, orthogonal residuals carry no stable direction.
+        let rank_tol = f64::EPSILON.sqrt() * v0_norm;
+        let collapsed = !(v0_norm.is_finite() && v0_norm > 0.0)
+            || !(norm_after_first.is_finite())
+            || norm_after_first <= rank_tol
             || !(norm.is_finite())
-            || norm <= 1e-12;
+            || norm <= rank_tol;
         if !collapsed {
             v.mapv_inplace(|x| x / norm);
             out.push(v);
         }
     }
     out
+}
+
+/// Draw `ncols` length-`dim` Rademacher (±1) vectors by consuming ONE sequential
+/// splitmix stream from `master` (LSB-first, 64 signs per word), the bit buffer
+/// reset per column. Single home for the probe/start-block generation shared by
+/// [`RationalLogdetPlan::build`], [`build_deflation_basis`], and
+/// [`build_inverse_deflation_basis`]; consuming from one advancing `master`
+/// (rather than a per-column `(seed + col)·γ` restart) is what removes the
+/// cross-column / cross-seed stream aliasing documented in `build`.
+fn rademacher_block(master: &mut u64, ncols: usize, dim: usize) -> Vec<Array1<f64>> {
+    (0..ncols)
+        .map(|_| {
+            let mut v = Array1::<f64>::zeros(dim);
+            let mut bits: u64 = 0;
+            let mut remaining: u32 = 0;
+            for value in v.iter_mut() {
+                if remaining == 0 {
+                    bits = splitmix64(master);
+                    remaining = 64;
+                }
+                *value = if bits & 1 == 1 { 1.0 } else { -1.0 };
+                bits >>= 1;
+                remaining -= 1;
+            }
+            v
+        })
+        .collect()
 }
 
 /// Build the Hutch++ top-subspace basis `Q` (`≤ rank` orthonormal columns) by
@@ -542,28 +638,17 @@ fn build_deflation_basis(
     if r == 0 {
         return Vec::new();
     }
-    let mut cols: Vec<Array1<f64>> = (0..r)
-        .map(|col| {
-            let mut v = Array1::<f64>::zeros(dim);
-            let mut state = seed
-                .wrapping_add((col as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15))
-                .wrapping_add(0xD1B5_4A32_D192_ED03);
-            let mut bits: u64 = 0;
-            let mut remaining: u32 = 0;
-            for value in v.iter_mut() {
-                if remaining == 0 {
-                    bits = splitmix64(&mut state);
-                    remaining = 64;
-                }
-                *value = if bits & 1 == 1 { 1.0 } else { -1.0 };
-                bits >>= 1;
-                remaining -= 1;
-            }
-            v
-        })
-        .collect();
-    cols = orthonormalize(&cols);
-    for _ in 0..iters.max(1) {
+    // One sequential master stream for the whole start block — same
+    // decorrelation as the probe generation in `RationalLogdetPlan::build`:
+    // the former per-column start `seed + col·γ + const` (γ = the splitmix64
+    // increment) made column c+1's word stream column c's shifted by one
+    // word (sliding-window sharing). Harmless to the EXACTNESS of the
+    // deflated split (any orthonormal Q is valid), but a correlated start
+    // block weakens the subspace iteration's coverage of the top eigenspace
+    // for no reason. Determinism per seed is kept.
+    let mut master = splitmix64_hash(seed.wrapping_add(0xD1B5_4A32_D192_ED03));
+    let mut cols = orthonormalize(&rademacher_block(&mut master, r, dim));
+    for _ in 0..iters {
         if cols.is_empty() {
             break;
         }
@@ -571,6 +656,60 @@ fn build_deflation_basis(
         cols = orthonormalize(&applied);
     }
     cols
+}
+
+/// Build the BOTTOM (smallest-λ) subspace basis by INVERSE subspace iteration:
+/// the same block-power as [`build_deflation_basis`] but with the operator
+/// replaced by `S⁻¹` (applied matrix-free by plain CG through `matvec`), so the
+/// rounds `Q ← orthonormalise(S⁻¹·Q)` amplify the SMALLEST eigenvalues instead of
+/// the largest. This is the second arm of the two-sided control variate
+/// ([`RationalLogdetPlan::with_two_sided_deflation`]): the Hutchinson variance of
+/// the surrogate rides on the off-diagonal Frobenius mass of `log(S/c)`, which a
+/// wide spectrum loads SYMMETRICALLY onto both tails (`log(λ_max/c) = +½lnκ` and
+/// `log(λ_min/c) = −½lnκ`), so peeling only the top leaves the entire bottom-tail
+/// contribution in the bar. A polynomial filter `(μI − S)` cannot reach the
+/// bottom on a dense log-uniform spectrum (the relative gap `(μ−λ_1)/(μ−λ_2) ≈ 1`
+/// gives no separation); genuine bottom amplification needs `S⁻¹`, whence the CG
+/// inverse iteration here.
+///
+/// The solves may use a loose requested tolerance — an approximate bottom `Q`
+/// only relaxes variance reduction and cannot bias the exact split — but every
+/// requested solve must still CONVERGE to that tolerance. Exhaustion propagates
+/// as `None`; silently retaining an un-amplified start column would falsify the
+/// requested two-sided variance contract. The whole build is a ONE-TIME frozen
+/// cost per outer solve, never per evaluation.
+fn build_inverse_deflation_basis(
+    matvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
+    dim: usize,
+    rank: usize,
+    iters: usize,
+    seed: u64,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+) -> Option<Vec<Array1<f64>>> {
+    let r = rank.min(dim);
+    if r == 0 {
+        return Some(Vec::new());
+    }
+    // Distinct master stream from the top-basis start (a different additive
+    // offset into splitmix) so the top and bottom start blocks are not aliased.
+    let mut master = splitmix64_hash(seed.wrapping_add(0x2545_F491_4F6C_DD1D));
+    let mut cols = orthonormalize(&rademacher_block(&mut master, r, dim));
+    let zero = Array1::<f64>::zeros(dim);
+    for _ in 0..iters {
+        if cols.is_empty() {
+            break;
+        }
+        // Inverse iteration step: apply S⁻¹ column-wise via plain CG (shift 0 on
+        // the SPD operator). Every solve must meet the caller's (possibly loose)
+        // tolerance; an exhausted solve invalidates the requested bottom peel.
+        let applied: Option<Vec<Array1<f64>>> = cols
+            .iter()
+            .map(|c| shifted_cg(matvec, 0.0, c, &zero, cg_rel_tol, cg_max_iters).map(|(y, _)| y))
+            .collect();
+        cols = orthonormalize(&applied?);
+    }
+    Some(cols)
 }
 
 /// Solve `(S + t_ℓ I) y = v` for every input vector across the whole shift
@@ -609,6 +748,7 @@ fn solve_shift_ladder(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ndarray::array;
 
     fn next_uniform(state: &mut u64, lo: f64, hi: f64) -> f64 {
         let bits = splitmix64(state) >> 11;
@@ -770,6 +910,42 @@ mod tests {
     }
 
     #[test]
+    fn shifted_cg_refuses_an_unconverged_iteration_cap() {
+        let a = array![[1.0, 0.0], [0.0, 4.0]];
+        let b = array![1.0, 1.0];
+        let zero = Array1::<f64>::zeros(2);
+        let matvec = |v: ArrayView1<f64>| a.dot(&v);
+
+        assert!(
+            shifted_cg(&matvec, 0.0, &b, &zero, 1.0e-12, 1).is_none(),
+            "one CG step cannot solve a two-eigenvalue system to 1e-12; the \
+             iteration-capped last iterate must be refused"
+        );
+        let (solved, iterations) = shifted_cg(&matvec, 0.0, &b, &zero, 1.0e-12, 2)
+            .expect("two-dimensional SPD CG must converge in at most two steps");
+        let residual = &b - &matvec(solved.view());
+        assert!(
+            residual.dot(&residual).sqrt() <= 1.0e-12 * b.dot(&b).sqrt(),
+            "returned shifted solve must satisfy its true-residual contract"
+        );
+        assert_eq!(iterations, 2);
+    }
+
+    #[test]
+    fn two_sided_deflation_propagates_bottom_solve_nonconvergence() {
+        let a = array![[1.0, 0.0], [0.0, 4.0]];
+        let matvec = |v: ArrayView1<f64>| a.dot(&v);
+        let plan = RationalLogdetPlan::build(2, 2, 17, 1.0, 4.0, 1.0e-9)
+            .expect("valid rational plan");
+        assert!(
+            plan.with_two_sided_deflation(&matvec, 0, 1, 1, 91, (1.0e-12, 0))
+                .is_none(),
+            "a requested bottom-tail inverse solve may not silently fall back to \
+             the unamplified start column"
+        );
+    }
+
+    #[test]
     fn full_rank_deflation_is_exact_no_hutchinson() {
         // Deflating the ENTIRE space (rank = dim) makes P = 0: every probe
         // projects to zero, term2 vanishes with no variance, and the estimate is
@@ -801,6 +977,64 @@ mod tests {
             rel < 1e-6,
             "full-rank deflation must be exact to quadrature: rel {rel:.3e} \
              (est {} vs {logdet})",
+            eval.estimate
+        );
+    }
+
+    #[test]
+    fn full_rank_deflation_is_exact_at_wide_kappa_deterministic_bias_localizer() {
+        // #2080 DEFINITIVE deterministic-bias localizer at WIDE κ. The sibling
+        // `full_rank_deflation_is_exact_no_hutchinson` pins the split at κ≈20
+        // (narrow); this pins it on the SAME κ≈1e8 log-uniform spectrum the wide-κ
+        // multiseed discriminator uses. Deflating the ENTIRE space (rank = dim)
+        // makes P = 0: term2 (Hutchinson) vanishes with NO variance, so the estimate
+        // is the PURE deterministic quadrature of `tr log(S/c)` over a full
+        // orthonormal basis — and `tr(Qᵀ M Q) = tr(M)` for ANY orthonormal full-rank
+        // `Q`, so this is independent of which basis the block power realises.
+        //
+        // This is the discriminator the multiseed test could not be: if the wide-κ
+        // "+2.87 (5.57σ)" were a genuine quadrature or split DEFECT it would surface
+        // HERE, at rel ≈ 5%, with ZERO probe noise to hide behind. It does not — the
+        // exp-sinh DE quadrature resolves the [λ_min, λ_max] = 1e8 bracket to ~1e-10
+        // per eigenvalue and the term1/term2 decomposition is exact by construction.
+        // A nonzero value here (rel ≥ 1e-6) is the ONLY thing that would justify
+        // "quadrature/split derivation work"; its passing localises the multiseed
+        // residual entirely to Hutchinson VARIANCE on the deflated complement (fixed
+        // by more probes / deeper rank / a control variate, NOT a re-derivation).
+        // Uses the EXACT dense-Cholesky arm so there is not even CG error to blame.
+        let dim = 96;
+        let mut state = 2026u64;
+        let lambdas: Vec<f64> = (0..dim)
+            .map(|_| 10f64.powf(next_uniform(&mut state, -4.0, 4.0)))
+            .collect();
+        let (a, logdet) = spd_with_spectrum(dim, &lambdas, 4321);
+        let lmin = lambdas.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lmax = lambdas.iter().cloned().fold(0.0f64, f64::max);
+        let matvec = |v: ArrayView1<f64>| a.dot(&v);
+        let plan = RationalLogdetPlan::build(dim, 8, 5, lmin, lmax, 1e-9)
+            .expect("plan")
+            .with_deflation(&matvec, dim, 2, 555);
+        let eval = evaluate_exact(&plan, &a);
+        assert_eq!(
+            eval.deflation_basis.len(),
+            dim,
+            "the rank=dim block power must realise a full orthonormal basis even at \
+             κ≈1e8 (got {}); if it collapses, term2 is nonzero and this stops being a \
+             zero-variance deterministic check",
+            eval.deflation_basis.len()
+        );
+        assert!(
+            eval.std_err < 1e-8,
+            "full deflation must leave ~no Hutchinson variance (P ≈ 0) at wide κ, got \
+             std_err={:.3e}",
+            eval.std_err
+        );
+        let rel = (eval.estimate - logdet).abs() / logdet.abs().max(1.0);
+        assert!(
+            rel < 1e-6,
+            "wide-κ full-rank deflation must be exact to quadrature — a nonzero value \
+             is the ONLY signature of a genuine deterministic quadrature/split bias: \
+             rel {rel:.3e} (est {} vs exact {logdet})",
             eval.estimate
         );
     }
@@ -1045,14 +1279,44 @@ mod tests {
         let k_seeds = 96usize;
         let mut ests = Vec::with_capacity(k_seeds);
         let mut internal_bars = Vec::with_capacity(k_seeds);
+        // Guard the PRECONDITION this discriminator rests on: the K·m probe vectors
+        // must be JOINTLY INDEPENDENT across the unit-spaced seeds. The former
+        // per-probe RNG init `(seed + p)·γ` aliased them — a splitmix stream from
+        // `x₀` and one from `x₀ + γ` are the same stream shifted, so
+        // `(seed=9000+s, probe=p)` and `(9000+s−1, p+1)` were BIT-IDENTICAL and the
+        // 96 seeds drew only ~128 distinct vectors of 96·32=3072. Averaging
+        // correlated draws does not reduce variance as 1/√K, so `se_mean` collapsed
+        // and a shared Hutchinson fluctuation was reported as a "5.57σ deterministic
+        // bias". Fingerprint every probe's sign pattern (dim ≤ 128) and require near
+        // all distinct, so an RNG regression that re-aliases the seeds fails HERE
+        // rather than resurfacing as a phantom quadrature/split bias.
+        let mut probe_fingerprints: std::collections::HashSet<u128> = std::collections::HashSet::new();
         for s in 0..k_seeds {
             let plan = RationalLogdetPlan::build(dim, 32, 9000 + s as u64, lmin, lmax, 1e-9)
                 .expect("plan")
                 .with_deflation(&matvec, 16, 3, 555);
+            for probe in &plan.probes {
+                let mut fp = 0u128;
+                for (i, &x) in probe.iter().enumerate() {
+                    if x > 0.0 {
+                        fp |= 1u128 << i;
+                    }
+                }
+                probe_fingerprints.insert(fp);
+            }
             let e = evaluate_exact(&plan, &a);
             ests.push(e.estimate);
             internal_bars.push(e.std_err);
         }
+        let total_pairs = k_seeds * 32;
+        let distinct = probe_fingerprints.len();
+        assert!(
+            distinct as f64 > 0.95 * total_pairs as f64,
+            "probe vectors must be jointly independent across seeds for this \
+             variance-vs-bias split to be valid: only {distinct} distinct of \
+             {total_pairs} (seed, probe) pairs — the RNG has re-aliased unit-spaced \
+             seeds (expected ~{total_pairs}), so any reported σ is meaningless"
+        );
         let n = ests.len() as f64;
         let mean = ests.iter().sum::<f64>() / n;
         let var = ests.iter().map(|e| (e - mean).powi(2)).sum::<f64>() / (n - 1.0);
@@ -1090,6 +1354,98 @@ mod tests {
             bias_sigma < 3.0 || bias_frac < 0.02,
             "probe-averaged estimate is biased by {bias:+.4} ({bias_frac:.3e} rel, {bias_sigma:.2}σ): \
              deterministic split/quadrature bias survives — genuine derivation work, not variance"
+        );
+    }
+
+    #[test]
+    fn two_sided_deflation_drops_wide_kappa_std_err_below_two_percent() {
+        // #2080 wide-κ VARIANCE-REDUCTION deliverable. The multiseed discriminator
+        // established the surrogate is UNBIASED at κ=1e8 but too NOISY: the wide-κ
+        // Hutchinson bar is ~14% of |logdet| with one-sided top deflation — too
+        // loose for the outer REML to trust one evaluation. Root cause (see
+        // `build_inverse_deflation_basis`): the bar is `√(2‖offdiag(P log(S/c) P)‖_F²)`,
+        // and `log(S/c)`'s off-diagonal mass sits SYMMETRICALLY on both spectral
+        // tails, so one-sided (top-only) deflation removes only half of it. Peeling
+        // BOTH tails — the two-sided low-rank control variate — collapses the bar.
+        //
+        // This measures the bar three ways on IDENTICAL probes through the EXACT
+        // dense-Cholesky estimator arm (so `std_err` reflects the ESTIMATOR variance,
+        // not CG solve noise) and asserts the two-sided bar (a) falls below 2% of
+        // |logdet|, and (b) beats ONE-sided deflation AT EQUAL TOTAL RANK — the
+        // apples-to-apples proof that the win is the two-sidedness, not merely more
+        // deflated columns. The value stays unbiased throughout (exact split for any
+        // orthonormal Q), checked against the estimator's own 5σ bar.
+        let dim = 96;
+        let mut state = 2026u64;
+        let lambdas: Vec<f64> = (0..dim)
+            .map(|_| 10f64.powf(next_uniform(&mut state, -4.0, 4.0)))
+            .collect();
+        let (a, logdet) = spd_with_spectrum(dim, &lambdas, 4321);
+        let lmin = lambdas.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lmax = lambdas.iter().cloned().fold(0.0f64, f64::max);
+        let matvec = |v: ArrayView1<f64>| a.dot(&v);
+
+        // Common 256-probe block (CRN); the three plans differ ONLY in the frozen Q.
+        let base = RationalLogdetPlan::build(dim, 256, 17, lmin, lmax, 1e-9).expect("plan");
+        let top16 = base.clone().with_deflation(&matvec, 16, 3, 555); // current wide-κ config
+        let top64 = base.clone().with_deflation(&matvec, 64, 3, 555); // one-sided, EQUAL total rank
+        let two = base
+            .clone()
+            .with_two_sided_deflation(&matvec, 32, 32, 3, 555, (1e-3, 5000))
+            .expect("bottom-tail inverse iteration must converge"); // 32 top + 32 bottom
+
+        let e16 = evaluate_exact(&top16, &a);
+        let e64 = evaluate_exact(&top64, &a);
+        let e2 = evaluate_exact(&two, &a);
+        let f = |se: f64| se / logdet.abs().max(1.0);
+        eprintln!(
+            "wide-κ variance reduction (256 probes, EXACT estimator): |logdet|={:.4}\n  \
+             top-only  r16 (current): std_err={:.4} ({:.4} of |ld|)\n  \
+             top-only  r64 (eq-rank): std_err={:.4} ({:.4} of |ld|)\n  \
+             two-sided 32+32:         std_err={:.4} ({:.4} of |ld|)  rel={:.4}\n  \
+             => vs top-r16 {:.2}×, vs eq-rank top-r64 {:.2}×",
+            logdet.abs(),
+            e16.std_err,
+            f(e16.std_err),
+            e64.std_err,
+            f(e64.std_err),
+            e2.std_err,
+            f(e2.std_err),
+            (e2.estimate - logdet).abs() / logdet.abs().max(1.0),
+            e16.std_err / e2.std_err.max(1e-300),
+            e64.std_err / e2.std_err.max(1e-300),
+        );
+        assert_eq!(
+            e2.deflation_basis.len(),
+            64,
+            "two-sided block must realise 32 top + 32 bottom orthonormal columns (got {})",
+            e2.deflation_basis.len()
+        );
+        // (a) below the 2%-of-|logdet| production target.
+        assert!(
+            e2.std_err < 0.02 * logdet.abs(),
+            "two-sided wide-κ std_err {:.4} must fall below 2% of |logdet| ({:.4})",
+            e2.std_err,
+            0.02 * logdet.abs()
+        );
+        // (b) beats ONE-sided deflation at EQUAL total rank (the two-sidedness is
+        // the lever, not the column count) — calibrated ratio ≈ 2.75×, assert ≥ 2×.
+        assert!(
+            e2.std_err < 0.5 * e64.std_err,
+            "two-sided ({:.4}) must beat equal-rank one-sided ({:.4}) by ≥2× — the win is \
+             peeling BOTH tails, not merely deflating more columns",
+            e2.std_err,
+            e64.std_err
+        );
+        // Value stays unbiased (exact split for any orthonormal Q): the estimate is
+        // within its own honest 5σ bar of the exact log-det.
+        assert!(
+            (e2.estimate - logdet).abs() < 5.0 * e2.std_err,
+            "two-sided estimate {:.4} must stay within 5σ ({:.4}) of exact {:.4} — variance \
+             reduction must not bias the value",
+            e2.estimate,
+            5.0 * e2.std_err,
+            logdet
         );
     }
 

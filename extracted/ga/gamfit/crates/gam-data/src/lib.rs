@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, StringRecord};
-use ndarray::{Array2, Axis};
+use ndarray::{Array2, ArrayViewMut1, Axis, s};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -110,8 +110,8 @@ pub enum DataError {
     /// `UnseenCategoryPolicy::Error`.
     SchemaMismatch { reason: String },
     /// Failed to open, decode, or read structural bytes of the source
-    /// (CSV/TSV row read, parquet metadata, file extension detection, parquet
-    /// arrow-cast for string columns).
+    /// (CSV/TSV row read, parquet metadata, file extension detection, Arrow
+    /// record-batch reads, or dictionary decoding).
     ParseError { reason: String },
     /// Internal encoding bookkeeping failed: a categorical map expected by the
     /// schema path was missing, or a level expected to be present in the
@@ -120,9 +120,8 @@ pub enum DataError {
     /// The source has no headers, no rows, or contains an empty / missing
     /// field at a row that requires a value.
     EmptyInput { reason: String },
-    /// A cell value cannot be used as a feature: non-finite float, null in a
-    /// numeric parquet column, or an unsupported parquet data type for the
-    /// column.
+    /// A cell value cannot be used as a feature: non-finite float, Arrow null,
+    /// or an unsupported Arrow data type for the column.
     InvalidValue { reason: String },
     /// A formula or call site references a column name that is not present in
     /// the input data. Structured so the FFI boundary can raise a typed
@@ -457,8 +456,6 @@ pub fn load_csvwith_inferred_schema(path: &Path) -> Result<EncodedDataset, DataE
 // ---------------------------------------------------------------------------
 
 /// Maximum number of rows used for schema inference when no schema is provided.
-const SCHEMA_SAMPLE_ROWS: usize = 1024;
-
 /// Prefix a typed Python frame stamps onto a cell that originates from a
 /// genuinely-categorical source column (string / object / categorical dtype).
 /// The column-major inference (`infer_and_encode_column_major`) and the
@@ -564,17 +561,11 @@ fn load_delimited_inferred(
         );
     }
 
-    // Phase 1: stream CSV structure exactly as before, but keep projected,
-    // trimmed fields in row-major order. Field validation, type conversion,
-    // inference, and row-to-column transposition happen after the streaming
-    // read so those CPU-heavy passes can run in parallel across independent
-    // columns. If a later row has malformed CSV width, defer returning that
-    // error until previously streamed rows have been validated to preserve the
-    // serial row-major error precedence.
-    let mut raw_fields = Vec::<String>::new();
+    // Pass 1 discovers only the schema and row count. Keeping one inference
+    // state per column (instead of one owned String per cell) makes peak memory
+    // independent of the file's textual representation.
+    let mut inference = vec![DelimitedInferenceState::default(); p];
     let mut total_rows: usize = 0;
-    let mut stream_error: Option<DataError> = None;
-
     let t_stream = std::time::Instant::now();
     let mut record = StringRecord::new();
     while rdr
@@ -584,7 +575,7 @@ fn load_delimited_inferred(
         })?
     {
         if record.len() != all_headers.len() {
-            stream_error = Some(DataError::SchemaMismatch {
+            return Err(DataError::SchemaMismatch {
                 reason: format!(
                     "row width mismatch at row {}: got {} fields, expected {}",
                     total_rows + 1,
@@ -592,13 +583,14 @@ fn load_delimited_inferred(
                     all_headers.len()
                 ),
             });
-            break;
         }
         total_rows += 1;
-
-        for &selected_idx in &selected_indices {
-            let raw = record.get(selected_idx).unwrap().trim();
-            raw_fields.push(raw.to_string());
+        for (j, &selected_idx) in selected_indices.iter().enumerate() {
+            inference[j].observe(
+                record.get(selected_idx).unwrap().trim(),
+                total_rows,
+                &headers[j],
+            )?;
         }
     }
 
@@ -613,62 +605,17 @@ fn load_delimited_inferred(
     }
 
     if total_rows == 0 {
-        if let Some(err) = stream_error {
-            return Err(err);
-        }
         return Err(DataError::EmptyInput {
             reason: "file has no rows".to_string(),
         });
     }
 
     let t_schema = std::time::Instant::now();
-    let sample_count = total_rows.min(SCHEMA_SAMPLE_ROWS);
-    let inferred_columns = (0..p)
-        .into_par_iter()
-        .map(|j| {
-            infer_delimited_column(
-                &raw_fields,
-                total_rows,
-                p,
-                j,
-                &headers[j],
-                sample_count,
-                categorical_roles.contains(headers[j].as_str()),
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let first_error = inferred_columns
+    let column_kinds = inference
         .iter()
-        .filter_map(|result| result.as_ref().err())
-        .min_by_key(|err| (err.row, err.col));
-    if let Some(err) = first_error {
-        return Err(err.error.clone());
-    }
-    if let Some(err) = stream_error {
-        return Err(err);
-    }
-
-    let inferred_columns = inferred_columns
-        .into_iter()
-        .map(Result::unwrap)
+        .enumerate()
+        .map(|(j, state)| state.kind(categorical_roles.contains(headers[j].as_str())))
         .collect::<Vec<_>>();
-
-    // Build schema from inference state.
-    let mut schema_cols = Vec::<SchemaColumn>::with_capacity(p);
-    let mut column_kinds = Vec::<ColumnKindTag>::with_capacity(p);
-    for (j, inferred) in inferred_columns.iter().enumerate() {
-        column_kinds.push(inferred.kind);
-        schema_cols.push(SchemaColumn {
-            name: headers[j].clone(),
-            kind: inferred.kind,
-            levels: if matches!(inferred.kind, ColumnKindTag::Categorical) {
-                inferred.levels.clone()
-            } else {
-                Vec::new()
-            },
-        });
-    }
     let schema_ms = t_schema.elapsed().as_secs_f64() * 1000.0;
     if schema_ms > 100.0 {
         let n_cat = column_kinds
@@ -683,18 +630,86 @@ fn load_delimited_inferred(
         );
     }
 
+    // Pass 2 parses directly into the one final allocation. Categorical cells
+    // receive provisional encounter-order codes while only the UNIQUE level
+    // strings remain resident; a final in-place remap establishes canonical
+    // sorted codes without retaining a per-cell string table.
     let t_assemble = std::time::Instant::now();
-    // Assemble into Array2 from independent column vectors in parallel.
     let mut values = Array2::<f64>::zeros((total_rows, p));
-    values
-        .axis_iter_mut(Axis(1))
-        .into_par_iter()
-        .zip(inferred_columns.par_iter())
-        .for_each(|(mut out_col, inferred)| {
-            for (dst, &src) in out_col.iter_mut().zip(inferred.values.iter()) {
-                *dst = src;
-            }
+    let mut categorical_encoders = (0..p)
+        .map(|j| {
+            matches!(column_kinds[j], ColumnKindTag::Categorical).then(CategoricalEncoder::default)
+        })
+        .collect::<Vec<_>>();
+    let mut encode_rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .delimiter(delimiter)
+        .from_path(path)
+        .map_err(|e| DataError::ParseError {
+            reason: format!("failed to reopen '{}': {e}", path.display()),
+        })?;
+    encode_rdr.headers().map_err(|e| DataError::ParseError {
+        reason: format!("failed to reread headers: {e}"),
+    })?;
+    let mut encoded_rows = 0usize;
+    while encode_rdr
+        .read_record(&mut record)
+        .map_err(|e| DataError::ParseError {
+            reason: format!("failed reading row: {e}"),
+        })?
+    {
+        if record.len() != all_headers.len() {
+            return Err(DataError::SchemaMismatch {
+                reason: format!(
+                    "row width mismatch at row {}: got {} fields, expected {}",
+                    encoded_rows + 1,
+                    record.len(),
+                    all_headers.len()
+                ),
+            });
+        }
+        if encoded_rows >= total_rows {
+            return Err(DataError::SchemaMismatch {
+                reason: "data file changed while its schema was being discovered".to_string(),
+            });
+        }
+        for (j, &selected_idx) in selected_indices.iter().enumerate() {
+            let raw = record.get(selected_idx).unwrap().trim();
+            values[[encoded_rows, j]] = match column_kinds[j] {
+                ColumnKindTag::Continuous | ColumnKindTag::Binary => {
+                    parse_inferred_numeric_cell(raw, encoded_rows + 1, &headers[j])?
+                }
+                ColumnKindTag::Categorical => {
+                    if raw.is_empty() {
+                        return Err(DataError::EmptyInput {
+                            reason: format!(
+                                "empty field at row {}, column '{}'",
+                                encoded_rows + 1,
+                                &headers[j]
+                            ),
+                        });
+                    }
+                    categorical_encoders[j]
+                        .as_mut()
+                        .expect("categorical encoder")
+                        .encode(raw) as f64
+                }
+            };
+        }
+        encoded_rows += 1;
+    }
+    if encoded_rows != total_rows {
+        return Err(DataError::SchemaMismatch {
+            reason: "data file changed while its schema was being discovered".to_string(),
         });
+    }
+
+    let mut levels = vec![Vec::<String>::new(); p];
+    for (j, encoder) in categorical_encoders.into_iter().enumerate() {
+        if let Some(encoder) = encoder {
+            levels[j] = encoder.finish(values.column_mut(j), LevelOrder::Canonical);
+        }
+    }
     let assemble_ms = t_assemble.elapsed().as_secs_f64() * 1000.0;
     if assemble_ms > 100.0 {
         log::info!(
@@ -706,7 +721,15 @@ fn load_delimited_inferred(
     }
 
     let schema = DataSchema {
-        columns: schema_cols,
+        columns: headers
+            .iter()
+            .enumerate()
+            .map(|(j, name)| SchemaColumn {
+                name: name.clone(),
+                kind: column_kinds[j],
+                levels: std::mem::take(&mut levels[j]),
+            })
+            .collect(),
     };
     Ok(EncodedDataset {
         headers,
@@ -716,179 +739,141 @@ fn load_delimited_inferred(
     })
 }
 
-struct InferredDelimitedColumn {
-    values: Vec<f64>,
-    kind: ColumnKindTag,
-    levels: Vec<String>,
+#[derive(Clone, Copy)]
+struct DelimitedInferenceState {
+    all_numeric: bool,
+    all_binary: bool,
 }
 
-#[derive(Debug)]
-struct DelimitedInferenceError {
-    row: usize,
-    col: usize,
-    error: DataError,
-}
-
-fn infer_delimited_column(
-    raw_fields: &[String],
-    total_rows: usize,
-    n_cols: usize,
-    col: usize,
-    header: &str,
-    sample_count: usize,
-    force_categorical: bool,
-) -> Result<InferredDelimitedColumn, DelimitedInferenceError> {
-    // Per-column inference state (mirrors infer_schema_column logic).
-    let mut values = Vec::<f64>::with_capacity(total_rows);
-    let mut all_numeric = true;
-    let mut all_binary = true;
-    let mut level_index = HashMap::<String, usize>::new();
-    let mut levels = Vec::<String>::new();
-
-    // Shared constructor for the "non-finite parsed value" rejection, which is
-    // raised identically from the sample-window, post-window, and final recode
-    // passes below. `col`/`header` are in scope for the whole function.
-    let non_finite_err = |row_idx: usize| DelimitedInferenceError {
-        row: row_idx + 1,
-        col,
-        error: DataError::InvalidValue {
-            reason: format!(
-                "non-finite value at row {}, column '{}'",
-                row_idx + 1,
-                header
-            ),
-        },
-    };
-
-    for row_idx in 0..total_rows {
-        let raw = raw_fields[row_idx * n_cols + col].as_str();
-        if raw.is_empty() {
-            return Err(DelimitedInferenceError {
-                row: row_idx + 1,
-                col,
-                error: DataError::EmptyInput {
-                    reason: format!("empty field at row {}, column '{}'", row_idx + 1, header),
-                },
-            });
-        }
-
-        // Schema inference on sample window.
-        if row_idx < sample_count {
-            if let Ok(v) = raw.parse::<f64>() {
-                if !v.is_finite() {
-                    return Err(non_finite_err(row_idx));
-                }
-                if (v - 0.0).abs() >= 1e-12 && (v - 1.0).abs() >= 1e-12 {
-                    all_binary = false;
-                }
-                values.push(v);
-            } else {
-                all_numeric = false;
-                all_binary = false;
-                level_index.entry(raw.to_string()).or_insert_with(|| {
-                    let idx = levels.len();
-                    levels.push(raw.to_string());
-                    idx
-                });
-                // Store a placeholder for sample-window strings; once the
-                // final column kind is known, categorical columns are fixed up
-                // with the same level codes as the previous serial path.
-                values.push(f64::NAN);
-            }
-        } else if let Ok(v) = raw.parse::<f64>() {
-            // After sample window: we still accumulate inference state for
-            // correctness (a column that looks binary in the first 1024 rows
-            // may contain 2.5 on row 1025).
-            if !v.is_finite() {
-                return Err(non_finite_err(row_idx));
-            }
-            if (v - 0.0).abs() >= 1e-12 && (v - 1.0).abs() >= 1e-12 {
-                all_binary = false;
-            }
-            values.push(v);
-        } else {
-            all_numeric = false;
-            all_binary = false;
-            let idx = *level_index.entry(raw.to_string()).or_insert_with(|| {
-                let new_idx = levels.len();
-                levels.push(raw.to_string());
-                new_idx
-            });
-            values.push(idx as f64);
+impl Default for DelimitedInferenceState {
+    fn default() -> Self {
+        Self {
+            all_numeric: true,
+            all_binary: true,
         }
     }
+}
 
-    // A column the formula uses in a factor-by-construction role (an explicit
-    // `group(g)` / `factor(g)` / `re(g)` random effect, or a
-    // categorical/multinomial response) is encoded as a factor even when every
-    // label parsed as a number — the role-based analogue of the typed-frame
-    // `CATEGORICAL_CELL_SENTINEL` path, so CLI and Python produce the same
-    // factor design for a numeric-coded grouping column. The categorical fixup
-    // pass below recodes the already-parsed numeric `values` into sorted level
-    // indices, identical to the genuinely-non-numeric case.
-    let kind = if force_categorical {
-        ColumnKindTag::Categorical
-    } else if all_numeric {
-        if all_binary {
+impl DelimitedInferenceState {
+    fn observe(&mut self, raw: &str, row: usize, header: &str) -> Result<(), DataError> {
+        if raw.is_empty() {
+            return Err(DataError::EmptyInput {
+                reason: format!("empty field at row {row}, column '{header}'"),
+            });
+        }
+        match raw.parse::<f64>() {
+            Ok(value) => {
+                if !value.is_finite() {
+                    return Err(DataError::InvalidValue {
+                        reason: format!("non-finite value at row {row}, column '{header}'"),
+                    });
+                }
+                if (value - 0.0).abs() >= 1e-12 && (value - 1.0).abs() >= 1e-12 {
+                    self.all_binary = false;
+                }
+            }
+            Err(_) => {
+                self.all_numeric = false;
+                self.all_binary = false;
+            }
+        }
+        Ok(())
+    }
+
+    fn kind(self, force_categorical: bool) -> ColumnKindTag {
+        if force_categorical || !self.all_numeric {
+            ColumnKindTag::Categorical
+        } else if self.all_binary {
             ColumnKindTag::Binary
         } else {
             ColumnKindTag::Continuous
         }
-    } else {
-        ColumnKindTag::Categorical
-    };
+    }
+}
 
-    if matches!(kind, ColumnKindTag::Categorical) {
-        // A column is categorical only if at least one row failed numeric
-        // parsing. Two failure modes used to silently corrupt the encoded
-        // values for such columns:
-        //   1. Sample-window rows that parsed as numbers stored the raw f64
-        //      (e.g. 0.0) in `values` without adding the raw string to
-        //      `level_index`.
-        //   2. Post-window rows that parsed as numbers stored the raw f64
-        //      directly without consulting `level_index`.
-        // After the column is declared categorical, those rows must be
-        // recoded as level indices using their original raw strings, treating
-        // every distinct raw string as a categorical level (including the
-        // numeric ones). Without this pass, a column like
-        // "0, 0, ..., 0, foo" mixes raw doubles with level codes, breaking
-        // the categorical encoding invariant.
-        //
-        // First discover every distinct level, then sort the level set
-        // lexicographically so the encoding is canonical (matching R `factor()`
-        // / pandas `Categorical`) and independent of row order — the same
-        // contract the column-major Python path enforces (#1319). Recode in a
-        // second pass against the sorted level → index map.
-        for row_idx in 0..total_rows {
-            let raw = raw_fields[row_idx * n_cols + col].as_str();
-            level_index.entry(raw.to_string()).or_insert_with(|| {
-                let new_idx = levels.len();
-                levels.push(raw.to_string());
-                new_idx
-            });
+fn parse_inferred_numeric_cell(raw: &str, row: usize, header: &str) -> Result<f64, DataError> {
+    if raw.is_empty() {
+        return Err(DataError::EmptyInput {
+            reason: format!("empty field at row {row}, column '{header}'"),
+        });
+    }
+    let value = raw
+        .parse::<f64>()
+        .map_err(|error| DataError::EncodingFailure {
+            reason: format!(
+                "failed to parse numeric value '{raw}' at row {row}, column '{header}': {error}"
+            ),
+        })?;
+    if !value.is_finite() {
+        return Err(DataError::InvalidValue {
+            reason: format!("non-finite value at row {row}, column '{header}'"),
+        });
+    }
+    Ok(value)
+}
+
+#[derive(Clone, Copy)]
+enum LevelOrder {
+    Encounter,
+    Canonical,
+}
+
+/// Single-owner categorical encoder used by the file loaders.
+///
+/// The map owns each distinct label exactly once and assigns an encounter-order
+/// code while rows stream into the final numeric matrix. Finalization consumes
+/// the map, moving those same `String` allocations into the schema and, when a
+/// canonical order is required, remapping only the numeric codes in place.
+/// This avoids the former map + level-vector + canonicalization-clone triple
+/// ownership, whose text payload became row-sized for high-cardinality factors.
+#[derive(Default)]
+struct CategoricalEncoder {
+    encounter_codes: HashMap<String, usize>,
+}
+
+impl CategoricalEncoder {
+    fn encode(&mut self, label: &str) -> usize {
+        if let Some(&code) = self.encounter_codes.get(label) {
+            return code;
         }
-        sort_levels_canonical(&mut levels);
-        level_index.clear();
-        for (idx, level) in levels.iter().enumerate() {
-            level_index.insert(level.clone(), idx);
-        }
-        for row_idx in 0..total_rows {
-            let raw = raw_fields[row_idx * n_cols + col].as_str();
-            values[row_idx] = level_index[raw] as f64;
-        }
+        let code = self.encounter_codes.len();
+        self.encounter_codes.insert(label.to_owned(), code);
+        code
     }
 
-    for (row_idx, &v) in values.iter().enumerate() {
-        if !v.is_finite() {
-            return Err(non_finite_err(row_idx));
+    fn finish(self, mut encoded: ArrayViewMut1<'_, f64>, order: LevelOrder) -> Vec<String> {
+        match order {
+            LevelOrder::Encounter => {
+                let mut levels = std::iter::repeat_with(|| None)
+                    .take(self.encounter_codes.len())
+                    .collect::<Vec<Option<String>>>();
+                for (level, old_code) in self.encounter_codes {
+                    levels[old_code] = Some(level);
+                }
+                levels
+                    .into_iter()
+                    .map(|level| level.expect("encounter code must name one level"))
+                    .collect()
+            }
+            LevelOrder::Canonical => {
+                let mut levels_with_old_codes =
+                    self.encounter_codes.into_iter().collect::<Vec<_>>();
+                levels_with_old_codes
+                    .sort_by(|(a, _), (b, _)| natural_level_cmp(a.as_str(), b.as_str()));
+                let mut remap = vec![0usize; levels_with_old_codes.len()];
+                for (new_code, (_, old_code)) in levels_with_old_codes.iter().enumerate() {
+                    remap[*old_code] = new_code;
+                }
+                for code in encoded.iter_mut() {
+                    *code = remap[*code as usize] as f64;
+                }
+                levels_with_old_codes
+                    .into_iter()
+                    .map(|(level, _)| level)
+                    .collect()
+            }
         }
     }
-
-    Ok(InferredDelimitedColumn {
-        values,
-        kind,
-        levels,
-    })
 }
 
 fn load_delimited_with_schema(
@@ -948,7 +933,7 @@ fn load_delimited_with_schema(
                     sc.levels
                         .iter()
                         .enumerate()
-                        .map(|(idx, v)| (v.clone(), idx as f64))
+                        .map(|(idx, v)| (v.as_str(), idx as f64))
                         .collect::<HashMap<_, _>>(),
                 )
             } else {
@@ -979,15 +964,78 @@ fn load_delimited_with_schema(
         .map(|h| !schema_byname.contains_key(h.as_str()))
         .collect();
 
-    // Stream rows into column vecs.
-    let mut col_vecs: Vec<Vec<f64>> = vec![Vec::new(); p];
-    // For columns needing inference, track strings for categorical fixup.
-    let mut infer_all_numeric: Vec<bool> = vec![true; p];
-    let mut infer_all_binary: Vec<bool> = vec![true; p];
-    let mut infer_level_index: Vec<HashMap<String, usize>> = vec![HashMap::new(); p];
-    let mut infer_levels: Vec<Vec<String>> = vec![Vec::new(); p];
-    let mut infer_strings: Vec<Vec<(usize, String)>> = vec![Vec::new(); p]; // (row_idx, raw)
+    // A complete supplied schema needs no discovery pass. Parse its rows once
+    // in historical row-major error order into a growable row-major buffer;
+    // `Array2::from_shape_vec` adopts that same allocation as the final matrix.
+    // The two-pass path below remains only for projected columns absent from the
+    // schema, whose kind genuinely has to be discovered before encoding.
+    if needs_inference.iter().all(|needs| !needs) {
+        let t_stream = std::time::Instant::now();
+        let mut flat_values = Vec::<f64>::new();
+        let mut total_rows = 0usize;
+        let mut record = StringRecord::new();
+        while rdr
+            .read_record(&mut record)
+            .map_err(|e| DataError::ParseError {
+                reason: format!("failed reading row: {e}"),
+            })?
+        {
+            if record.len() != all_headers.len() {
+                return Err(DataError::SchemaMismatch {
+                    reason: format!(
+                        "row width mismatch at row {}: got {} fields, expected {}",
+                        total_rows + 1,
+                        record.len(),
+                        all_headers.len()
+                    ),
+                });
+            }
+            total_rows += 1;
+            for j in 0..p {
+                let raw = record.get(selected_indices[j]).unwrap().trim();
+                flat_values.push(parse_cell_with_schema(
+                    raw,
+                    &col_meta[j],
+                    total_rows,
+                    &headers[j],
+                    &unseen_policy,
+                )?);
+            }
+        }
+        if total_rows == 0 {
+            return Err(DataError::EmptyInput {
+                reason: "file has no rows".to_string(),
+            });
+        }
+        let values = Array2::from_shape_vec((total_rows, p), flat_values).map_err(|error| {
+            DataError::EncodingFailure {
+                reason: format!("failed to assemble schema-guided delimited matrix: {error}"),
+            }
+        })?;
+        let stream_ms = t_stream.elapsed().as_secs_f64() * 1000.0;
+        if stream_ms > 100.0 {
+            log::info!(
+                "[DATA-LOAD] delim_schema_direct | n_rows={} | n_cols={} | {:.1}ms",
+                total_rows,
+                p,
+                stream_ms
+            );
+        }
+        let column_kinds = col_meta.iter().map(|meta| meta.kind).collect();
+        let schema_out = DataSchema {
+            columns: col_meta.into_iter().map(|meta| meta.schema_col).collect(),
+        };
+        return Ok(EncodedDataset {
+            headers,
+            values,
+            schema: schema_out,
+            column_kinds,
+        });
+    }
 
+    // Pass 1 validates schema-bound cells, discovers the kinds of schema-less
+    // columns, and counts rows. No cell payload survives this pass.
+    let mut inference = vec![DelimitedInferenceState::default(); p];
     let mut total_rows: usize = 0;
     let t_stream = std::time::Instant::now();
     let mut record = StringRecord::new();
@@ -1011,63 +1059,10 @@ fn load_delimited_with_schema(
 
         for j in 0..p {
             let raw = record.get(selected_indices[j]).unwrap().trim();
-            if raw.is_empty() {
-                return Err(DataError::EmptyInput {
-                    reason: format!(
-                        "empty field at row {}, column '{}'",
-                        total_rows, &headers[j]
-                    ),
-                });
-            }
-
             if needs_inference[j] {
-                // Accumulate inference state.
-                if let Ok(v) = raw.parse::<f64>() {
-                    if !v.is_finite() {
-                        return Err(DataError::InvalidValue {
-                            reason: format!(
-                                "non-finite value at row {}, column '{}'",
-                                total_rows, &headers[j]
-                            ),
-                        });
-                    }
-                    if (v - 0.0).abs() >= 1e-12 && (v - 1.0).abs() >= 1e-12 {
-                        infer_all_binary[j] = false;
-                    }
-                    col_vecs[j].push(v);
-                    // Also remember the raw string in case this column ends up
-                    // categorical (because a *later* row fails numeric parsing).
-                    // Without this, numeric-parsing rows would keep their raw
-                    // f64 values mixed with level codes — silently corrupting
-                    // the encoding for columns like `0, 0, ..., 0, foo`. This
-                    // mirrors the fix-up already performed in the schema-less
-                    // `infer_delimited_column` path. If the column ends up
-                    // continuous/binary, this Vec is simply dropped.
-                    infer_strings[j].push((total_rows - 1, raw.to_string()));
-                } else {
-                    infer_all_numeric[j] = false;
-                    infer_all_binary[j] = false;
-                    let levels_ref = &mut infer_levels[j];
-                    infer_level_index[j]
-                        .entry(raw.to_string())
-                        .or_insert_with(|| {
-                            let idx = levels_ref.len();
-                            levels_ref.push(raw.to_string());
-                            idx
-                        });
-                    infer_strings[j].push((total_rows - 1, raw.to_string()));
-                    col_vecs[j].push(f64::NAN); // placeholder
-                }
+                inference[j].observe(raw, total_rows, &headers[j])?;
             } else {
-                // Schema-driven parse.
-                let val = parse_cell_with_schema(
-                    raw,
-                    &col_meta[j],
-                    total_rows,
-                    &headers[j],
-                    &unseen_policy,
-                )?;
-                col_vecs[j].push(val);
+                parse_cell_with_schema(raw, &col_meta[j], total_rows, &headers[j], &unseen_policy)?;
             }
         }
     }
@@ -1091,54 +1086,12 @@ fn load_delimited_with_schema(
     }
 
     let t_finalize = std::time::Instant::now();
-    // Finalize inferred columns.
-    let mut column_kinds = Vec::<ColumnKindTag>::with_capacity(p);
     for j in 0..p {
         if needs_inference[j] {
-            let kind = if infer_all_numeric[j] {
-                if infer_all_binary[j] {
-                    ColumnKindTag::Binary
-                } else {
-                    ColumnKindTag::Continuous
-                }
-            } else {
-                ColumnKindTag::Categorical
-            };
+            let kind = inference[j].kind(false);
             col_meta[j].kind = kind;
             col_meta[j].schema_col.kind = kind;
-            if matches!(kind, ColumnKindTag::Categorical) {
-                // Re-encode the entire column as categorical level codes.
-                // `infer_strings[j]` contains every (row_idx, raw) seen during
-                // streaming (both numeric- and non-numeric-parsing rows), so
-                // numeric-looking strings like "0" become their own levels
-                // instead of leaking through as raw f64 values that would
-                // collide with real level codes.
-                //
-                // First discover the full level set, then sort it
-                // lexicographically and recode against the canonical order, so
-                // the encoding matches R `factor()` / pandas `Categorical` and
-                // is independent of row order (#1319) — the same contract as the
-                // schema-less and column-major inference paths.
-                for (_, raw) in &infer_strings[j] {
-                    let levels_ref = &mut infer_levels[j];
-                    infer_level_index[j].entry(raw.clone()).or_insert_with(|| {
-                        let new_idx = levels_ref.len();
-                        levels_ref.push(raw.clone());
-                        new_idx
-                    });
-                }
-                infer_levels[j].sort();
-                infer_level_index[j].clear();
-                for (idx, level) in infer_levels[j].iter().enumerate() {
-                    infer_level_index[j].insert(level.clone(), idx);
-                }
-                for (row_idx, raw) in &infer_strings[j] {
-                    col_vecs[j][*row_idx] = infer_level_index[j][raw] as f64;
-                }
-                col_meta[j].schema_col.levels = infer_levels[j].clone();
-            }
         }
-        column_kinds.push(col_meta[j].kind);
     }
     let finalize_ms = t_finalize.elapsed().as_secs_f64() * 1000.0;
     if finalize_ms > 100.0 {
@@ -1149,32 +1102,94 @@ fn load_delimited_with_schema(
         );
     }
 
+    // Pass 2 parses directly into final storage. Only unique strings for newly
+    // inferred categorical columns are retained until their in-place canonical
+    // code remap.
     let t_assemble = std::time::Instant::now();
-    // Assemble Array2 by column in parallel (mirrors the inferred path).
-    // Each column carries its own finiteness check; errors are surfaced
-    // through a parallel reduce so the first detected non-finite cell wins
-    // by lexicographic (column, row) order — deterministic given the
-    // collect.
     let mut values = Array2::<f64>::zeros((total_rows, p));
-    let assemble_err: Option<DataError> = values
-        .axis_iter_mut(Axis(1))
-        .into_par_iter()
-        .zip(col_vecs.par_iter())
-        .zip(headers.par_iter())
-        .map(|((mut out_col, col_vec), header)| {
-            for (i, &v) in col_vec.iter().enumerate() {
-                if !v.is_finite() {
-                    return Some(DataError::InvalidValue {
-                        reason: format!("non-finite value at row {}, column '{}'", i + 1, header),
-                    });
-                }
-                out_col[i] = v;
-            }
-            None
+    let mut inferred_encoders = (0..p)
+        .map(|j| {
+            (needs_inference[j] && matches!(col_meta[j].kind, ColumnKindTag::Categorical))
+                .then(CategoricalEncoder::default)
         })
-        .reduce(|| None, |a, b| a.or(b));
-    if let Some(e) = assemble_err {
-        return Err(e);
+        .collect::<Vec<_>>();
+    let mut encode_rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .delimiter(delimiter)
+        .from_path(path)
+        .map_err(|e| DataError::ParseError {
+            reason: format!("failed to reopen '{}': {e}", path.display()),
+        })?;
+    encode_rdr.headers().map_err(|e| DataError::ParseError {
+        reason: format!("failed to reread headers: {e}"),
+    })?;
+    let mut encoded_rows = 0usize;
+    while encode_rdr
+        .read_record(&mut record)
+        .map_err(|e| DataError::ParseError {
+            reason: format!("failed reading row: {e}"),
+        })?
+    {
+        if record.len() != all_headers.len() {
+            return Err(DataError::SchemaMismatch {
+                reason: format!(
+                    "row width mismatch at row {}: got {} fields, expected {}",
+                    encoded_rows + 1,
+                    record.len(),
+                    all_headers.len()
+                ),
+            });
+        }
+        if encoded_rows >= total_rows {
+            return Err(DataError::SchemaMismatch {
+                reason: "data file changed while its schema was being discovered".to_string(),
+            });
+        }
+        for j in 0..p {
+            let raw = record.get(selected_indices[j]).unwrap().trim();
+            values[[encoded_rows, j]] = if !needs_inference[j] {
+                parse_cell_with_schema(
+                    raw,
+                    &col_meta[j],
+                    encoded_rows + 1,
+                    &headers[j],
+                    &unseen_policy,
+                )?
+            } else {
+                match col_meta[j].kind {
+                    ColumnKindTag::Continuous | ColumnKindTag::Binary => {
+                        parse_inferred_numeric_cell(raw, encoded_rows + 1, &headers[j])?
+                    }
+                    ColumnKindTag::Categorical => {
+                        if raw.is_empty() {
+                            return Err(DataError::EmptyInput {
+                                reason: format!(
+                                    "empty field at row {}, column '{}'",
+                                    encoded_rows + 1,
+                                    &headers[j]
+                                ),
+                            });
+                        }
+                        let encoder = inferred_encoders[j]
+                            .as_mut()
+                            .expect("inferred categorical encoder");
+                        encoder.encode(raw) as f64
+                    }
+                }
+            };
+        }
+        encoded_rows += 1;
+    }
+    if encoded_rows != total_rows {
+        return Err(DataError::SchemaMismatch {
+            reason: "data file changed while its schema was being discovered".to_string(),
+        });
+    }
+    for (j, encoder) in inferred_encoders.into_iter().enumerate() {
+        if let Some(encoder) = encoder {
+            col_meta[j].schema_col.levels =
+                encoder.finish(values.column_mut(j), LevelOrder::Canonical);
+        }
     }
     let assemble_ms = t_assemble.elapsed().as_secs_f64() * 1000.0;
     if assemble_ms > 100.0 {
@@ -1186,6 +1201,7 @@ fn load_delimited_with_schema(
         );
     }
 
+    let column_kinds = col_meta.iter().map(|meta| meta.kind).collect();
     let schema_out = DataSchema {
         columns: col_meta.into_iter().map(|m| m.schema_col).collect(),
     };
@@ -1199,7 +1215,7 @@ fn load_delimited_with_schema(
 
 fn parse_cell_with_schema(
     raw: &str,
-    meta: &ColMeta,
+    meta: &ColMeta<'_>,
     row: usize,
     col_name: &str,
     unseen_policy: &UnseenCategoryPolicy,
@@ -1262,20 +1278,15 @@ fn parse_cell_with_schema(
 
 // Inner type used by load_delimited_with_schema; defined here to keep
 // parse_cell_with_schema usable without forward-declaring inside the fn.
-struct ColMeta {
+struct ColMeta<'a> {
     kind: ColumnKindTag,
-    level_map: Option<HashMap<String, f64>>,
+    level_map: Option<HashMap<&'a str, f64>>,
     schema_col: SchemaColumn,
 }
 
 // ---------------------------------------------------------------------------
 // Parquet — columnar, zero StringRecord, schema from metadata
 // ---------------------------------------------------------------------------
-
-enum ParquetBatchColumn {
-    Numeric(Vec<f64>),
-    Strings(Vec<String>),
-}
 
 /// True iff an Arrow column should be treated as a string/categorical column.
 ///
@@ -1285,77 +1296,256 @@ enum ParquetBatchColumn {
 /// `Dictionary(K, V)` column is categorical iff its *value* type `V` is a
 /// string type; `Dictionary(_, Int*/UInt*/Float*/Bool)` is numeric. We recurse
 /// through the value type so nested dictionaries resolve to their leaf type.
-fn parquet_field_is_string(dt: &arrow::datatypes::DataType) -> bool {
+fn arrow_field_is_string(dt: &arrow::datatypes::DataType) -> bool {
     use arrow::datatypes::DataType;
     match dt {
         DataType::Utf8 | DataType::LargeUtf8 => true,
-        DataType::Dictionary(_, value_type) => parquet_field_is_string(value_type),
+        DataType::Dictionary(_, value_type) => arrow_field_is_string(value_type),
         _ => false,
     }
 }
 
-fn decode_parquet_batch_column(
-    col: &dyn arrow::array::Array,
-    n_rows: usize,
+fn write_arrow_numeric_values(
+    values: impl IntoIterator<Item = f64>,
     base_row: usize,
     header: &str,
-    is_string_col: bool,
-) -> Result<ParquetBatchColumn, DataError> {
-    use arrow::array::{
-        Array as ArrowArray, BooleanArray, Float32Array, Float64Array, Int8Array, Int16Array,
-        Int32Array, Int64Array, LargeStringArray, StringArray, UInt8Array, UInt16Array,
-        UInt32Array, UInt64Array,
-    };
-    use arrow::datatypes::DataType;
-
-    if col.null_count() > 0 {
-        for i in 0..n_rows {
-            if col.is_null(i) {
-                return Err(DataError::InvalidValue {
-                    reason: format!(
-                        "null value at row {}, column '{}'",
-                        base_row + i + 1,
-                        header
-                    ),
-                });
+    mut output: ArrayViewMut1<'_, f64>,
+    categorical_encoder: Option<&mut CategoricalEncoder>,
+    all_binary: &mut bool,
+) -> Result<(), DataError> {
+    match categorical_encoder {
+        Some(encoder) => {
+            for (batch_row, value) in values.into_iter().enumerate() {
+                if !value.is_finite() {
+                    return Err(DataError::InvalidValue {
+                        reason: format!(
+                            "non-finite value at row {}, column '{}'",
+                            base_row + batch_row + 1,
+                            header
+                        ),
+                    });
+                }
+                output[batch_row] = encoder.encode(&value.to_string()) as f64;
+            }
+        }
+        None => {
+            for (batch_row, value) in values.into_iter().enumerate() {
+                if !value.is_finite() {
+                    return Err(DataError::InvalidValue {
+                        reason: format!(
+                            "non-finite value at row {}, column '{}'",
+                            base_row + batch_row + 1,
+                            header
+                        ),
+                    });
+                }
+                if (value - 0.0).abs() >= 1e-12 && (value - 1.0).abs() >= 1e-12 {
+                    *all_binary = false;
+                }
+                output[batch_row] = value;
             }
         }
     }
+    Ok(())
+}
 
-    if is_string_col {
-        if let Some(arr) = col.as_any().downcast_ref::<StringArray>() {
-            return Ok(ParquetBatchColumn::Strings(
-                (0..n_rows).map(|i| arr.value(i).to_string()).collect(),
-            ));
-        }
-        if let Some(arr) = col.as_any().downcast_ref::<LargeStringArray>() {
-            return Ok(ParquetBatchColumn::Strings(
-                (0..n_rows).map(|i| arr.value(i).to_string()).collect(),
-            ));
-        }
+fn reject_arrow_null_values(
+    col: &dyn arrow::array::Array,
+    base_row: usize,
+    header: &str,
+) -> Result<(), DataError> {
+    let Some(nulls) = col.logical_nulls() else {
+        return Ok(());
+    };
+    if let Some(batch_row) = (0..col.len()).find(|&row| nulls.is_null(row)) {
+        return Err(DataError::InvalidValue {
+            reason: format!(
+                "null value at row {}, column '{}'",
+                base_row + batch_row + 1,
+                header
+            ),
+        });
+    }
+    Ok(())
+}
 
-        // Dictionary-encoded strings are not directly a StringArray. Cast only
-        // those remaining string-like arrays rather than falling back for every
-        // Utf8/LargeUtf8 column.
-        let casted =
-            arrow::compute::cast(col, &DataType::Utf8).map_err(|e| DataError::ParseError {
-                reason: format!("failed to cast column '{}' to string: {e}", header),
-            })?;
-        let arr = casted
+fn arrow_dictionary_string_value_at<'a, K>(
+    col: &'a dyn arrow::array::Array,
+    index: usize,
+    logical_row: usize,
+    header: &str,
+) -> Result<&'a str, DataError>
+where
+    K: arrow::datatypes::ArrowDictionaryKeyType,
+{
+    use arrow::array::DictionaryArray;
+
+    let dictionary = col
+        .as_any()
+        .downcast_ref::<DictionaryArray<K>>()
+        .ok_or_else(|| DataError::EncodingFailure {
+            reason: format!(
+                "Arrow dictionary column '{}' did not match its declared key type",
+                header
+            ),
+        })?;
+    let value_index = dictionary
+        .key(index)
+        .ok_or_else(|| DataError::InvalidValue {
+            reason: format!("null value at row {logical_row}, column '{header}'"),
+        })?;
+    if value_index >= dictionary.values().len() {
+        return Err(DataError::EncodingFailure {
+            reason: format!(
+                "Arrow dictionary column '{}' has out-of-range key {} at row {}",
+                header, value_index, logical_row
+            ),
+        });
+    }
+    arrow_string_value_at(
+        dictionary.values().as_ref(),
+        value_index,
+        logical_row,
+        header,
+    )
+}
+
+/// Resolve a string or (possibly nested) dictionary-string value without
+/// materializing a row-sized decoded string array.
+fn arrow_string_value_at<'a>(
+    col: &'a dyn arrow::array::Array,
+    index: usize,
+    logical_row: usize,
+    header: &str,
+) -> Result<&'a str, DataError> {
+    use arrow::array::{LargeStringArray, StringArray};
+    use arrow::datatypes::{
+        DataType, Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type, UInt16Type, UInt32Type,
+        UInt64Type,
+    };
+
+    if index >= col.len() {
+        return Err(DataError::EncodingFailure {
+            reason: format!(
+                "Arrow string column '{}' has out-of-range index {} at row {}",
+                header, index, logical_row
+            ),
+        });
+    }
+    if col.is_null(index) {
+        return Err(DataError::InvalidValue {
+            reason: format!("null value at row {logical_row}, column '{header}'"),
+        });
+    }
+
+    match col.data_type() {
+        DataType::Utf8 => col
             .as_any()
             .downcast_ref::<StringArray>()
+            .map(|array| array.value(index))
             .ok_or_else(|| DataError::EncodingFailure {
-                reason: format!("column '{}' could not be read as string after cast", header),
-            })?;
-        return Ok(ParquetBatchColumn::Strings(
-            (0..n_rows).map(|i| arr.value(i).to_string()).collect(),
-        ));
+                reason: format!("Arrow column '{}' could not be read as Utf8", header),
+            }),
+        DataType::LargeUtf8 => col
+            .as_any()
+            .downcast_ref::<LargeStringArray>()
+            .map(|array| array.value(index))
+            .ok_or_else(|| DataError::EncodingFailure {
+                reason: format!("Arrow column '{}' could not be read as LargeUtf8", header),
+            }),
+        DataType::Dictionary(key_type, _) => match key_type.as_ref() {
+            DataType::Int8 => {
+                arrow_dictionary_string_value_at::<Int8Type>(col, index, logical_row, header)
+            }
+            DataType::Int16 => {
+                arrow_dictionary_string_value_at::<Int16Type>(col, index, logical_row, header)
+            }
+            DataType::Int32 => {
+                arrow_dictionary_string_value_at::<Int32Type>(col, index, logical_row, header)
+            }
+            DataType::Int64 => {
+                arrow_dictionary_string_value_at::<Int64Type>(col, index, logical_row, header)
+            }
+            DataType::UInt8 => {
+                arrow_dictionary_string_value_at::<UInt8Type>(col, index, logical_row, header)
+            }
+            DataType::UInt16 => {
+                arrow_dictionary_string_value_at::<UInt16Type>(col, index, logical_row, header)
+            }
+            DataType::UInt32 => {
+                arrow_dictionary_string_value_at::<UInt32Type>(col, index, logical_row, header)
+            }
+            DataType::UInt64 => {
+                arrow_dictionary_string_value_at::<UInt64Type>(col, index, logical_row, header)
+            }
+            other => Err(DataError::InvalidValue {
+                reason: format!(
+                    "unsupported Arrow dictionary key type {:?} for column '{}'",
+                    other, header
+                ),
+            }),
+        },
+        other => Err(DataError::InvalidValue {
+            reason: format!(
+                "unsupported Arrow string column type {:?} for column '{}'",
+                other, header
+            ),
+        }),
+    }
+}
+
+/// Decode one Arrow column directly into its final matrix column.
+///
+/// The Arrow record batch remains the bounded input buffer. No Rust
+/// `Vec<f64>` or per-cell `Vec<String>` is materialized beside it: primitive
+/// values are converted into the strided ndarray view, and categorical labels
+/// are interned immediately into their single-owner encoder.
+fn decode_arrow_batch_column_into(
+    col: &dyn arrow::array::Array,
+    base_row: usize,
+    header: &str,
+    is_string_col: bool,
+    mut output: ArrayViewMut1<'_, f64>,
+    mut categorical_encoder: Option<&mut CategoricalEncoder>,
+    all_binary: &mut bool,
+) -> Result<(), DataError> {
+    use arrow::array::{
+        BooleanArray, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array,
+        UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    };
+    use arrow::datatypes::DataType;
+
+    let n_rows = output.len();
+    if col.len() != n_rows {
+        return Err(DataError::SchemaMismatch {
+            reason: format!(
+                "Arrow column '{}' has {} rows, but its record batch has {}",
+                header,
+                col.len(),
+                n_rows
+            ),
+        });
+    }
+    reject_arrow_null_values(col, base_row, header)?;
+
+    if is_string_col {
+        let encoder =
+            categorical_encoder
+                .as_deref_mut()
+                .ok_or_else(|| DataError::EncodingFailure {
+                    reason: format!("categorical Arrow encoder missing for column '{header}'"),
+                })?;
+        for batch_row in 0..n_rows {
+            let label = arrow_string_value_at(col, batch_row, base_row + batch_row + 1, header)?;
+            output[batch_row] = encoder.encode(label) as f64;
+        }
+        return Ok(());
     }
 
     // Numeric-valued dictionary columns (pyarrow dictionary-encodes
     // low-cardinality numeric columns by default) are not directly a
     // primitive array. Decode them to their concrete value type so the normal
-    // numeric arms below apply. `parquet_field_is_string` has already routed
+    // numeric arms below apply. `arrow_field_is_string` has already routed
     // string-valued dictionaries through the categorical branch above, so any
     // dictionary reaching here has a numeric value type.
     let decoded_col;
@@ -1371,74 +1561,242 @@ fn decode_parquet_batch_column(
     } else {
         col
     };
+    // Defensively validate the decoded primitive too: the cast itself must not
+    // introduce a null while resolving dictionary keys.
+    reject_arrow_null_values(col, base_row, header)?;
 
-    let mut values = Vec::with_capacity(n_rows);
+    macro_rules! write_primitive {
+        ($array_type:ty, $convert:expr) => {{
+            let array = col.as_any().downcast_ref::<$array_type>().unwrap();
+            write_arrow_numeric_values(
+                array.values().iter().copied().map($convert),
+                base_row,
+                header,
+                output,
+                categorical_encoder,
+                all_binary,
+            )
+        }};
+    }
+
     match col.data_type() {
-        DataType::Float64 => {
-            let arr = col.as_any().downcast_ref::<Float64Array>().unwrap();
-            values.extend(arr.values().iter().copied());
-        }
-        DataType::Float32 => {
-            let arr = col.as_any().downcast_ref::<Float32Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::Int64 => {
-            let arr = col.as_any().downcast_ref::<Int64Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::Int32 => {
-            let arr = col.as_any().downcast_ref::<Int32Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::Int16 => {
-            let arr = col.as_any().downcast_ref::<Int16Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::Int8 => {
-            let arr = col.as_any().downcast_ref::<Int8Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::UInt64 => {
-            let arr = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::UInt32 => {
-            let arr = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::UInt16 => {
-            let arr = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
-        DataType::UInt8 => {
-            let arr = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-            values.extend(arr.values().iter().map(|&v| v as f64));
-        }
+        DataType::Float64 => write_primitive!(Float64Array, |value: f64| value),
+        DataType::Float32 => write_primitive!(Float32Array, |value: f32| value as f64),
+        DataType::Int64 => write_primitive!(Int64Array, |value: i64| value as f64),
+        DataType::Int32 => write_primitive!(Int32Array, |value: i32| value as f64),
+        DataType::Int16 => write_primitive!(Int16Array, |value: i16| value as f64),
+        DataType::Int8 => write_primitive!(Int8Array, |value: i8| value as f64),
+        DataType::UInt64 => write_primitive!(UInt64Array, |value: u64| value as f64),
+        DataType::UInt32 => write_primitive!(UInt32Array, |value: u32| value as f64),
+        DataType::UInt16 => write_primitive!(UInt16Array, |value: u16| value as f64),
+        DataType::UInt8 => write_primitive!(UInt8Array, |value: u8| value as f64),
         DataType::Boolean => {
             let arr = col.as_any().downcast_ref::<BooleanArray>().unwrap();
-            values.extend((0..n_rows).map(|i| if arr.value(i) { 1.0 } else { 0.0 }));
+            write_arrow_numeric_values(
+                (0..n_rows).map(|i| if arr.value(i) { 1.0 } else { 0.0 }),
+                base_row,
+                header,
+                output,
+                categorical_encoder,
+                all_binary,
+            )
         }
-        other => {
-            return Err(DataError::InvalidValue {
-                reason: format!(
-                    "unsupported parquet column type {:?} for column '{}'",
-                    other, header
-                ),
+        other => Err(DataError::InvalidValue {
+            reason: format!(
+                "unsupported Arrow column type {:?} for column '{}'",
+                other, header
+            ),
+        }),
+    }
+}
+
+/// Infer and encode an Arrow record-batch stream into gam's native dataset.
+///
+/// `headers` supplies the already-normalized public column names in record-
+/// batch column order. The Arrow schema supplies only physical types: integer,
+/// unsigned integer, floating-point, and boolean columns remain numeric, while
+/// `Utf8`, `LargeUtf8`, and string-valued dictionaries become categorical.
+/// Categorical labels are interned as batches stream and canonicalized with the
+/// same natural ordering as the other inferred ingestion paths.
+///
+/// The final row-major `N x P` `f64` allocation is grown in place and then
+/// moved into [`EncodedDataset::values`] without a second dense allocation.
+/// Apart from Arrow's current input batch, only one owned string per distinct
+/// categorical level is retained; no row-major string table is materialized.
+pub fn encode_arrow_record_batch_reader_with_inferred_schema(
+    reader: &mut dyn arrow::record_batch::RecordBatchReader,
+    headers: Vec<String>,
+) -> Result<EncodedDataset, DataError> {
+    if headers.is_empty() {
+        return Err(DataError::EmptyInput {
+            reason: "Arrow table must have at least one header column".to_string(),
+        });
+    }
+
+    let mut seen_headers = HashSet::<&str>::with_capacity(headers.len());
+    for (column, header) in headers.iter().enumerate() {
+        if header.trim().is_empty() {
+            return Err(DataError::EmptyInput {
+                reason: format!("Arrow header at column {} cannot be empty", column + 1),
+            });
+        }
+        if !seen_headers.insert(header.as_str()) {
+            return Err(DataError::SchemaMismatch {
+                reason: format!("duplicate Arrow header '{}'", header),
             });
         }
     }
 
-    if let Some(i) = values.iter().position(|v| !v.is_finite()) {
-        return Err(DataError::InvalidValue {
+    let arrow_schema = reader.schema();
+    let p = headers.len();
+    if arrow_schema.fields().len() != p {
+        return Err(DataError::SchemaMismatch {
             reason: format!(
-                "non-finite value at row {}, column '{}'",
-                base_row + i + 1,
-                header
+                "Arrow schema has {} columns, but {} normalized headers were supplied",
+                arrow_schema.fields().len(),
+                p
             ),
         });
     }
 
-    Ok(ParquetBatchColumn::Numeric(values))
+    let is_string_col = arrow_schema
+        .fields()
+        .iter()
+        .map(|field| arrow_field_is_string(field.data_type()))
+        .collect::<Vec<_>>();
+    let mut all_binary = vec![true; p];
+    let mut categorical_encoders = is_string_col
+        .iter()
+        .map(|&is_string| is_string.then(CategoricalEncoder::default))
+        .collect::<Vec<_>>();
+    let mut encoded_values = Vec::<f64>::new();
+    let mut rows_seen = 0usize;
+
+    for batch_result in reader {
+        let batch = batch_result.map_err(|error| DataError::ParseError {
+            reason: format!("failed to read Arrow record batch: {error}"),
+        })?;
+        if batch.num_columns() != p {
+            return Err(DataError::SchemaMismatch {
+                reason: format!(
+                    "Arrow record batch has {} columns, but {} normalized headers were supplied",
+                    batch.num_columns(),
+                    p
+                ),
+            });
+        }
+        for j in 0..p {
+            let expected = arrow_schema.field(j).data_type();
+            let actual = batch.column(j).data_type();
+            if actual != expected {
+                return Err(DataError::SchemaMismatch {
+                    reason: format!(
+                        "Arrow column '{}' changed type between schema and batch: expected {:?}, got {:?}",
+                        headers[j], expected, actual
+                    ),
+                });
+            }
+        }
+
+        let n_rows = batch.num_rows();
+        let batch_values = n_rows
+            .checked_mul(p)
+            .ok_or_else(|| DataError::EncodingFailure {
+                reason: "Arrow batch dimensions do not fit in memory address space".to_string(),
+            })?;
+        let next_len = encoded_values
+            .len()
+            .checked_add(batch_values)
+            .ok_or_else(|| DataError::EncodingFailure {
+                reason: "Arrow dataset dimensions do not fit in memory address space".to_string(),
+            })?;
+        encoded_values
+            .try_reserve(batch_values)
+            .map_err(|error| DataError::EncodingFailure {
+                reason: format!("failed to reserve Arrow dataset storage: {error}"),
+            })?;
+        let batch_offset = encoded_values.len();
+        encoded_values.resize(next_len, 0.0);
+        let mut batch_output = ndarray::ArrayViewMut2::from_shape(
+            (n_rows, p),
+            &mut encoded_values[batch_offset..next_len],
+        )
+        .map_err(|error| DataError::EncodingFailure {
+            reason: format!("failed to shape Arrow batch output: {error}"),
+        })?;
+
+        let decoded_columns = batch_output
+            .axis_iter_mut(Axis(1))
+            .into_par_iter()
+            .zip(categorical_encoders.par_iter_mut())
+            .zip(all_binary.par_iter_mut())
+            .enumerate()
+            .map(|(j, ((output, encoder), column_all_binary))| {
+                decode_arrow_batch_column_into(
+                    batch.column(j).as_ref(),
+                    rows_seen,
+                    &headers[j],
+                    is_string_col[j],
+                    output,
+                    encoder.as_mut(),
+                    column_all_binary,
+                )
+            })
+            .collect::<Vec<_>>();
+        for decoded in decoded_columns {
+            decoded?;
+        }
+        rows_seen = rows_seen
+            .checked_add(n_rows)
+            .ok_or_else(|| DataError::EncodingFailure {
+                reason: "Arrow row count does not fit in memory address space".to_string(),
+            })?;
+    }
+
+    if rows_seen == 0 {
+        return Err(DataError::EmptyInput {
+            reason: "Arrow table data cannot be empty".to_string(),
+        });
+    }
+
+    let mut values = Array2::from_shape_vec((rows_seen, p), encoded_values).map_err(|error| {
+        DataError::EncodingFailure {
+            reason: format!("failed to shape encoded Arrow dataset: {error}"),
+        }
+    })?;
+    let mut levels = vec![Vec::<String>::new(); p];
+    for (j, encoder) in categorical_encoders.into_iter().enumerate() {
+        if let Some(encoder) = encoder {
+            levels[j] = encoder.finish(values.column_mut(j), LevelOrder::Canonical);
+        }
+    }
+
+    let mut schema_columns = Vec::<SchemaColumn>::with_capacity(p);
+    let mut column_kinds = Vec::<ColumnKindTag>::with_capacity(p);
+    for (j, name) in headers.iter().enumerate() {
+        let kind = if is_string_col[j] {
+            ColumnKindTag::Categorical
+        } else if all_binary[j] {
+            ColumnKindTag::Binary
+        } else {
+            ColumnKindTag::Continuous
+        };
+        column_kinds.push(kind);
+        schema_columns.push(SchemaColumn {
+            name: name.clone(),
+            kind,
+            levels: std::mem::take(&mut levels[j]),
+        });
+    }
+
+    Ok(EncodedDataset {
+        headers,
+        values,
+        schema: DataSchema {
+            columns: schema_columns,
+        },
+        column_kinds,
+    })
 }
 
 fn load_parquet_inferred(
@@ -1476,6 +1834,17 @@ fn load_parquet_inferred(
         .iter()
         .map(|&idx| full_schema.fields()[idx].clone())
         .collect::<Vec<_>>();
+    let total_rows =
+        usize::try_from(builder.metadata().file_metadata().num_rows()).map_err(|_| {
+            DataError::ParseError {
+                reason: "parquet row count does not fit in memory address space".to_string(),
+            }
+        })?;
+    if total_rows == 0 {
+        return Err(DataError::EmptyInput {
+            reason: "parquet file has no rows".to_string(),
+        });
+    }
     let projection =
         ProjectionMask::roots(builder.parquet_schema(), selected_indices.iter().copied());
     let reader =
@@ -1497,60 +1866,71 @@ fn load_parquet_inferred(
     }
 
     let t_batches = std::time::Instant::now();
-    // Collect all batches.
-    let mut col_vecs: Vec<Vec<f64>> = vec![Vec::new(); p];
-    // For string columns: accumulate raw strings to build level maps.
-    let mut string_cols: Vec<Option<Vec<String>>> = (0..p).map(|_| None).collect();
-    let mut is_string_col: Vec<bool> = vec![false; p];
-
-    for (j, field) in selected_fields.iter().enumerate() {
-        // A dictionary-encoded column is categorical only when its *value* type
-        // is a string type; a numeric-valued dictionary (e.g. pyarrow's default
-        // encoding of low-cardinality integer columns) must stay numeric.
-        if parquet_field_is_string(field.data_type()) {
-            is_string_col[j] = true;
-            string_cols[j] = Some(Vec::new());
-        }
-    }
-
+    let is_string_col = selected_fields
+        .iter()
+        .map(|field| arrow_field_is_string(field.data_type()))
+        .collect::<Vec<_>>();
+    let forced_numeric_categorical = headers
+        .iter()
+        .enumerate()
+        .map(|(j, header)| !is_string_col[j] && categorical_roles.contains(header.as_str()))
+        .collect::<Vec<_>>();
+    let mut values = Array2::<f64>::zeros((total_rows, p));
+    let mut all_binary = vec![true; p];
+    let mut categorical_encoders = (0..p)
+        .map(|j| {
+            (is_string_col[j] || forced_numeric_categorical[j]).then(CategoricalEncoder::default)
+        })
+        .collect::<Vec<_>>();
     let mut rows_seen = 0usize;
     for batch_result in reader {
         let batch = batch_result.map_err(|e| DataError::ParseError {
             reason: format!("failed to read parquet record batch: {e}"),
         })?;
         let n_rows = batch.num_rows();
+        if rows_seen.saturating_add(n_rows) > total_rows {
+            return Err(DataError::SchemaMismatch {
+                reason: "parquet row count changed while reading record batches".to_string(),
+            });
+        }
 
-        let decoded_columns: Vec<Result<ParquetBatchColumn, DataError>> = (0..p)
+        let decoded_columns = values
+            .slice_mut(s![rows_seen..rows_seen + n_rows, ..])
+            .axis_iter_mut(Axis(1))
             .into_par_iter()
-            .map(|j| {
-                decode_parquet_batch_column(
+            .zip(categorical_encoders.par_iter_mut())
+            .zip(all_binary.par_iter_mut())
+            .enumerate()
+            .map(|(j, ((output, encoder), column_all_binary))| {
+                decode_arrow_batch_column_into(
                     batch.column(j).as_ref(),
-                    n_rows,
                     rows_seen,
                     &headers[j],
                     is_string_col[j],
+                    output,
+                    encoder.as_mut(),
+                    column_all_binary,
                 )
             })
-            .collect();
+            .collect::<Vec<_>>();
 
-        for (j, decoded) in decoded_columns.into_iter().enumerate() {
-            match decoded? {
-                ParquetBatchColumn::Strings(mut strings) => {
-                    assert!(is_string_col[j]);
-                    string_cols[j].as_mut().unwrap().append(&mut strings);
-                    let new_len = col_vecs[j].len() + n_rows;
-                    col_vecs[j].resize(new_len, f64::NAN);
-                }
-                ParquetBatchColumn::Numeric(mut values) => {
-                    assert!(!is_string_col[j]);
-                    col_vecs[j].append(&mut values);
-                }
-            }
+        // Rayon preserves indexed collection order, so checking the compact
+        // per-column result vector from left to right retains the loader's
+        // historical lowest-column error precedence without retaining decoded
+        // cell payloads.
+        for decoded in decoded_columns {
+            decoded?;
         }
         rows_seen += n_rows;
     }
 
-    let total_rows = col_vecs[0].len();
+    if rows_seen != total_rows {
+        return Err(DataError::SchemaMismatch {
+            reason: format!(
+                "parquet metadata reports {total_rows} rows but record batches yielded {rows_seen}"
+            ),
+        });
+    }
     let batches_ms = t_batches.elapsed().as_secs_f64() * 1000.0;
     if batches_ms > 100.0 {
         log::info!(
@@ -1560,112 +1940,39 @@ fn load_parquet_inferred(
             batches_ms
         );
     }
-    if total_rows == 0 {
-        return Err(DataError::EmptyInput {
-            reason: "parquet file has no rows".to_string(),
-        });
-    }
-
     let t_schema = std::time::Instant::now();
-    // Build schema: infer kind from data.
+    // Numeric factor roles use canonical sorted label order, matching the CSV
+    // factor-by-construction path. String parquet columns retain their existing
+    // encounter-order contract. Finalization consumes each label map, moving its
+    // sole String allocation into the schema and remapping codes in place only
+    // for the canonical case.
+    let mut levels = vec![Vec::<String>::new(); p];
+    for (j, encoder) in categorical_encoders.into_iter().enumerate() {
+        if let Some(encoder) = encoder {
+            let order = if forced_numeric_categorical[j] {
+                LevelOrder::Canonical
+            } else {
+                LevelOrder::Encounter
+            };
+            levels[j] = encoder.finish(values.column_mut(j), order);
+        }
+    }
     let mut schema_cols = Vec::<SchemaColumn>::with_capacity(p);
     let mut column_kinds = Vec::<ColumnKindTag>::with_capacity(p);
-
-    let finalized_columns: Vec<(Vec<f64>, ColumnKindTag, SchemaColumn)> = col_vecs
-        .into_par_iter()
-        .zip(string_cols.into_par_iter())
-        .zip(is_string_col.into_par_iter())
-        .zip(headers.par_iter())
-        .map(|(((mut col_values, strings), is_string), header)| {
-            if is_string {
-                // Categorical. Preserve level order by scanning each column in
-                // row order; columns are independent and can be finalized in
-                // parallel without changing schema order after collection.
-                let strings = strings.expect("string column storage missing");
-                let mut level_index: HashMap<String, usize> = HashMap::new();
-                let mut levels_vec: Vec<String> = Vec::new();
-                for s in &strings {
-                    level_index.entry(s.clone()).or_insert_with(|| {
-                        let idx = levels_vec.len();
-                        levels_vec.push(s.clone());
-                        idx
-                    });
-                }
-                for (i, s) in strings.iter().enumerate() {
-                    col_values[i] = *level_index.get(s.as_str()).unwrap() as f64;
-                }
-                (
-                    col_values,
-                    ColumnKindTag::Categorical,
-                    SchemaColumn {
-                        name: header.clone(),
-                        kind: ColumnKindTag::Categorical,
-                        levels: levels_vec,
-                    },
-                )
-            } else if categorical_roles.contains(header.as_str()) {
-                // Numeric column the formula uses in a factor-by-construction
-                // role (group()/factor()/re() or a categorical response):
-                // recode the numeric labels into sorted factor levels so a
-                // numeric-coded grouping column becomes one centred level per
-                // code, matching the typed-frame sentinel outcome and the
-                // delimited loader's `force_categorical` path. Labels are
-                // formatted with the same `{}` Display the level map keys on.
-                let labels: Vec<String> = col_values.iter().map(|v| v.to_string()).collect();
-                let mut levels_vec: Vec<String> = Vec::new();
-                let mut level_index: HashMap<String, usize> = HashMap::new();
-                for label in &labels {
-                    level_index.entry(label.clone()).or_insert_with(|| {
-                        let idx = levels_vec.len();
-                        levels_vec.push(label.clone());
-                        idx
-                    });
-                }
-                levels_vec.sort();
-                level_index.clear();
-                for (idx, level) in levels_vec.iter().enumerate() {
-                    level_index.insert(level.clone(), idx);
-                }
-                for (i, label) in labels.iter().enumerate() {
-                    col_values[i] = level_index[label] as f64;
-                }
-                (
-                    col_values,
-                    ColumnKindTag::Categorical,
-                    SchemaColumn {
-                        name: header.clone(),
-                        kind: ColumnKindTag::Categorical,
-                        levels: levels_vec,
-                    },
-                )
-            } else {
-                // Numeric: check if binary.
-                let all_binary = col_values
-                    .iter()
-                    .all(|&v| (v - 0.0).abs() < 1e-12 || (v - 1.0).abs() < 1e-12);
-                let kind = if all_binary {
-                    ColumnKindTag::Binary
-                } else {
-                    ColumnKindTag::Continuous
-                };
-                (
-                    col_values,
-                    kind,
-                    SchemaColumn {
-                        name: header.clone(),
-                        kind,
-                        levels: Vec::new(),
-                    },
-                )
-            }
-        })
-        .collect();
-
-    let mut col_vecs = Vec::with_capacity(p);
-    for (col_values, kind, schema_col) in finalized_columns {
-        col_vecs.push(col_values);
+    for j in 0..p {
+        let kind = if is_string_col[j] || forced_numeric_categorical[j] {
+            ColumnKindTag::Categorical
+        } else if all_binary[j] {
+            ColumnKindTag::Binary
+        } else {
+            ColumnKindTag::Continuous
+        };
         column_kinds.push(kind);
-        schema_cols.push(schema_col);
+        schema_cols.push(SchemaColumn {
+            name: headers[j].clone(),
+            kind,
+            levels: std::mem::take(&mut levels[j]),
+        });
     }
     let schema_ms = t_schema.elapsed().as_secs_f64() * 1000.0;
     if schema_ms > 100.0 {
@@ -1678,31 +1985,6 @@ fn load_parquet_inferred(
             p,
             n_cat,
             schema_ms
-        );
-    }
-
-    let t_assemble = std::time::Instant::now();
-    // Assemble Array2. Columns are independent; write by column in parallel
-    // so each task touches a contiguous source vec (and the strided
-    // destination column once) rather than scattering across all p columns
-    // per row.
-    let mut values = Array2::<f64>::zeros((total_rows, p));
-    values
-        .axis_iter_mut(Axis(1))
-        .into_par_iter()
-        .zip(col_vecs.par_iter())
-        .for_each(|(mut out_col, src)| {
-            for (dst, &v) in out_col.iter_mut().zip(src.iter()) {
-                *dst = v;
-            }
-        });
-    let assemble_ms = t_assemble.elapsed().as_secs_f64() * 1000.0;
-    if assemble_ms > 100.0 {
-        log::info!(
-            "[DATA-LOAD] parquet_assemble_array2 | n_rows={} | n_cols={} | {:.1}ms",
-            total_rows,
-            p,
-            assemble_ms
         );
     }
 
@@ -2338,6 +2620,226 @@ pub fn infer_and_encode_column_major(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow::array::ArrayRef;
+    use arrow::datatypes::{Field, Schema};
+    use arrow::error::ArrowError;
+    use arrow::record_batch::{RecordBatch, RecordBatchIterator};
+    use std::sync::Arc;
+
+    fn encode_single_arrow_array(array: ArrayRef) -> Result<EncodedDataset, DataError> {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "source",
+            array.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema.clone(), vec![array]).expect("record batch");
+        let batches: Vec<Result<RecordBatch, ArrowError>> = vec![Ok(batch)];
+        let mut reader = RecordBatchIterator::new(batches, schema);
+        encode_arrow_record_batch_reader_with_inferred_schema(
+            &mut reader,
+            vec!["normalized".to_string()],
+        )
+    }
+
+    #[test]
+    fn arrow_reader_streams_typed_columns_in_supplied_order() {
+        use arrow::array::{
+            Array, BooleanArray, DictionaryArray, Float32Array, Int8Array, Int32Array, Int64Array,
+            LargeStringArray, StringArray,
+        };
+        use arrow::datatypes::Int8Type;
+
+        let string_dictionary_1: DictionaryArray<Int8Type> =
+            vec!["beta", "alpha"].into_iter().collect();
+        let string_dictionary_2: DictionaryArray<Int8Type> = vec!["beta"].into_iter().collect();
+        let numeric_dictionary_1 = DictionaryArray::<Int8Type>::new(
+            Int8Array::from(vec![0, 1]),
+            Arc::new(Int64Array::from(vec![5, 7])),
+        );
+        let numeric_dictionary_2 = DictionaryArray::<Int8Type>::new(
+            Int8Array::from(vec![0]),
+            Arc::new(Int64Array::from(vec![5])),
+        );
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("source_float", arrow::datatypes::DataType::Float32, false),
+            Field::new("source_integer", arrow::datatypes::DataType::Int32, false),
+            Field::new("source_flag", arrow::datatypes::DataType::Boolean, false),
+            Field::new("source_utf8", arrow::datatypes::DataType::Utf8, false),
+            Field::new(
+                "source_large_utf8",
+                arrow::datatypes::DataType::LargeUtf8,
+                false,
+            ),
+            Field::new(
+                "source_dictionary_string",
+                string_dictionary_1.data_type().clone(),
+                false,
+            ),
+            Field::new(
+                "source_dictionary_number",
+                numeric_dictionary_1.data_type().clone(),
+                false,
+            ),
+        ]));
+        let batch_1 = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Float32Array::from(vec![1.5, 2.5])) as ArrayRef,
+                Arc::new(Int32Array::from(vec![0, 1])),
+                Arc::new(BooleanArray::from(vec![true, false])),
+                Arc::new(StringArray::from(vec!["item10", "item2"])),
+                Arc::new(LargeStringArray::from(vec!["z", "a"])),
+                Arc::new(string_dictionary_1),
+                Arc::new(numeric_dictionary_1),
+            ],
+        )
+        .expect("first record batch");
+        let batch_2 = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Float32Array::from(vec![-4.0])) as ArrayRef,
+                Arc::new(Int32Array::from(vec![1])),
+                Arc::new(BooleanArray::from(vec![true])),
+                Arc::new(StringArray::from(vec!["item1"])),
+                Arc::new(LargeStringArray::from(vec!["z"])),
+                Arc::new(string_dictionary_2),
+                Arc::new(numeric_dictionary_2),
+            ],
+        )
+        .expect("second record batch");
+        let batches: Vec<Result<RecordBatch, ArrowError>> = vec![Ok(batch_1), Ok(batch_2)];
+        let mut reader = RecordBatchIterator::new(batches, schema);
+        let headers = [
+            "float",
+            "integer",
+            "flag",
+            "utf8",
+            "large_utf8",
+            "dictionary_string",
+            "dictionary_number",
+        ]
+        .map(str::to_string)
+        .to_vec();
+
+        let dataset =
+            encode_arrow_record_batch_reader_with_inferred_schema(&mut reader, headers.clone())
+                .expect("Arrow stream should encode");
+
+        assert_eq!(dataset.headers, headers);
+        assert_eq!(
+            dataset.column_kinds,
+            vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Binary,
+                ColumnKindTag::Binary,
+                ColumnKindTag::Categorical,
+                ColumnKindTag::Categorical,
+                ColumnKindTag::Categorical,
+                ColumnKindTag::Continuous,
+            ]
+        );
+        assert_eq!(
+            dataset.values,
+            ndarray::arr2(&[
+                [1.5, 0.0, 1.0, 2.0, 1.0, 1.0, 5.0],
+                [2.5, 1.0, 0.0, 1.0, 0.0, 0.0, 7.0],
+                [-4.0, 1.0, 1.0, 0.0, 1.0, 1.0, 5.0],
+            ])
+        );
+        assert_eq!(
+            dataset.schema.columns[3].levels,
+            vec!["item1", "item2", "item10"]
+        );
+        assert_eq!(dataset.schema.columns[4].levels, vec!["a", "z"]);
+        assert_eq!(dataset.schema.columns[5].levels, vec!["alpha", "beta"]);
+        assert!(
+            dataset
+                .schema
+                .columns
+                .iter()
+                .zip(dataset.headers.iter())
+                .all(|(column, header)| column.name == *header)
+        );
+    }
+
+    #[test]
+    fn arrow_reader_rejects_empty_duplicate_and_mismatched_headers() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "source",
+            arrow::datatypes::DataType::Int32,
+            false,
+        )]));
+
+        let mut empty_name_reader = RecordBatchIterator::new(
+            Vec::<Result<RecordBatch, ArrowError>>::new(),
+            schema.clone(),
+        );
+        let empty_name = encode_arrow_record_batch_reader_with_inferred_schema(
+            &mut empty_name_reader,
+            vec!["  ".to_string()],
+        )
+        .expect_err("blank header should fail");
+        assert!(matches!(empty_name, DataError::EmptyInput { .. }));
+
+        let mut duplicate_reader = RecordBatchIterator::new(
+            Vec::<Result<RecordBatch, ArrowError>>::new(),
+            Arc::new(Schema::new(vec![
+                Field::new("a", arrow::datatypes::DataType::Int32, false),
+                Field::new("b", arrow::datatypes::DataType::Int32, false),
+            ])),
+        );
+        let duplicate = encode_arrow_record_batch_reader_with_inferred_schema(
+            &mut duplicate_reader,
+            vec!["x".to_string(), "x".to_string()],
+        )
+        .expect_err("duplicate header should fail");
+        assert!(matches!(duplicate, DataError::SchemaMismatch { .. }));
+
+        let mut mismatch_reader =
+            RecordBatchIterator::new(Vec::<Result<RecordBatch, ArrowError>>::new(), schema);
+        let mismatch = encode_arrow_record_batch_reader_with_inferred_schema(
+            &mut mismatch_reader,
+            vec!["x".to_string(), "y".to_string()],
+        )
+        .expect_err("header count mismatch should fail");
+        assert!(matches!(mismatch, DataError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn arrow_reader_reports_typed_null_nonfinite_and_unsupported_errors() {
+        use arrow::array::{Date32Array, DictionaryArray, Float64Array, Int8Array, StringArray};
+        use arrow::datatypes::Int8Type;
+
+        let null_numeric =
+            encode_single_arrow_array(Arc::new(Float64Array::from(vec![Some(1.0), None])))
+                .expect_err("numeric null should fail");
+        assert!(matches!(&null_numeric, DataError::InvalidValue { .. }));
+        assert!(null_numeric.to_string().contains("null value at row 2"));
+
+        let null_dictionary = DictionaryArray::<Int8Type>::new(
+            Int8Array::from(vec![0, 1]),
+            Arc::new(StringArray::from(vec![Some("present"), None])),
+        );
+        let logical_null = encode_single_arrow_array(Arc::new(null_dictionary))
+            .expect_err("null dictionary value should fail");
+        assert!(matches!(&logical_null, DataError::InvalidValue { .. }));
+        assert!(logical_null.to_string().contains("null value at row 2"));
+
+        let nonfinite = encode_single_arrow_array(Arc::new(Float64Array::from(vec![f64::NAN])))
+            .expect_err("NaN should fail");
+        assert!(matches!(&nonfinite, DataError::InvalidValue { .. }));
+        assert!(nonfinite.to_string().contains("non-finite value"));
+
+        let unsupported = encode_single_arrow_array(Arc::new(Date32Array::from(vec![1])))
+            .expect_err("date column should fail");
+        assert!(matches!(&unsupported, DataError::InvalidValue { .. }));
+        assert!(
+            unsupported
+                .to_string()
+                .contains("unsupported Arrow column type")
+        );
+    }
 
     #[test]
     fn encode_records_rejects_empty_input() {
@@ -2421,13 +2923,109 @@ mod tests {
     }
 
     #[test]
+    fn categorical_encoder_consumes_labels_and_remaps_canonically() {
+        use ndarray::Array1;
+
+        let mut encoder = CategoricalEncoder::default();
+        let mut encoded = Array1::from_vec(
+            ["item10", "item2", "item1", "item2"]
+                .into_iter()
+                .map(|label| encoder.encode(label) as f64)
+                .collect(),
+        );
+
+        let levels = encoder.finish(encoded.view_mut(), LevelOrder::Canonical);
+
+        assert_eq!(levels, vec!["item1", "item2", "item10"]);
+        assert_eq!(encoded.to_vec(), vec![2.0, 1.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn complete_delimited_schema_encodes_projected_rows_directly() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("schema_direct.csv");
+        std::fs::write(
+            &path,
+            "y,group,flag,unused\n1.5,b,0,first\n2.5,a,1,second\n",
+        )
+        .expect("write csv");
+        let schema = DataSchema {
+            columns: vec![
+                SchemaColumn {
+                    name: "group".to_string(),
+                    kind: ColumnKindTag::Categorical,
+                    levels: vec!["a".to_string(), "b".to_string()],
+                },
+                SchemaColumn {
+                    name: "flag".to_string(),
+                    kind: ColumnKindTag::Binary,
+                    levels: Vec::new(),
+                },
+                SchemaColumn {
+                    name: "y".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: Vec::new(),
+                },
+            ],
+        };
+
+        let loaded = load_datasetwith_schema_projected(
+            &path,
+            &schema,
+            UnseenCategoryPolicy::Error,
+            &["y".to_string(), "group".to_string(), "flag".to_string()],
+        )
+        .expect("schema-guided projected load");
+
+        assert_eq!(loaded.headers, vec!["y", "group", "flag"]);
+        assert_eq!(loaded.values.row(0).to_vec(), vec![1.5, 1.0, 0.0]);
+        assert_eq!(loaded.values.row(1).to_vec(), vec![2.5, 0.0, 1.0]);
+        assert_eq!(
+            loaded.column_kinds,
+            vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Categorical,
+                ColumnKindTag::Binary,
+            ]
+        );
+    }
+
+    #[test]
+    fn direct_parquet_decoder_preserves_string_encounter_order() {
+        use arrow::array::DictionaryArray;
+        use arrow::datatypes::Int8Type;
+        use ndarray::Array1;
+
+        let dictionary: DictionaryArray<Int8Type> =
+            vec!["beta", "alpha", "beta"].into_iter().collect();
+        let mut encoded = Array1::<f64>::zeros(dictionary.len());
+        let mut encoder = CategoricalEncoder::default();
+        let mut all_binary = true;
+
+        decode_arrow_batch_column_into(
+            &dictionary,
+            0,
+            "group",
+            true,
+            encoded.view_mut(),
+            Some(&mut encoder),
+            &mut all_binary,
+        )
+        .expect("dictionary strings decode directly");
+        let levels = encoder.finish(encoded.view_mut(), LevelOrder::Encounter);
+
+        assert_eq!(levels, vec!["beta", "alpha"]);
+        assert_eq!(encoded.to_vec(), vec![0.0, 1.0, 0.0]);
+    }
+
+    #[test]
     fn numeric_valued_dictionary_column_classifies_and_decodes_as_numeric() {
         // Regression for #1162: pyarrow dictionary-encodes low-cardinality
         // *numeric* columns by default (e.g. `Dictionary(Int8, Int64)`).
         // Dictionary encoding is a storage detail, not a semantic type, so such
         // a column must stay numeric — both at classification time
-        // (`parquet_field_is_string`) and at decode time
-        // (`decode_parquet_batch_column`). Previously the loader matched ALL
+        // (`arrow_field_is_string`) and at decode time
+        // (`decode_arrow_batch_column_into`). Previously the loader matched ALL
         // `Dictionary(_, _)` as string/categorical, silently flipping numeric
         // features to categorical and rejecting valid numeric prediction files
         // with SchemaMismatch.
@@ -2444,30 +3042,34 @@ mod tests {
         // classified as string/categorical.
         assert!(matches!(dict.data_type(), DataType::Dictionary(_, _)));
         assert!(
-            !parquet_field_is_string(dict.data_type()),
+            !arrow_field_is_string(dict.data_type()),
             "Dictionary(Int8, Int64) must not be treated as a string column"
         );
 
         // A genuine string-valued dictionary still classifies as string.
         let str_dict: DictionaryArray<Int8Type> = vec!["a", "b", "a"].into_iter().collect();
         assert!(
-            parquet_field_is_string(str_dict.data_type()),
+            arrow_field_is_string(str_dict.data_type()),
             "Dictionary(Int8, Utf8) must remain a string column"
         );
 
         // Decoding the numeric dictionary with `is_string_col = false` must
-        // resolve indices through the dictionary and yield the underlying
-        // numeric values (not error, not strings).
-        let decoded = decode_parquet_batch_column(&dict, dict.len(), 0, "x", false)
-            .expect("numeric dictionary column should decode as numeric");
-        match decoded {
-            ParquetBatchColumn::Numeric(values) => {
-                assert_eq!(values, vec![5.0, 7.0, 5.0, 7.0, 5.0]);
-            }
-            ParquetBatchColumn::Strings(_) => {
-                panic!("numeric dictionary column was decoded as strings");
-            }
-        }
+        // resolve indices through the dictionary and write the underlying
+        // numeric values directly into the destination view.
+        let mut decoded = ndarray::Array1::<f64>::zeros(dict.len());
+        let mut all_binary = true;
+        decode_arrow_batch_column_into(
+            &dict,
+            0,
+            "x",
+            false,
+            decoded.view_mut(),
+            None,
+            &mut all_binary,
+        )
+        .expect("numeric dictionary column should decode as numeric");
+        assert_eq!(decoded.to_vec(), vec![5.0, 7.0, 5.0, 7.0, 5.0]);
+        assert!(!all_binary);
 
         // End-to-end: write a real parquet file whose only column is the
         // dictionary-encoded numeric one, then load it both ways. This is the
@@ -2810,7 +3412,11 @@ mod tests {
         // though their raw bit patterns differ (#2145 / #2146).
         let pos = 0.0_f64;
         let neg = -0.0_f64;
-        assert_ne!(pos.to_bits(), neg.to_bits(), "precondition: raw bits differ");
+        assert_ne!(
+            pos.to_bits(),
+            neg.to_bits(),
+            "precondition: raw bits differ"
+        );
         assert_eq!(pos, neg, "precondition: numerically equal");
         assert_eq!(canonical_level_bits(pos), canonical_level_bits(neg));
         assert_eq!(canonical_level_bits(neg), 0.0_f64.to_bits());
@@ -2823,7 +3429,16 @@ mod tests {
     fn canonical_level_bits_is_bit_stable_on_ordinary_values() {
         // Every ordinary finite value keeps its raw key — the helper must not
         // perturb the identity of any genuine level.
-        for &v in &[1.0_f64, -1.0, 2.5, -3.75, 1e300, -1e-300, f64::MIN, f64::MAX] {
+        for &v in &[
+            1.0_f64,
+            -1.0,
+            2.5,
+            -3.75,
+            1e300,
+            -1e-300,
+            f64::MIN,
+            f64::MAX,
+        ] {
             assert_eq!(canonical_level_bits(v), v.to_bits(), "value {v}");
         }
         // Distinct real values keep distinct keys.

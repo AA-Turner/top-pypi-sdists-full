@@ -19,7 +19,7 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            assetTypes: str | _list[str] = ...,
+            assetTypes: str | _list[str] | None = ...,
             contentType: typing_extensions.Literal[
                 "CONTENT_TYPE_UNSPECIFIED",
                 "RESOURCE",
@@ -28,11 +28,12 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
                 "ACCESS_POLICY",
                 "OS_INVENTORY",
                 "RELATIONSHIP",
-            ] = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            readTime: str = ...,
-            relationshipTypes: str | _list[str] = ...,
+            ]
+            | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            readTime: str | None = ...,
+            relationshipTypes: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> ListAssetsResponseHttpRequest: ...
         def list_next(
@@ -44,13 +45,17 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class EffectiveIamPoliciesResource(googleapiclient.discovery.Resource):
         def batchGet(
-            self, *, scope: str, names: str | _list[str] = ..., **kwargs: typing.Any
+            self,
+            *,
+            scope: str,
+            names: str | _list[str] | None = ...,
+            **kwargs: typing.Any,
         ) -> BatchGetEffectiveIamPoliciesResponseHttpRequest: ...
 
     @typing.type_check_only
     class FeedsResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, parent: str, body: CreateFeedRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: CreateFeedRequest, **kwargs: typing.Any
         ) -> FeedHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> FeedHttpRequest: ...
@@ -58,7 +63,7 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self, *, parent: str, **kwargs: typing.Any
         ) -> ListFeedsResponseHttpRequest: ...
         def patch(
-            self, *, name: str, body: UpdateFeedRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: UpdateFeedRequest, **kwargs: typing.Any
         ) -> FeedHttpRequest: ...
 
     @typing.type_check_only
@@ -71,8 +76,8 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            body: SavedQuery = ...,
-            savedQueryId: str = ...,
+            body: SavedQuery,
+            savedQueryId: str | None = ...,
             **kwargs: typing.Any,
         ) -> SavedQueryHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
@@ -81,9 +86,9 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListSavedQueriesResponseHttpRequest: ...
         def list_next(
@@ -95,8 +100,8 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: SavedQuery = ...,
-            updateMask: str = ...,
+            body: SavedQuery,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> SavedQueryHttpRequest: ...
 
@@ -106,46 +111,47 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             scope: str,
-            analysisQuery_accessSelector_permissions: str | _list[str] = ...,
-            analysisQuery_accessSelector_roles: str | _list[str] = ...,
-            analysisQuery_conditionContext_accessTime: str = ...,
-            analysisQuery_identitySelector_identity: str = ...,
-            analysisQuery_options_analyzeServiceAccountImpersonation: bool = ...,
-            analysisQuery_options_expandGroups: bool = ...,
-            analysisQuery_options_expandResources: bool = ...,
-            analysisQuery_options_expandRoles: bool = ...,
-            analysisQuery_options_outputGroupEdges: bool = ...,
-            analysisQuery_options_outputResourceEdges: bool = ...,
-            analysisQuery_resourceSelector_fullResourceName: str = ...,
-            executionTimeout: str = ...,
-            savedAnalysisQuery: str = ...,
+            analysisQuery_accessSelector_permissions: str | _list[str] | None = ...,
+            analysisQuery_accessSelector_roles: str | _list[str] | None = ...,
+            analysisQuery_conditionContext_accessTime: str | None = ...,
+            analysisQuery_identitySelector_identity: str | None = ...,
+            analysisQuery_options_analyzeServiceAccountImpersonation: bool | None = ...,
+            analysisQuery_options_expandGroups: bool | None = ...,
+            analysisQuery_options_expandResources: bool | None = ...,
+            analysisQuery_options_expandRoles: bool | None = ...,
+            analysisQuery_options_outputGroupEdges: bool | None = ...,
+            analysisQuery_options_outputResourceEdges: bool | None = ...,
+            analysisQuery_resourceSelector_fullResourceName: str | None = ...,
+            executionTimeout: str | None = ...,
+            savedAnalysisQuery: str | None = ...,
             **kwargs: typing.Any,
         ) -> AnalyzeIamPolicyResponseHttpRequest: ...
         def analyzeIamPolicyLongrunning(
             self,
             *,
             scope: str,
-            body: AnalyzeIamPolicyLongrunningRequest = ...,
+            body: AnalyzeIamPolicyLongrunningRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def analyzeMove(
             self,
             *,
             resource: str,
-            destinationParent: str = ...,
+            destinationParent: str | None = ...,
             view: typing_extensions.Literal[
                 "ANALYSIS_VIEW_UNSPECIFIED", "FULL", "BASIC"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> AnalyzeMoveResponseHttpRequest: ...
         def analyzeOrgPolicies(
             self,
             *,
             scope: str,
-            constraint: str = ...,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            constraint: str | None = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> AnalyzeOrgPoliciesResponseHttpRequest: ...
         def analyzeOrgPolicies_next(
@@ -157,10 +163,10 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             scope: str,
-            constraint: str = ...,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            constraint: str | None = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> AnalyzeOrgPolicyGovernedAssetsResponseHttpRequest: ...
         def analyzeOrgPolicyGovernedAssets_next(
@@ -172,10 +178,10 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             scope: str,
-            constraint: str = ...,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            constraint: str | None = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> AnalyzeOrgPolicyGovernedContainersResponseHttpRequest: ...
         def analyzeOrgPolicyGovernedContainers_next(
@@ -187,7 +193,7 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            assetNames: str | _list[str] = ...,
+            assetNames: str | _list[str] | None = ...,
             contentType: typing_extensions.Literal[
                 "CONTENT_TYPE_UNSPECIFIED",
                 "RESOURCE",
@@ -196,27 +202,28 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
                 "ACCESS_POLICY",
                 "OS_INVENTORY",
                 "RELATIONSHIP",
-            ] = ...,
-            readTimeWindow_endTime: str = ...,
-            readTimeWindow_startTime: str = ...,
-            relationshipTypes: str | _list[str] = ...,
+            ]
+            | None = ...,
+            readTimeWindow_endTime: str | None = ...,
+            readTimeWindow_startTime: str | None = ...,
+            relationshipTypes: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> BatchGetAssetsHistoryResponseHttpRequest: ...
         def exportAssets(
-            self, *, parent: str, body: ExportAssetsRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: ExportAssetsRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def queryAssets(
-            self, *, parent: str, body: QueryAssetsRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: QueryAssetsRequest, **kwargs: typing.Any
         ) -> QueryAssetsResponseHttpRequest: ...
         def searchAllIamPolicies(
             self,
             *,
             scope: str,
-            assetTypes: str | _list[str] = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            assetTypes: str | _list[str] | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchAllIamPoliciesResponseHttpRequest: ...
         def searchAllIamPolicies_next(
@@ -228,12 +235,12 @@ class CloudAssetResource(googleapiclient.discovery.Resource):
             self,
             *,
             scope: str,
-            assetTypes: str | _list[str] = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
-            readMask: str = ...,
+            assetTypes: str | _list[str] | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
+            readMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchAllResourcesResponseHttpRequest: ...
         def searchAllResources_next(

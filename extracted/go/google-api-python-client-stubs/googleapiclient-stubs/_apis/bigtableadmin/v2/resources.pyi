@@ -23,10 +23,10 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -50,13 +50,17 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: AppProfile = ...,
-                    appProfileId: str = ...,
-                    ignoreWarnings: bool = ...,
+                    body: AppProfile,
+                    appProfileId: str | None = ...,
+                    ignoreWarnings: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> AppProfileHttpRequest: ...
                 def delete(
-                    self, *, name: str, ignoreWarnings: bool = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    ignoreWarnings: bool | None = ...,
+                    **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -65,8 +69,8 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAppProfilesResponseHttpRequest: ...
                 def list_next(
@@ -78,9 +82,9 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AppProfile = ...,
-                    ignoreWarnings: bool = ...,
-                    updateMask: str = ...,
+                    body: AppProfile,
+                    ignoreWarnings: bool | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -92,15 +96,15 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: CopyBackupRequest = ...,
+                        body: CopyBackupRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: Backup = ...,
-                        backupId: str = ...,
+                        body: Backup,
+                        backupId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -113,17 +117,17 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GetIamPolicyRequest = ...,
+                        body: GetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListBackupsResponseHttpRequest: ...
                     def list_next(
@@ -135,22 +139,22 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Backup = ...,
-                        updateMask: str = ...,
+                        body: Backup,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> BackupHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -160,10 +164,10 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        endTime: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        startTime: str = ...,
+                        endTime: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        startTime: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListHotTabletsResponseHttpRequest: ...
                     def list_next(
@@ -178,8 +182,8 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListMemoryLayersResponseHttpRequest: ...
                     def list_next(
@@ -192,8 +196,8 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Cluster = ...,
-                    clusterId: str = ...,
+                    body: Cluster,
+                    clusterId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -206,7 +210,11 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self, *, name: str, **kwargs: typing.Any
                 ) -> MemoryLayerHttpRequest: ...
                 def list(
-                    self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    parent: str,
+                    pageToken: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> ListClustersResponseHttpRequest: ...
                 def list_next(
                     self,
@@ -217,12 +225,12 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Cluster = ...,
-                    updateMask: str = ...,
+                    body: Cluster,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def update(
-                    self, *, name: str, body: Cluster = ..., **kwargs: typing.Any
+                    self, *, name: str, body: Cluster, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def backups(self) -> BackupsResource: ...
                 def hotTablets(self) -> HotTabletsResource: ...
@@ -234,12 +242,12 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: LogicalView = ...,
-                    logicalViewId: str = ...,
+                    body: LogicalView,
+                    logicalViewId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -248,15 +256,15 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListLogicalViewsResponseHttpRequest: ...
                 def list_next(
@@ -268,22 +276,22 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: LogicalView = ...,
-                    updateMask: str = ...,
+                    body: LogicalView,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -293,12 +301,12 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: MaterializedView = ...,
-                    materializedViewId: str = ...,
+                    body: MaterializedView,
+                    materializedViewId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self,
@@ -306,25 +314,27 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     name: str,
                     view: typing_extensions.Literal[
                         "VIEW_UNSPECIFIED", "SCHEMA_VIEW", "REPLICATION_VIEW", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> MaterializedViewHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "VIEW_UNSPECIFIED", "SCHEMA_VIEW", "REPLICATION_VIEW", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListMaterializedViewsResponseHttpRequest: ...
                 def list_next(
@@ -336,22 +346,22 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: MaterializedView = ...,
-                    updateMask: str = ...,
+                    body: MaterializedView,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -363,12 +373,12 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: AuthorizedView = ...,
-                        authorizedViewId: str = ...,
+                        body: AuthorizedView,
+                        authorizedViewId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self,
@@ -376,25 +386,27 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         name: str,
                         view: typing_extensions.Literal[
                             "RESPONSE_VIEW_UNSPECIFIED", "NAME_ONLY", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> AuthorizedViewHttpRequest: ...
                     def getIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: GetIamPolicyRequest = ...,
+                        body: GetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "RESPONSE_VIEW_UNSPECIFIED", "NAME_ONLY", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListAuthorizedViewsResponseHttpRequest: ...
                     def list_next(
@@ -406,23 +418,23 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: AuthorizedView = ...,
-                        ignoreWarnings: bool = ...,
-                        updateMask: str = ...,
+                        body: AuthorizedView,
+                        ignoreWarnings: bool | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -432,12 +444,12 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: SchemaBundle = ...,
-                        schemaBundleId: str = ...,
+                        body: SchemaBundle,
+                        schemaBundleId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -446,21 +458,22 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GetIamPolicyRequest = ...,
+                        body: GetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "SCHEMA_BUNDLE_VIEW_UNSPECIFIED",
                             "NAME_ONLY",
                             "BASIC",
                             "FULL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSchemaBundlesResponseHttpRequest: ...
                     def list_next(
@@ -472,23 +485,23 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: SchemaBundle = ...,
-                        ignoreWarnings: bool = ...,
-                        updateMask: str = ...,
+                        body: SchemaBundle,
+                        ignoreWarnings: bool | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -496,31 +509,23 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CheckConsistencyRequest = ...,
+                    body: CheckConsistencyRequest,
                     **kwargs: typing.Any,
                 ) -> CheckConsistencyResponseHttpRequest: ...
                 def create(
-                    self,
-                    *,
-                    parent: str,
-                    body: CreateTableRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: CreateTableRequest, **kwargs: typing.Any
                 ) -> TableHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def dropRowRange(
-                    self,
-                    *,
-                    name: str,
-                    body: DropRowRangeRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: DropRowRangeRequest, **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def generateConsistencyToken(
                     self,
                     *,
                     name: str,
-                    body: GenerateConsistencyTokenRequest = ...,
+                    body: GenerateConsistencyTokenRequest,
                     **kwargs: typing.Any,
                 ) -> GenerateConsistencyTokenResponseHttpRequest: ...
                 def get(
@@ -535,22 +540,23 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         "ENCRYPTION_VIEW",
                         "STATS_VIEW",
                         "FULL",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> TableHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "VIEW_UNSPECIFIED",
                         "NAME_ONLY",
@@ -559,7 +565,8 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                         "ENCRYPTION_VIEW",
                         "STATS_VIEW",
                         "FULL",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListTablesResponseHttpRequest: ...
                 def list_next(
@@ -571,55 +578,47 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ModifyColumnFamiliesRequest = ...,
+                    body: ModifyColumnFamiliesRequest,
                     **kwargs: typing.Any,
                 ) -> TableHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: Table = ...,
-                    ignoreWarnings: bool = ...,
-                    updateMask: str = ...,
+                    body: Table,
+                    ignoreWarnings: bool | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restore(
                     self,
                     *,
                     parent: str,
-                    body: RestoreTableRequest = ...,
+                    body: RestoreTableRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def undelete(
-                    self,
-                    *,
-                    name: str,
-                    body: UndeleteTableRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: UndeleteTableRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def authorizedViews(self) -> AuthorizedViewsResource: ...
                 def schemaBundles(self) -> SchemaBundlesResource: ...
 
             def create(
-                self,
-                *,
-                parent: str,
-                body: CreateInstanceRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: CreateInstanceRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -628,14 +627,10 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                 self, *, name: str, **kwargs: typing.Any
             ) -> InstanceHttpRequest: ...
             def getIamPolicy(
-                self,
-                *,
-                resource: str,
-                body: GetIamPolicyRequest = ...,
-                **kwargs: typing.Any,
+                self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
             ) -> PolicyHttpRequest: ...
             def list(
-                self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                self, *, parent: str, pageToken: str | None = ..., **kwargs: typing.Any
             ) -> ListInstancesResponseHttpRequest: ...
             def list_next(
                 self,
@@ -646,26 +641,22 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Instance = ...,
-                updateMask: str = ...,
+                body: Instance,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def setIamPolicy(
-                self,
-                *,
-                resource: str,
-                body: SetIamPolicyRequest = ...,
-                **kwargs: typing.Any,
+                self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
             ) -> PolicyHttpRequest: ...
             def testIamPermissions(
                 self,
                 *,
                 resource: str,
-                body: TestIamPermissionsRequest = ...,
+                body: TestIamPermissionsRequest,
                 **kwargs: typing.Any,
             ) -> TestIamPermissionsResponseHttpRequest: ...
             def update(
-                self, *, name: str, body: Instance = ..., **kwargs: typing.Any
+                self, *, name: str, body: Instance, **kwargs: typing.Any
             ) -> InstanceHttpRequest: ...
             def appProfiles(self) -> AppProfilesResource: ...
             def clusters(self) -> ClustersResource: ...
@@ -679,10 +670,10 @@ class BigtableAdminResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

@@ -16,19 +16,19 @@ class VisionResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class FilesResource(googleapiclient.discovery.Resource):
         def annotate(
-            self, *, body: BatchAnnotateFilesRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchAnnotateFilesRequest, **kwargs: typing.Any
         ) -> BatchAnnotateFilesResponseHttpRequest: ...
         def asyncBatchAnnotate(
-            self, *, body: AsyncBatchAnnotateFilesRequest = ..., **kwargs: typing.Any
+            self, *, body: AsyncBatchAnnotateFilesRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
 
     @typing.type_check_only
     class ImagesResource(googleapiclient.discovery.Resource):
         def annotate(
-            self, *, body: BatchAnnotateImagesRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchAnnotateImagesRequest, **kwargs: typing.Any
         ) -> BatchAnnotateImagesResponseHttpRequest: ...
         def asyncBatchAnnotate(
-            self, *, body: AsyncBatchAnnotateImagesRequest = ..., **kwargs: typing.Any
+            self, *, body: AsyncBatchAnnotateImagesRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
 
     @typing.type_check_only
@@ -44,7 +44,7 @@ class VisionResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class OperationsResource(googleapiclient.discovery.Resource):
         def cancel(
-            self, *, name: str, body: CancelOperationRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CancelOperationRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> OperationHttpRequest: ...
@@ -52,10 +52,10 @@ class VisionResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListOperationsResponseHttpRequest: ...
         def list_next(
@@ -72,14 +72,14 @@ class VisionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: BatchAnnotateFilesRequest = ...,
+                body: BatchAnnotateFilesRequest,
                 **kwargs: typing.Any,
             ) -> BatchAnnotateFilesResponseHttpRequest: ...
             def asyncBatchAnnotate(
                 self,
                 *,
                 parent: str,
-                body: AsyncBatchAnnotateFilesRequest = ...,
+                body: AsyncBatchAnnotateFilesRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
@@ -89,14 +89,14 @@ class VisionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: BatchAnnotateImagesRequest = ...,
+                body: BatchAnnotateImagesRequest,
                 **kwargs: typing.Any,
             ) -> BatchAnnotateImagesResponseHttpRequest: ...
             def asyncBatchAnnotate(
                 self,
                 *,
                 parent: str,
-                body: AsyncBatchAnnotateImagesRequest = ...,
+                body: AsyncBatchAnnotateImagesRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
@@ -108,14 +108,14 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BatchAnnotateFilesRequest = ...,
+                    body: BatchAnnotateFilesRequest,
                     **kwargs: typing.Any,
                 ) -> BatchAnnotateFilesResponseHttpRequest: ...
                 def asyncBatchAnnotate(
                     self,
                     *,
                     parent: str,
-                    body: AsyncBatchAnnotateFilesRequest = ...,
+                    body: AsyncBatchAnnotateFilesRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -125,14 +125,14 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BatchAnnotateImagesRequest = ...,
+                    body: BatchAnnotateImagesRequest,
                     **kwargs: typing.Any,
                 ) -> BatchAnnotateImagesResponseHttpRequest: ...
                 def asyncBatchAnnotate(
                     self,
                     *,
                     parent: str,
-                    body: AsyncBatchAnnotateImagesRequest = ...,
+                    body: AsyncBatchAnnotateImagesRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -150,8 +150,8 @@ class VisionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListProductsInProductSetResponseHttpRequest: ...
                     def list_next(
@@ -164,15 +164,15 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AddProductToProductSetRequest = ...,
+                    body: AddProductToProductSetRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: ProductSet = ...,
-                    productSetId: str = ...,
+                    body: ProductSet,
+                    productSetId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProductSetHttpRequest: ...
                 def delete(
@@ -185,15 +185,15 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ImportProductSetsRequest = ...,
+                    body: ImportProductSetsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListProductSetsResponseHttpRequest: ...
                 def list_next(
@@ -205,15 +205,15 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ProductSet = ...,
-                    updateMask: str = ...,
+                    body: ProductSet,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProductSetHttpRequest: ...
                 def removeProduct(
                     self,
                     *,
                     name: str,
-                    body: RemoveProductFromProductSetRequest = ...,
+                    body: RemoveProductFromProductSetRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def products(self) -> ProductsResource: ...
@@ -226,8 +226,8 @@ class VisionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ReferenceImage = ...,
-                        referenceImageId: str = ...,
+                        body: ReferenceImage,
+                        referenceImageId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ReferenceImageHttpRequest: ...
                     def delete(
@@ -240,8 +240,8 @@ class VisionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListReferenceImagesResponseHttpRequest: ...
                     def list_next(
@@ -254,8 +254,8 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Product = ...,
-                    productId: str = ...,
+                    body: Product,
+                    productId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProductHttpRequest: ...
                 def delete(
@@ -268,8 +268,8 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListProductsResponseHttpRequest: ...
                 def list_next(
@@ -281,15 +281,15 @@ class VisionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Product = ...,
-                    updateMask: str = ...,
+                    body: Product,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProductHttpRequest: ...
                 def purge(
                     self,
                     *,
                     parent: str,
-                    body: PurgeProductsRequest = ...,
+                    body: PurgeProductsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def referenceImages(self) -> ReferenceImagesResource: ...

@@ -44,9 +44,10 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                         "PRODUCT_UPDATES",
                         "TECHNICAL_INCIDENTS",
                     ]
-                ] = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ComputeContactsResponseHttpRequest: ...
             def compute_next(
@@ -60,7 +61,7 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudEssentialcontactsV1Contact = ...,
+                body: GoogleCloudEssentialcontactsV1Contact,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ContactHttpRequest: ...
             def delete(
@@ -73,8 +74,8 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ListContactsResponseHttpRequest: ...
             def list_next(
@@ -88,15 +89,15 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudEssentialcontactsV1Contact = ...,
-                updateMask: str = ...,
+                body: GoogleCloudEssentialcontactsV1Contact,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ContactHttpRequest: ...
             def sendTestMessage(
                 self,
                 *,
                 resource: str,
-                body: GoogleCloudEssentialcontactsV1SendTestMessageRequest = ...,
+                body: GoogleCloudEssentialcontactsV1SendTestMessageRequest,
                 **kwargs: typing.Any,
             ) -> GoogleProtobufEmptyHttpRequest: ...
 
@@ -133,9 +134,10 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                         "PRODUCT_UPDATES",
                         "TECHNICAL_INCIDENTS",
                     ]
-                ] = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ComputeContactsResponseHttpRequest: ...
             def compute_next(
@@ -149,7 +151,7 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudEssentialcontactsV1Contact = ...,
+                body: GoogleCloudEssentialcontactsV1Contact,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ContactHttpRequest: ...
             def delete(
@@ -162,8 +164,8 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ListContactsResponseHttpRequest: ...
             def list_next(
@@ -177,15 +179,15 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudEssentialcontactsV1Contact = ...,
-                updateMask: str = ...,
+                body: GoogleCloudEssentialcontactsV1Contact,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ContactHttpRequest: ...
             def sendTestMessage(
                 self,
                 *,
                 resource: str,
-                body: GoogleCloudEssentialcontactsV1SendTestMessageRequest = ...,
+                body: GoogleCloudEssentialcontactsV1SendTestMessageRequest,
                 **kwargs: typing.Any,
             ) -> GoogleProtobufEmptyHttpRequest: ...
 
@@ -222,9 +224,10 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                         "PRODUCT_UPDATES",
                         "TECHNICAL_INCIDENTS",
                     ]
-                ] = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ComputeContactsResponseHttpRequest: ...
             def compute_next(
@@ -238,7 +241,7 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudEssentialcontactsV1Contact = ...,
+                body: GoogleCloudEssentialcontactsV1Contact,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ContactHttpRequest: ...
             def delete(
@@ -251,8 +254,8 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ListContactsResponseHttpRequest: ...
             def list_next(
@@ -266,15 +269,15 @@ class EssentialcontactsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudEssentialcontactsV1Contact = ...,
-                updateMask: str = ...,
+                body: GoogleCloudEssentialcontactsV1Contact,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudEssentialcontactsV1ContactHttpRequest: ...
             def sendTestMessage(
                 self,
                 *,
                 resource: str,
-                body: GoogleCloudEssentialcontactsV1SendTestMessageRequest = ...,
+                body: GoogleCloudEssentialcontactsV1SendTestMessageRequest,
                 **kwargs: typing.Any,
             ) -> GoogleProtobufEmptyHttpRequest: ...
 

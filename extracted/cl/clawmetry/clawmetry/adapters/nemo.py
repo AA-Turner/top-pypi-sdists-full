@@ -910,6 +910,80 @@ def _read_nemoclaw_sandbox_lifecycle() -> dict:
     return {"sandboxes": sandboxes}
 
 
+_NEMOCLAW_TRACE_TIMING_SCHEMA = "nemoclaw.trace_timing.v1"
+
+
+def _read_onboard_trace_timing() -> dict:
+    """Read the NemoClaw onboarding trace-timing artifact (#3651).
+
+    Tries several candidate paths for the JSON artifact written by the harness
+    during onboarding (``src/lib/onboard/tracing``). Validates
+    ``schema_version`` and surfaces:
+    - ``onboardTotalDurationMs`` (int) — total onboarding wall-clock time
+    - ``onboardPhases`` (dict) — per-phase durations keyed by phase name
+
+    Handles both dict-format phases ``{phase_name: duration_ms}`` and
+    list-format phases ``[{name, duration_ms}]``.  Returns ``{}`` when the
+    file is absent, the schema mismatches, or any parse error occurs — never
+    raises.
+    """
+    import os as _os
+    import json as _json
+    from pathlib import Path
+
+    home = Path.home()
+    nemoclaw_dir = home / ".nemoclaw"
+    env_path = _os.environ.get("NEMOCLAW_TRACE_TIMING_PATH", "")
+    candidates = [
+        Path(env_path) if env_path else None,
+        nemoclaw_dir / "onboard-trace-timing.json",
+        nemoclaw_dir / "scorecard" / "trace-timing.json",
+        nemoclaw_dir / "scorecard-trace-timing.json",
+    ]
+
+    for path in candidates:
+        if path is None or not path.exists():
+            continue
+        try:
+            raw = _json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.debug("nemoclaw onboard trace-timing read failed (%s): %s", path, exc)
+            continue
+        if not isinstance(raw, dict):
+            continue
+        if raw.get("schema_version") != _NEMOCLAW_TRACE_TIMING_SCHEMA:
+            logger.debug(
+                "nemoclaw onboard trace-timing schema mismatch (%s): got %r",
+                path,
+                raw.get("schema_version"),
+            )
+            continue
+        out: dict = {}
+        total = raw.get("total_duration_ms")
+        if isinstance(total, (int, float)) and total >= 0:
+            out["onboardTotalDurationMs"] = int(total)
+        phases_raw = raw.get("phases", raw.get("phase_breakdown"))
+        if isinstance(phases_raw, dict):
+            out["onboardPhases"] = {
+                str(k): int(v)
+                for k, v in phases_raw.items()
+                if isinstance(v, (int, float))
+            }
+        elif isinstance(phases_raw, list):
+            phases_dict: dict = {}
+            for entry in phases_raw:
+                if isinstance(entry, dict):
+                    name = entry.get("name") or entry.get("phase")
+                    dur = entry.get("duration_ms") or entry.get("durationMs")
+                    if name and isinstance(dur, (int, float)):
+                        phases_dict[str(name)] = int(dur)
+            if phases_dict:
+                out["onboardPhases"] = phases_dict
+        if out:
+            return out
+    return {}
+
+
 class NemoClawAdapter(AgentAdapter):
     """Read-side adapter for the NemoClaw Free runtime.
 
@@ -939,6 +1013,7 @@ class NemoClawAdapter(AgentAdapter):
         meta.update(_read_model_router_model_list())
         meta.update(_read_nemoclaw_sandbox_lifecycle())
         meta["ollama_inference"] = _read_nemoclaw_ollama_inference()
+        meta.update(_read_onboard_trace_timing())
         return DetectResult(
             name=self.name,
             display_name=self.display_name,
@@ -1023,7 +1098,7 @@ class NemoClawAdapter(AgentAdapter):
                 if r[6]:
                     extra["runtimeKind"] = str(r[6])
                 raw_data = r[5]
-                if raw_data is not None and r[1] == "sandbox.audit_log":
+                if raw_data is not None:
                     try:
                         if isinstance(raw_data, (bytes, bytearray)):
                             raw_data = bytes(raw_data).decode("utf-8", "replace")
@@ -1031,14 +1106,42 @@ class NemoClawAdapter(AgentAdapter):
                             json.loads(raw_data) if isinstance(raw_data, str) else raw_data
                         )
                         if isinstance(obj, dict):
-                            for _field in (
-                                "class_uid", "type_uid", "activity_name",
-                                "verdict", "rule_name",
-                            ):
-                                _val = obj.get(_field)
-                                if _val is not None:
-                                    extra[_field] = _val
-                            extra["ocsf"] = True
+                            if r[1] == "sandbox.audit_log":
+                                for _field in (
+                                    "class_uid", "type_uid", "activity_name",
+                                    "verdict", "rule_name",
+                                ):
+                                    _val = obj.get(_field)
+                                    if _val is not None:
+                                        extra[_field] = _val
+                                extra["ocsf"] = True
+                            # Advisor-session tool-execution retry/exhaustion
+                            # lifecycle (#3650): tool_execution_start /
+                            # tool_execution_end events carry attempt number,
+                            # per-attempt error flag, and resolved retry outcome
+                            # so the dashboard can distinguish a single clean
+                            # call from fail-then-success or exhaustion.
+                            # isError uses is-not-None (False is meaningful).
+                            _attempt = (
+                                obj.get("attemptNumber")
+                                or obj.get("attempt_number")
+                            )
+                            if _attempt is not None:
+                                try:
+                                    extra["attempt_number"] = int(_attempt)
+                                except (TypeError, ValueError):
+                                    pass
+                            _is_err = obj.get("isError")
+                            if _is_err is None:
+                                _is_err = obj.get("is_error")
+                            if _is_err is not None:
+                                extra["is_error"] = bool(_is_err)
+                            _rr = (
+                                obj.get("retryResponse")
+                                or obj.get("retry_response")
+                            )
+                            if _rr:
+                                extra["retry_response"] = _rr
                     except Exception:
                         pass
                 events.append(Event(

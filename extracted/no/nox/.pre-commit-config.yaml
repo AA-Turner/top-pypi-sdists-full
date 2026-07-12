@@ -18,20 +18,27 @@ repos:
       - id: requirements-txt-fixer
       - id: trailing-whitespace
 
+  - repo: https://github.com/henryiii/flake8-lazy
+    rev: v0.8.3
+    hooks:
+      - id: flake8-lazy
+        args: ["--apply=set"]
+        files: '^nox/'
+
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: "v2.12.1"
+    rev: "v2.25.0"
     hooks:
       - id: pyproject-fmt
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.0
+    rev: v0.15.19
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+    rev: v2.1.0
     hooks:
       - id: mypy
         files: ^(nox/|tests/)
@@ -41,20 +48,17 @@ repos:
           - argcomplete
           - attrs
           - colorlog
-          - dependency-groups>=1.2
+          - dependency-groups>=1.3.1
           - humanize
           - jinja2
-          - orjson # Faster mypy
           - packaging
           - pbs_installer
-          - pytest<9  # pytest 9 requires 3.10+
-          - importlib_metadata
-          - importlib_resources
+          - pytest
           - tomli
           - uv
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.2
     hooks:
       - id: codespell
 
@@ -68,6 +72,6 @@ repos:
       - id: rst-inline-touching-normal
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.22.0
+    rev: v1.26.1
     hooks:
       - id: zizmor

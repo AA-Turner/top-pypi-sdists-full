@@ -7,10 +7,12 @@
 //! [`RowMetric`], a *steering move* is "drive atom `k`'s latent coordinate from
 //! `t_from` to `t_to`". The atom's decoder curve `g_k(t) = Φ_k(t) B_k` maps that
 //! latent move to an **activation-space delta** — the actual vector you add to
-//! the residual stream / reconstruction to realize the move *on the manifold*:
+//! the residual stream / reconstruction to realize the move *on the manifold*.
+//! Here `g_k(t) = Phi_k^eta(t) B_k` is the fitted physical decoder, including
+//! the curvature-homotopy state:
 //!
 //! ```text
-//! δ = a · ( g_k(t_to) − g_k(t_from) )          (the on-manifold move)
+//! delta = a · ( g_k(t_to) - g_k(t_from) )      (the on-manifold move)
 //! ```
 //!
 //! where `a` is the atom's amplitude (how loudly the atom is expressed). This is
@@ -19,27 +21,26 @@
 //! # Dosimetry — how big is this push, in nats?
 //!
 //! The headline number is the **predicted output effect**: how much behavioral
-//! change (in nats of KL on the model's output distribution) the move induces.
-//! For a locally-quadratic output readout the KL of a parameter move `Δ` is
-//! `½ Δᵀ F Δ` with `F` the output-Fisher information — exactly the inner product
-//! [`RowMetric`] carries. The dose is the Fisher quadratic form of the move,
-//! **integrated along the decoder curve** rather than read only at the endpoints:
+//! change (in nats of KL on the model's output distribution) the exact applied
+//! activation move induces. For a locally-quadratic output readout the KL of a
+//! move `delta` is `0.5 * delta^T F delta`, with `F` the output-Fisher
+//! information — exactly the inner product [`RowMetric`] carries:
 //!
 //! ```text
-//! predicted_nats = ½ ∫_{t_from}^{t_to} a² · g_k'(t)ᵀ M_n g_k'(t) dt
+//! predicted_nats = 0.5 * delta^T M_metric_row delta
 //! ```
 //!
-//! evaluated in small steps via the per-row pullback / fisher-mass methods. The
-//! path integral is the honest dose: it follows the curved surface, so a long arc
-//! that doubles back is not under-counted the way a straight endpoint chord would
-//! be.
+//! This endpoint quadratic form is the single canonical nats prediction because
+//! it prices the same `delta` a patched forward pass applies. Arc energy and
+//! tangent-only surrogates are deliberately not exposed as alternate nats lanes:
+//! they price different objects and therefore cannot be calibrated against the
+//! patched-forward endpoint KL by construction (#2249).
 //!
 //! # Validity radius — where local linearization stops being trusted
 //!
 //! A consumer must know *how far* the move can be trusted as a linear push. The
-//! **validity radius** is the latent step size at which the path-integrated dose
-//! diverges from the straight endpoint quadratic form
-//! `½ a² δ̂ᵀ M δ̂` (the local-linear prediction) by more than
+//! **validity radius** is the latent step size at which the exact chord dose
+//! diverges from the initial-tangent quadratic prediction by more than
 //! [`VALIDITY_DIVERGENCE_FRACTION`]. Beyond it the surface has curved enough that
 //! the endpoint chord no longer represents the move. We **report** it; we do not
 //! silently clip to it.
@@ -67,20 +68,18 @@
 use ndarray::{Array1, Array2, ArrayView1};
 
 use crate::encode::EncodeAtlas;
-use crate::manifold::{SaeManifoldTerm, SupportMeasure};
+use crate::manifold::{SaeManifoldAtom, SaeManifoldTerm};
 use gam_problem::{MetricProvenance, RowMetric};
-use gam_terms::inference::structure_evidence::log_e_from_p_calibrator;
 
 /// Number of sub-steps the latent path `[t_from, t_to]` is integrated over for
 /// the dosimetry path integral. The decoder curve is smooth, so a modest
 /// midpoint-rule grid resolves the arc; fixed (no clock / no adaptivity) so the
 /// reported dose is deterministic.
-const STEER_PATH_STEPS: usize = 64;
+const STEER_VALIDITY_STEPS: usize = 64;
 
-/// The fraction by which the path-integrated dose may diverge from the straight
-/// endpoint quadratic form before the move is declared past its validity radius.
-/// At `0.1` we trust the linearization while the curved-path dose stays within
-/// 10% of the chord dose.
+/// The fraction by which the exact chord dose may diverge from the
+/// initial-tangent quadratic prediction before the move is declared past its
+/// validity radius.
 const VALIDITY_DIVERGENCE_FRACTION: f64 = 0.1;
 
 /// The actionable output of a steering query over one atom.
@@ -94,24 +93,22 @@ pub struct SteerPlan {
     pub t_from: Vec<f64>,
     /// The target latent coordinate `t_to` (length = atom's `latent_dim`).
     pub t_to: Vec<f64>,
-    /// The amplitude `a` the on-manifold move was scaled by (the atom's mean
-    /// active assignment mass; `1.0` if the atom is active on no row).
+    /// The exact amplitude `a` the caller applied to the on-manifold move.
     pub amplitude: f64,
-    /// The row whose per-row output-Fisher metric the dose was measured through
-    /// (the atom's most-active row; `0` if active nowhere).
-    pub measured_row: usize,
+    /// The exact row whose output-Fisher metric prices the applied move.
+    pub metric_row: usize,
     /// **The activation-space delta**: `δ = a · (g_k(t_to) − g_k(t_from))`, a
     /// length-`p` vector in the reconstruction/output space — the actual move to
     /// add to a hidden state.
     pub delta: Array1<f64>,
-    /// **DOSIMETRY**: predicted output effect of the move in **nats** of KL,
-    /// integrated along the decoder curve through the output-Fisher metric.
+    /// **DOSIMETRY**: predicted output effect of the exact applied move in
+    /// **nats** of KL, `0.5 * delta^T M_metric_row delta`.
     /// `None` when the metric carries no behavioral information (Euclidean
     /// provenance) — the dose is *not available*, not zero.
     pub predicted_nats: Option<f64>,
     /// **VALIDITY RADIUS**: the latent step size (Euclidean norm of the move from
-    /// `t_from`) at which the path-integrated dose first diverges from the
-    /// straight endpoint quadratic form by more than
+    /// `t_from`) at which the exact chord dose first diverges from the
+    /// initial-tangent quadratic prediction by more than
     /// [`VALIDITY_DIVERGENCE_FRACTION`]. Equals the full move length when the
     /// linearization is trusted all the way to `t_to`. `None` under a no-behavior
     /// metric (there is no dose to validate).
@@ -159,6 +156,7 @@ pub fn set_coordinate(
     atlas: &EncodeAtlas,
     x: ArrayView1<'_, f64>,
     atom_k: usize,
+    metric_row: usize,
     amplitude: f64,
     t_to: &[f64],
 ) -> Result<CoordinateSetResult, String> {
@@ -176,13 +174,14 @@ pub fn set_coordinate(
         ));
     }
     let (t_from, cert) = atlas.certified_encode_row(atom, atom_k, x, amplitude)?;
-    let steer = steer_delta_with_amplitude(
+    let steer = steer_delta(
         model,
         metric,
         atom_k,
+        metric_row,
+        amplitude,
         t_from.as_slice().unwrap_or(&[]),
         t_to,
-        amplitude,
     )?;
     let mut edited = x.to_owned();
     if edited.len() != steer.delta.len() {
@@ -221,9 +220,10 @@ pub struct InterchangeResult {
     pub off_manifold_norm: f64,
     /// Reported steering validity radius.
     pub validity_radius: Option<f64>,
-    /// Calibrated log e-value for counterfactual consistency: larger means the
-    /// post-edit target coordinate landed closer to the donor coordinate.
-    pub counterfactual_consistency_log_e: f64,
+    /// Geodesic chart-coordinate landing error. Wrapped axes use their shortest
+    /// signed displacement. This is a descriptive reconstruction diagnostic,
+    /// not a p/e-value: no counterfactual null distribution is available here.
+    pub landing_error: f64,
     /// Underlying coordinate-write plan.
     pub set_result: CoordinateSetResult,
 }
@@ -232,9 +232,9 @@ pub struct InterchangeResult {
 ///
 /// The source coordinate is certified with `source_amplitude`; the target write
 /// is performed with `target_amplitude`, so swapping a position coordinate cannot
-/// silently smuggle donor intensity into the target. The returned consistency
-/// e-value is computed by re-encoding the edited target and calibrating the
-/// coordinate landing error into the existing structure-evidence e-currency.
+/// silently smuggle donor intensity into the target. The returned landing error
+/// is descriptive; statistical evidence requires an externally specified null
+/// experiment and is deliberately not fabricated from the error magnitude.
 pub fn interchange(
     model: &SaeManifoldTerm,
     metric: &RowMetric,
@@ -244,6 +244,7 @@ pub fn interchange(
     x_source: ArrayView1<'_, f64>,
     source_amplitude: f64,
     atom_k: usize,
+    target_metric_row: usize,
 ) -> Result<InterchangeResult, String> {
     let atom = model.atoms.get(atom_k).ok_or_else(|| {
         format!(
@@ -259,28 +260,18 @@ pub fn interchange(
         atlas,
         x_target,
         atom_k,
+        target_metric_row,
         target_amplitude,
         donor_t.as_slice().unwrap_or(&[]),
     )?;
     let (target_t_after, _after_cert) =
         atlas.certified_encode_row(atom, atom_k, set.edited.view(), target_amplitude)?;
-    let landing_error = l2_distance(donor_t.view(), target_t_after.view())?;
-    let scale = set
-        .steer
-        .validity_radius
-        .unwrap_or_else(|| {
-            l2_distance(set.t_from_certified.view(), donor_t.view())
-                .unwrap_or(1.0)
-                .max(1e-12)
-        })
-        .max(1e-12);
-    // Convert closeness into a superuniform-shaped p-value and then into the
-    // repository's standard e-value currency. Exact hits approach machine-small
-    // p-values; errors at/above the validity radius produce e-values near or
-    // below one, so shuffled-chart negative controls do not accumulate evidence.
-    let z = (scale / landing_error.max(1e-12)).min(1.0e6);
-    let p_value = (-0.5 * z * z).exp().clamp(f64::MIN_POSITIVE, 1.0);
-    let log_e = log_e_from_p_calibrator(p_value)?;
+    let periods = model.assignment.coords[atom_k].effective_axis_periods();
+    let landing_error = coordinate_l2_distance(
+        donor_t.as_slice().unwrap_or(&[]),
+        target_t_after.as_slice().unwrap_or(&[]),
+        &periods,
+    )?;
     Ok(InterchangeResult {
         edited_target: set.edited.clone(),
         donor_t,
@@ -289,25 +280,62 @@ pub fn interchange(
         predicted_nats: set.steer.predicted_nats,
         off_manifold_norm: set.steer.off_manifold_norm,
         validity_radius: set.steer.validity_radius,
-        counterfactual_consistency_log_e: log_e,
+        landing_error,
         set_result: set,
     })
 }
 
-fn l2_distance(a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> Result<f64, String> {
-    if a.len() != b.len() {
+fn shortest_coordinate_delta(
+    from: &[f64],
+    to: &[f64],
+    periods: &[Option<f64>],
+) -> Result<Vec<f64>, String> {
+    if from.len() != to.len() || from.len() != periods.len() {
         return Err(format!(
-            "coordinate distance length mismatch: {} vs {}",
-            a.len(),
-            b.len()
+            "coordinate displacement length mismatch: from={}, to={}, periods={}",
+            from.len(),
+            to.len(),
+            periods.len()
         ));
     }
-    let mut ss = 0.0;
-    for i in 0..a.len() {
-        let r = a[i] - b[i];
-        ss += r * r;
+    let mut delta = Vec::with_capacity(from.len());
+    for axis in 0..from.len() {
+        let mut d = to[axis] - from[axis];
+        if let Some(period) = periods[axis] {
+            if !(period.is_finite() && period > 0.0) {
+                return Err(format!(
+                    "coordinate axis {axis} has invalid period {period}"
+                ));
+            }
+            d -= period * (d / period).round();
+        }
+        delta.push(d);
     }
-    Ok(ss.sqrt())
+    Ok(delta)
+}
+
+fn coordinate_l2_distance(a: &[f64], b: &[f64], periods: &[Option<f64>]) -> Result<f64, String> {
+    Ok(shortest_coordinate_delta(a, b, periods)?
+        .iter()
+        .map(|d| d * d)
+        .sum::<f64>()
+        .sqrt())
+}
+
+fn path_coordinate(
+    from: &[f64],
+    delta: &[f64],
+    periods: &[Option<f64>],
+    fraction: f64,
+) -> Vec<f64> {
+    from.iter()
+        .zip(delta.iter())
+        .zip(periods.iter())
+        .map(|((&start, &step), &period)| {
+            let value = start + fraction * step;
+            period.map_or(value, |p| value.rem_euclid(p))
+        })
+        .collect()
 }
 
 /// Build a [`SteerPlan`] for driving atom `atom_k` from `t_from` to `t_to`.
@@ -327,36 +355,16 @@ pub fn steer_delta(
     model: &SaeManifoldTerm,
     metric: &RowMetric,
     atom_k: usize,
-    t_from: &[f64],
-    t_to: &[f64],
-) -> Result<SteerPlan, String> {
-    steer_delta_impl(model, metric, atom_k, t_from, t_to, None)
-}
-
-fn steer_delta_with_amplitude(
-    model: &SaeManifoldTerm,
-    metric: &RowMetric,
-    atom_k: usize,
-    t_from: &[f64],
-    t_to: &[f64],
+    metric_row: usize,
     amplitude: f64,
+    t_from: &[f64],
+    t_to: &[f64],
 ) -> Result<SteerPlan, String> {
     if !(amplitude.is_finite() && amplitude > 0.0) {
         return Err(format!(
-            "steer_delta_with_amplitude: amplitude must be finite and positive, got {amplitude}"
+            "steer_delta: amplitude must be finite and positive, got {amplitude}"
         ));
     }
-    steer_delta_impl(model, metric, atom_k, t_from, t_to, Some(amplitude))
-}
-
-fn steer_delta_impl(
-    model: &SaeManifoldTerm,
-    metric: &RowMetric,
-    atom_k: usize,
-    t_from: &[f64],
-    t_to: &[f64],
-    amplitude_override: Option<f64>,
-) -> Result<SteerPlan, String> {
     let k = model.k_atoms();
     if atom_k >= k {
         return Err(format!(
@@ -373,40 +381,33 @@ fn steer_delta_impl(
             t_to.len()
         ));
     }
-    let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
+    atom.basis_evaluator.as_ref().ok_or_else(|| {
         format!(
             "steer_delta: atom {atom_k} ('{}') has no installed basis evaluator; \
              arbitrary-t decoder evaluation requires one",
             atom.name
         )
     })?;
+    let periods = model.assignment.coords[atom_k].effective_axis_periods();
+    let coordinate_delta = shortest_coordinate_delta(t_from, t_to, &periods)?;
 
-    // --- amplitude & the row the dose is measured through -------------------
-    // The amplitude and measured row come from the shared atom support measure.
-    // Hard 0/1 support gives amplitude 1 on non-empty support, matching the old
-    // active-mask limit; diffuse support scales by its support-weighted mass.
-    let support = SupportMeasure::from_assignment(&model.assignment, atom_k)?;
     let n = model.n_obs();
-    let mut best_row = 0usize;
-    let mut best_mass = f64::NEG_INFINITY;
-    for row in 0..support.len() {
-        let mass = support.weight(row);
-        if mass > best_mass {
-            best_mass = mass;
-            best_row = row;
-        }
+    if metric.n_rows() != n || metric.p_out() != p {
+        return Err(format!(
+            "steer_delta: metric shape ({}, {}) must equal fitted term shape ({n}, {p})",
+            metric.n_rows(),
+            metric.p_out()
+        ));
     }
-    let amplitude = amplitude_override.unwrap_or_else(|| {
-        if support.mass() > 0.0 {
-            support.fisher_n() / support.mass()
-        } else {
-            0.0
-        }
-    });
+    if metric_row >= n {
+        return Err(format!(
+            "steer_delta: metric_row={metric_row} out of range for {n} fitted rows"
+        ));
+    }
 
     // --- the on-manifold activation-space delta -----------------------------
-    let g_from = decode_at(evaluator.as_ref(), &atom.decoder_coefficients, t_from, p)?;
-    let g_to = decode_at(evaluator.as_ref(), &atom.decoder_coefficients, t_to, p)?;
+    let g_from = decode_at(atom, t_from)?;
+    let g_to = decode_at(atom, t_to)?;
     let mut delta = Array1::<f64>::zeros(p);
     for i in 0..p {
         delta[i] = amplitude * (g_to[i] - g_from[i]);
@@ -414,8 +415,7 @@ fn steer_delta_impl(
 
     // Whether the metric can/does match this term and carries behavior.
     let provenance = metric.provenance();
-    let behavior_available =
-        metric_carries_behavior(provenance) && metric.n_rows() == n && metric.p_out() == p;
+    let behavior_available = metric_carries_behavior(provenance);
 
     // --- off-manifold guard -------------------------------------------------
     // Project δ onto the span of the local decoder tangents ∂g_k/∂t and report
@@ -428,27 +428,30 @@ fn steer_delta_impl(
     // `≈ 0` for an on-manifold move and grows only with genuine arc curvature.
     let mut t_mid = vec![0.0_f64; d];
     for a in 0..d {
-        t_mid[a] = 0.5 * (t_from[a] + t_to[a]);
+        t_mid[a] = t_from[a] + 0.5 * coordinate_delta[a];
+        if let Some(period) = periods[a] {
+            t_mid[a] = t_mid[a].rem_euclid(period);
+        }
     }
-    let tangents =
-        decode_tangents_at(evaluator.as_ref(), &atom.decoder_coefficients, &t_mid, p, d)?;
+    let tangents = decode_tangents_at(atom, &t_mid)?;
     let off_manifold_norm = off_manifold_residual_norm(&tangents, delta.view());
 
-    // --- dosimetry: path-integrated Fisher dose -----------------------------
+    // --- dosimetry: exact applied-delta Fisher endpoint KL ------------------
     let (predicted_nats, validity_radius) = if !behavior_available {
         (None, None)
     } else {
         let ctx = SteerContext {
-            evaluator: evaluator.as_ref(),
-            decoder: &atom.decoder_coefficients,
+            atom,
             metric,
-            row: best_row,
+            row: metric_row,
             p,
             d,
             amplitude,
+            coordinate_delta: &coordinate_delta,
+            periods: &periods,
         };
-        let dose = path_integrated_dose(&ctx, t_from, t_to)?;
-        let radius = validity_radius(&ctx, t_from, t_to)?;
+        let dose = 0.5 * metric.fisher_mass(metric_row, delta.view());
+        let radius = validity_radius(&ctx, t_from)?;
         (Some(dose), Some(radius))
     };
 
@@ -458,7 +461,7 @@ fn steer_delta_impl(
         t_from: t_from.to_vec(),
         t_to: t_to.to_vec(),
         amplitude,
-        measured_row: best_row,
+        metric_row,
         delta,
         predicted_nats,
         validity_radius,
@@ -508,13 +511,13 @@ pub fn predicted_response(
             delta.len()
         ));
     }
-    let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
+    atom.basis_evaluator.as_ref().ok_or_else(|| {
         format!(
             "predicted_response: atom {atom_k} ('{}') has no installed basis evaluator",
             atom.name
         )
     })?;
-    let tangents = decode_tangents_at(evaluator.as_ref(), &atom.decoder_coefficients, t_at, p, d)?;
+    let tangents = decode_tangents_at(atom, t_at)?;
     Ok(project_onto_tangent_span(&tangents, delta))
 }
 
@@ -523,59 +526,41 @@ pub fn predicted_response(
 /// provenances do. (Mirrors `atom_lens::metric_carries_behavior`.)
 fn metric_carries_behavior(p: MetricProvenance) -> bool {
     match p {
-        MetricProvenance::Euclidean => false,
+        MetricProvenance::Euclidean | MetricProvenance::WhitenedStructured { .. } => false,
         MetricProvenance::OutputFisher { .. }
         | MetricProvenance::OutputFisherDownstream { .. }
-        | MetricProvenance::BehavioralFisher { .. }
-        | MetricProvenance::WhitenedStructured { .. } => true,
+        | MetricProvenance::BehavioralFisher { .. } => true,
     }
 }
 
 /// Evaluate the decoder output `g_k(t) = Φ_k(t) B_k ∈ ℝ^p` at an arbitrary
 /// latent coordinate `t` (length `d`) via the atom's installed evaluator.
-fn decode_at(
-    evaluator: &dyn crate::manifold::SaeBasisEvaluator,
-    decoder: &Array2<f64>,
-    t: &[f64],
-    p: usize,
-) -> Result<Array1<f64>, String> {
+fn decode_at(atom: &SaeManifoldAtom, t: &[f64]) -> Result<Array1<f64>, String> {
     let d = t.len();
     let coords = Array2::from_shape_vec((1, d), t.to_vec())
         .map_err(|e| format!("steer_delta::decode_at: coord shape: {e}"))?;
-    let (phi, _jet) = evaluator.evaluate(coords.view())?;
-    let m = decoder.nrows();
-    if phi.ncols() != m {
-        return Err(format!(
-            "steer_delta::decode_at: evaluator returned {} basis cols but decoder has {m} rows",
-            phi.ncols()
-        ));
-    }
-    let mut g = Array1::<f64>::zeros(p);
-    for basis_col in 0..m {
-        let phi_v = phi[[0, basis_col]];
-        if phi_v == 0.0 {
-            continue;
-        }
-        for out_col in 0..p {
-            g[out_col] += phi_v * decoder[[basis_col, out_col]];
-        }
-    }
-    Ok(g)
+    Ok(atom.decode_at_coords(coords.view())?.row(0).to_owned())
 }
 
 /// Evaluate the decoder tangents `∂g_k/∂t_a = Φ_k'(t) B_k ∈ ℝ^p`, one per latent
 /// axis `a ∈ 0..d`, at an arbitrary latent coordinate `t`. Returned as a
 /// `(p × d)` matrix whose column `a` is the tangent along axis `a`.
-fn decode_tangents_at(
-    evaluator: &dyn crate::manifold::SaeBasisEvaluator,
-    decoder: &Array2<f64>,
-    t: &[f64],
-    p: usize,
-    d: usize,
-) -> Result<Array2<f64>, String> {
+fn decode_tangents_at(atom: &SaeManifoldAtom, t: &[f64]) -> Result<Array2<f64>, String> {
+    let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
+        "steer_delta::decode_tangents_at: atom has no installed basis evaluator".to_string()
+    })?;
+    let p = atom.output_dim();
+    let d = atom.latent_dim;
     let coords = Array2::from_shape_vec((1, d), t.to_vec())
         .map_err(|e| format!("steer_delta::decode_tangents_at: coord shape: {e}"))?;
-    let (_phi, jet) = evaluator.evaluate(coords.view())?;
+    let jet = if atom.homotopy_eta == 1.0 {
+        evaluator.evaluate(coords.view())?.1
+    } else {
+        evaluator
+            .evaluate_phi_eta(coords.view(), atom.homotopy_eta)?
+            .jet
+    };
+    let decoder = &atom.decoder_coefficients;
     let m = decoder.nrows();
     if jet.dim() != (1, m, d) {
         return Err(format!(
@@ -701,8 +686,7 @@ fn solve_spd_small(gram: &Array2<f64>, rhs: &Array1<f64>) -> Array1<f64> {
 /// The fixed geometry of one steering query, bundled so the dose integrator and
 /// its helpers take a single context rather than a long argument list.
 struct SteerContext<'a> {
-    evaluator: &'a dyn crate::manifold::SaeBasisEvaluator,
-    decoder: &'a Array2<f64>,
+    atom: &'a SaeManifoldAtom,
     metric: &'a RowMetric,
     /// The row whose per-row metric the dose is measured through.
     row: usize,
@@ -712,64 +696,8 @@ struct SteerContext<'a> {
     d: usize,
     /// Amplitude `a` the move is scaled by.
     amplitude: f64,
-}
-
-/// Path-integrated Fisher dose
-/// `½ a² ∫ g_k'(t)ᵀ M g_k'(t) dt` along the straight latent segment
-/// `t(τ) = t_from + τ (t_to − t_from)`, `τ ∈ [0, 1]`, by the midpoint rule over
-/// [`STEER_PATH_STEPS`] sub-steps.
-///
-/// The local quadratic `g'(t)ᵀ M g'(t)` is the [`RowMetric::pullback`] of the
-/// per-axis decoder tangents contracted with the latent velocity `Δt`, so this
-/// uses only the criterion-facing pullback (no loss / no solver floor).
-fn path_integrated_dose(
-    ctx: &SteerContext<'_>,
-    t_from: &[f64],
-    t_to: &[f64],
-) -> Result<f64, String> {
-    let d = ctx.d;
-    let p = ctx.p;
-    let steps = STEER_PATH_STEPS;
-    let dtau = 1.0 / steps as f64;
-    // Latent velocity Δt (constant along the straight segment).
-    let mut dt = vec![0.0_f64; d];
-    for a in 0..d {
-        dt[a] = t_to[a] - t_from[a];
-    }
-    let mut acc = 0.0_f64;
-    let amp2 = ctx.amplitude * ctx.amplitude;
-    for s in 0..steps {
-        // Midpoint of sub-step s in τ, mapped to a latent coordinate.
-        let tau_mid = (s as f64 + 0.5) * dtau;
-        let mut t_mid = vec![0.0_f64; d];
-        for a in 0..d {
-            t_mid[a] = t_from[a] + tau_mid * dt[a];
-        }
-        // Decoder tangents at the midpoint: ∂g/∂t_a, columns of a (p × d) matrix.
-        let tang = decode_tangents_at(ctx.evaluator, ctx.decoder, &t_mid, p, d)?;
-        // The pulled-back metric at this point is g_{ab} = (∂g/∂t)ᵀ M (∂g/∂t),
-        // the d × d local inner product of latent motion *in output-Fisher
-        // units*. We form it through the criterion-facing `RowMetric::pullback`
-        // (which never materializes the p × p M and never sees the solver δ),
-        // then contract the latent velocity Δt twice: the squared output-Fisher
-        // speed along the path is Δtᵀ g Δt. The decoder Jacobian is passed flat
-        // row-major (J[i, a] = j_row[i * d + a]) as `pullback` expects.
-        let mut j_row = vec![0.0_f64; p * d];
-        for i in 0..p {
-            for a in 0..d {
-                j_row[i * d + a] = tang[[i, a]];
-            }
-        }
-        let g_ab = ctx.metric.pullback(ctx.row, &j_row, d);
-        let mut speed_sq = 0.0_f64;
-        for a in 0..d {
-            for b in 0..d {
-                speed_sq += dt[a] * g_ab[[a, b]] * dt[b];
-            }
-        }
-        acc += 0.5 * amp2 * speed_sq * dtau;
-    }
-    Ok(acc)
+    coordinate_delta: &'a [f64],
+    periods: &'a [Option<f64>],
 }
 
 /// The validity radius: the latent step length (Euclidean distance from
@@ -788,26 +716,23 @@ fn path_integrated_dose(
 /// pure surface curvature: on a flat decoder the two agree for every `τ` and the
 /// radius is the whole move. If the metric kills the tangent (no linear effect to
 /// validate), the move is trusted to its full length.
-fn validity_radius(ctx: &SteerContext<'_>, t_from: &[f64], t_to: &[f64]) -> Result<f64, String> {
+fn validity_radius(ctx: &SteerContext<'_>, t_from: &[f64]) -> Result<f64, String> {
     let d = ctx.d;
     let p = ctx.p;
-    let full_len: f64 = t_from
+    let full_len: f64 = ctx
+        .coordinate_delta
         .iter()
-        .zip(t_to.iter())
-        .map(|(&a, &b)| (b - a) * (b - a))
+        .map(|d| d * d)
         .sum::<f64>()
         .sqrt();
     if full_len == 0.0 {
         return Ok(0.0);
     }
-    let mut dt = vec![0.0_f64; d];
-    for a in 0..d {
-        dt[a] = t_to[a] - t_from[a];
-    }
+    let dt = ctx.coordinate_delta;
     let amp = ctx.amplitude;
 
     // Initial-tangent linear output move per unit τ: v0 = (∂g/∂t|_{t_from}) Δt.
-    let tang0 = decode_tangents_at(ctx.evaluator, ctx.decoder, t_from, p, d)?;
+    let tang0 = decode_tangents_at(ctx.atom, t_from)?;
     let mut v0 = Array1::<f64>::zeros(p);
     for i in 0..p {
         let mut acc = 0.0_f64;
@@ -823,15 +748,12 @@ fn validity_radius(ctx: &SteerContext<'_>, t_from: &[f64], t_to: &[f64]) -> Resu
         return Ok(full_len);
     }
 
-    let g_from = decode_at(ctx.evaluator, ctx.decoder, t_from, p)?;
-    let steps = STEER_PATH_STEPS;
+    let g_from = decode_at(ctx.atom, t_from)?;
+    let steps = STEER_VALIDITY_STEPS;
     for s in 0..steps {
         let tau = (s as f64 + 1.0) / steps as f64;
-        let mut t_mid = vec![0.0_f64; d];
-        for a in 0..d {
-            t_mid[a] = t_from[a] + tau * dt[a];
-        }
-        let g_tau = decode_at(ctx.evaluator, ctx.decoder, &t_mid, p)?;
+        let t_mid = path_coordinate(t_from, dt, ctx.periods, tau);
+        let g_tau = decode_at(ctx.atom, &t_mid)?;
         let mut chord = Array1::<f64>::zeros(p);
         for i in 0..p {
             chord[i] = amp * (g_tau[i] - g_from[i]);
@@ -845,4 +767,303 @@ fn validity_radius(ctx: &SteerContext<'_>, t_from: &[f64], t_to: &[f64]) -> Resu
         }
     }
     Ok(full_len)
+}
+
+/// One dose sample on a collateral-damage curve (gam#2234 E2, the intrinsic
+/// Rust-owned counterpart of the model-in-the-loop KL frontier): the on-target
+/// effect and the off-target collateral of a single steering intervention,
+/// measured in the fitted dictionary's own representation, with no LLM in the
+/// loop.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct CollateralPoint {
+    /// The chart-coordinate dose applied to the target atom's steered axis
+    /// (radians / fraction-of-period, per the atom's manifold).
+    pub dose: f64,
+    /// RMS-over-rows on-target effect: `‖proj_{T_k} Δ‖`, the energy the
+    /// intervention deposits into the TARGET atom's own local decode-tangent
+    /// frame `T_k = ∂g_k/∂t` at each row's fitted operating point. This is the
+    /// intended landing — how loudly the knob turned the feature it names.
+    pub on_target_effect: f64,
+    /// RMS-over-rows collateral: `‖Δ − proj_{T_k} Δ‖`, the energy the SAME
+    /// intervention deposits OUTSIDE the target atom's own local frame — the total
+    /// damage. The on-manifold move is a chord of atom `k`'s decoder curve, so its
+    /// off-target component is only the second-order sagitta (`≈ 0`, growing with
+    /// dose-curvature); a fixed flat direction is off the rotating target frame at
+    /// most rows, so its off-target energy is immediate. This is the direct
+    /// generalization of the single-move [`SteerPlan::off_manifold_norm`] guard to
+    /// a swept intervention.
+    pub collateral: f64,
+    /// RMS-over-rows CROSS-FEATURE leakage: `sqrt(Σ_{j∈others} ‖proj_{T_j} Δ‖²)`,
+    /// the part of the move that lands on OTHER named atoms' frames — the
+    /// interpretable "steering feature `k` spuriously moved feature `j`" damage, a
+    /// component of the total `collateral`.
+    pub cross_feature: f64,
+}
+
+/// One intervention family's swept collateral curve plus its aggregate
+/// collateral efficiency (collateral energy spent per unit on-target effect).
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct CollateralArm {
+    /// Per-dose `(effect, collateral)` samples, in the order of the input doses.
+    pub points: Vec<CollateralPoint>,
+    /// Collateral energy per unit on-target effect over the swept doses:
+    /// `sqrt(Σ collateral²) / sqrt(Σ effect²)`. Lower is a cleaner control knob.
+    /// `NaN` when the arm achieves no on-target effect at any dose.
+    pub efficiency: f64,
+}
+
+/// The on-manifold-vs-flat collateral-damage comparison for one target atom
+/// (gam#2234 E2 thesis, measured intrinsically — no model surgery, no outer-fit
+/// convergence in the loop). The two arms move the SAME per-row ambient energy:
+/// the flat arm applies it along a single fixed decoder direction (the flat-SAE
+/// `x' = x + α·w` baseline), the manifold arm applies the chart-coordinate group
+/// action `x' = x + a·(Φ_k(t⊕δ) − Φ_k(t))·B_k`, which rotates with each row's
+/// coordinate to stay on the atom's decoded image. The thesis: at matched
+/// per-row norm the manifold arm spends strictly less collateral per unit
+/// on-target effect — curved features are the right control knobs.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct CollateralCurve {
+    /// The steered (target) atom.
+    pub atom: usize,
+    /// The target atom's latent axis the dose is applied along.
+    pub axis: usize,
+    /// The atoms collateral is measured against (typically every `j ≠ atom`).
+    pub others: Vec<usize>,
+    /// The on-manifold group-action arm.
+    pub manifold: CollateralArm,
+    /// The matched-per-row-norm fixed-direction (flat-SAE) control arm.
+    pub flat: CollateralArm,
+    /// `true` when the on-manifold arm spends strictly less collateral per unit
+    /// on-target effect than the flat arm (`manifold.efficiency < flat.efficiency`),
+    /// with both efficiencies finite — the E2 dominance verdict, decided
+    /// structurally in the SAE's own representation.
+    pub manifold_is_cleaner: bool,
+}
+
+/// Norm of `δ`'s component that lands inside the span of a local decode-tangent
+/// frame — the energy the ambient move deposits into that atom's feature
+/// direction at its current operating point.
+fn frame_landed_norm(frame: &Array2<f64>, delta: ArrayView1<'_, f64>) -> f64 {
+    let proj = project_onto_tangent_span(frame, delta);
+    proj.iter().map(|&x| x * x).sum::<f64>().sqrt()
+}
+
+/// Sweep the intrinsic collateral-damage curve for steering atom `atom_k` along
+/// latent `axis` over `doses`, comparing the on-manifold group action against a
+/// matched-per-row-norm flat-direction control (gam#2234 E2).
+///
+/// For each dose `δ` the on-manifold ambient move is the fitted group-action
+/// delta [`SaeManifoldTerm::steer_rows`] (chart step `δ` on `axis`, gate held
+/// fixed). The flat control replays the SAME per-row move NORM along one fixed
+/// ambient direction `w` — the atom's mean decode-tangent direction along `axis`,
+/// the manifold analog of a flat SAE's single decoder column. Each move is
+/// decomposed against every atom's local decode-tangent frame at its fitted
+/// coordinate: the projection onto the TARGET atom's frame is the on-target
+/// effect, the projection onto the OTHER atoms' frames is the collateral.
+///
+/// This is a pure read over the fitted term (no criterion, no penalty, no outer
+/// fit), so it runs on any fitted or hand-built term with installed evaluators —
+/// it does not wait on outer-loop convergence, unlike the model-in-the-loop E1/E2
+/// KL frontier it mirrors.
+///
+/// Errors when `atom_k`/`axis`/an `others` index is out of range, `doses` is
+/// empty, or the target atom's mean tangent along `axis` vanishes (no fixed
+/// direction to define the flat control against).
+pub fn collateral_curve(
+    model: &SaeManifoldTerm,
+    atom_k: usize,
+    axis: usize,
+    others: &[usize],
+    doses: &[f64],
+) -> Result<CollateralCurve, String> {
+    let k = model.k_atoms();
+    if atom_k >= k {
+        return Err(format!(
+            "collateral_curve: atom index {atom_k} out of range (term has {k} atoms)"
+        ));
+    }
+    let d_k = model.atoms[atom_k].latent_dim;
+    if axis >= d_k {
+        return Err(format!(
+            "collateral_curve: axis {axis} out of range for atom {atom_k} latent_dim {d_k}"
+        ));
+    }
+    if doses.is_empty() {
+        return Err("collateral_curve: doses must be non-empty".to_string());
+    }
+    for &j in others {
+        if j >= k {
+            return Err(format!(
+                "collateral_curve: other atom index {j} out of range (term has {k} atoms)"
+            ));
+        }
+    }
+    let n = model.n_obs();
+    let p = model.output_dim();
+    let rows: Vec<usize> = (0..n).collect();
+
+    // Per-row local decode-tangent frames at each atom's fitted operating point.
+    // These are dose-independent (the fitted coordinates never move; steering is
+    // the hypothetical move whose leakage we price against the CURRENT features).
+    let frame_at = |atom_idx: usize| -> Result<Vec<Array2<f64>>, String> {
+        let coords = model.assignment.coords[atom_idx].as_matrix();
+        let mut frames = Vec::with_capacity(n);
+        for row in 0..n {
+            let t: Vec<f64> = coords.row(row).to_vec();
+            frames.push(decode_tangents_at(&model.atoms[atom_idx], &t)?);
+        }
+        Ok(frames)
+    };
+    let target_frames = frame_at(atom_k)?;
+    let mut other_frames: Vec<Vec<Array2<f64>>> = Vec::with_capacity(others.len());
+    for &j in others {
+        other_frames.push(frame_at(j)?);
+    }
+
+    // The fixed flat direction w: the dominant ambient direction the target atom
+    // moves along `axis` — the top left singular vector of its per-row tangent
+    // field, i.e. the leading eigenvector of `G = Σ_i g_i g_iᵀ` with
+    // `g_i = ∂g_k/∂t_axis|_{t_i}`. This is the single best fixed decoder column a
+    // flat SAE would steer this feature with (the mean tangent is not usable — it
+    // averages to ≈0 over a full circle). Found by power iteration on the small
+    // `p × p` Gram, which is exact for the leading direction.
+    let mut gram = Array2::<f64>::zeros((p, p));
+    for frame in &target_frames {
+        for i in 0..p {
+            let gi = frame[[i, axis]];
+            if gi == 0.0 {
+                continue;
+            }
+            for j in 0..p {
+                gram[[i, j]] += gi * frame[[j, axis]];
+            }
+        }
+    }
+    let mut w = Array1::<f64>::from_elem(p, 1.0 / (p as f64).sqrt());
+    for _ in 0..128 {
+        let mut next = Array1::<f64>::zeros(p);
+        for i in 0..p {
+            let mut acc = 0.0_f64;
+            for j in 0..p {
+                acc += gram[[i, j]] * w[j];
+            }
+            next[i] = acc;
+        }
+        let norm = next.iter().map(|&x| x * x).sum::<f64>().sqrt();
+        if !(norm > 0.0) {
+            return Err(format!(
+                "collateral_curve: atom {atom_k} has a vanishing tangent field along axis {axis}; \
+                 no fixed direction to define the flat control"
+            ));
+        }
+        next.mapv_inplace(|x| x / norm);
+        w = next;
+    }
+
+    // Decompose one per-row move field into (effect, off-target collateral,
+    // cross-feature leakage) RMS over rows.
+    let decompose = |field: &Array2<f64>| -> CollateralPoint {
+        let mut eff_sq = 0.0_f64;
+        let mut col_sq = 0.0_f64;
+        let mut cross_sq = 0.0_f64;
+        for row in 0..n {
+            let delta = field.row(row);
+            let on_target = project_onto_tangent_span(&target_frames[row], delta);
+            let mut e = 0.0_f64;
+            let mut c = 0.0_f64;
+            for i in 0..p {
+                e += on_target[i] * on_target[i];
+                let residual = delta[i] - on_target[i];
+                c += residual * residual;
+            }
+            eff_sq += e;
+            col_sq += c;
+            let mut cross = 0.0_f64;
+            for frames in &other_frames {
+                let l = frame_landed_norm(&frames[row], delta);
+                cross += l * l;
+            }
+            cross_sq += cross;
+        }
+        let denom = n.max(1) as f64;
+        CollateralPoint {
+            dose: 0.0,
+            on_target_effect: (eff_sq / denom).sqrt(),
+            collateral: (col_sq / denom).sqrt(),
+            cross_feature: (cross_sq / denom).sqrt(),
+        }
+    };
+
+    let mut manifold_pts = Vec::with_capacity(doses.len());
+    let mut flat_pts = Vec::with_capacity(doses.len());
+    for &dose in doses {
+        let mut step = Array1::<f64>::zeros(d_k);
+        step[axis] = dose;
+        let on_field = model.steer_rows(atom_k, &rows, step.view())?;
+
+        // Matched control: same per-row move NORM, along the fixed direction w.
+        let mut flat_field = Array2::<f64>::zeros((n, p));
+        for row in 0..n {
+            let norm = on_field.row(row).iter().map(|&x| x * x).sum::<f64>().sqrt();
+            for i in 0..p {
+                flat_field[[row, i]] = norm * w[i];
+            }
+        }
+
+        let mut m = decompose(&on_field);
+        m.dose = dose;
+        manifold_pts.push(m);
+        let mut f = decompose(&flat_field);
+        f.dose = dose;
+        flat_pts.push(f);
+    }
+
+    let efficiency = |pts: &[CollateralPoint]| -> f64 {
+        let eff_sq: f64 = pts
+            .iter()
+            .map(|q| q.on_target_effect * q.on_target_effect)
+            .sum();
+        let col_sq: f64 = pts.iter().map(|q| q.collateral * q.collateral).sum();
+        if eff_sq > 0.0 {
+            (col_sq / eff_sq).sqrt()
+        } else {
+            f64::NAN
+        }
+    };
+    let manifold = CollateralArm {
+        efficiency: efficiency(&manifold_pts),
+        points: manifold_pts,
+    };
+    let flat = CollateralArm {
+        efficiency: efficiency(&flat_pts),
+        points: flat_pts,
+    };
+    let manifold_is_cleaner = manifold.efficiency.is_finite()
+        && flat.efficiency.is_finite()
+        && manifold.efficiency < flat.efficiency;
+
+    Ok(CollateralCurve {
+        atom: atom_k,
+        axis,
+        others: others.to_vec(),
+        manifold,
+        flat,
+        manifold_is_cleaner,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn periodic_steering_uses_shortest_path_across_seam() {
+        let periods = [Some(1.0)];
+        let delta = shortest_coordinate_delta(&[0.99], &[0.01], &periods).unwrap();
+        assert!((delta[0] - 0.02).abs() < 1e-12);
+        let midpoint = path_coordinate(&[0.99], &delta, &periods, 0.5);
+        assert!(midpoint[0].abs() < 1e-12 || (midpoint[0] - 1.0).abs() < 1e-12);
+        let distance = coordinate_l2_distance(&[0.99], &[0.01], &periods).unwrap();
+        assert!((distance - 0.02).abs() < 1e-12);
+    }
 }

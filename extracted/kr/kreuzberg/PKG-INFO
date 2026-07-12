@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 4.9.9
+Version: 4.10.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: Other/Proprietary License
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
@@ -34,15 +34,15 @@ Keywords: document-extraction,document-intelligence,document-parsing,document-pr
 Home-Page: https://kreuzberg-dev.github.io/kreuzberg/
 Author-email: Na'aman Hirschfeld <naaman@kreuzberg.dev>
 Maintainer-email: Na'aman Hirschfeld <naaman@kreuzberg.dev>
-License: Elastic-2.0
+License: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://kreuzberg.dev/CHANGELOG/
 Project-URL: Documentation, https://kreuzberg.dev
 Project-URL: Homepage, https://kreuzberg.dev
-Project-URL: Issues, https://github.com/kreuzberg-dev/kreuzberg/issues
-Project-URL: Repository, https://github.com/kreuzberg-dev/kreuzberg
-Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
+Project-URL: Issues, https://github.com/kreuzberg-dev/kreuzberg-lts/issues
+Project-URL: Repository, https://github.com/kreuzberg-dev/kreuzberg-lts
+Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg-lts
 
 # Python
 
@@ -67,8 +67,8 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
   <a href="https://central.sonatype.com/artifact/dev.kreuzberg/kreuzberg">
     <img src="https://img.shields.io/maven-central/v/dev.kreuzberg/kreuzberg?label=Java&color=007ec6" alt="Java">
   </a>
-  <a href="https://github.com/kreuzberg-dev/kreuzberg/releases">
-    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/kreuzberg?label=Go&color=007ec6&filter=v4.9.9" alt="Go">
+  <a href="https://github.com/kreuzberg-dev/kreuzberg-lts/releases">
+    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/kreuzberg-lts?label=Go&color=007ec6&filter=v4.*" alt="Go">
   </a>
   <a href="https://www.nuget.org/packages/Kreuzberg/">
     <img src="https://img.shields.io/nuget/v/Kreuzberg?label=C%23&color=007ec6" alt="C#">
@@ -82,7 +82,7 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
   <a href="https://kreuzberg-dev.r-universe.dev/kreuzberg">
     <img src="https://img.shields.io/badge/R-kreuzberg-007ec6" alt="R">
   </a>
-  <a href="https://github.com/kreuzberg-dev/kreuzberg/pkgs/container/kreuzberg">
+  <a href="https://github.com/kreuzberg-dev/kreuzberg-lts/pkgs/container/kreuzberg">
     <img src="https://img.shields.io/badge/Docker-007ec6?logo=docker&logoColor=white" alt="Docker">
   </a>
   <a href="https://artifacthub.io/packages/search?repo=kreuzberg">
@@ -90,7 +90,7 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
   </a>
 
   <!-- Project Info -->
-  <a href="https://github.com/kreuzberg-dev/kreuzberg/blob/main/LICENSE">
+  <a href="https://github.com/kreuzberg-dev/kreuzberg-lts/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-007ec6" alt="License">
   </a>
   <a href="https://docs.kreuzberg.dev">
@@ -104,7 +104,11 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
   </a>
 </div>
 
-<img width="1128" height="191" alt="Banner2" src="https://github.com/user-attachments/assets/419fc06c-8313-4324-b159-4b4d3cfce5c0" />
+> [!NOTE]
+> **Kreuzberg v4 LTS** — the long-term-support line for Kreuzberg **v4**. Active development has moved to
+> **[Xberg](https://github.com/xberg-io/xberg)** (v5+), which receives all new features. This line receives
+> critical bug and security fixes until the **end of 2026, on a best-effort basis**.
+> See the **[migration guide & LTS policy →](https://docs.kreuzberg.dev/lts/)**
 
 <div align="center" style="margin-top: 20px;">
   <a href="https://discord.gg/xt9WY3GnKR">
@@ -270,10 +274,10 @@ asyncio.run(main())
 
 ### Next Steps
 
-- **[Installation Guide](https://kreuzberg.dev/getting-started/installation/)** - Platform-specific setup
-- **[API Documentation](https://kreuzberg.dev/api/)** - Complete API reference
-- **[Examples & Guides](https://kreuzberg.dev/guides/)** - Full code examples and usage guides
-- **[Configuration Guide](https://kreuzberg.dev/guides/configuration/)** - Advanced configuration options
+- **[Installation Guide](https://docs.kreuzberg.dev/getting-started/installation/)** - Platform-specific setup
+- **[API Documentation](https://docs.kreuzberg.dev/api/)** - Complete API reference
+- **[Examples & Guides](https://docs.kreuzberg.dev/guides/)** - Full code examples and usage guides
+- **[Configuration Guide](https://docs.kreuzberg.dev/guides/configuration/)** - Advanced configuration options
 
 
 
@@ -337,9 +341,9 @@ asyncio.run(main())
 | **Diagnostics** | Parse errors with line/column positions |
 | **Syntax-Aware Chunking** | Split code by semantic boundaries, not arbitrary byte offsets |
 
-Powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — [documentation](https://docs.tree-sitter-language-pack.kreuzberg.dev).
+Powered by [tree-sitter-language-pack](https://github.com/xberg-io/tree-sitter-language-pack) — [documentation](https://docs.tree-sitter-language-pack.xberg.io).
 
-**[Complete Format Reference](https://kreuzberg.dev/reference/formats/)**
+**[Complete Format Reference](https://docs.kreuzberg.dev/reference/formats/)**
 
 ### Key Capabilities
 
@@ -361,7 +365,7 @@ Powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sit
 - **Memory Efficient** - Stream large files without loading entirely into memory
 - **Language Detection** - Detect and support multiple languages in documents
 
-- **Code Intelligence** - Extract structure, imports, exports, symbols, and docstrings from [248 programming languages](https://docs.tree-sitter-language-pack.kreuzberg.dev) via tree-sitter
+- **Code Intelligence** - Extract structure, imports, exports, symbols, and docstrings from [248 programming languages](https://docs.tree-sitter-language-pack.xberg.io) via tree-sitter
 
 - **Configuration** - Fine-grained control over extraction behavior
 
@@ -433,7 +437,7 @@ asyncio.run(main())
 
 Kreuzberg supports extensible post-processing plugins for custom text transformation and filtering.
 
-For detailed plugin documentation, visit [Plugin System Guide](https://kreuzberg.dev/guides/plugins/).
+For detailed plugin documentation, visit [Plugin System Guide](https://docs.kreuzberg.dev/guides/plugins/).
 
 
 
@@ -442,7 +446,7 @@ For detailed plugin documentation, visit [Plugin System Guide](https://kreuzberg
 
 Generate vector embeddings for extracted text using the built-in ONNX Runtime support. Requires ONNX Runtime installation.
 
-**[Embeddings Guide](https://kreuzberg.dev/features/#embeddings)**
+**[Embeddings Guide](https://docs.kreuzberg.dev/features/#embeddings)**
 
 
 
@@ -477,17 +481,17 @@ asyncio.run(main())
 
 For advanced configuration options including language detection, table extraction, OCR settings, and more:
 
-**[Configuration Guide](https://kreuzberg.dev/guides/configuration/)**
+**[Configuration Guide](https://docs.kreuzberg.dev/guides/configuration/)**
 
 ## Documentation
 
-- **[Official Documentation](https://kreuzberg.dev/)**
-- **[API Reference](https://kreuzberg.dev/reference/api-python/)**
-- **[Examples & Guides](https://kreuzberg.dev/guides/)**
+- **[Official Documentation](https://docs.kreuzberg.dev/)**
+- **[API Reference](https://docs.kreuzberg.dev/reference/api-python/)**
+- **[Examples & Guides](https://docs.kreuzberg.dev/guides/)**
 
 ## Contributing
 
-Contributions are welcome! See [Contributing Guide](https://github.com/kreuzberg-dev/kreuzberg/blob/main/CONTRIBUTING.md).
+Contributions are welcome! See [Contributing Guide](https://github.com/kreuzberg-dev/kreuzberg-lts/blob/main/CONTRIBUTING.md).
 
 ## License
 
@@ -496,6 +500,6 @@ MIT License - see LICENSE file for details.
 ## Support
 
 - **Discord Community**: [Join our Discord](https://discord.gg/xt9WY3GnKR)
-- **GitHub Issues**: [Report bugs](https://github.com/kreuzberg-dev/kreuzberg/issues)
-- **Discussions**: [Ask questions](https://github.com/kreuzberg-dev/kreuzberg/discussions)
+- **GitHub Issues**: [Report bugs](https://github.com/kreuzberg-dev/kreuzberg-lts/issues)
+- **Discussions**: [Ask questions](https://github.com/kreuzberg-dev/kreuzberg-lts/discussions)
 

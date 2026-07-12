@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021-2025 Mike Fährmann
+# Copyright 2021-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -42,7 +42,7 @@ class Rule34usExtractor(BooruExtractor):
         if "//video-cdn1." in url:
             post["file_url"] = url.replace("//video-cdn1.", "//video.")
             post["_fallback"] = (url,)
-        post["md5"] = url.rpartition("/")[2].partition(".")[0]
+        post["md5"] = url[url.rfind("/")+1:url.rfind(".")]
 
         tags = collections.defaultdict(list)
         for tag_type, tag_name in self._find_tags(page):
@@ -60,18 +60,14 @@ class Rule34usTagExtractor(Rule34usExtractor):
     pattern = r"(?:https?://)?rule34\.us/index\.php\?r=posts/index&q=([^&#]*)"
     example = "https://rule34.us/index.php?r=posts/index&q=TAG"
 
-    def __init__(self, match):
-        Rule34usExtractor.__init__(self, match)
-        self.tags = text.unquote(match[1].replace("+", " "))
-
-    def metadata(self):
-        return {"search_tags": self.tags}
-
     def posts(self):
+        self.kwdict["search_tags"] = tags = text.unquote(
+            self.groups[0].replace("+", " "))
+
         url = self.root + "/index.php"
         params = {
             "r"   : "posts/index",
-            "q"   : self.tags,
+            "q"   : tags,
             "page": self.page_start,
         }
 
@@ -84,11 +80,11 @@ class Rule34usTagExtractor(Rule34usExtractor):
                 cnt += 1
 
             if cnt < self.per_page:
-                return
+                break
 
             if "page" in params:
                 del params["page"]
-            params["q"] = self.tags + " id:<" + post_id
+            params["q"] = f"{tags} id:<{post_id}"
 
 
 class Rule34usPostExtractor(Rule34usExtractor):
@@ -97,9 +93,5 @@ class Rule34usPostExtractor(Rule34usExtractor):
     pattern = r"(?:https?://)?rule34\.us/index\.php\?r=posts/view&id=(\d+)"
     example = "https://rule34.us/index.php?r=posts/view&id=12345"
 
-    def __init__(self, match):
-        Rule34usExtractor.__init__(self, match)
-        self.post_id = match[1]
-
     def posts(self):
-        return (self._parse_post(self.post_id),)
+        return (self._parse_post(self.groups[0]),)

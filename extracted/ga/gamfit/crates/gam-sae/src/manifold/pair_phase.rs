@@ -72,12 +72,25 @@
 //!
 //! # Multiplicity — e-BH over the pair × channel ledger
 //!
-//! A screen over `K` atoms tests `O(K²)` pairs on 3 channels each. Each Monte-Carlo
-//! `p` is turned into an e-value with the admissible calibrator `e = ½·p^{−½}`
-//! (`∫₀¹ ½ p^{−½} dp = 1`, decreasing in `p`), and the family is controlled with
-//! e-BH ([`ebh_reject`]): FDR ≤ α with NO independence assumption across the
-//! (heavily dependent) pair statistics — the property a p-value BH could not give
-//! here.
+//! A screen over `K` atoms tests `O(K²)` pairs on 3 channels each. Each channel's
+//! exact Monte-Carlo screen (`B` phase-randomised surrogate draws plus the
+//! observed statistic form `B + 1` exchangeable values under the null) yields the
+//! valid permutation e-value `e = (B+1)·1{no surrogate ≥ observed}`
+//! ([`permutation_e_value`]): `E_0[e] = (B+1)·P(observed is the strict maximum) =
+//! 1` under exchangeability, reaching its maximum `B + 1` exactly when the
+//! observed statistic beats every surrogate. The family is controlled with e-BH
+//! ([`ebh_reject`]): FDR ≤ α with NO independence assumption across the (heavily
+//! dependent) pair statistics — the property a p-value BH could not give here.
+//!
+//! **Budget.** A Monte-Carlo screen with `B` draws resolves an e-value no larger
+//! than `B + 1`, and e-BH rejects a family of `m` = (pairs × 3 channels) entries
+//! only when the largest e clears `m/(α·k)` for some `k` — so at minimum
+//! `B + 1 ≥ m/α`. The replicate budget MUST be sized to the family; it cannot be
+//! a fixed round number. (The former `½·p^{−½}` calibrator was worse still: it
+//! capped `e` at `½√(B+1) ≈ 7` for `B = 200`, below the `1/α = 20` a SINGLE
+//! rejection needs, so the screen could never fire at its declared level. The
+//! reciprocal `(B+1)/(1+#{≥})` is not a fix either — it is not an e-value, its
+//! null mean being the harmonic number `H_{B+1} ≈ ln B`, not `≤ 1`.)
 //!
 //! # The verdict, at zero reconstruction cost
 //!
@@ -90,6 +103,7 @@
 //! terminal joint fit adjudicates against keeping two atoms.
 
 use ndarray::{Array1, Array2, ArrayView2};
+use statrs::distribution::{ContinuousCDF, StudentsT};
 
 use super::isa_seed::IsaPlaneCandidate;
 use crate::null_battery::phase_randomized_surrogate;
@@ -179,12 +193,7 @@ fn plane_phases(
 /// The weighted mean resultant length `T` and Kish effective sample size for one
 /// channel, given the per-row angles and non-negative weights. Returns `(T, n_eff)`
 /// with `T = 0`, `n_eff = 0` on empty weight.
-fn resultant(
-    channel: PhaseChannel,
-    theta_a: &[f64],
-    theta_b: &[f64],
-    w: &[f64],
-) -> (f64, f64) {
+fn resultant(channel: PhaseChannel, theta_a: &[f64], theta_b: &[f64], w: &[f64]) -> (f64, f64) {
     let (mut cx, mut sx, mut wsum, mut wsq) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
     for i in 0..theta_a.len() {
         let wi = w[i];
@@ -221,7 +230,8 @@ pub struct ChannelVerdict {
     pub z: f64,
     /// Exact upper-tail Monte-Carlo p-value `(1 + #{T_null ≥ T}) / (B + 1)`.
     pub p_value: f64,
-    /// Admissible-calibrator e-value `½·p^{−½}` (feeds the e-BH ledger).
+    /// Valid permutation e-value `(B+1)·1{no surrogate ≥ T}` (feeds the e-BH
+    /// ledger); `E_0[e] = 1`, maximal value `B + 1`. See `permutation_e_value`.
     pub e_value: f64,
 }
 
@@ -267,22 +277,31 @@ pub const PHASE_NULL_REPLICATES: usize = 200;
 /// the fuse-race energy screens ([`screen_pair_phase`], as exact-null lower-tail
 /// p-values against the phase-randomised surrogate battery, replacing the former
 /// fixed `FUSE_RHO_MAX = 0.85` / `FUSE_TOTAL_ENERGY_CV_MAX = 0.20`) and by the
-/// dose presence F-test ([`certify_phase_circuit`], via `WALD_Z_ALPHA`,
-/// replacing the former fixed `CIRCUIT_DOSE_R2_MIN = 0.5` floor).
+/// dose presence t-test ([`certify_phase_circuit`], the Student-`t` critical value
+/// at this level and `n − 1` residual degrees of freedom, replacing the former
+/// fixed `CIRCUIT_DOSE_R2_MIN = 0.5` floor).
 const PHASE_SCREEN_ALPHA: f64 = 0.05;
 
-/// Two-sided Wald critical value `z = Φ⁻¹(1 − α/2)` at [`PHASE_SCREEN_ALPHA`]
-/// (`= Φ⁻¹(0.975)`). Fixed alongside `α`: if `PHASE_SCREEN_ALPHA` changes this
-/// normal quantile must change with it (gam-math exposes `normal_cdf` but no
-/// inverse, so the quantile of the shared level is pinned here as the derived
-/// constant it is, not recomputed).
-const WALD_Z_ALPHA: f64 = 1.959_963_984_540_054;
-
-/// Admissible p-to-e calibrator `e = ½·p^{−½}` (`κ = ½`): `∫₀¹ κ p^{κ−1} dp = 1`
-/// and it is decreasing in `p`, so it is a valid e-value for any valid p-value.
-fn calibrate_e_value(p: f64) -> f64 {
-    let p = p.clamp(f64::MIN_POSITIVE, 1.0);
-    0.5 * p.powf(-0.5)
+/// Valid permutation e-value from an exact Monte-Carlo screen. `exceed` is the
+/// number of surrogate draws that meet or beat the observed statistic and `b` the
+/// number of draws, so the observed statistic plus the `b` surrogates are `b + 1`
+/// exchangeable values under the null. The indicator e-value
+///
+/// ```text
+///   e = (b + 1) · 1{ exceed == 0 } ,
+/// ```
+///
+/// has `E_0[e] = (b+1)·P(observed is the strict maximum) = (b+1)/(b+1) = 1` under
+/// exchangeability — a valid e-value with NO dependence assumption — and attains
+/// its maximum `b + 1` exactly when the observed statistic beats every surrogate.
+/// This is the most powerful e-value at the Monte-Carlo resolution: the largest
+/// value ANY mean-≤1 e-value that is a function of the observed rank can take is
+/// `b + 1`, reached only by placing all the null budget on the top rank. (The
+/// reciprocal `(b+1)/(1+exceed)` is NOT an e-value — its null mean is the harmonic
+/// number `H_{b+1}`, not `≤ 1` — and the former `½·p^{−½}` calibrator, though
+/// valid, capped `e` at `½√(b+1)`, too small to ever clear `m/α`.)
+fn permutation_e_value(exceed: usize, b: usize) -> f64 {
+    if exceed == 0 { (b + 1) as f64 } else { 0.0 }
 }
 
 /// The four ambient dims spanned by the two axis-recoverable planes, if each plane
@@ -314,7 +333,12 @@ fn reduced_null_inputs(
     mean: &Array1<f64>,
     cand_a: &IsaPlaneCandidate,
     cand_b: &IsaPlaneCandidate,
-) -> Option<(Array2<f64>, Array1<f64>, IsaPlaneCandidate, IsaPlaneCandidate)> {
+) -> Option<(
+    Array2<f64>,
+    Array1<f64>,
+    IsaPlaneCandidate,
+    IsaPlaneCandidate,
+)> {
     let sa = plane_support_columns(cand_a)?;
     let sb = plane_support_columns(cand_b)?;
     let mut cols: Vec<usize> = Vec::new();
@@ -374,7 +398,13 @@ pub fn screen_pair_phase(
     let n = pa.theta.len();
     // Weights: mass on rows where BOTH atoms are present (the gate product).
     let w: Vec<f64> = (0..n)
-        .map(|i| if pa.active[i] && pb.active[i] { 1.0 } else { 0.0 })
+        .map(|i| {
+            if pa.active[i] && pb.active[i] {
+                1.0
+            } else {
+                0.0
+            }
+        })
         .collect();
     let n_co_active = w.iter().filter(|&&x| x > 0.0).count();
 
@@ -387,8 +417,8 @@ pub fn screen_pair_phase(
 
     // Null: phase-randomised surrogate of the ambient columns the planes touch,
     // re-projected through the SAME bases. One surrogate feeds all three channels.
-    let (null_data, null_mean, ncand_a, ncand_b) =
-        reduced_null_inputs(data, mean, cand_a, cand_b).unwrap_or_else(|| {
+    let (null_data, null_mean, ncand_a, ncand_b) = reduced_null_inputs(data, mean, cand_a, cand_b)
+        .unwrap_or_else(|| {
             (
                 data.to_owned(),
                 mean.clone(),
@@ -444,7 +474,7 @@ pub fn screen_pair_phase(
             null_sd: sd,
             z,
             p_value,
-            e_value: calibrate_e_value(p_value),
+            e_value: permutation_e_value(exceed, b),
         });
     }
 
@@ -486,7 +516,10 @@ pub fn screen_pair_phase(
         if !total_energy_cv.is_finite() || b == 0 {
             1.0
         } else {
-            (1 + null_energy_cv.iter().filter(|&&s| s <= total_energy_cv).count()) as f64
+            (1 + null_energy_cv
+                .iter()
+                .filter(|&&s| s <= total_energy_cv)
+                .count()) as f64
                 / (b + 1) as f64
         }
     };
@@ -615,8 +648,8 @@ pub fn screen_all_pairs_phase(
     let mut ledger_e: Vec<f64> = Vec::new();
     // (verdict index) for each ledger entry — one entry per pair × CHANNEL.
     // The per-pair maximum over channels is NOT an e-value (for three null
-    // channels E[max e] = 8/5 > 1), so feeding `best_e_value` to e-BH would
-    // void the FDR guarantee the module header states. Every calibrated
+    // channels E[max e] can be as large as 3 > 1), so feeding `best_e_value` to
+    // e-BH would void the FDR guarantee the module header states. Every valid
     // channel e-value enters the ledger under its own entry, exactly the
     // pair × channel family the header prices; a pair is proposed when ANY of
     // its channel entries is rejected.
@@ -659,54 +692,66 @@ pub struct ResidualCoupling {
     pub e_value: f64,
 }
 
-/// The pairwise-independence certificate for a candidate circle factorization —
-/// the DUAL of the phase-fusion screen.
+/// The pairwise phase-coupling screen for a candidate circle factorization — the
+/// DUAL READING of the same e-BH ledger the phase-fusion screen uses.
 ///
 /// [`screen_all_pairs_phase`] proposes a torus BINDING on POSITIVE coupling
 /// evidence: an e-BH discovery over the (pair × channel) surrogate-null ledger.
-/// The separation problem (#2111) asks the OPPOSITE question of the SAME ledger.
-/// On a dense product-of-circles torus, ring-ness (a second-order, radial signal)
-/// is degenerate: every 2-plane inside the span of two circles is equally
-/// "ring-like", so no second-order score can split the product into its true
-/// circle factors. The identifying signal is INDEPENDENCE: for a product of
-/// independent circles the joint phase law FACTORIZES, so every cross-phase
-/// resultant `T_h` sits in the phase-randomised surrogate null. The candidate
-/// planes are therefore the true factors iff the e-BH ledger makes NO discovery
-/// at level `alpha` — family-wise NON-rejection is the certificate, exactly
-/// dual to the fusion screen reading rejection as a bind proposal.
+/// The separation problem (#2111) reads the SAME ledger for whether ANY residual
+/// coupling survives. On a dense product-of-circles torus, ring-ness (a
+/// second-order, radial signal) is degenerate: every 2-plane inside the span of
+/// two circles is equally "ring-like", so no second-order score can split the
+/// product into its circle factors. The identifying signal is the joint PHASE
+/// law: a product of independent circles factorises, so every cross-phase
+/// resultant `T_h` sits in the phase-randomised surrogate null.
+///
+/// **What non-rejection does and does NOT mean.** Family-wise non-rejection is
+/// evidence of ABSENCE OF DETECTED COUPLING at the given budget — it is NOT a
+/// certificate of independence. A hypothesis test controls the false-DISCOVERY
+/// side; it never certifies a null. Failing to reject can equally mean the
+/// coupling is real but the phase-randomised power / replicate budget was too low
+/// to see it (recall the budget bound `B + 1 ≥ m/α` in the module header — below
+/// it the ledger CANNOT reject, so `no_coupling_detected` is then vacuous). Read
+/// this struct as "the screen found no phase coupling it could act on", never as
+/// "the factors are proven independent".
 #[derive(Clone, Debug)]
-pub struct IndependenceCertificate {
-    /// True ⇒ no (pair × channel) coupling cleared the e-BH surrogate-null ledger:
-    /// the candidate planes are certified pairwise phase-independent at `alpha`.
-    pub separated: bool,
+pub struct PhaseCouplingScreen {
+    /// True ⇒ no (pair × channel) coupling cleared the e-BH surrogate-null ledger
+    /// at `alpha`: NO evidence of pairwise phase coupling was found at this
+    /// replicate budget. This is absence of a detected effect, NOT a proof of
+    /// independence (see the struct docs; check the budget bound before relying on
+    /// a "clean" screen).
+    pub no_coupling_detected: bool,
     /// The couplings that DID clear the ledger (e-BH discoveries). Empty iff
-    /// `separated`. Each names a pair whose phase law did not factorise — the
-    /// caller re-separates it if a rotation within the pair's 4-plane can null the
-    /// coupling (a whitened-basis BLEND, the #2111 45° saddle), or fuses it if the
-    /// coupling is rotation-invariant (a GENUINE torus density the marginals miss).
+    /// `no_coupling_detected`. Each names a pair whose phase law did not factorise
+    /// — the caller re-separates it if a rotation within the pair's 4-plane can
+    /// null the coupling (a whitened-basis BLEND, the #2111 45° saddle), or fuses
+    /// it if the coupling is rotation-invariant (a GENUINE torus density the
+    /// marginals miss).
     pub residual_couplings: Vec<ResidualCoupling>,
     /// The full per-pair verdicts (all pairs in `a < b` order), for the
     /// fuse-vs-reseparate adjudication and diagnostics.
     pub verdicts: Vec<PhaseVerdict>,
 }
 
-/// Certify that a candidate set of circle 2-planes is the TRUE independent
-/// factorization by running the phase e-BH ledger and reading its NON-rejection.
+/// Screen a candidate set of circle 2-planes for residual pairwise phase coupling
+/// by running the phase e-BH ledger and reading its rejections.
 ///
 /// A thin dual wrapper over [`screen_all_pairs_phase`]: same surrogate null, same
-/// calibrated e-values, same FDR-controlled ledger — only the verdict is inverted.
-/// `separated` is `true` exactly when the fusion screen would propose NO binding,
-/// which for an accepted (already reconstruction-complete) factor set is the
-/// statement that the factors are independent. Any `residual_couplings` entry is
-/// the precise pair the separation must revisit.
-pub fn certify_pairwise_independence(
+/// valid permutation e-values, same FDR-controlled ledger — it just reports the
+/// screen's absence/presence of a discovery. `no_coupling_detected` is `true`
+/// exactly when the fusion screen would propose NO binding. Per the struct docs,
+/// that is absence of a DETECTED coupling at this budget, NOT a certificate that
+/// the factors are independent; any `residual_couplings` entry is the precise
+/// pair the separation must revisit.
+pub fn screen_pairwise_phase_coupling(
     data: ArrayView2<'_, f64>,
     mean: &Array1<f64>,
     candidates: &[IsaPlaneCandidate],
     replicates: usize,
     seed: u64,
     alpha: f64,
-) -> Result<IndependenceCertificate, String> {
+) -> Result<PhaseCouplingScreen, String> {
     let verdicts = screen_all_pairs_phase(data, mean, candidates, replicates, seed, alpha)?;
     let residual_couplings: Vec<ResidualCoupling> = verdicts
         .iter()
@@ -718,8 +763,8 @@ pub fn certify_pairwise_independence(
             e_value: v.best_e_value,
         })
         .collect();
-    Ok(IndependenceCertificate {
-        separated: residual_couplings.is_empty(),
+    Ok(PhaseCouplingScreen {
+        no_coupling_detected: residual_couplings.is_empty(),
         residual_couplings,
         verdicts,
     })
@@ -843,7 +888,11 @@ pub fn fuse_race_candidate(
     let (evecs, evals) = symmetric_eig_jacobi(&cov);
     // Top-two eigenpairs.
     let mut order: Vec<usize> = (0..d).collect();
-    order.sort_by(|&i, &j| evals[j].partial_cmp(&evals[i]).unwrap_or(std::cmp::Ordering::Equal));
+    order.sort_by(|&i, &j| {
+        evals[j]
+            .partial_cmp(&evals[i])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let captured = if total > 0.0 {
         (evals[order[0]].max(0.0) + evals[order[1]].max(0.0)) / total
     } else {
@@ -981,7 +1030,9 @@ pub fn phase_transfer_operator(
     let det = gram[[0, 0]] * gram[[1, 1]] - gram[[0, 1]] * gram[[1, 0]];
     let scale = (gram[[0, 0]].abs() * gram[[1, 1]].abs()).max(1e-300);
     if !det.is_finite() || det.abs() <= f64::EPSILON.sqrt() * scale {
-        return Err("phase_transfer_operator: singular input angle gram (θ_A not exciting)".to_string());
+        return Err(
+            "phase_transfer_operator: singular input angle gram (θ_A not exciting)".to_string(),
+        );
     }
     let inv = {
         let mut m = Array2::<f64>::zeros((2, 2));
@@ -1017,8 +1068,9 @@ pub struct PhaseCircuitCertificate {
     pub dose_r2: f64,
     /// True ⇒ a certified phase circuit: a near-orthogonal transfer whose
     /// through-origin dose slope sits in the identity band and is significantly
-    /// nonzero — the presence F-test `|β̂| > z·SE` at [`PHASE_SCREEN_ALPHA`]
-    /// (the transfer really tracks the prediction, not noise).
+    /// nonzero — the presence test `|β̂| > t_{n−1}(1 − α/2)·SE` at
+    /// [`PHASE_SCREEN_ALPHA`] (the transfer really tracks the prediction, not
+    /// noise), the Student-`t` critical value at the fit's `n − 1` residual dof.
     pub certified: bool,
 }
 
@@ -1119,20 +1171,27 @@ pub fn certify_phase_circuit(
     // #2071 — size-controlled PRESENCE test, replacing the former fixed
     // `R² ≥ 0.5` floor. Through-origin OLS fits one parameter, so the residual
     // carries `dof = n − 1` and `Var(β̂) = σ̂²/S_xx` with `σ̂² = SS_res/(n−1)`;
-    // `SE = √(σ̂²/S_xx)`. The dose actually explains variance iff the slope is
-    // significantly nonzero, `|β̂| > z·SE` (`z = WALD_Z_ALPHA` at
-    // `PHASE_SCREEN_ALPHA`) — the F-test form of "the regression is real", which
-    // scales with `n` and the residual noise instead of a round `R²` number and
-    // robustly rejects the independent-circles case (slope ≈ 0, wide SE). A
-    // numerically exact fit (`SE = 0`) leaves any nonzero slope trivially
-    // present. Degenerate shards (`n < 2`, `S_xx ≤ 0`, non-finite `SS_res`) fail
-    // closed. The identity check stays the coarse `CIRCUIT_DOSE_SLOPE_*` band
-    // (see its definition for why a tight slope-CI is not used here).
+    // `SE = √(σ̂²/S_xx)`. The slope is significantly nonzero — the dose really
+    // explains variance — iff `|β̂/SE| > t_{n−1}(1 − α/2)`, the EXACT Student-`t`
+    // critical value with the fit's `n − 1` residual degrees of freedom (NOT the
+    // normal `1.96`, which is only the `dof → ∞` limit and badly understates the
+    // band at small `n`: at `n = 2` the two-sided 5% `t₁` is `12.706`, not
+    // `1.96`). This scales with `n` and the residual noise instead of a round
+    // `R²` and robustly rejects the independent-circles case (slope ≈ 0, wide
+    // SE). A numerically exact fit (`SE = 0`) leaves any nonzero slope trivially
+    // present. Degenerate shards (`n < 2`, `S_xx ≤ 0`, non-finite `SS_res`, or an
+    // un-constructible `t` distribution) fail closed. The identity check stays the
+    // coarse `CIRCUIT_DOSE_SLOPE_*` band (see its definition for why a tight
+    // slope-CI is not used here).
     let n_dose = predicted_dtheta_b.len();
     let dose_present = if n_dose >= 2 && sxx > 0.0 && ss_res.is_finite() && ss_res >= 0.0 {
-        let sigma2 = ss_res / (n_dose as f64 - 1.0);
+        let dof = n_dose as f64 - 1.0;
+        let sigma2 = ss_res / dof;
         let se = (sigma2 / sxx).sqrt();
-        dose_slope.abs() > WALD_Z_ALPHA * se
+        let t_crit = StudentsT::new(0.0, 1.0, dof)
+            .map(|dist| dist.inverse_cdf(1.0 - PHASE_SCREEN_ALPHA / 2.0))
+            .unwrap_or(f64::INFINITY);
+        dose_slope.abs() > t_crit * se
     } else {
         false
     };
@@ -1167,7 +1226,13 @@ pub fn coactive_angles(
     let pb = plane_phases(data, mean, cand_b);
     let n = pa.theta.len();
     let w: Vec<f64> = (0..n)
-        .map(|i| if pa.active[i] && pb.active[i] { 1.0 } else { 0.0 })
+        .map(|i| {
+            if pa.active[i] && pb.active[i] {
+                1.0
+            } else {
+                0.0
+            }
+        })
         .collect();
     (pa.theta, pb.theta, w)
 }

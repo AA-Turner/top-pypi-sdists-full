@@ -1,7 +1,7 @@
 use super::*;
 
 // Re-exported here while the shared EFS contract lives in `gam-problem`.
-pub use gam_problem::EfsEval;
+pub use gam_problem::{EfsEval, FixedPointCertificateEval, FixedPointCoordinateCertificate};
 
 /// Outcome of [`OuterObjective::seed_inner_state`].
 ///
@@ -66,7 +66,7 @@ pub enum SeedOutcome {
 /// # Contract
 ///
 /// - `capability()` must be stable (same result across calls).
-/// - `eval()` may return `HessianResult::Unavailable` at individual trial
+/// - `eval()` may return `HessianValue::Unavailable` at individual trial
 ///   points even when `capability().hessian == Analytic`; `opt` degrades that
 ///   step to first-order behavior instead of requiring the objective to fake a
 ///   stale or non-finite Hessian.
@@ -159,8 +159,37 @@ pub trait OuterObjective {
         )))
     }
 
+    /// Re-evaluate the terminal fixed point and provide an explicit analytic
+    /// residual for every optimized coordinate.
+    ///
+    /// This is a proof surface, not an alias for [`Self::eval_efs`]: iteration
+    /// steps may contain guarded or structurally unsupported zeros. The default
+    /// refuses certification so an EFS-capable objective must deliberately
+    /// describe complete, root-equivalent coordinate coverage before a fixed-
+    /// point result can mint a fit.
+    fn eval_fixed_point_certificate(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<FixedPointCertificateEval, EstimationError> {
+        Err(EstimationError::RemlOptimizationFailed(format!(
+            "fixed-point certification not implemented for this objective at rho_dim={}",
+            rho.len()
+        )))
+    }
+
     /// Restore to a clean baseline for the next multi-start candidate.
     fn reset(&mut self);
+
+    /// Transition an objective that actually used an approximate derivative
+    /// pilot to its exact full-data measure.
+    ///
+    /// The runner calls this once after the pilot solver returns a checkpoint.
+    /// `true` means the objective changed measure and must be optimized again
+    /// from that checkpoint before analytic certification. Exact objectives and
+    /// pilots that never installed a sample return `false`.
+    fn begin_exact_polish(&mut self) -> bool {
+        false
+    }
 
     /// Seed the inner-solver iterate before the first eval, e.g. when the
     /// outer-iterate cache restored a `(ρ, β)` pair from a prior run, or
@@ -208,27 +237,70 @@ pub trait OuterObjective {
         None
     }
 
-    /// Whether every joint fit of this objective must ENTER through the
-    /// [`crate::continuation_path::ContinuationPath`] (heavy-smoothing
-    /// entry) rather than being solved cold at the seed ρ*.
+    /// Typed scalar continuation contract for repairing a non-finite literal
+    /// outer seed through [`crate::continuation_path::ContinuationPath`].
     ///
-    /// The SAE-manifold joint objective overrides this to `true`: its joint
-    /// `(logits, t, β)` block has a combinatorial active-set component that a
-    /// cold solve can collapse, so it is entered at a heavy-smoothing regime
-    /// and annealed down. Crucially, this flips the seed cascade's structural
-    /// failure handling from REJECT to **DEMOTE-WITH-REASON**: a "cold"
-    /// structural defect (rank/alias/active-set diagnosis from the seed
-    /// pre-warm or the uniform-structural early-exit) is not a disqualification
-    /// but a signal to RE-ENTER the same seed at a *heavier* ContinuationPath
-    /// regime. The candidate set therefore never empties on a structural
-    /// diagnosis — every demotion is recorded with its reason and routed to a
-    /// heavier regime.
-    ///
-    /// The default `false` preserves the existing contract for every other
-    /// objective: pre-warm stays an optimization (never a feasibility gate),
-    /// and a uniform structural rejection still short-circuits the cascade.
-    fn requires_continuation_path_entry(&self) -> bool {
-        false
+    /// This is a typed domain-entry capability, not a fallback objective. The
+    /// objective supplies both the smoother entry state and its literal target
+    /// state. `None` means this objective has no such domain homotopy. The
+    /// runner always probes the real seed first, so merely supplying a contract
+    /// performs no waypoint installation or heavy work on a finite seed.
+    fn reactive_domain_scalar_contract(
+        &self,
+    ) -> Result<Option<crate::continuation_path::ContinuationScalarContract>, EstimationError> {
+        Ok(None)
+    }
+
+    /// Install one scalar waypoint before the continuation rho spine evaluates
+    /// the objective. Objectives that return `Some` from
+    /// [`Self::reactive_domain_scalar_contract`] must override this method; the
+    /// default is a typed contract refusal, never a silent no-op.
+    fn install_reactive_domain_scalar_state(
+        &mut self,
+        state: &crate::continuation_path::ContinuationScalarState,
+    ) -> Result<(), EstimationError> {
+        Err(EstimationError::RemlOptimizationFailed(format!(
+            "objective supplied a reactive-domain scalar contract but cannot install its \
+             waypoint (temperature={}, isometry_dim={})",
+            state.assignment_temperature,
+            state.isometry_weights.len(),
+        )))
+    }
+
+    /// Snapshot the objective's complete accepted inner state before a reactive
+    /// coupled waypoint is installed. Contract-advertising objectives must make
+    /// this transactional: a failed trial is restored by
+    /// [`Self::rollback_reactive_domain_waypoint`].
+    fn begin_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
+        Err(EstimationError::RemlOptimizationFailed(
+            "objective supplied a reactive-domain scalar contract but cannot checkpoint a waypoint"
+                .to_string(),
+        ))
+    }
+
+    /// Commit the converged full inner state produced by the value evaluation
+    /// at `rho`. A coefficient-only handoff is insufficient: latent coordinates,
+    /// routing logits, decoder frames, loss, and scalar state must advance as one
+    /// accepted waypoint.
+    fn commit_reactive_domain_waypoint(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<(), EstimationError> {
+        Err(EstimationError::RemlOptimizationFailed(format!(
+            "objective supplied a reactive-domain scalar contract but cannot commit a waypoint \
+             (rho_dim={})",
+            rho.len(),
+        )))
+    }
+
+    /// Restore the full accepted state saved by
+    /// [`Self::begin_reactive_domain_waypoint`] after an errored or non-finite
+    /// trial.
+    fn rollback_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
+        Err(EstimationError::RemlOptimizationFailed(
+            "objective supplied a reactive-domain scalar contract but cannot roll back a waypoint"
+                .to_string(),
+        ))
     }
 
     /// Run the objective's certified curvature-homotopy entry leg, if it has
@@ -448,7 +520,6 @@ pub(crate) enum CacheSeedDecision {
         /// payload didn't carry one (legacy ρ-only writes or families
         /// that don't surface β).
         beta: Vec<f64>,
-        final_value: f64,
         iterations: usize,
         prior_obj_display: f64,
     },
@@ -508,7 +579,6 @@ pub(crate) fn classify_cache_entry_for_outer(
         return CacheSeedDecision::ExactFinal {
             rho: cached_rho,
             beta: payload.beta,
-            final_value: entry.objective.unwrap_or(payload.cost),
             iterations: entry
                 .iteration
                 .unwrap_or(payload.eval_id)
@@ -642,6 +712,15 @@ impl<'a> OuterObjective for CheckpointingObjective<'a> {
         Ok(r)
     }
 
+    fn eval_fixed_point_certificate(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<FixedPointCertificateEval, EstimationError> {
+        let r = self.inner.eval_fixed_point_certificate(rho)?;
+        self.note(rho, None, r.cost);
+        Ok(r)
+    }
+
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
         // Forward to the wrapped objective, then prime our last-inner-beta
         // cache so a subsequent finalize-write encodes the seeded β if no
@@ -662,12 +741,40 @@ impl<'a> OuterObjective for CheckpointingObjective<'a> {
         self.inner.allow_continuation_prewarm()
     }
 
-    fn requires_continuation_path_entry(&self) -> bool {
-        self.inner.requires_continuation_path_entry()
+    fn reactive_domain_scalar_contract(
+        &self,
+    ) -> Result<Option<crate::continuation_path::ContinuationScalarContract>, EstimationError> {
+        self.inner.reactive_domain_scalar_contract()
+    }
+
+    fn install_reactive_domain_scalar_state(
+        &mut self,
+        state: &crate::continuation_path::ContinuationScalarState,
+    ) -> Result<(), EstimationError> {
+        self.inner.install_reactive_domain_scalar_state(state)
+    }
+
+    fn begin_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
+        self.inner.begin_reactive_domain_waypoint()
+    }
+
+    fn commit_reactive_domain_waypoint(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<(), EstimationError> {
+        self.inner.commit_reactive_domain_waypoint(rho)
+    }
+
+    fn rollback_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
+        self.inner.rollback_reactive_domain_waypoint()
     }
 
     fn reset(&mut self) {
         self.inner.reset();
+    }
+
+    fn begin_exact_polish(&mut self) -> bool {
+        self.inner.begin_exact_polish()
     }
 }
 
@@ -698,6 +805,12 @@ pub struct ClosureObjective<
     /// Optional EFS evaluation closure. When `None`, the default
     /// `OuterObjective::eval_efs` returns an error.
     pub(crate) efs_fn: Option<Fefs>,
+    pub(crate) fixed_point_certificate_fn: Option<
+        Box<dyn FnMut(&mut S, &Array1<f64>) -> Result<FixedPointCertificateEval, EstimationError>>,
+    >,
+    /// Optional single-shot transition from an approximate derivative pilot to
+    /// the exact objective measure.
+    pub(crate) exact_polish_fn: Option<Box<dyn FnMut(&mut S) -> bool>>,
     /// Optional seed-screening ranking proxy closure. When `None`,
     /// `eval_screening_proxy()` falls back to `eval_cost()` (the trait
     /// default), preserving legacy behavior for non-REML objectives.
@@ -766,6 +879,19 @@ where
         }
     }
 
+    fn eval_fixed_point_certificate(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<FixedPointCertificateEval, EstimationError> {
+        crate::estimate::reml::outer_eval::record_current_outer_theta_for_ift(rho);
+        match self.fixed_point_certificate_fn.as_mut() {
+            Some(f) => f(&mut self.state, rho),
+            None => Err(EstimationError::RemlOptimizationFailed(
+                "fixed-point certification not implemented for this closure objective".to_string(),
+            )),
+        }
+    }
+
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
         // Empty β: by convention, "no warm-start available" — treat as a
         // no-op install. Distinct from `NoSlot` because the objective may
@@ -793,6 +919,24 @@ where
             f(&mut self.state);
         }
     }
+
+    fn begin_exact_polish(&mut self) -> bool {
+        self.exact_polish_fn
+            .as_mut()
+            .is_some_and(|transition| transition(&mut self.state))
+    }
+}
+
+impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed>
+    ClosureObjective<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed>
+{
+    pub fn with_exact_polish<Fpolish>(mut self, transition: Fpolish) -> Self
+    where
+        Fpolish: FnMut(&mut S) -> bool + 'static,
+    {
+        self.exact_polish_fn = Some(Box::new(transition));
+        self
+    }
 }
 
 impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp> ClosureObjective<S, Fc, Fe, Fr, Fefs, Feo, Fsp>
@@ -804,6 +948,15 @@ where
     Feo: FnMut(&mut S, &Array1<f64>, OuterEvalOrder) -> Result<OuterEval, EstimationError>,
     Fsp: FnMut(&mut S, &Array1<f64>) -> Result<f64, EstimationError>,
 {
+    pub fn with_fixed_point_certificate<Fcert>(mut self, certificate_fn: Fcert) -> Self
+    where
+        Fcert: FnMut(&mut S, &Array1<f64>) -> Result<FixedPointCertificateEval, EstimationError>
+            + 'static,
+    {
+        self.fixed_point_certificate_fn = Some(Box::new(certificate_fn));
+        self
+    }
+
     pub fn with_seed_inner_state<Fseed>(
         self,
         seed_fn: Fseed,
@@ -819,6 +972,8 @@ where
             eval_order_fn: self.eval_order_fn,
             reset_fn: self.reset_fn,
             efs_fn: self.efs_fn,
+            fixed_point_certificate_fn: self.fixed_point_certificate_fn,
+            exact_polish_fn: self.exact_polish_fn,
             screening_proxy_fn: self.screening_proxy_fn,
             seed_fn: Some(seed_fn),
             continuation_prewarm: self.continuation_prewarm,
@@ -872,7 +1027,7 @@ pub(crate) fn finite_outer_eval_or_error(
 ) -> Result<OuterEval, ObjectiveEvalError> {
     validate_outer_first_order(context, layout, &eval)?;
     match &eval.hessian {
-        HessianResult::Analytic(hessian) => {
+        HessianValue::Dense(hessian) => {
             layout.validate_hessian_shape(hessian, context)?;
             if !hessian.iter().all(|v| v.is_finite()) {
                 return Err(ObjectiveEvalError::recoverable(format!(
@@ -880,7 +1035,7 @@ pub(crate) fn finite_outer_eval_or_error(
                 )));
             }
         }
-        HessianResult::Operator(op) => {
+        HessianValue::Operator(op) => {
             if op.dim() != layout.n_params {
                 return Err(ObjectiveEvalError::recoverable(format!(
                     "{context}: outer Hessian operator dimension mismatch: got {}, expected {} (rho_dim={}, psi_dim={})",
@@ -891,7 +1046,7 @@ pub(crate) fn finite_outer_eval_or_error(
                 )));
             }
         }
-        HessianResult::Unavailable => {}
+        HessianValue::Unavailable => {}
     }
     Ok(eval)
 }
@@ -915,14 +1070,14 @@ pub(crate) fn validate_second_order_seed_hessian(
     }
     if matches!(
         &eval.hessian,
-        HessianResult::Operator(op) if !op.materialization_capability().is_available()
+        HessianValue::Operator(op) if !op.materialization().is_available()
     ) {
         return Ok(());
     }
 
-    let Some(hessian) = eval.hessian.materialize_dense().map_err(|message| {
+    let Some(hessian) = eval.hessian.materialize_dense().map_err(|error| {
         ObjectiveEvalError::recoverable(format!(
-            "{context}: analytic outer Hessian materialization failed during second-order seed validation: {message}"
+            "{context}: analytic outer Hessian materialization failed during second-order seed validation: {error}"
         ))
     })?
     else {
@@ -1059,7 +1214,7 @@ impl<'a> CanonicalizedObjective<'a> {
             eval.gradient = permute_to_canonical(&eval.gradient, &self.perm);
         }
         eval.hessian = match eval.hessian {
-            HessianResult::Analytic(h)
+            HessianValue::Dense(h)
                 if h.nrows() == self.perm.len() && h.ncols() == self.perm.len() =>
             {
                 let mut hc = Array2::<f64>::zeros((self.perm.len(), self.perm.len()));
@@ -1068,7 +1223,7 @@ impl<'a> CanonicalizedObjective<'a> {
                         hc[[a, b]] = h[[ia, ib]];
                     }
                 }
-                HessianResult::Analytic(hc)
+                HessianValue::Dense(hc)
             }
             other => other,
         };
@@ -1127,8 +1282,28 @@ impl<'a> OuterObjective for CanonicalizedObjective<'a> {
         Ok(efs)
     }
 
+    fn eval_fixed_point_certificate(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<FixedPointCertificateEval, EstimationError> {
+        let native = self.to_native(rho);
+        let mut evaluation = self.inner.eval_fixed_point_certificate(&native)?;
+        if evaluation.coordinates.len() == self.perm.len() {
+            evaluation.coordinates = self
+                .perm
+                .iter()
+                .map(|&native_index| evaluation.coordinates[native_index].clone())
+                .collect();
+        }
+        Ok(evaluation)
+    }
+
     fn reset(&mut self) {
         self.inner.reset();
+    }
+
+    fn begin_exact_polish(&mut self) -> bool {
+        self.inner.begin_exact_polish()
     }
 
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
@@ -1140,8 +1315,33 @@ impl<'a> OuterObjective for CanonicalizedObjective<'a> {
         self.inner.allow_continuation_prewarm()
     }
 
-    fn requires_continuation_path_entry(&self) -> bool {
-        self.inner.requires_continuation_path_entry()
+    fn reactive_domain_scalar_contract(
+        &self,
+    ) -> Result<Option<crate::continuation_path::ContinuationScalarContract>, EstimationError> {
+        self.inner.reactive_domain_scalar_contract()
+    }
+
+    fn install_reactive_domain_scalar_state(
+        &mut self,
+        state: &crate::continuation_path::ContinuationScalarState,
+    ) -> Result<(), EstimationError> {
+        self.inner.install_reactive_domain_scalar_state(state)
+    }
+
+    fn begin_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
+        self.inner.begin_reactive_domain_waypoint()
+    }
+
+    fn commit_reactive_domain_waypoint(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<(), EstimationError> {
+        let native = self.to_native(rho);
+        self.inner.commit_reactive_domain_waypoint(&native)
+    }
+
+    fn rollback_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
+        self.inner.rollback_reactive_domain_waypoint()
     }
 
     fn accept_seed_without_outer_iterations(

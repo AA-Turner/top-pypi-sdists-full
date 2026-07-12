@@ -27,7 +27,7 @@ pub struct ReportInput {
     pub outer_gradient_norm: Option<f64>,
     /// First-order optimality certificate (#934), when the fit recorded one.
     /// Plain data so report.rs stays free of gam library types; main.rs maps
-    /// the fit's `CriterionCertificate` into this row.
+    /// the fit's `OuterCriterionCertificate` into this row.
     pub criterion_certificate: Option<CriterionCertificateRow>,
     /// Optional smoothing-forensics rows (#1892). These are diagnostic-only
     /// snapshots aligned to fitted terms/blocks and expose the quantities that
@@ -70,20 +70,57 @@ pub struct SmoothingForensicsRow {
     pub seed_screening: Vec<String>,
 }
 
-/// First-order optimality certificate row (#934): the fit's self-audit of its
-/// analytic gradient against a finite difference of the actual criterion
-/// value at the returned optimum, plus curvature-definiteness and λ-rail
-/// facts. `consistent` / `clean` are precomputed verdicts so the renderer
-/// never re-derives policy.
+/// First-order optimality evidence carried into a rendered report.
+///
+/// Matrix-free EFS fits are certified by explicit root-equivalent fixed-point
+/// equations rather than a gradient. Keeping the proof kind in the report row
+/// prevents those residuals from being mislabeled as gradient evidence.
+pub enum CriterionStationarityRow {
+    AnalyticGradient {
+        grad_norm: f64,
+        projected_grad_norm: f64,
+        bound: f64,
+    },
+    FixedPoint {
+        residual_inf_norm: f64,
+        projected_residual_inf_norm: f64,
+        bound: f64,
+        covered_coordinates: usize,
+    },
+}
+
+impl CriterionStationarityRow {
+    fn rendered_metrics(&self, stationary: bool) -> String {
+        let relation = if stationary { "\u{2264}" } else { ">" };
+        match self {
+            Self::AnalyticGradient {
+                grad_norm,
+                projected_grad_norm,
+                bound,
+            } => format!(
+                "|g|={grad_norm:.3e}, |Pg|={projected_grad_norm:.3e} {relation} bound={bound:.3e}"
+            ),
+            Self::FixedPoint {
+                residual_inf_norm,
+                projected_residual_inf_norm,
+                bound,
+                covered_coordinates,
+            } => format!(
+                "fixed-point |r|\u{221e}={residual_inf_norm:.3e}, |Pr|\u{221e}={projected_residual_inf_norm:.3e} {relation} bound={bound:.3e}, coordinates={covered_coordinates}"
+            ),
+        }
+    }
+}
+
+/// Optimality certificate row (#934, post-FD-purge): the fit's analytic KKT
+/// self-audit at the returned optimum, plus curvature-definiteness and λ-rail
+/// facts. `stationary` / `clean` are precomputed verdicts so the renderer never
+/// re-derives policy.
 pub struct CriterionCertificateRow {
-    pub analytic_directional: f64,
-    pub fd_directional: f64, // fd-ok: FD-audit certificate, not in math path
-    pub fd_error: f64,       // fd-ok: FD-audit certificate, not in math path
-    pub agreement_z: f64,
-    pub grad_norm: f64,
-    pub hessian_pd: Option<bool>,
+    pub stationarity: CriterionStationarityRow,
+    pub hessian_psd: Option<bool>,
     pub lambdas_railed: Vec<usize>,
-    pub consistent: bool,
+    pub stationary: bool,
     pub clean: bool,
 }
 
@@ -132,13 +169,32 @@ pub struct MeasureJetSpectrumRow {
 }
 
 pub struct DiagnosticsInput {
-    pub residuals_sorted: Vec<f64>,
-    pub theoretical_quantiles: Vec<f64>,
+    /// Family-appropriate residuals on the N(0,1) scale, or `None` when the
+    /// family has no implemented residual distribution — the residual plots
+    /// are then omitted instead of rendered against a false normal reference.
+    pub residuals: Option<ResidualDiagnostics>,
     pub y_observed: Vec<f64>,
     pub y_predicted: Vec<f64>,
     pub calibration: Option<CalibrationData>,
 }
 
+/// Residuals whose null distribution is standard normal under a correct
+/// model (randomized-quantile / deviance, per family). main.rs computes the
+/// definition; this struct is plain plotting data. `values` is aligned with
+/// `DiagnosticsInput::y_observed`; `sorted` and `theoretical_quantiles` are
+/// the Q-Q pairing at the same plotting positions.
+pub struct ResidualDiagnostics {
+    pub values: Vec<f64>,
+    pub sorted: Vec<f64>,
+    pub theoretical_quantiles: Vec<f64>,
+    /// Axis label naming the residual definition, e.g.
+    /// "Randomized Quantile Residual".
+    pub label: String,
+}
+
+/// Equal-count calibration bins (true deciles when n ≥ 10): observations are
+/// sorted by predicted probability and split into groups of equal size, so
+/// every point summarises the same number of observations.
 pub struct CalibrationData {
     pub mean_predicted: Vec<f64>,
     pub observed_rate: Vec<f64>,
@@ -199,50 +255,57 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
     let marker = "marker:{color:'#6366f1',size:4,opacity:0.6}";
 
     if let Some(diag) = &input.diagnostics {
-        let residuals: Vec<f64> = diag
-            .y_observed
-            .iter()
-            .zip(diag.y_predicted.iter())
-            .map(|(o, p)| o - p)
-            .collect();
+        if let Some(resid) = &diag.residuals {
+            // QQ plot: residuals are already on the N(0,1) scale, so the
+            // standard-normal reference line is the calibration target for
+            // every family, not just Gaussian.
+            scripts.push(format!(
+                "Plotly.newPlot('qq_plot',\
+                 [{{x:{theo},y:{res},mode:'markers',type:'scattergl',{marker}}},\
+                 {{x:{theo},y:{theo},mode:'lines',showlegend:false,\
+                 line:{{color:'#cbd5e1',width:1,dash:'dash'}}}}],\
+                 {layout},{{{cfg}}});",
+                theo = json(&resid.theoretical_quantiles)?,
+                res = json(&resid.sorted)?,
+                marker = marker,
+                layout = plot_style(
+                    "Normal Q-Q",
+                    "Theoretical Quantile",
+                    &format!("Sample Quantile ({})", js_escape(&resid.label))
+                ),
+                cfg = plot_cfg,
+            ));
 
-        // QQ plot
-        scripts.push(format!(
-            "Plotly.newPlot('qq_plot',\
-             [{{x:{theo},y:{res},mode:'markers',type:'scattergl',{marker}}}],\
-             {layout},{{{cfg}}});",
-            theo = json(&diag.theoretical_quantiles)?,
-            res = json(&diag.residuals_sorted)?,
-            marker = marker,
-            layout = plot_style("Normal Q-Q", "Theoretical Quantile", "Sample Quantile"),
-            cfg = plot_cfg,
-        ));
-
-        // Residuals vs fitted
-        let fit_min = diag
-            .y_predicted
-            .iter()
-            .copied()
-            .fold(f64::INFINITY, f64::min);
-        let fit_max = diag
-            .y_predicted
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max);
-        scripts.push(format!(
-            "Plotly.newPlot('resid_fitted',\
-             [{{x:{fitted},y:{resid},mode:'markers',type:'scattergl',{marker}}}],\
-             Object.assign({layout},{{shapes:[{{type:'line',x0:{fit_min},x1:{fit_max},\
-             y0:0,y1:0,line:{{color:'#cbd5e1',width:1,dash:'dash'}}}}]}}),\
-             {{{cfg}}});",
-            fitted = json(&diag.y_predicted)?,
-            resid = json(&residuals)?,
-            marker = marker,
-            layout = plot_style("Residuals vs Fitted", "Fitted Value", "Residual"),
-            fit_min = fit_min,
-            fit_max = fit_max,
-            cfg = plot_cfg,
-        ));
+            // Residuals vs fitted
+            let fit_min = diag
+                .y_predicted
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min);
+            let fit_max = diag
+                .y_predicted
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max);
+            scripts.push(format!(
+                "Plotly.newPlot('resid_fitted',\
+                 [{{x:{fitted},y:{resid},mode:'markers',type:'scattergl',{marker}}}],\
+                 Object.assign({layout},{{shapes:[{{type:'line',x0:{fit_min},x1:{fit_max},\
+                 y0:0,y1:0,line:{{color:'#cbd5e1',width:1,dash:'dash'}}}}]}}),\
+                 {{{cfg}}});",
+                fitted = json(&diag.y_predicted)?,
+                resid = json(&resid.values)?,
+                marker = marker,
+                layout = plot_style(
+                    "Residuals vs Fitted",
+                    "Fitted Value",
+                    &js_escape(&resid.label)
+                ),
+                fit_min = fit_min,
+                fit_max = fit_max,
+                cfg = plot_cfg,
+            ));
+        }
 
         // Observed vs Predicted
         let range_min = diag
@@ -272,43 +335,46 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
             cfg = plot_cfg,
         ));
 
-        // Residual histogram
-        scripts.push(format!(
-            "Plotly.newPlot('resid_hist',\
-             [{{x:{resid},type:'histogram',\
-             marker:{{color:'#6366f1',line:{{color:'#4f46e5',width:0.5}}}},opacity:0.85}}],\
-             {layout},{{{cfg}}});",
-            resid = json(&residuals)?,
-            layout = plot_style("Residual Distribution", "Residual", "Frequency"),
-            cfg = plot_cfg,
-        ));
+        if let Some(resid) = &diag.residuals {
+            // Residual histogram
+            scripts.push(format!(
+                "Plotly.newPlot('resid_hist',\
+                 [{{x:{resid},type:'histogram',\
+                 marker:{{color:'#6366f1',line:{{color:'#4f46e5',width:0.5}}}},opacity:0.85}}],\
+                 {layout},{{{cfg}}});",
+                resid = json(&resid.values)?,
+                layout = plot_style(
+                    "Residual Distribution",
+                    &js_escape(&resid.label),
+                    "Frequency"
+                ),
+                cfg = plot_cfg,
+            ));
 
-        // Scale-location plot: sqrt(|standardized residuals|) vs fitted
-        let resid_std = {
-            let n = residuals.len() as f64;
-            let mean = residuals.iter().sum::<f64>() / n.max(1.0);
-            let var =
-                residuals.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
-            let sd = var.sqrt().max(1e-15);
-            residuals
+            // Scale-location plot: sqrt(|residual|) vs fitted. The residuals
+            // are already standardized to unit scale by their family-specific
+            // definition, so no further sample-SD rescaling is applied — a
+            // trend here is genuine scale misfit, not the variance function.
+            let sqrt_abs = resid
+                .values
                 .iter()
-                .map(|r| (r / sd).abs().sqrt())
-                .collect::<Vec<_>>()
-        };
-        scripts.push(format!(
-            "Plotly.newPlot('scale_loc',\
-             [{{x:{fitted},y:{sqrt_abs},mode:'markers',type:'scattergl',{marker}}}],\
-             {layout},{{{cfg}}});",
-            fitted = json(&diag.y_predicted)?,
-            sqrt_abs = json(&resid_std)?,
-            marker = marker,
-            layout = plot_style(
-                "Scale-Location",
-                "Fitted Value",
-                "&radic;|Standardized Residual|"
-            ),
-            cfg = plot_cfg,
-        ));
+                .map(|r| r.abs().sqrt())
+                .collect::<Vec<_>>();
+            scripts.push(format!(
+                "Plotly.newPlot('scale_loc',\
+                 [{{x:{fitted},y:{sqrt_abs},mode:'markers',type:'scattergl',{marker}}}],\
+                 {layout},{{{cfg}}});",
+                fitted = json(&diag.y_predicted)?,
+                sqrt_abs = json(&sqrt_abs)?,
+                marker = marker,
+                layout = plot_style(
+                    "Scale-Location",
+                    "Fitted Value",
+                    &format!("&radic;|{}|", js_escape(&resid.label))
+                ),
+                cfg = plot_cfg,
+            ));
+        }
 
         // Calibration (binary only)
         if let Some(cal) = &diag.calibration {
@@ -408,29 +474,25 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
     if let Some(g) = input.outer_gradient_norm {
         summary_pairs.push(("Outer Gradient Norm", format!("{g:.3e}")));
     }
-    // Optimality certificate (#934): the fit's own gradient-vs-objective
-    // audit at the optimum. A desync flag here names the broken criterion
-    // the moment it is introduced — surface it as loudly as non-convergence.
+    // Optimality certificate (#934): the fit's analytic KKT self-audit at the
+    // optimum. A stationarity flag here names the broken criterion the moment
+    // it is introduced — surface it as loudly as non-convergence.
     if let Some(cert) = &input.criterion_certificate {
         let cert_value = if cert.clean {
             format!(
-                "<span class=\"conv-ok\">consistent</span> \
-                 (grad\u{00B7}v={:.3e}, fd\u{00B7}v={:.3e}\u{00B1}{:.1e}, z={:.2})",
-                cert.analytic_directional,
-                cert.fd_directional, // fd-ok: FD-audit certificate, not in math path
-                cert.fd_error,       // fd-ok: FD-audit certificate, not in math path
-                cert.agreement_z     // fd-ok: FD-audit certificate, not in math path
+                "<span class=\"conv-ok\">stationary</span> ({})",
+                cert.stationarity.rendered_metrics(true)
             )
         } else {
             let mut flags = Vec::new();
-            if !cert.consistent {
+            if !cert.stationary {
                 flags.push(format!(
-                    "gradient\u{2194}objective desync (grad\u{00B7}v={:.3e} vs fd\u{00B7}v={:.3e}\u{00B1}{:.1e}, z={:.2})",
-                    cert.analytic_directional, cert.fd_directional, cert.fd_error, cert.agreement_z // fd-ok: FD-audit certificate, not in math path
+                    "non-stationary ({})",
+                    cert.stationarity.rendered_metrics(false)
                 ));
             }
-            if cert.hessian_pd == Some(false) {
-                flags.push("outer Hessian not positive definite".to_string());
+            if cert.hessian_psd == Some(false) {
+                flags.push("outer Hessian not positive semidefinite".to_string());
             }
             if !cert.lambdas_railed.is_empty() {
                 flags.push(format!(
@@ -719,14 +781,18 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
         )
     };
 
-    // Diagnostics plots grid
-    let diagnostics_section = if input.diagnostics.is_some() {
-        let has_cal = input
-            .diagnostics
-            .as_ref()
-            .and_then(|d| d.calibration.as_ref())
-            .is_some();
-        let cal_div = if has_cal {
+    // Diagnostics plots grid: residual plots only exist when a residual
+    // definition with a standard-normal null is available for the family.
+    let diagnostics_section = if let Some(diag) = &input.diagnostics {
+        let resid_divs = if diag.residuals.is_some() {
+            "<div id=\"qq_plot\" class=\"plot\"></div>\n\
+               <div id=\"resid_fitted\" class=\"plot\"></div>\n\
+               <div id=\"resid_hist\" class=\"plot\"></div>\n\
+               <div id=\"scale_loc\" class=\"plot\"></div>\n"
+        } else {
+            ""
+        };
+        let cal_div = if diag.calibration.is_some() {
             "<div id=\"cal_plot\" class=\"plot\"></div>"
         } else {
             ""
@@ -735,11 +801,8 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
             "<section class=\"card\" id=\"sec-diagnostics\">\n\
              <h2>Diagnostics</h2>\n\
              <div class=\"plot-grid\">\n\
-               <div id=\"qq_plot\" class=\"plot\"></div>\n\
-               <div id=\"resid_fitted\" class=\"plot\"></div>\n\
+               {resid_divs}\
                <div id=\"obs_pred\" class=\"plot\"></div>\n\
-               <div id=\"resid_hist\" class=\"plot\"></div>\n\
-               <div id=\"scale_loc\" class=\"plot\"></div>\n\
                {cal_div}\n\
              </div>\n</section>"
         )
@@ -1247,6 +1310,46 @@ mod tests {
             html.contains("y ~ s(x)"),
             "formula not found in rendered HTML"
         );
+    }
+
+    #[test]
+    fn render_html_names_analytic_gradient_certificate_as_gradient() {
+        let mut input = minimal_input("y ~ s(x)");
+        input.criterion_certificate = Some(CriterionCertificateRow {
+            stationarity: CriterionStationarityRow::AnalyticGradient {
+                grad_norm: 2.0e-9,
+                projected_grad_norm: 1.0e-9,
+                bound: 1.0e-8,
+            },
+            hessian_psd: Some(true),
+            lambdas_railed: Vec::new(),
+            stationary: true,
+            clean: true,
+        });
+        let html = render_html(&input).unwrap();
+        assert!(html.contains("|g|=2.000e-9"));
+        assert!(!html.contains("fixed-point"));
+    }
+
+    #[test]
+    fn render_html_names_fixed_point_certificate_as_residual() {
+        let mut input = minimal_input("y ~ s(x)");
+        input.criterion_certificate = Some(CriterionCertificateRow {
+            stationarity: CriterionStationarityRow::FixedPoint {
+                residual_inf_norm: 2.0e-9,
+                projected_residual_inf_norm: 1.0e-9,
+                bound: 1.0e-8,
+                covered_coordinates: 7,
+            },
+            hessian_psd: None,
+            lambdas_railed: Vec::new(),
+            stationary: true,
+            clean: true,
+        });
+        let html = render_html(&input).unwrap();
+        assert!(html.contains("fixed-point"));
+        assert!(html.contains("coordinates=7"));
+        assert!(!html.contains("|g|="));
     }
 
     #[test]

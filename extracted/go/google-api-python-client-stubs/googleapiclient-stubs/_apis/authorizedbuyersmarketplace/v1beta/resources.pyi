@@ -21,17 +21,17 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: ActivateCuratedPackageRequest = ...,
+                body: ActivateCuratedPackageRequest,
                 **kwargs: typing.Any,
             ) -> CuratedPackageHttpRequest: ...
             def create(
-                self, *, parent: str, body: CuratedPackage = ..., **kwargs: typing.Any
+                self, *, parent: str, body: CuratedPackage, **kwargs: typing.Any
             ) -> CuratedPackageHttpRequest: ...
             def deactivate(
                 self,
                 *,
                 name: str,
-                body: DeactivateCuratedPackageRequest = ...,
+                body: DeactivateCuratedPackageRequest,
                 **kwargs: typing.Any,
             ) -> CuratedPackageHttpRequest: ...
             def get(
@@ -41,9 +41,9 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCuratedPackagesResponseHttpRequest: ...
             def list_next(
@@ -55,8 +55,8 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: CuratedPackage = ...,
-                updateMask: str = ...,
+                body: CuratedPackage,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CuratedPackageHttpRequest: ...
 
@@ -66,17 +66,17 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: ActivateDataSegmentRequest = ...,
+                body: ActivateDataSegmentRequest,
                 **kwargs: typing.Any,
             ) -> DataSegmentHttpRequest: ...
             def create(
-                self, *, parent: str, body: DataSegment = ..., **kwargs: typing.Any
+                self, *, parent: str, body: DataSegment, **kwargs: typing.Any
             ) -> DataSegmentHttpRequest: ...
             def deactivate(
                 self,
                 *,
                 name: str,
-                body: DeactivateDataSegmentRequest = ...,
+                body: DeactivateDataSegmentRequest,
                 **kwargs: typing.Any,
             ) -> DataSegmentHttpRequest: ...
             def get(
@@ -86,8 +86,8 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListDataSegmentsResponseHttpRequest: ...
             def list_next(
@@ -99,8 +99,8 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: DataSegment = ...,
-                updateMask: str = ...,
+                body: DataSegment,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> DataSegmentHttpRequest: ...
 
@@ -112,9 +112,9 @@ class AuthorizedBuyersMarketplaceResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListMediaPlannersResponseHttpRequest: ...
         def list_next(

@@ -15,8 +15,10 @@ use gam::terms::sae::manifold::{
     BatchedStagewiseConfig, StagewiseConfig, fit_stagewise, fit_stagewise_batched,
 };
 use gam::terms::{
-    AssignmentMode, LatentManifold, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
-    SaeBasisEvaluator, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm,
+    latent::LatentManifold, sae::manifold::AssignmentMode,
+    sae::manifold::PeriodicHarmonicEvaluator, sae::manifold::SaeAssignment,
+    sae::manifold::SaeAtomBasisKind, sae::manifold::SaeBasisEvaluator,
+    sae::manifold::SaeManifoldAtom, sae::manifold::SaeManifoldRho, sae::manifold::SaeManifoldTerm,
 };
 use ndarray::{Array1, Array2};
 use std::sync::Arc;
@@ -113,8 +115,17 @@ fn main() {
     let (seed_b, rho_b) = build_seed(&evaluator, &coords, p);
 
     let t0 = Instant::now();
-    let serial = fit_stagewise(seed_s, rho_s, target.view(), None, None, &config, None, None)
-        .expect("serial driver");
+    let serial = fit_stagewise(
+        seed_s,
+        rho_s,
+        target.view(),
+        None,
+        None,
+        &config,
+        None,
+        None,
+    )
+    .expect("serial driver");
     let serial_dt = t0.elapsed().as_secs_f64();
 
     let batch_config = BatchedStagewiseConfig {

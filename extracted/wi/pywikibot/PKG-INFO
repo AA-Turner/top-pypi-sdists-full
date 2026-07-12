@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.4.2
+Version: 11.5.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -272,11 +272,20 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.4.2
-==============
+Release 11.5
+============
 
-* Add support for isvwiki. (T429937)
-* Remove obsolete WMF_CACERT legacy check in pywikibot.scripts.version. (T430266)
+* Dreprecate ``cross_projects`` family.Familysettings (T431178)
+* Deprecate family.Family.post_get_convertand
+  family.Family.pre_put_convertfunctions (T431188)
+* Update families.wikiquote_family
+* Add support for minwikiquote (T429945)
+* Rename ``exceptions.TimeoutError`` exception to exceptions.ApiTimeoutErrorto avoid
+  collision with Python's built-in exception (T431174)
+* Drop config``textfile_encoding`` variable and use 'utf-8' directly instead (T430454)
+* Use pyclean package with make_distscript.
+* Fix redirected link for pagegenerators.PetScanPageGenerator
+* Update translations (i18n)
 
 
 Deprecations
@@ -379,6 +388,11 @@ Pending removal in Pywikibot 13
 Pending removal in Pywikibot 14
 -------------------------------
 
+* 11.5.0: family.Family.post_get_convertand family.Family.pre_put_convertfunctions
+  are deprecated and will be removed (T431188)
+* 11.5.0: ``exceptions.TimeoutError`` is deprecated in favour of exceptions.ApiTimeoutError
+* 11.5.0: config``textfile_encoding`` variable will be removed; use 'utf-8' directly instead
+  (T430454)
 * 11.4.0: The signature of APISite.allusers()
   was changed;
   all parameters are keyword-only.

@@ -4,9 +4,10 @@ import contextlib
 import functools
 import importlib
 import inspect
+import os
 import pkgutil
 import re
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -16,10 +17,10 @@ from typing import Any, Callable, Literal, cast, overload
 import asyncclick as click
 from dictdiffer import diff
 from tortoise import BaseDBAsyncClient, Model, Tortoise
-from tortoise.exceptions import OperationalError
+from tortoise.exceptions import ConfigurationError, OperationalError
 from tortoise.indexes import Index
 
-from aerich._compat import tortoise_version_less_than
+from aerich._compat import is_tortoise_inited, tortoise_version_less_than
 from aerich.coder import load_index
 from aerich.ddl import BaseDDL
 from aerich.enums import Color
@@ -74,6 +75,7 @@ class Migrate:
     _downgrade_m2m: list[str] = []
     _aerich = Aerich.__name__
     _rename_fields: dict[str, dict[str, str]] = {}  # {'model': {'old_field': 'new_field'}}
+    _rename_models: dict[str, str] = {}  # {'models.NewModel': 'models.OldModel'}
 
     ddl: BaseDDL
     ddl_class: type[BaseDDL]
@@ -109,11 +111,16 @@ class Migrate:
         return Tortoise.apps[cls.app].get(model)  # type: ignore
 
     @classmethod
-    async def get_last_version(cls) -> Aerich | None:
+    async def get_last_version(cls, fields: Sequence[str] | None = None) -> Aerich | None:
+        qs = Aerich.filter(app=cls.app).first()
         try:
-            return await Aerich.filter(app=cls.app).first()
+            res = await (qs.values(*fields) if fields else qs)
         except OperationalError:
             return None
+        else:
+            if isinstance(res, dict):
+                res = Aerich(**res)
+            return res
 
     @classmethod
     def get_last_version_file(cls) -> str | None:
@@ -143,8 +150,19 @@ class Migrate:
         )
 
     @classmethod
-    async def _get_db_version(cls, connection: BaseDBAsyncClient) -> None:
+    async def _get_db_version(cls, connection: BaseDBAsyncClient, offline: bool = False) -> None:
         if cls.dialect == "mysql":
+            if offline:
+                if db_version := os.getenv("AERICH_MYSQL_VERSION"):
+                    cls._db_version = db_version
+                else:
+                    cls.secho_warning(
+                        "Env 'AERICH_MYSQL_VERSION' not defined! "
+                        "This env is required to determine field rename syntax."
+                        "If you are not using MySQL8+, please export it, "
+                        "e.g.: `export AERICH_MYSQL_VERSION=5.7`"
+                    )
+                return
             sql = "select version() as version"
             ret = await connection.execute_query(sql)
             cls._db_version = ret[1][0].get("version")
@@ -154,13 +172,17 @@ class Migrate:
         ddl_dialect_module = importlib.import_module(f"aerich.ddl.{cls.dialect}")
         return getattr(ddl_dialect_module, f"{cls.dialect.capitalize()}DDL")
 
+    @staticmethod
+    def get_migration_dir(location: str, app: str) -> Path:
+        return Path(location.format(app=app)) if "{app}" in location else Path(location, app)
+
     @classmethod
     async def init(cls, config: dict, app: str, location: str, offline: bool = False) -> None:
-        if not Tortoise._inited:
+        if not is_tortoise_inited():
             # TODO: init tortoise without create db connection for offline mode
             await Tortoise.init(config=config)
         cls.app = app
-        cls.migrate_location = Path(location, app)
+        cls.migrate_location = cls.get_migration_dir(location, app)
         if last_version_module := cls.get_last_version_module():
             try:
                 last_version_info = cls.get_migration_info_for_file(last_version_module)
@@ -168,11 +190,14 @@ class Migrate:
                 # Skip invalid migration file
                 pass
             else:
-                if not last_version_info.models_state:
-                    raise RuntimeError(
-                        "Old format of migration file detected, run `aerich fix-migrations` to upgrade format"
-                    )
                 if offline:
+                    if not last_version_info.models_state:
+                        # In offline mode there is no database to fall back to,
+                        # so the user must update the migration files first.
+                        raise RuntimeError(
+                            "Old format of migration file detected, "
+                            "run `aerich fix-migrations` to upgrade format"
+                        )
                     cls._last_version_content = last_version_info.models_state
             if not offline and (last_version := await cls.get_last_version()):
                 cls._last_version_content = cast(dict, last_version.content)
@@ -180,11 +205,15 @@ class Migrate:
         cls.dialect = connection.schema_generator.DIALECT
         cls.ddl_class = await cls.load_ddl_class()
         cls.ddl = cls.ddl_class(connection)
-        await cls._get_db_version(connection)
+        await cls._get_db_version(connection, offline)
 
     @classmethod
     async def _get_last_version_num(cls, offline: bool = False) -> int | None:
-        last_version = cls.get_last_version_file() if offline else (await cls.get_last_version())
+        last_version = (
+            cls.get_last_version_file()
+            if offline
+            else (await cls.get_last_version(fields=["version"]))
+        )
         if not last_version:
             return None
         version = getattr(last_version, "version", str(last_version))
@@ -289,6 +318,10 @@ class Migrate:
             return await cls._generate_diff_py(name, no_input=no_input, offline=offline)
         new_version_content = get_models_describe(cls.app)
         last_version = cast(dict, cls._last_version_content)
+
+        last_version, new_version_content = cls._exclude_model_name_changes(
+            last_version, new_version_content
+        )
         cls.diff_models(last_version, new_version_content, no_input=no_input)
         cls.diff_models(new_version_content, last_version, False, no_input=no_input)
 
@@ -298,6 +331,67 @@ class Migrate:
             return ""
 
         return await cls._generate_diff_py(name, no_input=no_input, offline=offline)
+
+    @classmethod
+    def _exclude_model_name_changes(cls, last_version, new_version_content) -> tuple[dict, dict]:
+        """Exclude items that only changes model class name without changing table name and fields
+
+        e.g.:
+        ```
+        class User(Model):
+            name = fields.CharField(20)
+            class Meta:
+                table = 'users'
+        ```
+        To:
+        ```
+        class Users(Model):
+            name = fields.CharField(20)
+            class Meta:
+                table = 'users'
+        ```
+        """
+        old_model_names = set(last_version)
+        new_model_names = set(new_version_content)
+        add_models = new_model_names - old_model_names
+        drop_models = old_model_names - new_model_names
+        if not add_models or not drop_models:
+            return last_version, new_version_content
+        for model_name in add_models:
+            model_describe = new_version_content[model_name]
+            table_name = model_describe["table"]
+            same_tables = [
+                (old_model_name, old_model_describe)
+                for old_model_name in drop_models
+                if (old_model_describe := last_version[old_model_name]).get("table") == table_name
+            ]
+            if not same_tables:
+                continue
+            old_model_name, old_model_describe = same_tables[0]
+            drop_models -= {old_model_name}
+            describe_items = sorted([(k, v) for k, v in model_describe.items() if k != "name"])
+            old_describe_items = sorted(
+                [(k, v) for k, v in old_model_describe.items() if k != "name"]
+            )
+            if describe_items == old_describe_items:
+                last_version = {k: v for k, v in last_version.items() if k != old_model_name}
+                new_version_content = {
+                    k: v for k, v in new_version_content.items() if k != model_name
+                }
+            elif [i for i in describe_items if not i[0].startswith("backward_")] == [
+                i for i in old_describe_items if not i[0].startswith("backward_")
+            ]:
+                cls._rename_models[model_name] = old_model_name
+            else:
+                diff_attrs = [k for k, v in describe_items if v != old_model_describe[k]]
+                cls.secho_warning(
+                    "Rename model class name with attribute changed is not supported"
+                    f"({old_model_name} -> {model_name}: {diff_attrs=})\n"
+                    "Please check the the migration file content before upgrade!"
+                )
+            if not drop_models:
+                break
+        return last_version, new_version_content
 
     @classmethod
     def _get_diff_file_content(cls) -> str:
@@ -390,22 +484,33 @@ class Migrate:
             if action == "change":
                 # Example:: action = 'change'; option = [0, 'unique']; change = (False, True)
                 attr = option[-1]
+                field_name = option[0]
+                full_name = f"{model._meta.full_name}.{field_name}"
                 if attr == "indexed":
                     # Ignore changing of indexed, as it usually changed by unique
                     continue
                 elif attr == "nullable":
-                    # nullable of m2m relation is constrainted by orm framework, not by db
+                    # nullable of m2m relation is constrained by orm framework, not by db
                     continue
+                elif attr == "on_delete":
+                    if upgrade:
+                        cls.echo_on_delete_ignore(full_name, *change)
                 elif attr in ("unique", "db_constraint"):
                     # TODO: handle 'unique'
                     if upgrade:
                         click.secho(
-                            f"Aerich does not handle {attr!r} attribution for m2m field. You may need to change the constraints in db manually.",
+                            f"Aerich does not handle {attr!r} attribution for m2m field({full_name}). You may need to change the constraints in db manually.",
                             fg=Color.yellow,
                         )
-                    continue
+                else:
+                    pass  # TODO: log attr/change
+                continue
             with contextlib.suppress(TypeError, KeyError):
-                if change[0][0] == "db_constraint":
+                ignore_attrs: tuple[str, ...] = ("db_constraint",)
+                if action != "change":
+                    ignore_attrs += ("db_default",)
+                change = [i for i in change if i[0] not in ignore_attrs]
+                if not change:
                     continue
             new_value = change[0][1]
             if isinstance(new_value, str):
@@ -454,23 +559,23 @@ class Migrate:
         model: type[Model],
         old_models: dict,
         new_models: dict,
-        upgrade=True,
+        upgrade: bool = True,
     ) -> None:
         old_fk_fields = cast("list[dict]", old_model_describe.get(key))
         new_fk_fields = cast("list[dict]", new_model_describe.get(key))
 
-        old_fk_fields_name: list[str] = [i.get("name", "") for i in old_fk_fields]
-        new_fk_fields_name: list[str] = [i.get("name", "") for i in new_fk_fields]
+        old_fk_fields_name: set[str] = {i.get("name", "") for i in old_fk_fields}
+        new_fk_fields_name: set[str] = {i.get("name", "") for i in new_fk_fields}
 
         # add
-        for new_fk_field_name in set(new_fk_fields_name).difference(set(old_fk_fields_name)):
+        for new_fk_field_name in new_fk_fields_name - old_fk_fields_name:
             fk_field = cls.get_field_by_name(new_fk_field_name, new_fk_fields)
             if fk_field.get("db_constraint"):
                 ref_describe = cast(dict, new_models[fk_field["python_type"]])
                 sql = cls._add_fk(model, fk_field, ref_describe)
                 cls._add_operator(sql, upgrade, fk_m2m_index=True)
         # drop
-        for old_fk_field_name in set(old_fk_fields_name).difference(set(new_fk_fields_name)):
+        for old_fk_field_name in old_fk_fields_name - new_fk_fields_name:
             old_fk_field = cls.get_field_by_name(
                 old_fk_field_name, cast("list[dict]", old_fk_fields)
             )
@@ -478,6 +583,35 @@ class Migrate:
                 ref_describe = cast(dict, old_models[old_fk_field["python_type"]])
                 sql = cls._drop_fk(model, old_fk_field, ref_describe)
                 cls._add_operator(sql, upgrade, fk_m2m_index=True)
+        # alter
+        for field_name in old_fk_fields_name & new_fk_fields_name:
+            old_fk_field = cls.get_field_by_name(field_name, old_fk_fields)
+            new_fk_field = cls.get_field_by_name(field_name, new_fk_fields)
+            full_name = f"{model._meta.full_name}.{field_name}"
+            for option, attr, old_new in diff(old_fk_field, new_fk_field):
+                if option != "change":
+                    # Ignore add/remove which may cause by different version of tortoise-orm
+                    continue
+                if attr == "on_delete":
+                    if upgrade:
+                        cls.echo_on_delete_ignore(full_name, *old_new)
+                elif attr in ("nullable", "description"):
+                    # Nullable/Description is handled by cls._handle_field_changes
+                    ...
+                elif upgrade:
+                    msg = (
+                        f"Aerich does not handle {attr!r} changes for {key}({full_name}),"
+                        " you may need to do it manually."
+                    )
+                    click.secho(msg, fg=Color.yellow)
+
+    @staticmethod
+    def echo_on_delete_ignore(full_name: str, old: str, new: str) -> None:
+        msg = (
+            f"Ignore 'on_delete' changes {old!r} -> {new!r} for {full_name}"
+            " (You may need to do it in db manually)."
+        )
+        click.secho(msg, fg=Color.yellow)
 
     @classmethod
     def _handle_fk_fields(
@@ -533,29 +667,50 @@ class Migrate:
 
     @classmethod
     def _handle_add_models(
-        cls, upgrade: bool, new_models, new_table_items: list[tuple[str, dict, type[Model]]]
+        cls,
+        upgrade: bool,
+        new_models,
+        new_table_items: list[tuple[str, dict, type[Model]]],
+        other_table_items: list[tuple[str, dict, type[Model]]] | None = None,
     ) -> None:
-        sql_fks: list[tuple[str, set[str]]] = []
+        if not upgrade:
+            # we can't find origin model when downgrade, so skip
+            return
+        simple_tables: list[str] = []  # tables without fk fields or o2o fields
+        simple_table_models: set[str] = set()  # e.g.: {'models.User', 'models.Group', ...}
+        sql_fks: list[tuple[str, str, set[str]]] = []  # new tables that are not in simple_tables
         for new_model_str, new_model_describe, model in new_table_items:
-            if not upgrade:
-                # we can't find origin model when downgrade, so skip
-                continue
             sql = cls.add_model(model)
             fk_model_names: set[str] = {
                 i.get("python_type", "")
                 for i in (new_model_describe["fk_fields"] + new_model_describe["o2o_fields"])
             }
-            item = (sql, fk_model_names)
-            name = new_model_describe["name"]
-            for index, (_, fks) in enumerate(sql_fks):
-                if name in fks:
-                    sql_fks.insert(index, item)
-                    break
-            else:
+            if fk_model_names:
+                item = (sql, new_model_str, fk_model_names)
                 sql_fks.append(item)
+            else:
+                if new_model_str not in cls._rename_models:
+                    simple_tables.append(sql)
+                simple_table_models.add(new_model_str)
             cls._handle_m2m_fields({}, new_model_describe, model, new_models, upgrade)
-        for sql, _ in sql_fks:
+        for sql in simple_tables:
             cls._add_operator(sql, upgrade)
+        if sql_fks:
+            simple_or_exists = simple_table_models | {i[0] for i in (other_table_items or [])}
+            ordered_tables: list[str] = []  # e.g.: ['CREATE TABLE `city` ...']
+            ordered_table_models: set[str] = set()  # e.g.: ['models.City', ...]
+            for _ in range(len(sql_fks)):
+                for index, (sql, new_model_str, fk_model_names) in enumerate(sql_fks):
+                    if not (fk_model_names - simple_or_exists - ordered_table_models):
+                        if new_model_str not in cls._rename_models:
+                            ordered_tables.append(sql)
+                        ordered_table_models.add(new_model_str)
+                        sql_fks.pop(index)
+                        break
+                else:
+                    raise ConfigurationError("Can't create schema due to cyclic fk references")
+            for sql in ordered_tables:
+                cls._add_operator(sql, upgrade)
 
     @classmethod
     def diff_models(
@@ -590,7 +745,7 @@ class Migrate:
                 new_table_items.append(item)
             else:
                 other_items.append(item)
-        cls._handle_add_models(upgrade, new_models, new_table_items)
+        cls._handle_add_models(upgrade, new_models, new_table_items, other_items)
         for new_model_str, new_model_describe, model in other_items:
             old_model_describe = cast(dict, old_models.get(new_model_str))
             if not upgrade and old_model_describe.get("managed") is False:
@@ -733,7 +888,7 @@ class Migrate:
                                     )
                                 else:
                                     cls._add_operator(
-                                        cls._rename_field(model, *changes[1][2]),
+                                        cls._rename_field(model, *changes[1][2]),  # type: ignore
                                         upgrade,
                                     )
                 if not is_rename:
@@ -783,7 +938,7 @@ class Migrate:
         if post_hook_sql := cls.ddl.schema_generator._post_table_hook().strip():
             cls._add_operator(post_hook_sql, upgrade)
         dropped_m2m_tables: set[str] = set()
-        for old_model in old_models.keys() - new_models.keys():
+        for old_model in old_models.keys() - cls._rename_models.values() - new_models.keys():
             if not upgrade and old_models[old_model].get("managed") is False:
                 continue
             model_describe = old_models[old_model]
@@ -849,7 +1004,7 @@ class Migrate:
         options = {c[1] for c in changes}
         modified = False
         for change in changes:
-            _, option, old_new = change
+            action, option, old_new = change
             if option == "indexed":
                 # change index
                 if old_new[0] is False and old_new[1] is True:
@@ -885,7 +1040,7 @@ class Migrate:
                 # change comment
                 cls._add_operator(cls._set_comment(model, new_data_field), upgrade)
             else:
-                if modified:
+                if modified or (action != "change" and old_new == [("db_default", "__NOT_SET__")]):
                     continue
                 # modify column
                 cls._add_operator(cls._modify_field(model, new_data_field), upgrade)
@@ -1064,7 +1219,7 @@ class Migrate:
                 cls.upgrade_operators.append(_upgrade_fk_m2m_operator)
                 if m := re.search(r'CREATE TABLE "(\w+?)"', _upgrade_fk_m2m_operator):
                     table_name = m.group(1)
-                    pattern = re.compile(rf'COMMENT ON TABLE "{table_name}"')
+                    pattern = re.compile(rf'COMMENT ON TABLE "?{table_name}"?')
                     # Comment of postgresql m2m table may set before creation of it
                     for index, sql in enumerate(cls.upgrade_operators[:-1]):
                         if pattern.search(sql):
@@ -1086,6 +1241,16 @@ class Migrate:
                 cls.downgrade_operators.append(_downgrade_fk_m2m_operator)
             else:
                 cls.downgrade_operators.insert(0, _downgrade_fk_m2m_operator)
+
+    @staticmethod
+    def secho_warning(msg: str) -> None:
+        import locale
+
+        msg = "⚠️ Warning: " + msg
+        if (encoding := locale.getpreferredencoding()) != "utf-8":
+            # Fixes `'gbk' codec can't encode character '\u26a0'` for make test
+            msg = msg.encode(encoding, errors="ignore").decode()
+        click.secho(msg, fg=Color.yellow)
 
     @classmethod
     async def fix_migrations(cls, config: dict[str, Any]) -> list[str] | None:
@@ -1110,26 +1275,24 @@ class Migrate:
         if not unfixed_file_modules:
             return []
 
-        if not Tortoise._inited:
+        if not is_tortoise_inited():
             await Tortoise.init(config=config)
         connection = get_app_connection(config, cls.app)
 
         try:
             fid = await Aerich.first().values("id")
         except OperationalError:
-            click.secho(
-                "⚠️ Warning: Aerich table not found. "
+            cls.secho_warning(
+                "Aerich table not found. "
                 "fix-migrations can only be applied by using "
-                "existing database with all migrations applied.",
-                fg=Color.yellow,
+                "existing database with all migrations applied."
             )
             return None
         if not fid:  # Aerich.all().count() == 0
-            click.secho(
-                "⚠️ Warning: Aerich table is empty. "
+            cls.secho_warning(
+                "Aerich table is empty. "
                 "fix-migrations can only be applied by using "
-                "existing database with all migrations applied.",
-                fg=Color.yellow,
+                "existing database with all migrations applied."
             )
             return None
 
@@ -1141,19 +1304,15 @@ class Migrate:
             # Find the corresponding record in the Aerich table
             aerich_obj = await Aerich.filter(version=file_name, app=cls.app).first()
             if aerich_obj is None:
-                click.secho(
-                    f"⚠️ Warning: No matching record for migration {file_name} in Aerich table. Skipping.",
-                    fg=Color.yellow,
+                cls.secho_warning(
+                    f"No matching record for migration {file_name} in Aerich table. Skipping."
                 )
                 continue
 
             # Get models state from the content column
             models_state = aerich_obj.content
             if not models_state:
-                click.secho(
-                    f"⚠️ Warning: No content found for migration {file_name}. Skipping.",
-                    fg=Color.yellow,
-                )
+                cls.secho_warning(f"No content found for migration {file_name}. Skipping.")
                 continue
 
             upgrade_sql = await migration_info.upgrade(connection)

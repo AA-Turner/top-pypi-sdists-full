@@ -20,12 +20,13 @@ class ArenaChannelExtractor(GalleryExtractor):
                      "{channel[title]} ({channel[id]})")
     filename_fmt = "{num:>03}{block[id]:? //}.{extension}"
     archive_fmt = "{channel[id]}/{block[id]}"
+    referer = False
     pattern = r"(?:https?://)?(?:www\.)?are\.na/[^/?#]+/([^/?#]+)"
     example = "https://are.na/evan-collins-1522646491/cassette-futurism"
 
     def metadata(self, page):
         url = "https://api.are.na/v2/channels/" + self.groups[0]
-        channel = self.request_json(url)
+        channel = self.request_json(url, headers=False)
 
         channel["date"] = self.parse_datetime_iso(
             channel["created_at"])
@@ -46,7 +47,7 @@ class ArenaChannelExtractor(GalleryExtractor):
         params = {"page": 1, "per": limit}
 
         while True:
-            data = self.request_json(api, params=params)
+            data = self.request_json(api, params=params, headers=False)
 
             contents = data.get("contents")
             if not contents:

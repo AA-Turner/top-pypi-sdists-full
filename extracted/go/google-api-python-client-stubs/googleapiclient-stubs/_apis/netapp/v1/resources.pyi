@@ -23,8 +23,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ActiveDirectory = ...,
-                    activeDirectoryId: str = ...,
+                    body: ActiveDirectory,
+                    activeDirectoryId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -37,10 +37,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListActiveDirectoriesResponseHttpRequest: ...
                 def list_next(
@@ -52,8 +52,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ActiveDirectory = ...,
-                    updateMask: str = ...,
+                    body: ActiveDirectory,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -63,8 +63,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BackupPolicy = ...,
-                    backupPolicyId: str = ...,
+                    body: BackupPolicy,
+                    backupPolicyId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -77,10 +77,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBackupPoliciesResponseHttpRequest: ...
                 def list_next(
@@ -92,8 +92,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BackupPolicy = ...,
-                    updateMask: str = ...,
+                    body: BackupPolicy,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -105,8 +105,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Backup = ...,
-                        backupId: str = ...,
+                        body: Backup,
+                        backupId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -119,10 +119,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListBackupsResponseHttpRequest: ...
                     def list_next(
@@ -134,8 +134,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Backup = ...,
-                        updateMask: str = ...,
+                        body: Backup,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -143,8 +143,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BackupVault = ...,
-                    backupVaultId: str = ...,
+                    body: BackupVault,
+                    backupVaultId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -157,10 +157,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBackupVaultsResponseHttpRequest: ...
                 def list_next(
@@ -172,8 +172,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BackupVault = ...,
-                    updateMask: str = ...,
+                    body: BackupVault,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def backups(self) -> BackupsResource: ...
@@ -184,8 +184,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: HostGroup = ...,
-                    hostGroupId: str = ...,
+                    body: HostGroup,
+                    hostGroupId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -198,10 +198,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListHostGroupsResponseHttpRequest: ...
                 def list_next(
@@ -213,8 +213,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: HostGroup = ...,
-                    updateMask: str = ...,
+                    body: HostGroup,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -224,8 +224,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: KmsConfig = ...,
-                    kmsConfigId: str = ...,
+                    body: KmsConfig,
+                    kmsConfigId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -235,7 +235,7 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: EncryptVolumesRequest = ...,
+                    body: EncryptVolumesRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -245,10 +245,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListKmsConfigsResponseHttpRequest: ...
                 def list_next(
@@ -260,15 +260,15 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: KmsConfig = ...,
-                    updateMask: str = ...,
+                    body: KmsConfig,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def verify(
                     self,
                     *,
                     name: str,
-                    body: VerifyKmsConfigRequest = ...,
+                    body: VerifyKmsConfigRequest,
                     **kwargs: typing.Any,
                 ) -> VerifyKmsConfigResponseHttpRequest: ...
 
@@ -278,7 +278,7 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def delete(
@@ -291,10 +291,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -311,10 +311,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListBackupConfigsResponseHttpRequest: ...
                     def list_next(
@@ -335,14 +335,14 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         ontapPath: str,
-                        body: ExecuteOntapPatchRequest = ...,
+                        body: ExecuteOntapPatchRequest,
                         **kwargs: typing.Any,
                     ) -> ExecuteOntapPatchResponseHttpRequest: ...
                     def executeOntapPost(
                         self,
                         *,
                         ontapPath: str,
-                        body: ExecuteOntapPostRequest = ...,
+                        body: ExecuteOntapPostRequest,
                         **kwargs: typing.Any,
                     ) -> ExecuteOntapPostResponseHttpRequest: ...
 
@@ -350,8 +350,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: StoragePool = ...,
-                    storagePoolId: str = ...,
+                    body: StoragePool,
+                    storagePoolId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -364,10 +364,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListStoragePoolsResponseHttpRequest: ...
                 def list_next(
@@ -379,36 +379,32 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: StoragePool = ...,
-                    updateMask: str = ...,
+                    body: StoragePool,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restoreVolume(
-                    self,
-                    *,
-                    name: str,
-                    body: RestoreVolumeRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: RestoreVolumeRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def switch(
                     self,
                     *,
                     name: str,
-                    body: SwitchActiveReplicaZoneRequest = ...,
+                    body: SwitchActiveReplicaZoneRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def updateBackupConfig(
                     self,
                     *,
                     name: str,
-                    body: UpdateBackupConfigRequest = ...,
+                    body: UpdateBackupConfigRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def validateDirectoryService(
                     self,
                     *,
                     name: str,
-                    body: ValidateDirectoryServiceRequest = ...,
+                    body: ValidateDirectoryServiceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def backupConfigs(self) -> BackupConfigsResource: ...
@@ -422,8 +418,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: QuotaRule = ...,
-                        quotaRuleId: str = ...,
+                        body: QuotaRule,
+                        quotaRuleId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -436,10 +432,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListQuotaRulesResponseHttpRequest: ...
                     def list_next(
@@ -451,8 +447,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: QuotaRule = ...,
-                        updateMask: str = ...,
+                        body: QuotaRule,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -462,8 +458,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Replication = ...,
-                        replicationId: str = ...,
+                        body: Replication,
+                        replicationId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -473,7 +469,7 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: EstablishPeeringRequest = ...,
+                        body: EstablishPeeringRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -483,10 +479,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListReplicationsResponseHttpRequest: ...
                     def list_next(
@@ -498,36 +494,36 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Replication = ...,
-                        updateMask: str = ...,
+                        body: Replication,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def resume(
                         self,
                         *,
                         name: str,
-                        body: ResumeReplicationRequest = ...,
+                        body: ResumeReplicationRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def reverseDirection(
                         self,
                         *,
                         name: str,
-                        body: ReverseReplicationDirectionRequest = ...,
+                        body: ReverseReplicationDirectionRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def stop(
                         self,
                         *,
                         name: str,
-                        body: StopReplicationRequest = ...,
+                        body: StopReplicationRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def sync(
                         self,
                         *,
                         name: str,
-                        body: SyncReplicationRequest = ...,
+                        body: SyncReplicationRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -537,8 +533,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Snapshot = ...,
-                        snapshotId: str = ...,
+                        body: Snapshot,
+                        snapshotId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -551,10 +547,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSnapshotsResponseHttpRequest: ...
                     def list_next(
@@ -566,8 +562,8 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Snapshot = ...,
-                        updateMask: str = ...,
+                        body: Snapshot,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -575,18 +571,18 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Volume = ...,
-                    volumeId: str = ...,
+                    body: Volume,
+                    volumeId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def establishPeering(
                     self,
                     *,
                     name: str,
-                    body: EstablishVolumePeeringRequest = ...,
+                    body: EstablishVolumePeeringRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -596,10 +592,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListVolumesResponseHttpRequest: ...
                 def list_next(
@@ -611,23 +607,19 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Volume = ...,
-                    updateMask: str = ...,
+                    body: Volume,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restore(
                     self,
                     *,
                     name: str,
-                    body: RestoreBackupFilesRequest = ...,
+                    body: RestoreBackupFilesRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def revert(
-                    self,
-                    *,
-                    name: str,
-                    body: RevertVolumeRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: RevertVolumeRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def quotaRules(self) -> QuotaRulesResource: ...
                 def replications(self) -> ReplicationsResource: ...
@@ -640,10 +632,10 @@ class NetAppFilesResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

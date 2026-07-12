@@ -4,13 +4,14 @@
 #![allow(unused_imports)]
 use super::tests::*;
 use super::*;
-use gam_linalg::faer_ndarray::fast_ata;
-use gam_solve::evidence::arrow_log_det_from_cache;
 use approx::assert_abs_diff_eq;
-use gam_solve::arrow_schur::{ArrowFactorSlab, ArrowHtbetaCache, ArrowSolverMode, ArrowUndampedFactors, PcgDiagnostics};
+use gam_linalg::faer_ndarray::fast_ata;
+use gam_solve::arrow_schur::{
+    ArrowFactorSlab, ArrowHtbetaCache, ArrowPcgDiagnostics, ArrowSolverMode, ArrowUndampedFactors,
+};
+use gam_solve::evidence::arrow_log_det_from_cache;
 use gam_terms::analytic_penalties::ARDPenalty;
 use ndarray::{Array5, array};
-
 
 /// Torus T^2 fit on synthetic data with a known two-frequency signal.
 /// Drives a single torus atom through the [`SaeManifoldTerm`] Newton loop
@@ -543,7 +544,7 @@ pub(crate) fn jumprelu_assignment_value_matches_logit_gradient_fd() {
         logits,
         coords,
         manifolds,
-        AssignmentMode::jumprelu(temperature, threshold),
+        AssignmentMode::threshold_gate(temperature, threshold),
     )
     .expect("valid JumpReLU assignment");
     let rho = SaeManifoldRho::new(0.7_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
@@ -580,7 +581,7 @@ pub(crate) fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep()
         logits.clone(),
         coords,
         manifolds,
-        AssignmentMode::jumprelu(temperature, threshold),
+        AssignmentMode::threshold_gate(temperature, threshold),
     )
     .expect("valid JumpReLU assignment");
     let rho = SaeManifoldRho::new(0.7_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
@@ -1123,10 +1124,11 @@ pub(crate) fn near_singular_outer_gradient_cache() -> ArrowFactorCache {
         k: 1,
         manifold_mode_fingerprint: 0,
         row_hessian_fingerprint: 0,
-        pcg_diagnostics: PcgDiagnostics::default(),
+        pcg_diagnostics: ArrowPcgDiagnostics::default(),
         gauge_deflated_directions: 0,
         deflated_row_directions: std::sync::Arc::from(Vec::new()),
         deflation_row_spectra: std::sync::Arc::from(Vec::new()),
+        beta_gauge_quotient: None,
         cross_row_woodbury: None,
     }
 }
@@ -1153,10 +1155,11 @@ pub(crate) fn diagonal_latent_cache(diagonal: &[f64]) -> ArrowFactorCache {
         k: 0,
         manifold_mode_fingerprint: 0,
         row_hessian_fingerprint: 0,
-        pcg_diagnostics: PcgDiagnostics::default(),
+        pcg_diagnostics: ArrowPcgDiagnostics::default(),
         gauge_deflated_directions: 0,
         deflated_row_directions: std::sync::Arc::from(Vec::new()),
         deflation_row_spectra: std::sync::Arc::from(Vec::new()),
+        beta_gauge_quotient: None,
         cross_row_woodbury: None,
     }
 }
@@ -1323,10 +1326,11 @@ pub(crate) fn rank_deficient_beta_outer_gradient_cache() -> ArrowFactorCache {
         k: 4,
         manifold_mode_fingerprint: 0,
         row_hessian_fingerprint: 0,
-        pcg_diagnostics: PcgDiagnostics::default(),
+        pcg_diagnostics: ArrowPcgDiagnostics::default(),
         gauge_deflated_directions: 0,
         deflated_row_directions: std::sync::Arc::from(Vec::new()),
         deflation_row_spectra: std::sync::Arc::from(Vec::new()),
+        beta_gauge_quotient: None,
         cross_row_woodbury: None,
     }
 }
@@ -1372,73 +1376,12 @@ pub(crate) fn outer_gradient_solver_deflates_rank_deficient_decoder_beta_null() 
     );
 }
 
-/// #1273/#1440 regression — the gradient lane (`eval` /
-/// `OuterEvalOrder::ValueAndGradient`) must NOT hard-abort when the
-/// gauge-deflated analytic outer gradient declines at a finite-cost ρ whose
-/// joint Hessian is near-singular-but-valid (the circle/torus topology the
-/// issue reports: a flat direction the Faddeev-Popov deflation legitimately
-/// rejects). Before #1273 the conditioning error `?`-propagated out of `eval`
-/// as `RemlOptimizationFailed` → `RemlConvergenceError`; #1273 recovered it
-/// with a central finite-difference descent of the value path, and #1440
-/// REPLACED that finite-difference instrument with the PLAIN (undeflated)
-/// analytic outer gradient of the same Laplace value. The recovery direction is
-/// now fully analytic — never a differenced value path.
-///
-/// The test exercises both halves deterministically in unit time: (1) the
-/// conditioning gate genuinely rejects a near-singular cache that no gauge/β-null
-/// deflation can recover (the bug's precondition), and (2) `eval` still returns a
-/// finite, ρ-sized `(cost, ∇f)` pair on the same objective (the analytic
-/// recovery wiring), with no regression to the well-conditioned analytic path.
+/// #1436 — the analytic derivative error taxonomy must keep internal-invariant
+/// failures distinct from genuine conditioning/non-identifiability. Every class
+/// propagates if the projected solve cannot produce a reliable derivative, but
+/// the diagnostic must remain machine-distinguishable.
 #[test]
-pub(crate) fn gradient_lane_analytic_fallback_recovers_singular_outer_gradient_1440() {
-    let objective = warmstart_test_objective();
-    // Precondition: a near-singular joint Hessian whose sub-floor pivot is NOT
-    // explained by any chart-gauge / decoder-β-null direction — so the analytic
-    // gauge-deflated outer-gradient solver REJECTS it. This is the exact
-    // condition the issue's pivot-ratio gate trips on.
-    let singular_cache = near_singular_outer_gradient_cache();
-    assert!(
-        SaeManifoldTerm::outer_gradient_conditioning_error(&singular_cache).is_err(),
-        "fixture precondition: the cache must trip the pivot-ratio floor (#1273)"
-    );
-    assert!(
-        objective
-            .term
-            .outer_gradient_arrow_solver(
-                &singular_cache,
-                &objective.current_rho.lambda_smooth_vec()
-            )
-            .is_err(),
-        "fixture precondition: the gauge-deflated analytic outer gradient must          REJECT this near-singular cache (no matching gauge/β-null to deflate)"
-    );
-
-    // The #1440 fix: at such a finite-cost ρ the gradient lane (`eval`) descends
-    // with the PLAIN analytic outer gradient instead of a finite-difference of
-    // the value path. End-to-end it must still return a finite, ρ-sized
-    // `(cost, ∇f)` — the recovery wiring shares the well-conditioned analytic
-    // path, so it must not regress it.
-    let mut objective = warmstart_test_objective();
-    let rho_flat = objective.current_rho.to_flat();
-    let eval = objective
-        .eval(&rho_flat)
-        .expect("gradient lane must return a finite (cost, gradient) pair (#1440 wiring)");
-    assert!(
-        eval.cost.is_finite()
-            && eval.gradient.len() == rho_flat.len()
-            && eval.gradient.iter().all(|g| g.is_finite()),
-        "gradient lane must yield a finite, ρ-sized outer gradient; got cost={}, grad={:?}",
-        eval.cost,
-        eval.gradient
-    );
-}
-
-/// #1436 — `OuterGradientError::InternalInvariant` must never be FD-eligible,
-/// so an internal-invariant failure propagates as a hard error instead of being
-/// silently masked by a finite-difference descent direction. This is the core
-/// acceptance criterion: shape/indexing bugs, non-finite intermediates, and
-/// violated invariants surface as failures, not plausible-but-wrong FD steps.
-#[test]
-pub(crate) fn outer_gradient_internal_invariant_is_not_fd_eligible_1436() {
+pub(crate) fn outer_gradient_internal_invariant_is_typed_1436() {
     let ill_conditioned = OuterGradientError::IllConditioned {
         reason: "near-singular joint Hessian".to_string(),
     };
@@ -1448,77 +1391,13 @@ pub(crate) fn outer_gradient_internal_invariant_is_not_fd_eligible_1436() {
     let internal = OuterGradientError::InternalInvariant {
         reason: "shape mismatch".to_string(),
     };
-    assert!(
-        ill_conditioned.is_conditioning_recoverable(),
-        "IllConditioned must be conditioning-recoverable (#1273)"
-    );
-    assert!(
-        non_identifiable.is_conditioning_recoverable(),
-        "NonIdentifiable must be conditioning-recoverable (#1273)"
-    );
-    assert!(
-        !internal.is_conditioning_recoverable(),
-        "InternalInvariant must NOT be conditioning-recoverable (#1436) — it must propagate"
-    );
-    // The Display output must be descriptive enough for the outer log.
+    assert!(ill_conditioned.to_string().contains("ill-conditioned"));
+    assert!(non_identifiable.to_string().contains("non-identifiable"));
     assert!(
         internal.to_string().contains("internal invariant"),
         "InternalInvariant Display must name the class; got: {}",
         internal
     );
-}
-
-/// #1436 — exercise the EXACT gate `SaeManifoldOuterObjective::eval` consults,
-/// `OuterGradientError::admits_plain_solver_fallback`, over the full `cost x error-class`
-/// matrix. `is_conditioning_recoverable` alone does not capture the cost interaction the call
-/// site depends on; this pins the composed contract so the FD fallback can never
-/// silently absorb an internal-invariant failure NOR fire at an infeasible
-/// (non-finite-cost) ρ — both must propagate as hard errors.
-#[test]
-pub(crate) fn admits_plain_solver_fallback_only_for_conditioning_at_finite_cost_1436() {
-    let ill = OuterGradientError::IllConditioned {
-        reason: "near-singular joint Hessian".to_string(),
-    };
-    let non_id = OuterGradientError::NonIdentifiable {
-        reason: "gauge-degenerate direction".to_string(),
-    };
-    let internal = OuterGradientError::InternalInvariant {
-        reason: "shape mismatch".to_string(),
-    };
-
-    // Finite cost: only the genuine #1273 conditioning/identifiability classes
-    // admit the FD descent direction.
-    assert!(
-        ill.admits_plain_solver_fallback(1.0),
-        "IllConditioned at a finite-cost ρ must admit the #1273/#1440 analytic plain-solver fallback"
-    );
-    assert!(
-        non_id.admits_plain_solver_fallback(1.0),
-        "NonIdentifiable at a finite-cost ρ must admit the #1273/#1440 analytic plain-solver fallback"
-    );
-    assert!(
-        !internal.admits_plain_solver_fallback(1.0),
-        "InternalInvariant must NEVER admit the plain-solver fallback, even at a finite \
-         cost (#1436) — it must propagate as a hard error"
-    );
-
-    // Non-finite cost (infeasible point): NOTHING admits FD, not even an
-    // otherwise-eligible conditioning failure — there is no feasible value path
-    // to descend.
-    for bad_cost in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
-        assert!(
-            !ill.admits_plain_solver_fallback(bad_cost),
-            "IllConditioned must NOT admit the plain-solver fallback at non-finite cost {bad_cost}"
-        );
-        assert!(
-            !non_id.admits_plain_solver_fallback(bad_cost),
-            "NonIdentifiable must NOT admit the plain-solver fallback at non-finite cost {bad_cost}"
-        );
-        assert!(
-            !internal.admits_plain_solver_fallback(bad_cost),
-            "InternalInvariant must NOT admit the plain-solver fallback at non-finite cost {bad_cost}"
-        );
-    }
 }
 
 /// gam#577 / gam#579 root cause: the continuation pre-warm forwards an
@@ -1543,21 +1422,36 @@ pub(crate) fn seed_inner_state_accepts_empty_beta_as_noslot() {
 /// A populated β whose length matches the decoder dimension must be
 /// INSTALLED and then GENUINELY REUSED by the next inner solve — this is
 /// the warm-start the continuation walk relies on for the big speedup
-/// (gam#577 / gam#579). We verify reuse behaviorally: seed a known β, run
-/// one eval with zero inner Newton iterations (so the solve cannot move
-/// β off the seed), and confirm the published `inner_beta_hint` is exactly
-/// the seeded β. A cold start would have published the term's pristine β
-/// instead.
+/// (gam#577 / gam#579). We verify reuse behaviorally with a β produced by a
+/// converged evidence solve—the state a real continuation step supplies—then run
+/// one eval with zero inner Newton iterations and confirm the published
+/// `inner_beta_hint` is exactly that seed. An arbitrary off-optimum β can have no
+/// defined frozen Laplace evidence and is not a valid continuation witness.
 #[test]
 pub(crate) fn seed_inner_state_installs_and_reuses_matching_beta() {
+    let mut source = warmstart_test_objective();
+    let source_rho = source.baseline_rho.clone();
+    source
+        .term
+        .reml_criterion_with_cache(
+            source.target.view(),
+            &source_rho,
+            source.registry.as_ref(),
+            source.inner_max_iter,
+            source.learning_rate,
+            source.ridge_ext_coord,
+            source.ridge_beta,
+        )
+        .expect("source continuation state must have finite converged evidence");
+    let seed = source.term.flatten_beta();
+
     let mut obj = warmstart_test_objective();
     let dim = obj.term.beta_dim();
-    // A distinctive seed that differs from the term's pristine decoder.
     let pristine = obj.term.flatten_beta();
-    let seed: Array1<f64> = Array1::from_shape_fn(dim, |i| pristine[i] + 0.5 + 0.01 * (i as f64));
+    assert_eq!(seed.len(), dim, "source β must match the target layout");
     assert!(
         (&seed - &pristine).iter().any(|d| d.abs() > 1e-6),
-        "seed must differ from the pristine β for the reuse check to be meaningful"
+        "converged continuation β must differ from the pristine target β for the reuse check"
     );
 
     let outcome = obj
@@ -1685,7 +1579,8 @@ pub(crate) fn line_search_snapshot_restores_intrinsic_smooth_penalty() {
         "test setup must perturb the live intrinsic smoothness Gram"
     );
 
-    term.restore_mutable_state(&snapshot);
+    term.restore_mutable_state(&snapshot)
+        .expect("differential restore rebuilds the basis");
     let restored = (&term.atoms[0].smooth_penalty - &original)
         .mapv(f64::abs)
         .sum();
@@ -1979,10 +1874,8 @@ pub(crate) fn fixed_state_logdet(
 // was split into the sibling `tests_parallelism_invariance_1557.rs` module
 // (declared in `mod.rs`) to keep this tracked file under the 10k limit.
 //
-// The four stationary-cache `∂log|H|/∂θ` adjoint regression tests
-// (`sae_logdet_theta_adjoint_matches_dense_fd_*`,
-// `ibp_rho_sparse_logdet_trace_matches_dense_fd_1416`,
-// `learnable_ibp_alpha_logdet_trace_matches_dense_fd_1417`) were likewise split
-// into the sibling `tests_logdet_adjoint_780.rs` module for the same gate; they
-// still source the shared `gamma_fd_tiny_fixture` / `fixed_state_logdet`
-// helpers, which remain defined here.
+// The stationary-cache `∂log|H|/∂θ` adjoint and assignment-prior trace
+// regressions were likewise split into the sibling
+// `tests_logdet_adjoint_780.rs` module for the same gate; they still source the
+// shared `gamma_fd_tiny_fixture` / `fixed_state_logdet` helpers, which remain
+// defined here.

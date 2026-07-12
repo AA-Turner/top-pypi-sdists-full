@@ -342,7 +342,7 @@ class MangadexAPI():
             "/user/follows/manga/feed", params, True)
 
     def authenticate(self):
-        self.headers_auth["Authorization"] = self.cache(
+        self.headers_auth["Authorization"] = self.extractor.cache(
             self._authenticate_impl, self.username, self.password,
             _exp=900, _mem=False)
 

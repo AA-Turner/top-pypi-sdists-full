@@ -18,7 +18,7 @@ class MyBusinessPlaceActionsResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class PlaceActionLinksResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: PlaceActionLink = ..., **kwargs: typing.Any
+                self, *, parent: str, body: PlaceActionLink, **kwargs: typing.Any
             ) -> PlaceActionLinkHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -30,9 +30,9 @@ class MyBusinessPlaceActionsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListPlaceActionLinksResponseHttpRequest: ...
             def list_next(
@@ -44,8 +44,8 @@ class MyBusinessPlaceActionsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: PlaceActionLink = ...,
-                updateMask: str = ...,
+                body: PlaceActionLink,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> PlaceActionLinkHttpRequest: ...
 
@@ -56,10 +56,10 @@ class MyBusinessPlaceActionsResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            languageCode: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            languageCode: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListPlaceActionTypeMetadataResponseHttpRequest: ...
         def list_next(

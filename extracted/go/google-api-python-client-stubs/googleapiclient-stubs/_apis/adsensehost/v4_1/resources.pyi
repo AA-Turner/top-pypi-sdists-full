@@ -24,8 +24,8 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 accountId: str,
-                maxResults: int = ...,
-                pageToken: str = ...,
+                maxResults: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AdClientsHttpRequest: ...
             def list_next(
@@ -58,7 +58,7 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 accountId: str,
                 adClientId: str,
                 adUnitId: str,
-                hostCustomChannelId: str | _list[str] = ...,
+                hostCustomChannelId: str | _list[str] | None = ...,
                 **kwargs: typing.Any,
             ) -> AdCodeHttpRequest: ...
             def insert(
@@ -66,7 +66,7 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 *,
                 accountId: str,
                 adClientId: str,
-                body: AdUnit = ...,
+                body: AdUnit,
                 **kwargs: typing.Any,
             ) -> AdUnitHttpRequest: ...
             def list(
@@ -74,9 +74,9 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 *,
                 accountId: str,
                 adClientId: str,
-                includeInactive: bool = ...,
-                maxResults: int = ...,
-                pageToken: str = ...,
+                includeInactive: bool | None = ...,
+                maxResults: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AdUnitsHttpRequest: ...
             def list_next(
@@ -88,7 +88,7 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 accountId: str,
                 adClientId: str,
                 adUnitId: str,
-                body: AdUnit = ...,
+                body: AdUnit,
                 **kwargs: typing.Any,
             ) -> AdUnitHttpRequest: ...
             def update(
@@ -96,7 +96,7 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 *,
                 accountId: str,
                 adClientId: str,
-                body: AdUnit = ...,
+                body: AdUnit,
                 **kwargs: typing.Any,
             ) -> AdUnitHttpRequest: ...
 
@@ -108,13 +108,13 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
                 accountId: str,
                 startDate: str,
                 endDate: str,
-                dimension: str | _list[str] = ...,
-                filter: str | _list[str] = ...,
-                locale: str = ...,
-                maxResults: int = ...,
-                metric: str | _list[str] = ...,
-                sort: str | _list[str] = ...,
-                startIndex: int = ...,
+                dimension: str | _list[str] | None = ...,
+                filter: str | _list[str] | None = ...,
+                locale: str | None = ...,
+                maxResults: int | None = ...,
+                metric: str | _list[str] | None = ...,
+                sort: str | _list[str] | None = ...,
+                startIndex: int | None = ...,
                 **kwargs: typing.Any,
             ) -> ReportHttpRequest: ...
 
@@ -134,7 +134,11 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
             self, *, adClientId: str, **kwargs: typing.Any
         ) -> AdClientHttpRequest: ...
         def list(
-            self, *, maxResults: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> AdClientsHttpRequest: ...
         def list_next(
             self, previous_request: AdClientsHttpRequest, previous_response: AdClients
@@ -148,9 +152,9 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
             productCode: typing_extensions.Literal["AFC", "AFG", "AFMC", "AFS", "AFV"]
             | _list[typing_extensions.Literal["AFC", "AFG", "AFMC", "AFS", "AFV"]],
             websiteUrl: str,
-            callbackUrl: str = ...,
-            userLocale: str = ...,
-            websiteLocale: str = ...,
+            callbackUrl: str | None = ...,
+            userLocale: str | None = ...,
+            websiteLocale: str | None = ...,
             **kwargs: typing.Any,
         ) -> AssociationSessionHttpRequest: ...
         def verify(
@@ -166,14 +170,14 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
             self, *, adClientId: str, customChannelId: str, **kwargs: typing.Any
         ) -> CustomChannelHttpRequest: ...
         def insert(
-            self, *, adClientId: str, body: CustomChannel = ..., **kwargs: typing.Any
+            self, *, adClientId: str, body: CustomChannel, **kwargs: typing.Any
         ) -> CustomChannelHttpRequest: ...
         def list(
             self,
             *,
             adClientId: str,
-            maxResults: int = ...,
-            pageToken: str = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> CustomChannelsHttpRequest: ...
         def list_next(
@@ -186,11 +190,11 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
             *,
             adClientId: str,
             customChannelId: str,
-            body: CustomChannel = ...,
+            body: CustomChannel,
             **kwargs: typing.Any,
         ) -> CustomChannelHttpRequest: ...
         def update(
-            self, *, adClientId: str, body: CustomChannel = ..., **kwargs: typing.Any
+            self, *, adClientId: str, body: CustomChannel, **kwargs: typing.Any
         ) -> CustomChannelHttpRequest: ...
 
     @typing.type_check_only
@@ -200,13 +204,13 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
             *,
             startDate: str,
             endDate: str,
-            dimension: str | _list[str] = ...,
-            filter: str | _list[str] = ...,
-            locale: str = ...,
-            maxResults: int = ...,
-            metric: str | _list[str] = ...,
-            sort: str | _list[str] = ...,
-            startIndex: int = ...,
+            dimension: str | _list[str] | None = ...,
+            filter: str | _list[str] | None = ...,
+            locale: str | None = ...,
+            maxResults: int | None = ...,
+            metric: str | _list[str] | None = ...,
+            sort: str | _list[str] | None = ...,
+            startIndex: int | None = ...,
             **kwargs: typing.Any,
         ) -> ReportHttpRequest: ...
 
@@ -216,14 +220,14 @@ class AdSenseHostResource(googleapiclient.discovery.Resource):
             self, *, adClientId: str, urlChannelId: str, **kwargs: typing.Any
         ) -> UrlChannelHttpRequest: ...
         def insert(
-            self, *, adClientId: str, body: UrlChannel = ..., **kwargs: typing.Any
+            self, *, adClientId: str, body: UrlChannel, **kwargs: typing.Any
         ) -> UrlChannelHttpRequest: ...
         def list(
             self,
             *,
             adClientId: str,
-            maxResults: int = ...,
-            pageToken: str = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> UrlChannelsHttpRequest: ...
         def list_next(

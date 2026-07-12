@@ -18,11 +18,7 @@ class GoogleMarketingPlatformAdminAPIResource(googleapiclient.discovery.Resource
         @typing.type_check_only
         class AnalyticsAccountLinksResource(googleapiclient.discovery.Resource):
             def create(
-                self,
-                *,
-                parent: str,
-                body: AnalyticsAccountLink = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: AnalyticsAccountLink, **kwargs: typing.Any
             ) -> AnalyticsAccountLinkHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -31,8 +27,8 @@ class GoogleMarketingPlatformAdminAPIResource(googleapiclient.discovery.Resource
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAnalyticsAccountLinksResponseHttpRequest: ...
             def list_next(
@@ -44,7 +40,7 @@ class GoogleMarketingPlatformAdminAPIResource(googleapiclient.discovery.Resource
                 self,
                 *,
                 analyticsAccountLink: str,
-                body: SetPropertyServiceLevelRequest = ...,
+                body: SetPropertyServiceLevelRequest,
                 **kwargs: typing.Any,
             ) -> SetPropertyServiceLevelResponseHttpRequest: ...
 
@@ -52,14 +48,18 @@ class GoogleMarketingPlatformAdminAPIResource(googleapiclient.discovery.Resource
             self,
             *,
             organization: str,
-            body: FindSalesPartnerManagedClientsRequest = ...,
+            body: FindSalesPartnerManagedClientsRequest,
             **kwargs: typing.Any,
         ) -> FindSalesPartnerManagedClientsResponseHttpRequest: ...
         def get(
             self, *, name: str, **kwargs: typing.Any
         ) -> OrganizationHttpRequest: ...
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListOrganizationsResponseHttpRequest: ...
         def list_next(
             self,
@@ -70,7 +70,7 @@ class GoogleMarketingPlatformAdminAPIResource(googleapiclient.discovery.Resource
             self,
             *,
             organization: str,
-            body: ReportPropertyUsageRequest = ...,
+            body: ReportPropertyUsageRequest,
             **kwargs: typing.Any,
         ) -> ReportPropertyUsageResponseHttpRequest: ...
         def analyticsAccountLinks(self) -> AnalyticsAccountLinksResource: ...

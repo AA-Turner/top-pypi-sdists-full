@@ -5,7 +5,7 @@
 //! continuation only changes *which* ρ the solver is asked about,
 //! not *how* it answers.
 //!
-//! `fit_with_continuation` calls the supplied `OuterObjective` for
+//! `fit_with_continuation_with_budget` calls the supplied `OuterObjective` for
 //! every step: `seed_inner_state` installs the warm-start β, then
 //! `eval_with_order` runs the inner P-IRLS. Returned errors flow
 //! through `inner_status::classify_inner_error` so the rollback
@@ -34,11 +34,11 @@
 
 use ndarray::Array1;
 
-use gam_problem::diagnostics::KktRefusalDiagnosis;
 use crate::estimate::EstimationError;
 use crate::inner_status::{InnerFailure, classify_inner_error};
 use crate::rho_optimizer::{OuterEvalOrder, OuterObjective};
 use gam_problem::OuterEval;
+use gam_problem::diagnostics::KktRefusalDiagnosis;
 
 /// Hard ceiling on the number of ρ steps along a single continuation
 /// path. Past this we surface the last `InnerFailure` rather than the
@@ -383,31 +383,10 @@ pub(crate) fn prime_outer_seed_with_budget(
 /// ρ₀ is in the strongly-convex regime). `bounds_upper` clamps ρ₀ to
 /// the legal box.
 ///
-/// # Callable ρ-anneal spine primitive
-///
-/// This is the **ρ-anneal spine entry**: the single callable that walks the
-/// oversmoothing→target ρ homotopy with the full retry/ρ₀-expansion decision
-/// tree (`run_path` is the per-offset inner pass). It was historically a
-/// private helper reachable only through `prime_outer_seed_with_budget` (the warm-start
-/// pre-screen fallback). It is now `pub(crate)` so the coupled
-/// [`crate::continuation_path::ContinuationPath`] can drive the ρ leg
-/// of the joint K≥2 SAE homotopy through the SAME spine rather than cloning a
-/// parallel ρ-anneal — there is no second implementation of the schedule.
-///
-/// Callers that only want the warm-start pre-screen keep using
-/// [`prime_outer_seed_with_budget`]; callers that own the coupled τ / isometry
-/// legs call this directly so the three schedules advance against one shared ρ
-/// walk.
-pub(crate) fn fit_with_continuation(
-    obj: &mut dyn OuterObjective,
-    target: &Array1<f64>,
-    bounds_upper: &Array1<f64>,
-    initial_beta: &Array1<f64>,
-    order: OuterEvalOrder,
-) -> ContinuationResult {
-    fit_with_continuation_with_budget(obj, target, bounds_upper, initial_beta, order, PATH_BUDGET)
-}
-
+/// Budgeted ρ-only pre-warm used by [`prime_outer_seed_with_budget`]. Reactive
+/// multi-leg domain entry is owned by [`crate::continuation_path::ContinuationPath`]
+/// and evaluates each coupled `(ρ, scalar)` waypoint transactionally instead of
+/// nesting this independent ρ scheduler inside another path.
 pub(crate) fn fit_with_continuation_with_budget(
     obj: &mut dyn OuterObjective,
     target: &Array1<f64>,
@@ -575,53 +554,9 @@ pub(crate) fn run_path(
     walk_state_toward(obj, state, target, order, path_budget, 1)
 }
 
-/// One **warm** continuation leg (the ContinuationPath waypoint primitive):
-/// walk from an existing converged state to `target` under a small eval
-/// budget. Unlike [`fit_with_continuation`] this never re-enters from the
-/// oversmoothed ρ₀ — the caller owns the heavier-regime fallback (the coupled
-/// path re-enters a heavier waypoint on failure) — so Stuck/ExpandRhoZero
-/// outcomes surface as [`ContinuationFailure::PathStuck`] with
-/// `rho_zero_offset = 0.0` (no oversmooth expansion is involved in a warm leg;
-/// `final_rho` reports the leg's target as the diagnostic anchor).
-pub(crate) fn continue_path_from(
-    obj: &mut dyn OuterObjective,
-    start: ContinuationState,
-    target: &Array1<f64>,
-    order: OuterEvalOrder,
-    leg_budget: usize,
-) -> ContinuationResult {
-    if reached_target(&start.last_rho, target) {
-        return Ok(start);
-    }
-    match walk_state_toward(obj, start, target, order, leg_budget, 0) {
-        Ok(state) => Ok(state),
-        Err(PathOutcome::PathBudgetExhausted {
-            last,
-            steps_taken,
-            final_rho,
-        }) => Err(ContinuationFailure::PathBudgetExhausted {
-            last,
-            steps_taken,
-            final_rho,
-        }),
-        Err(PathOutcome::ExpandRhoZero(last)) | Err(PathOutcome::Stuck(last)) => {
-            Err(ContinuationFailure::PathStuck {
-                last,
-                rho_zero_offset: 0.0,
-                final_rho: target.clone(),
-            })
-        }
-        Err(PathOutcome::Propagate(last)) | Err(PathOutcome::DomainAtStart(last)) => {
-            Err(ContinuationFailure::StructuralPropagate(last))
-        }
-    }
-}
-
 /// Walk an already-seeded continuation state toward `target`, spending eval
-/// slots `steps_taken_start..budget`. Extracted from [`run_path`] so the cold
-/// ρ₀ spine and the warm per-waypoint leg ([`continue_path_from`]) share ONE
-/// descent loop — the step/shrink/expand semantics cannot fork between the two
-/// entries (the objective↔gradient-desync lesson applied to control flow).
+/// slots `steps_taken_start..budget`. [`run_path`] owns entry-state evaluation;
+/// this helper owns the subsequent step/shrink/expand loop.
 pub(crate) fn walk_state_toward(
     obj: &mut dyn OuterObjective,
     mut state: ContinuationState,
@@ -804,7 +739,7 @@ mod tests {
     // mock records the ρ at each call so step counting can be asserted.
 
     use crate::rho_optimizer::OuterCapability;
-    use gam_problem::{DeclaredHessianForm, Derivative, HessianResult};
+    use gam_problem::{DeclaredHessianForm, Derivative, HessianValue};
 
     /// A response scripted for the next `eval_with_order` call.
     #[derive(Clone)]
@@ -874,7 +809,7 @@ mod tests {
             Ok(OuterEval {
                 cost,
                 gradient: Array1::zeros(self.n_params),
-                hessian: HessianResult::Unavailable,
+                hessian: HessianValue::Unavailable,
                 inner_beta_hint: None,
             })
         }
@@ -1255,7 +1190,7 @@ mod tests {
                 Ok(OuterEval {
                     cost: rho.dot(rho),
                     gradient: Array1::zeros(1),
-                    hessian: HessianResult::Unavailable,
+                    hessian: HessianValue::Unavailable,
                     inner_beta_hint: Some(Array1::from_vec(vec![0.1, 0.2, 0.3, 0.4])),
                 })
             },
@@ -1270,13 +1205,14 @@ mod tests {
             efs_fn: None::<
                 fn(&mut (), &Array1<f64>) -> Result<gam_problem::EfsEval, EstimationError>,
             >,
+            fixed_point_certificate_fn: None,
+            exact_polish_fn: None,
             screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<
                 fn(
                     &mut (),
                     &Array1<f64>,
-                )
-                    -> Result<crate::rho_optimizer::SeedOutcome, EstimationError>,
+                ) -> Result<crate::rho_optimizer::SeedOutcome, EstimationError>,
             >,
             continuation_prewarm: true,
         };
@@ -1324,7 +1260,7 @@ mod tests {
                 Ok(OuterEval {
                     cost: rho.dot(rho),
                     gradient: Array1::zeros(1),
-                    hessian: HessianResult::Unavailable,
+                    hessian: HessianValue::Unavailable,
                     inner_beta_hint: Some(Array1::from_vec(vec![1.0, 2.0])),
                 })
             },
@@ -1339,13 +1275,14 @@ mod tests {
             efs_fn: None::<
                 fn(&mut (), &Array1<f64>) -> Result<gam_problem::EfsEval, EstimationError>,
             >,
+            fixed_point_certificate_fn: None,
+            exact_polish_fn: None,
             screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<
                 fn(
                     &mut (),
                     &Array1<f64>,
-                )
-                    -> Result<crate::rho_optimizer::SeedOutcome, EstimationError>,
+                ) -> Result<crate::rho_optimizer::SeedOutcome, EstimationError>,
             >,
             continuation_prewarm: true,
         };

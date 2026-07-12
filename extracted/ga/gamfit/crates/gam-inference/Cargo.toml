@@ -1,6 +1,6 @@
 [package]
 name = "gam-inference"
-version = "0.3.148"
+version = "0.3.149"
 edition = "2024"
 rust-version = "1.93"
 description = "Posterior sampling, HMC/NUTS, Polya-Gamma, and inference diagnostics for the gam engine"
@@ -10,26 +10,25 @@ license = "AGPL-3.0-or-later"
 warnings = "deny"
 
 [dependencies]
-gam-data = { path = "../gam-data", version = "=0.3.148" }
-gam-runtime = { path = "../gam-runtime", version = "=0.3.148" }
-gam-math = { path = "../gam-math", version = "=0.3.148" }
-gam-linalg = { path = "../gam-linalg", version = "=0.3.148" }
-gam-problem = { path = "../gam-problem", version = "=0.3.148" }
-gam-gpu = { path = "../gam-gpu", version = "=0.3.148" }
-gam-terms = { path = "../gam-terms", version = "=0.3.148" }
-gam-solve = { path = "../gam-solve", version = "=0.3.148" }
-gam-models = { path = "../gam-models", version = "=0.3.148" }
-gam-sae = { path = "../gam-sae", version = "=0.3.148" }
+gam-data = { path = "../gam-data", version = "=0.3.149" }
+gam-runtime = { path = "../gam-runtime", version = "=0.3.149" }
+gam-math = { path = "../gam-math", version = "=0.3.149" }
+gam-linalg = { path = "../gam-linalg", version = "=0.3.149" }
+gam-problem = { path = "../gam-problem", version = "=0.3.149" }
+gam-gpu = { path = "../gam-gpu", version = "=0.3.149" }
+gam-terms = { path = "../gam-terms", version = "=0.3.149" }
+gam-solve = { path = "../gam-solve", version = "=0.3.149" }
+gam-models = { path = "../gam-models", version = "=0.3.149" }
+gam-sae = { path = "../gam-sae", version = "=0.3.149" }
 ndarray = { version = "0.17.2", features = ["serde", "rayon"] }
 rayon = "1.12.0"
 rand = "0.10.1"
-rand_distr = "0.6.0"
+rand_core_06 = { package = "rand_core", version = "0.6.4" }
+polya-gamma = { version = "0.5.3", default-features = false }
 faer = "0.24.0"
 statrs = "0.18.0"
-libm = "0.2.16"
 log = "0.4.29"
 serde = { version = "1.0.228", features = ["derive"] }
-wide = "0.7"
 
 [dependencies.general-mcmc]
 package = "general-mcmc"
@@ -39,7 +38,7 @@ default-features = false
 # The `gpu_polya_gamma` Linux CUDA path drives cudarc directly (gated by
 # `#[cfg(target_os = "linux")]` in the source), mirroring gam-models' GPU deps.
 [target.'cfg(target_os = "linux")'.dependencies]
-cudarc = { version = "0.19.6", default-features = false, features = ["std", "driver", "runtime", "nvrtc", "cublas", "cublaslt", "cusparse", "cusolver", "cusolvermg", "curand", "nvtx", "cupti", "fallback-dynamic-loading", "cuda-13000"] }
+cudarc.workspace = true
 
 [dev-dependencies]
 approx = "0.5.1"

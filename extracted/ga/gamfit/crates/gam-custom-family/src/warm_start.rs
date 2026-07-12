@@ -4,6 +4,7 @@
 
 use super::*;
 use gam_problem::{ensure_finite_scalar_estimation, validate_all_finite_estimation};
+use opt::{RidgeSchedule, escalate_ridge};
 
 pub(crate) fn screened_outer_warm_start<'a>(
     warm_start: Option<&'a ConstrainedWarmStart>,
@@ -135,6 +136,7 @@ pub(crate) fn nonconverged_outer_efs_result(
             psi_indices: None,
             inner_hessian_scale: None,
             logdet_enclosure_gap: None,
+            consecutive_restored_incumbents: None,
         },
         constrained_warm_start_from_inner(rho, inner),
         false,
@@ -169,9 +171,10 @@ pub struct BlockwiseFitResultParts {
     /// is the authoritative convergence signal.
     pub outer_gradient_norm: Option<f64>,
     /// First-order optimality certificate from the outer smoothing solve
-    /// (#934); `None` when no outer ran (fixed-λ, one-cycle probe) or the
-    /// audit could not evaluate.
-    pub criterion_certificate: Option<gam_solve::rho_optimizer::CriterionCertificate>,
+    /// (#934). `None` is valid only when no outer iteration ran (for example,
+    /// a fixed-λ fit); an outer run that cannot produce a certificate is
+    /// non-converged and is rejected before result assembly.
+    pub criterion_certificate: Option<gam_solve::rho_optimizer::OuterCriterionCertificate>,
     pub inner_cycles: usize,
     pub outer_converged: bool,
     pub geometry: Option<FitGeometry>,
@@ -182,9 +185,9 @@ pub struct BlockwiseFitResultParts {
     /// space and reporting it on the raw fit is exact — and it avoids the
     /// `tr((H_raw + εI)⁻¹ S_raw)` blow-up that a rank-deficient raw-lifted
     /// Hessian (zero rows/cols on canonicalization-dropped directions) would
-    /// otherwise inject. `None` when the caller has no reduced geometry (e.g.
-    /// the one-cycle inner probe), in which case `blockwise_fit_from_parts`
-    /// falls back to computing edf from whatever geometry it was handed.
+    /// otherwise inject. `None` when the caller has no reduced geometry, in
+    /// which case `blockwise_fit_from_parts` falls back to computing edf from
+    /// whatever geometry it was handed.
     /// Tuple layout: `(edf_total, edf_by_penalty, block_edf, penalty_trace)`,
     /// where `penalty_trace[k] = λ_k·tr(H⁻¹S_k)` feeds the per-term EDF
     /// decomposition `|coeff_range| − Σ tr_k` (issue #1219).
@@ -296,25 +299,23 @@ pub(crate) fn custom_family_blockwise_edf(
     // succeeds rather than dropping inference for the whole fit.
     let factor = {
         let scale = h_sym.max_abs_diag();
-        let min_step = scale * 1e-10;
-        let mut ridge = 0.0_f64;
-        let mut attempts = 0_usize;
-        loop {
+        let try_ridge = |ridge: f64| -> Option<_> {
             let candidate = if ridge > 0.0 {
                 h_sym.addridge(ridge).unwrap_or_else(|_| h_sym.clone())
             } else {
                 h_sym.clone()
             };
-            if let Ok(f) = candidate.factorize() {
-                break f;
-            }
-            attempts += 1;
-            if attempts >= 8 {
-                return Err(
-                    "custom-family edf: penalized Hessian could not be factorized".to_string(),
-                );
-            }
-            ridge = if ridge <= 0.0 { min_step } else { ridge * 10.0 };
+            candidate.factorize().ok()
+        };
+        // Bare (unridged) attempt first, then 7 geometric escalations from
+        // `scale·1e-10` — the pre-migration budget of 8 total attempts.
+        match try_ridge(0.0) {
+            Some(f) => f,
+            None => escalate_ridge(RidgeSchedule::geometric(scale * 1e-10, 7), try_ridge)
+                .map(|success| success.value)
+                .map_err(|_| {
+                    "custom-family edf: penalized Hessian could not be factorized".to_string()
+                })?,
         }
     };
 
@@ -423,11 +424,99 @@ pub(crate) fn reduced_blockwise_edf(
     }
 }
 
+fn require_converged_outer_for_assembly(outer_converged: bool) -> Result<(), CustomFamilyError> {
+    if outer_converged {
+        return Ok(());
+    }
+    Err(CustomFamilyError::Optimization {
+        context: "blockwise_fit_from_parts",
+        reason: "refusing to assemble a fit from a non-converged outer optimization; \
+                 the solver must return its checkpoint as nonconvergence evidence instead"
+            .to_string(),
+    })
+}
+
+#[cfg(test)]
+mod assembly_convergence_tests {
+    use super::*;
+
+    fn parts_with_outer_evidence(
+        outer_iterations: usize,
+        outer_converged: bool,
+        criterion_certificate: Option<gam_solve::rho_optimizer::OuterCriterionCertificate>,
+    ) -> BlockwiseFitResultParts {
+        BlockwiseFitResultParts {
+            block_states: Vec::new(),
+            log_likelihood: 0.0,
+            log_lambdas: Array1::zeros(0),
+            lambdas: Array1::zeros(0),
+            covariance_conditional: None,
+            stable_penalty_term: 0.0,
+            penalized_objective: 0.0,
+            outer_iterations,
+            outer_gradient_norm: None,
+            criterion_certificate,
+            inner_cycles: 0,
+            outer_converged,
+            geometry: None,
+            precomputed_edf: None,
+            joint_log_lambdas: None,
+        }
+    }
+
+    #[test]
+    fn nonconverged_outer_state_cannot_reach_fit_assembly() {
+        let error = blockwise_fit_from_parts(parts_with_outer_evidence(1, false, None), &[])
+            .expect_err("nonconverged outer state must be rejected");
+        assert!(matches!(
+            error,
+            CustomFamilyError::Optimization { context, reason }
+                if context == "blockwise_fit_from_parts"
+                    && reason.contains("non-converged outer optimization")
+        ));
+    }
+
+    #[test]
+    fn outer_run_without_certificate_cannot_reach_fit_assembly() {
+        let error = blockwise_fit_from_parts(parts_with_outer_evidence(1, true, None), &[])
+            .expect_err("an outer run without a certificate must be rejected");
+        assert!(matches!(
+            error,
+            CustomFamilyError::Optimization { context, reason }
+                if context == "blockwise_fit_from_parts"
+                    && reason.contains("without its analytic convergence certificate")
+        ));
+    }
+
+    #[test]
+    fn failed_outer_certificate_cannot_reach_fit_assembly() {
+        let certificate = gam_solve::rho_optimizer::OuterCriterionCertificate {
+            stationarity:
+                gam_solve::rho_optimizer::OuterStationarityCertificate::AnalyticGradient {
+                    grad_norm: 1.0,
+                    projected_grad_norm: 1.0,
+                    bound: 0.1,
+                },
+            hessian_psd: Some(true),
+            lambdas_railed: Vec::new(),
+        };
+        let error =
+            blockwise_fit_from_parts(parts_with_outer_evidence(1, true, Some(certificate)), &[])
+                .expect_err("a failed analytic certificate must be rejected");
+        assert!(matches!(
+            error,
+            CustomFamilyError::Optimization { context, reason }
+                if context == "blockwise_fit_from_parts"
+                    && reason.contains("analytic outer certificate failed")
+        ));
+    }
+}
+
 /// Build a `UnifiedFitResult` from blockwise-specific fields.
 pub fn blockwise_fit_from_parts(
     parts: BlockwiseFitResultParts,
     specs: &[ParameterBlockSpec],
-) -> Result<gam_solve::model_types::UnifiedFitResult, String> {
+) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
     let BlockwiseFitResultParts {
         block_states,
         log_likelihood,
@@ -446,6 +535,36 @@ pub fn blockwise_fit_from_parts(
         joint_log_lambdas,
     } = parts;
 
+    // SPEC 20: a fit object only ever comes from a converged optimization.
+    // Assembling a `UnifiedFitResult` from a non-converged outer state would
+    // mint a degraded fit (previously surfaced as `StalledAtValidMinimum`);
+    // non-convergence must instead be raised as a typed error at the solver,
+    // with a checkpoint, before ever reaching this assembler. This defensive
+    // gate prevents direct assembly callers from bypassing that contract.
+    require_converged_outer_for_assembly(outer_converged)?;
+    match criterion_certificate.as_ref() {
+        Some(certificate) if !certificate.certifies() => {
+            return Err(CustomFamilyError::Optimization {
+                context: "blockwise_fit_from_parts",
+                reason: format!(
+                    "refusing to assemble a fit whose analytic outer certificate failed: {}; \
+                     no fit was assembled",
+                    certificate.summary()
+                ),
+            }
+            .into());
+        }
+        None if outer_iterations > 0 => {
+            return Err(CustomFamilyError::Optimization {
+                context: "blockwise_fit_from_parts",
+                reason: "refusing to assemble a fit after an outer optimization without its \
+                         analytic convergence certificate"
+                    .to_string(),
+            }
+            .into());
+        }
+        _ => {}
+    }
     if block_states.is_empty() {
         return Err(CustomFamilyError::UnsupportedConfiguration {
             reason: "blockwise fit requires at least one block state".to_string(),
@@ -650,6 +769,7 @@ pub fn blockwise_fit_from_parts(
             coefficient_influence: None,
             weighted_gram: None,
             bias_correction_beta: None,
+            bias_correction_jacobian: None,
         }),
         _ => None,
     };
@@ -677,18 +797,9 @@ pub fn blockwise_fit_from_parts(
         fitted_link: FittedLinkState::Standard(None),
         geometry,
         block_states,
-        // Report the inner status honestly from the threaded `outer_converged`
-        // flag rather than hardcoding `Converged`. When the outer optimization
-        // did not converge (e.g. it escalated to posterior sampling), surface
-        // `StalledAtValidMinimum` — the same non-converged-but-usable bucket the
-        // smooth-term path maps to — so downstream consumers
-        // (`pirls_status.is_converged()`, `outer_converged` derivation) do not
-        // report a non-converged fit as converged.
-        pirls_status: if outer_converged {
-            gam_solve::pirls::PirlsStatus::Converged
-        } else {
-            gam_solve::pirls::PirlsStatus::StalledAtValidMinimum
-        },
+        // `outer_converged == true` is guaranteed by the SPEC-20 gate at the
+        // top of this assembler, so the assembled status is always honest.
+        pirls_status: gam_solve::pirls::PirlsStatus::Converged,
         max_abs_eta: 0.0,
         constraint_kkt: None,
         artifacts: gam_solve::model_types::FitArtifacts {
@@ -699,7 +810,10 @@ pub fn blockwise_fit_from_parts(
         },
         inner_cycles,
     })
-    .map_err(|e| e.to_string())
+    .map_err(|error| CustomFamilyError::Optimization {
+        context: "blockwise_fit_from_parts result validation",
+        reason: error.to_string(),
+    })
 }
 
 pub(crate) fn checked_penalizedobjective(
@@ -784,6 +898,7 @@ pub(crate) struct CustomOuterState {
     pub(crate) reset_warm_cache: Option<ConstrainedWarmStart>,
     pub(crate) last_error: Option<String>,
     pub(crate) initial_gradient_norm: Option<f64>,
+    pub(crate) outer_derivative_pilot: Option<OuterDerivativePilotSchedule>,
 }
 
 impl CustomOuterState {
@@ -793,7 +908,32 @@ impl CustomOuterState {
             reset_warm_cache: warm_start,
             last_error: None,
             initial_gradient_norm: None,
+            outer_derivative_pilot: None,
         }
+    }
+
+    pub(crate) fn with_outer_derivative_pilot(
+        mut self,
+        schedule: Option<OuterDerivativePilotSchedule>,
+    ) -> Self {
+        self.outer_derivative_pilot = schedule;
+        self
+    }
+
+    pub(crate) fn begin_exact_polish(&mut self) -> bool {
+        let transitioned = self
+            .outer_derivative_pilot
+            .as_ref()
+            .is_some_and(OuterDerivativePilotSchedule::enter_exact_phase);
+        if transitioned {
+            // The sampled pilot's final converged inner mode is the exact
+            // stage's warm baseline. `run_outer_uncertified` resets before its
+            // seed loop, so promote the live cache into the reset slot first.
+            self.reset_warm_cache = self.warm_cache.clone();
+            self.initial_gradient_norm = None;
+            self.last_error = None;
+        }
+        transitioned
     }
 
     pub(crate) fn reset(&mut self) {
@@ -832,7 +972,7 @@ impl CustomOuterState {
 pub struct CustomFamilyJointHyperResult {
     pub objective: f64,
     pub gradient: Array1<f64>,
-    pub outer_hessian: gam_problem::HessianResult,
+    pub outer_hessian: gam_problem::HessianValue,
     pub warm_start: CustomFamilyWarmStart,
     /// `false` when the inner blockwise/Newton solve hit its divergence
     /// early-exit or its max-cycle cap. Envelope-theorem outer gradients
@@ -855,7 +995,7 @@ pub struct CustomFamilyJointHyperEfsResult {
 pub(crate) struct OuterObjectiveEvalResult {
     pub(crate) objective: f64,
     pub(crate) gradient: Array1<f64>,
-    pub(crate) outer_hessian: gam_problem::HessianResult,
+    pub(crate) outer_hessian: gam_problem::HessianValue,
     pub(crate) warm_start: ConstrainedWarmStart,
     pub(crate) inner_converged: bool,
 }
@@ -874,6 +1014,6 @@ pub(crate) fn outer_eval_result_to_joint_hyper_result(
     }
 }
 
-pub(crate) struct OwnedDenseOuterHessianOperator {
+pub(crate) struct OwnedDenseHessianOperator {
     pub(crate) matrix: Array2<f64>,
 }

@@ -26,14 +26,14 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                         *,
                         queue: str,
                         taskId: str,
-                        body: BufferTaskRequest = ...,
+                        body: BufferTaskRequest,
                         **kwargs: typing.Any,
                     ) -> BufferTaskResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: CreateTaskRequest = ...,
+                        body: CreateTaskRequest,
                         **kwargs: typing.Any,
                     ) -> TaskHttpRequest: ...
                     def delete(
@@ -45,18 +45,20 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                         name: str,
                         responseView: typing_extensions.Literal[
                             "VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> TaskHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         responseView: typing_extensions.Literal[
                             "VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListTasksResponseHttpRequest: ...
                     def list_next(
@@ -65,15 +67,11 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                         previous_response: ListTasksResponse,
                     ) -> ListTasksResponseHttpRequest | None: ...
                     def run(
-                        self,
-                        *,
-                        name: str,
-                        body: RunTaskRequest = ...,
-                        **kwargs: typing.Any,
+                        self, *, name: str, body: RunTaskRequest, **kwargs: typing.Any
                     ) -> TaskHttpRequest: ...
 
                 def create(
-                    self, *, parent: str, body: Queue = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Queue, **kwargs: typing.Any
                 ) -> QueueHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -85,16 +83,16 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListQueuesResponseHttpRequest: ...
                 def list_next(
@@ -106,43 +104,31 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Queue = ...,
-                    updateMask: str = ...,
+                    body: Queue,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> QueueHttpRequest: ...
                 def pause(
-                    self,
-                    *,
-                    name: str,
-                    body: PauseQueueRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: PauseQueueRequest, **kwargs: typing.Any
                 ) -> QueueHttpRequest: ...
                 def purge(
-                    self,
-                    *,
-                    name: str,
-                    body: PurgeQueueRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: PurgeQueueRequest, **kwargs: typing.Any
                 ) -> QueueHttpRequest: ...
                 def resume(
-                    self,
-                    *,
-                    name: str,
-                    body: ResumeQueueRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: ResumeQueueRequest, **kwargs: typing.Any
                 ) -> QueueHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def tasks(self) -> TasksResource: ...
@@ -157,10 +143,10 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
@@ -172,8 +158,8 @@ class CloudTasksResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: CmekConfig = ...,
-                updateMask: str = ...,
+                body: CmekConfig,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CmekConfigHttpRequest: ...
             def queues(self) -> QueuesResource: ...

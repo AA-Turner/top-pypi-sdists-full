@@ -26,9 +26,9 @@ class MyBusinessQAndAResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAnswersResponseHttpRequest: ...
                 def list_next(
@@ -40,12 +40,12 @@ class MyBusinessQAndAResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: UpsertAnswerRequest = ...,
+                    body: UpsertAnswerRequest,
                     **kwargs: typing.Any,
                 ) -> AnswerHttpRequest: ...
 
             def create(
-                self, *, parent: str, body: Question = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Question, **kwargs: typing.Any
             ) -> QuestionHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -54,11 +54,11 @@ class MyBusinessQAndAResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                answersPerQuestion: int = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                answersPerQuestion: int | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListQuestionsResponseHttpRequest: ...
             def list_next(
@@ -70,8 +70,8 @@ class MyBusinessQAndAResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Question = ...,
-                updateMask: str = ...,
+                body: Question,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> QuestionHttpRequest: ...
             def answers(self) -> AnswersResource: ...

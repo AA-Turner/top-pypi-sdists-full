@@ -26,10 +26,10 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -44,21 +44,21 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     registration: str,
-                    body: ConfigureContactSettingsRequest = ...,
+                    body: ConfigureContactSettingsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def configureDnsSettings(
                     self,
                     *,
                     registration: str,
-                    body: ConfigureDnsSettingsRequest = ...,
+                    body: ConfigureDnsSettingsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def configureManagementSettings(
                     self,
                     *,
                     registration: str,
-                    body: ConfigureManagementSettingsRequest = ...,
+                    body: ConfigureManagementSettingsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -68,7 +68,7 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ExportRegistrationRequest = ...,
+                    body: ExportRegistrationRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -78,30 +78,30 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def import_(
                     self,
                     *,
                     parent: str,
-                    body: ImportDomainRequest = ...,
+                    body: ImportDomainRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def initiatePushTransfer(
                     self,
                     *,
                     registration: str,
-                    body: InitiatePushTransferRequest = ...,
+                    body: InitiatePushTransferRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListRegistrationsResponseHttpRequest: ...
                 def list_next(
@@ -113,30 +113,30 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Registration = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: Registration,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def register(
                     self,
                     *,
                     parent: str,
-                    body: RegisterDomainRequest = ...,
+                    body: RegisterDomainRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def renewDomain(
                     self,
                     *,
                     registration: str,
-                    body: RenewDomainRequest = ...,
+                    body: RenewDomainRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def resetAuthorizationCode(
                     self,
                     *,
                     registration: str,
-                    body: ResetAuthorizationCodeRequest = ...,
+                    body: ResetAuthorizationCodeRequest,
                     **kwargs: typing.Any,
                 ) -> AuthorizationCodeHttpRequest: ...
                 def retrieveAuthorizationCode(
@@ -146,8 +146,8 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     registration: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> RetrieveGoogleDomainsDnsRecordsResponseHttpRequest: ...
                 def retrieveGoogleDomainsDnsRecords_next(
@@ -162,8 +162,8 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     location: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> RetrieveImportableDomainsResponseHttpRequest: ...
                 def retrieveImportableDomains_next(
@@ -172,33 +172,45 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                     previous_response: RetrieveImportableDomainsResponse,
                 ) -> RetrieveImportableDomainsResponseHttpRequest | None: ...
                 def retrieveRegisterParameters(
-                    self, *, location: str, domainName: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    location: str,
+                    domainName: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> RetrieveRegisterParametersResponseHttpRequest: ...
                 def retrieveTransferParameters(
-                    self, *, location: str, domainName: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    location: str,
+                    domainName: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> RetrieveTransferParametersResponseHttpRequest: ...
                 def searchDomains(
-                    self, *, location: str, query: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    location: str,
+                    query: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> SearchDomainsResponseHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def transfer(
                     self,
                     *,
                     parent: str,
-                    body: TransferDomainRequest = ...,
+                    body: TransferDomainRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -209,10 +221,10 @@ class CloudDomainsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

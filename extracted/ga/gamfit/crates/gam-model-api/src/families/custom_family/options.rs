@@ -20,15 +20,12 @@ use std::sync::atomic::AtomicUsize;
 // keeps resolving byte-for-byte.
 pub use gam_problem::{ExactNewtonOuterObjective, ExactOuterDerivativeOrder};
 
-// The IRLS weight / ridge floors and the block-spec consistency validator are
-// neutral (no `CustomFamily` dependency); they live in `gam-problem` and are
-// re-exported here so every `custom_family::{CUSTOM_FAMILY_WEIGHT_FLOOR,
-// CUSTOM_FAMILY_RIDGE_FLOOR, validate_blockspec_consistency}` path keeps
-// resolving and `CUSTOM_FAMILY_WEIGHT_FLOOR` stays sourced from the canonical
-// `MIN_WEIGHT` floor rather than a hardcoded literal.
-pub use gam_problem::{
-    CUSTOM_FAMILY_RIDGE_FLOOR, CUSTOM_FAMILY_WEIGHT_FLOOR, validate_blockspec_consistency,
-};
+// The IRLS weight floor and block-spec consistency validator are neutral (no
+// `CustomFamily` dependency); they live in `gam-problem`. Coefficient damping
+// deliberately has no model-level default: the custom-family solver derives
+// any transient shift from the current curvature and must converge the
+// undamped score equation.
+pub use gam_problem::{CUSTOM_FAMILY_WEIGHT_FLOOR, validate_blockspec_consistency};
 
 /// Exact outer derivative order for families that expose second-order
 /// coefficient geometry.
@@ -423,26 +420,6 @@ pub fn block_offsets_from_specs(specs: &[ParameterBlockSpec]) -> Arc<[Range<usiz
     Arc::from(ranges.into_boxed_slice())
 }
 
-/// Bound first-order outer iterations when each analytic-gradient evaluation is
-/// already large-scale work. This is only applied after the planner has
-/// selected a gradient-only route; second-order/ARC plans keep their requested
-/// iteration budget.
-pub fn cost_gated_first_order_max_iter(
-    requested: usize,
-    coefficient_gradient_cost: u64,
-    has_outer_hessian: bool,
-) -> usize {
-    const FIRST_ORDER_OUTER_WORK_BUDGET: u64 = 80_000_000_000;
-    const MIN_FIRST_ORDER_ITERS: usize = 4;
-
-    if has_outer_hessian || requested <= 1 || coefficient_gradient_cost == 0 {
-        return requested;
-    }
-
-    let affordable = (FIRST_ORDER_OUTER_WORK_BUDGET / coefficient_gradient_cost) as usize;
-    requested.min(affordable.max(MIN_FIRST_ORDER_ITERS))
-}
-
 /// Local trust budget for first-order outer BFGS on log-smoothing parameters.
 ///
 /// One unit in `rho = log(lambda)` is an `e`-fold smoothing-parameter change.
@@ -499,8 +476,15 @@ pub struct BlockwiseFitOptions {
     /// optimizer.
     pub rho_lower_bound: f64,
     pub minweight: f64,
+    /// Optional seed for transient solver damping. The default is zero and the
+    /// default [`RidgePolicy`] excludes every damping shift from the quadratic
+    /// objective, penalty determinant, and Laplace Hessian. A nonzero value is
+    /// therefore a numerical step-control request unless a caller explicitly
+    /// selects an objective-including policy.
     pub ridge_floor: f64,
-    /// Shared ridge semantics used by solve/quadratic/logdet terms.
+    /// Shared ridge semantics used by solve/quadratic/logdet terms. Defaults to
+    /// solver-only damping so the converged estimand is the stationary point of
+    /// the undamped statistical objective.
     pub ridge_policy: RidgePolicy,
     /// If true, outer smoothing optimization uses a Laplace/REML-style objective:
     ///   -loglik + penalty + 0.5(log|H| - log|S|_+)
@@ -596,6 +580,26 @@ pub struct BlockwiseFitOptions {
     /// `ParameterBlockSpec.penalties`. The per-block path is unchanged.
     /// `None` preserves legacy behaviour for every existing caller.
     pub joint_penalties: Option<Arc<crate::JointPenaltyBundle>>,
+    /// Precision labels whose per-block penalty components are INDEPENDENT
+    /// Gaussian prior factors (the hierarchical coefficient-group priors from
+    /// `realize_coefficient_groups_for_custom_family`; copy its
+    /// `independent_prior_factor_labels` here), as opposed to additive pieces
+    /// of one Gaussian smooth prior.
+    ///
+    /// The distinction matters only for the evidence normalizer. A
+    /// multi-penalty smooth is ONE Gaussian with precision `Σ_k λ_k S_k`, so
+    /// its normalizer is the coalesced `½ log|Σ_k λ_k S_k|₊`. A product of
+    /// independent group factors `∏_k N(0, (λ_k S_k)⁻¹)` instead contributes
+    /// `Σ_k ½ (rank S_k · log λ_k + log|S_k|₊)` — and the two disagree
+    /// exactly when factors overlap (two factors with precision λ on one
+    /// scalar coefficient carry `λ^{1/2}·λ^{1/2} = λ`, but the coalesced form
+    /// `½ log(2λ)` loses `½ log λ` up to constants), which biases the outer
+    /// ρ-posterior and the hierarchical Gamma precision exponent. Labels
+    /// listed here get the per-factor normalizer in the outer objective.
+    ///
+    /// **Default empty** — every penalty coalesces per block, the correct
+    /// convention for ordinary (tensor/multi-penalty) smooths.
+    pub independent_prior_factor_labels: Vec<String>,
     /// Whether the outer smoothing optimizer screens the explicit
     /// `initial_rho` seed through the seed-screening cascade before the
     /// solver starts.
@@ -663,17 +667,13 @@ impl Default for BlockwiseFitOptions {
             outer_rel_cost_tol: None,
             rho_lower_bound: -10.0,
             minweight: CUSTOM_FAMILY_WEIGHT_FLOOR,
-            // `ridge_floor` is an ExplicitPrior in the canonical
-            // stabilization ledger taxonomy (`StabilizationKind::ExplicitPrior`):
-            // its δ enters the quadratic term, the Laplace Hessian, and the
-            // penalty log-determinant — `ridge_policy` below is the live
-            // policy that confirms which terms it lands in. The default
-            // pos-part policy enables every inclusion flag, so callers
-            // wanting solver-only damping should construct a custom policy
-            // (or, preferably, a `StabilizationLedger::numerical_perturbation`)
-            // rather than reusing this field.
-            ridge_floor: CUSTOM_FAMILY_RIDGE_FLOOR,
-            ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
+            // Conditioning is solver state, not a coefficient prior. Start at
+            // the exact Hessian (zero shift); rank/curvature-aware damping may
+            // regularize rejected Newton steps, but none of it enters the
+            // objective or its derivatives and convergence is certified on the
+            // undamped KKT residual.
+            ridge_floor: 0.0,
+            ridge_policy: RidgePolicy::solver_only(),
             use_remlobjective: true,
             // Default ON: families expose exact outer Hessians whenever their
             // analytic dense or operator representation is implemented.
@@ -689,6 +689,7 @@ impl Default for BlockwiseFitOptions {
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
+            independent_prior_factor_labels: Vec::new(),
             screen_initial_rho: true,
         }
     }
@@ -801,44 +802,13 @@ mod tests {
         assert_eq!(first_order_bfgs_loglambda_step_cap(true), None);
     }
 
-    // -----------------------------------------------------------------------
-    // cost_gated_first_order_max_iter
-    // -----------------------------------------------------------------------
-
     #[test]
-    fn cost_gated_iter_passes_through_when_has_outer_hessian() {
-        assert_eq!(
-            cost_gated_first_order_max_iter(100, 1_000_000_000, true),
-            100
-        );
-    }
-
-    #[test]
-    fn cost_gated_iter_passes_through_at_one_iteration() {
-        assert_eq!(
-            cost_gated_first_order_max_iter(1, 1_000_000_000_000, false),
-            1
-        );
-    }
-
-    #[test]
-    fn cost_gated_iter_passes_through_zero_cost() {
-        assert_eq!(cost_gated_first_order_max_iter(200, 0, false), 200);
-    }
-
-    #[test]
-    fn cost_gated_iter_clamps_expensive_gradient() {
-        // Budget = 80_000_000_000. With cost = 1_000_000_000 the affordable
-        // count is 80. requested=200 should be clamped to 80.
-        let result = cost_gated_first_order_max_iter(200, 1_000_000_000, false);
-        assert!(result <= 80, "got {result}");
-        assert!(result >= 4, "got {result}");
-    }
-
-    #[test]
-    fn cost_gated_iter_enforces_minimum_four() {
-        // Cost so high only 1 iteration is affordable, but minimum is 4.
-        let result = cost_gated_first_order_max_iter(100, u64::MAX / 2, false);
-        assert_eq!(result, 4);
+    fn default_custom_family_objective_is_coefficient_ridge_free() {
+        let options = BlockwiseFitOptions::default();
+        assert_eq!(options.ridge_floor, 0.0);
+        assert!(options.ridge_policy.rho_independent);
+        assert!(!options.ridge_policy.include_quadratic_penalty);
+        assert!(!options.ridge_policy.include_penalty_logdet);
+        assert!(!options.ridge_policy.include_laplacehessian);
     }
 }

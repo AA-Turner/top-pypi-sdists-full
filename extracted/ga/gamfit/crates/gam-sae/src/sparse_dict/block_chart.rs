@@ -2,8 +2,7 @@ use ndarray::{Array2, ArrayView2, ArrayView3};
 
 use super::block::{
     block_sparse_dictionary_block_coords, block_sparse_dictionary_project_residual,
-    block_sparse_dictionary_project_residual_with_codes,
-    reconstruct_block_sparse_rows,
+    block_sparse_dictionary_project_residual_with_codes, reconstruct_block_sparse_rows,
 };
 
 #[derive(Clone, Debug)]
@@ -15,8 +14,8 @@ pub struct BlockChartComposeConfig {
     pub min_firings: usize,
     pub max_blocks: usize,
     pub crossfit_folds: usize,
-    pub alpha: f64,
     pub min_effect: f64,
+    /// Dimensionless ridge fraction of the largest covariance eigenvalue.
     pub whitening_ridge: f64,
     pub pair_screen: bool,
     pub pair_top_blocks: usize,
@@ -28,6 +27,16 @@ pub struct BlockChartComposeConfig {
     pub block_tile: usize,
 }
 
+/// Declared target FDR level `α` for the genuine universal-inference split-LR
+/// e-value + full-family e-BH discovery certificate (#2246). Distinct from the
+/// descriptive `selected_by_bic` gate: the screened family FEEDS e-BH at this
+/// level, and [`BlockChartComposeResult::fdr_selected_chart_blocks`] /
+/// `fdr_selected_chart_pairs` are the candidates confirmed at FDR ≤ `α`. A
+/// module constant (not a `BlockChartComposeConfig` field) so the honest
+/// discovery certificate is always emitted without churning every caller's
+/// explicit config literal.
+pub const CHART_FDR_ALPHA: f64 = 0.1;
+
 impl Default for BlockChartComposeConfig {
     fn default() -> Self {
         Self {
@@ -38,7 +47,6 @@ impl Default for BlockChartComposeConfig {
             min_firings: 64,
             max_blocks: 256,
             crossfit_folds: 2,
-            alpha: 0.10,
             min_effect: 0.0,
             whitening_ridge: 1.0e-8,
             pair_screen: true,
@@ -73,11 +81,23 @@ pub struct ChartEvidence {
     pub charge: f64,
     /// `deviance_gain − charge` in NATS — scale-invariant.
     pub margin: f64,
-    /// `margin.max(0)` in NATS: an `exp(margin)` BIC-style e-value's log, needing
-    /// no per-unit rescale (the S4 fix; formerly `margin / mean_SSE`).
-    pub log_e_value: f64,
-    pub accepted_pre_ebh: bool,
-    pub accepted: bool,
+    /// Descriptive model-selection verdict: positive held-out BIC margin above
+    /// `min_effect`, with a positive lower confidence bound on mean deviance.
+    /// This is not a p-value, e-value, or FDR-controlled discovery.
+    pub selected_by_bic: bool,
+    /// Genuine universal-inference split-LR log-e-value (#2246): `ln Ē` for the
+    /// cross-fit e-value `Ē = p_alt(D1; θ̂_{D0}) / sup_{H0} p_null(D1)` with the
+    /// radial-ring alternative fit on a disjoint split and the linear-shell null
+    /// re-maximized on the held-out fold. Satisfies `E_{H0}[E] ≤ 1` (unlike the
+    /// BIC `margin`), so it — not `margin` — is the quantity fed to e-BH. `−∞`
+    /// for a candidate too degenerate to support a curved claim. See
+    /// [`super::shell_vs_ring_log_evalue`].
+    pub log_e: f64,
+    /// Whether the full-family e-BH over every screened candidate's `log_e`
+    /// confirmed THIS candidate as genuine curved structure at the configured
+    /// `fdr_alpha`. Set by [`compose_block_coordinate_charts`] after the family
+    /// is assembled; `false` in a standalone [`ChartEvidence`].
+    pub fdr_selected: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -94,8 +114,17 @@ pub struct BlockChartComposeResult {
     pub block_records: Vec<BlockChartRecord>,
     pub pair_records: Vec<BlockChartRecord>,
     pub selected_blocks: Vec<usize>,
-    pub accepted_blocks: Vec<usize>,
-    pub accepted_pairs: Vec<(usize, usize)>,
+    pub selected_chart_blocks: Vec<usize>,
+    pub selected_chart_pairs: Vec<(usize, usize)>,
+    /// Declared FDR level `α` the discovery certificate below controls at.
+    pub fdr_alpha: f64,
+    /// Single blocks whose curved chart the full-family e-BH confirms as genuine
+    /// structure at FDR ≤ `fdr_alpha` (#2246). This is the honest discovery list;
+    /// `selected_chart_blocks` above is the descriptive BIC gate for comparison.
+    pub fdr_selected_chart_blocks: Vec<usize>,
+    /// Block pairs whose curved chart the full-family e-BH confirms at FDR ≤
+    /// `fdr_alpha`.
+    pub fdr_selected_chart_pairs: Vec<(usize, usize)>,
 }
 
 #[derive(Clone, Debug)]
@@ -234,12 +263,11 @@ pub fn compose_block_coordinate_charts(
         }
     }
 
-    apply_ebh(&mut singles, &mut pairs, config.alpha, config.min_effect);
     let mut reconstructed = base;
     let mut replaced = vec![vec![false; decoder.nrows() / config.block_size]; x.nrows()];
 
     for pair in &pairs {
-        if !pair.evidence.accepted {
+        if !pair.evidence.selected_by_bic {
             continue;
         }
         let b = config.block_size;
@@ -272,7 +300,7 @@ pub fn compose_block_coordinate_charts(
     }
 
     for single in &singles {
-        if !single.evidence.accepted {
+        if !single.evidence.selected_by_bic {
             continue;
         }
         let g = single.blocks[0];
@@ -305,6 +333,34 @@ pub fn compose_block_coordinate_charts(
         }
     }
 
+    // Genuine FDR-controlled discovery (#2246): the screened family — EVERY
+    // single and pair the energy/score screen surfaced — feeds one full-family
+    // e-BH over the universal-inference split-LR log-e-values. The screen feeds
+    // the family, it does NOT gate it: running e-BH over only the BIC-selected
+    // subset would redefine the family post hoc and void the guarantee. Order is
+    // singles first, then pairs, so a rejected index < singles.len() is a single.
+    let mut family_log_e: Vec<f64> = Vec::with_capacity(singles.len() + pairs.len());
+    family_log_e.extend(singles.iter().map(|c| c.evidence.log_e));
+    family_log_e.extend(pairs.iter().map(|c| c.evidence.log_e));
+    let fdr = super::split_lr_fdr::family_fdr_certificate(family_log_e, CHART_FDR_ALPHA);
+    for &idx in &fdr.rejected {
+        if idx < singles.len() {
+            singles[idx].evidence.fdr_selected = true;
+        } else {
+            pairs[idx - singles.len()].evidence.fdr_selected = true;
+        }
+    }
+    let fdr_selected_chart_blocks = singles
+        .iter()
+        .filter(|c| c.evidence.fdr_selected)
+        .map(|c| c.blocks[0])
+        .collect::<Vec<_>>();
+    let fdr_selected_chart_pairs = pairs
+        .iter()
+        .filter(|c| c.evidence.fdr_selected)
+        .map(|c| (c.blocks[0], c.blocks[1]))
+        .collect::<Vec<_>>();
+
     let block_records = singles
         .iter()
         .map(|c| BlockChartRecord {
@@ -323,14 +379,14 @@ pub fn compose_block_coordinate_charts(
             evidence: c.evidence.clone(),
         })
         .collect::<Vec<_>>();
-    let accepted_blocks = singles
+    let selected_chart_blocks = singles
         .iter()
-        .filter(|c| c.evidence.accepted)
+        .filter(|c| c.evidence.selected_by_bic)
         .map(|c| c.blocks[0])
         .collect::<Vec<_>>();
-    let accepted_pairs = pairs
+    let selected_chart_pairs = pairs
         .iter()
-        .filter(|c| c.evidence.accepted)
+        .filter(|c| c.evidence.selected_by_bic)
         .map(|c| (c.blocks[0], c.blocks[1]))
         .collect::<Vec<_>>();
     Ok(BlockChartComposeResult {
@@ -338,8 +394,11 @@ pub fn compose_block_coordinate_charts(
         block_records,
         pair_records,
         selected_blocks: selected,
-        accepted_blocks,
-        accepted_pairs,
+        selected_chart_blocks,
+        selected_chart_pairs,
+        fdr_alpha: CHART_FDR_ALPHA,
+        fdr_selected_chart_blocks,
+        fdr_selected_chart_pairs,
     })
 }
 
@@ -491,10 +550,13 @@ pub fn block_sparse_dictionary_seed_manifest(
 /// sets each coordinate's standard error, but the two arms transmit DIFFERENT kinds
 /// of coordinate and are coded at their OWN resolution (the S5 fix). The circle
 /// chart transmits one PHASE `t = θ/(2π)`, whose arc position ranges over the
-/// circumference `2π‖z‖`, so `SE_phase = σ̂/(2π‖z‖)`
-/// ([`super::coordinate::phase_coordinate_se`]). The flat block transmits
-/// `block_size` AMPLITUDE coefficients, each ranging over the radius `‖z‖`, so
-/// `SE_amp = σ̂/‖z‖ = 2π·SE_phase` — a factor `2π` LARGER, hence `log₂(2π)` bits
+/// circumference `2π·â` at the bias-corrected amplitude `â = √max(‖z‖² − 2σ̂², 0)`,
+/// so `SE_phase = σ̂/(2π·â)` ([`super::coordinate::phase_coordinate_se`], which
+/// evaluates the delta method at the true amplitude rather than the noise-inflated
+/// observed radius and saturates at the uniform-phase ceiling). The flat block
+/// transmits `block_size` AMPLITUDE coefficients, each ranging over the radius
+/// `‖z‖`, so `SE_amp = σ̂/‖z‖`; at the high-SNR regime where `â ≈ ‖z‖` this is
+/// `SE_amp ≈ 2π·SE_phase` — a factor `2π` LARGER, hence `log₂(2π)` bits
 /// CHEAPER per coordinate. Pricing the flat block's amplitudes at the finer phase
 /// rate (as a shared SE did) was an ≈ `block_size·log₂(2π)`-bit-per-firing
 /// pro-chart bias; each scalar is now coded at
@@ -517,7 +579,12 @@ fn matched_dl_for_block(
     let n_fire = firing_coords.nrows();
     let mut norms: Vec<f64> = Vec::with_capacity(n_fire);
     for row in firing_coords.rows() {
-        norms.push(row.iter().map(|&v| (v as f64) * (v as f64)).sum::<f64>().sqrt());
+        norms.push(
+            row.iter()
+                .map(|&v| (v as f64) * (v as f64))
+                .sum::<f64>()
+                .sqrt(),
+        );
     }
     let sigma_hat = if n_fire >= 2 {
         let mean = norms.iter().sum::<f64>() / n_fire as f64;
@@ -528,16 +595,24 @@ fn matched_dl_for_block(
     };
     // PER-ARM per-scalar resolution. Both arms derive from the SAME σ̂ and radii,
     // but transmit different coordinates: the chart a phase over the circumference
-    // `2π‖z‖` (SE_phase = σ̂/(2π‖z‖)), the flat block amplitudes over the radius
-    // `‖z‖` (SE_amp = σ̂/‖z‖ = 2π·SE_phase). se_resolution_bits floors a zero-norm /
-    // unidentified firing to 0 bits, so a `+∞` amplitude SE needs no clamp.
+    // `2π·â` at the bias-corrected amplitude `â = √max(‖z‖²−2σ̂²,0)`
+    // (SE_phase = σ̂/(2π·â), saturating at the uniform-phase ceiling), the flat
+    // block amplitudes over the radius `‖z‖` (SE_amp = σ̂/‖z‖). se_resolution_bits
+    // floors a zero-norm / unidentified firing to 0 bits, so a `+∞` amplitude SE
+    // needs no clamp.
     let phase_ses: Vec<f64> = norms
         .iter()
         .map(|&nz| super::coordinate::phase_coordinate_se(sigma_hat, nz))
         .collect();
     let amp_ses: Vec<f64> = norms
         .iter()
-        .map(|&nz| if nz > 0.0 { sigma_hat / nz } else { f64::INFINITY })
+        .map(|&nz| {
+            if nz > 0.0 {
+                sigma_hat / nz
+            } else {
+                f64::INFINITY
+            }
+        })
         .collect();
     // Distortion-matched per-scalar decoder precision, PER ARM: the mean per-firing
     // coding rate of THAT arm's coordinate (the `description_length::score`
@@ -608,9 +683,6 @@ fn validate_inputs(
             blocks.dim(),
             codes.shape()
         ));
-    }
-    if !(config.alpha > 0.0 && config.alpha <= 1.0) {
-        return Err("block chart compose: alpha must be in (0, 1]".to_string());
     }
     if config.block_tile == 0 {
         return Err("block chart compose: block_tile must be >= 1".to_string());
@@ -813,9 +885,13 @@ fn crossfit_evidence(
     let gain = n_eff.max(2.0) * mean_delta;
     let charge = 0.5 * d_eff * n_eff.max(2.0).ln();
     let margin = gain - charge;
-    // Both terms are nats; the log-e-value is the margin directly (an exp(margin)
-    // BIC-style e-value) — no per-unit rescale, and so scale-invariant.
-    let log_e_value = margin.max(0.0);
+    // Genuine universal-inference split-LR log-e-value on the SAME coordinate
+    // rows (#2246): a valid `E_{H0}[E] ≤ 1` instrument, unlike the descriptive
+    // BIC `margin` above. Fed to the full-family e-BH in
+    // `compose_block_coordinate_charts`; `fdr_selected` is set there.
+    let coords64 = to_f64(coords);
+    let log_e =
+        super::split_lr_fdr::shell_vs_ring_log_evalue(&coords64, folds, config.whitening_ridge)?;
     Ok(ChartEvidence {
         n_rows: n,
         n_effective: n_eff,
@@ -828,63 +904,10 @@ fn crossfit_evidence(
         ci_high,
         charge,
         margin,
-        log_e_value,
-        accepted_pre_ebh: margin >= config.min_effect && ci_low > 0.0,
-        accepted: false,
+        selected_by_bic: margin >= config.min_effect && ci_low > 0.0,
+        log_e,
+        fdr_selected: false,
     })
-}
-
-fn apply_ebh(
-    singles: &mut [CandidateFit],
-    pairs: &mut [CandidateFit],
-    alpha: f64,
-    min_effect: f64,
-) {
-    let mut logs = Vec::new();
-    let mut refs = Vec::<(bool, usize)>::new();
-    for (i, c) in singles.iter().enumerate() {
-        if c.evidence.accepted_pre_ebh && c.evidence.margin >= min_effect {
-            logs.push(c.evidence.log_e_value);
-            refs.push((false, i));
-        }
-    }
-    for (i, c) in pairs.iter().enumerate() {
-        if c.evidence.accepted_pre_ebh && c.evidence.margin >= min_effect {
-            logs.push(c.evidence.log_e_value);
-            refs.push((true, i));
-        }
-    }
-    let keep = ebh(&logs, alpha);
-    for (ok, (is_pair, idx)) in keep.into_iter().zip(refs.into_iter()) {
-        if is_pair {
-            pairs[idx].evidence.accepted = ok;
-        } else {
-            singles[idx].evidence.accepted = ok;
-        }
-    }
-}
-
-fn ebh(logs: &[f64], alpha: f64) -> Vec<bool> {
-    let m = logs.len();
-    let mut order = (0..m).collect::<Vec<_>>();
-    order.sort_by(|&a, &b| {
-        logs[b]
-            .partial_cmp(&logs[a])
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    let mut k_star = 0usize;
-    for (rank0, &idx) in order.iter().enumerate() {
-        let rank = rank0 + 1;
-        let threshold = (m as f64 / (alpha * rank as f64)).ln();
-        if logs[idx] >= threshold {
-            k_star = rank;
-        }
-    }
-    let mut keep = vec![false; m];
-    for &idx in order.iter().take(k_star) {
-        keep[idx] = true;
-    }
-    keep
 }
 
 fn fit_radial_chart_all(coords: &Array2<f32>, ridge: f64) -> Result<Array2<f64>, String> {
@@ -919,8 +942,14 @@ fn fit_whitening(coords: &Array2<f32>, ridge: f64) -> Result<Whitening, String> 
         *v /= denom;
     }
     let (vals, eigvec) = jacobi_eigh(cov, d)?;
-    let max_eval = vals.iter().copied().fold(0.0, f64::max).max(1.0);
-    let floor = ridge.max(f64::EPSILON * max_eval);
+    let max_eval = vals.iter().copied().fold(0.0, f64::max);
+    if !(ridge.is_finite() && ridge >= 0.0) {
+        return Err(format!(
+            "whitening ridge fraction must be finite and non-negative; got {ridge}"
+        ));
+    }
+    let spectral_scale = max_eval.max(f64::MIN_POSITIVE);
+    let floor = (ridge * spectral_scale).max(f64::EPSILON * spectral_scale);
     let scale = vals
         .into_iter()
         .map(|v| (v.max(0.0) + floor).sqrt())
@@ -1041,7 +1070,7 @@ fn radial_predict(train: &Array2<f64>, eval: &Array2<f64>) -> Array2<f64> {
     out
 }
 
-fn jacobi_eigh(mut a: Vec<f64>, n: usize) -> Result<(Vec<f64>, Vec<f64>), String> {
+pub(crate) fn jacobi_eigh(mut a: Vec<f64>, n: usize) -> Result<(Vec<f64>, Vec<f64>), String> {
     if a.len() != n * n {
         return Err("jacobi_eigh: matrix length mismatch".to_string());
     }
@@ -1378,39 +1407,40 @@ mod tests {
     }
 
     #[test]
-    fn crossfit_evidence_verdict_and_e_value_are_scale_invariant() {
-        // The S4 currency fix: the acceptance margin and e-value are scored in the
-        // profiled-deviance currency (nats), so rescaling the coordinates cannot
-        // change the verdict. Ridge = 0 makes the whitening's eigenvalue floor
-        // relative (EPSILON·max_eval), so the whole pipeline is exactly
-        // scale-equivariant and the invariance is pinned to f64 rounding.
+    fn crossfit_bic_selection_is_scale_invariant() {
+        // The descriptive BIC margin is scored in the profiled-deviance currency
+        // (nats), so rescaling the coordinates cannot change the verdict. This
+        // exercises the SHIPPED default whitening_ridge (a dimensionless fraction
+        // of the largest covariance eigenvalue): the eigenvalue floor is
+        // `ridge·max_eval`, which scales with the data like every other term, so
+        // the whole pipeline is exactly scale-equivariant and the invariance is
+        // pinned to f64 rounding — not an artefact of setting ridge to zero.
         let coords = annulus(400);
-        let config = BlockChartComposeConfig {
-            whitening_ridge: 0.0,
-            ..Default::default()
-        };
+        let config = BlockChartComposeConfig::default();
+        assert!(
+            config.whitening_ridge > 0.0,
+            "the default ridge must be exercised (a nonzero absolute ridge would break \
+             scale-equivariance; the relative-fraction ridge does not)"
+        );
         let base = crossfit_evidence(&coords, &config).expect("evidence");
 
         // The ring is a genuine curved structure: the chart must beat the linear
         // comparator (a meaningful ACCEPT, not a trivial tie).
         assert!(base.deviance_gain > 0.0, "chart must beat linear on a ring");
-        assert!(base.accepted_pre_ebh, "the ring must be accepted pre-eBH");
+        assert!(
+            base.selected_by_bic,
+            "the ring must be selected by held-out BIC"
+        );
 
         // Rescale every coordinate by 10 (SSE ×100). Deviance-scale scoring must
-        // leave the verdict AND the e-value unchanged.
+        // leave the verdict and margin unchanged.
         let mut scaled = coords.clone();
         scaled.mapv_inplace(|v| v * 10.0);
         let big = crossfit_evidence(&scaled, &config).expect("evidence scaled");
 
         assert_eq!(
-            base.accepted_pre_ebh, big.accepted_pre_ebh,
+            base.selected_by_bic, big.selected_by_bic,
             "accept/reject verdict must be scale-invariant"
-        );
-        assert!(
-            (base.log_e_value - big.log_e_value).abs() < 1e-6,
-            "e-value must be scale-invariant: {} vs {}",
-            base.log_e_value,
-            big.log_e_value
         );
         assert!(
             (base.margin - big.margin).abs() < 1e-6,

@@ -3,6 +3,7 @@ from sqlite_utils.db import Index, ForeignKey
 from click.testing import CliRunner
 from pathlib import Path
 import subprocess
+import sqlite3
 import sys
 import json
 import os
@@ -289,6 +290,24 @@ def test_create_index(db_path):
             CliRunner().invoke(cli.cli, create_index_unique_args + [option]).exit_code
             == 0
         )
+
+
+def test_drop_index(db_path):
+    db = Database(db_path)
+    db["Gosh"].create_index(["c1"])
+    assert [index.name for index in db["Gosh"].indexes] == ["idx_Gosh_c1"]
+    result = CliRunner().invoke(cli.cli, ["drop-index", db_path, "Gosh", "idx_Gosh_c1"])
+    assert result.exit_code == 0
+    assert db["Gosh"].indexes == []
+
+    result = CliRunner().invoke(cli.cli, ["drop-index", db_path, "Gosh", "idx_Gosh_c1"])
+    assert result.exit_code == 1
+    assert "No index named idx_Gosh_c1" in result.output
+
+    result = CliRunner().invoke(
+        cli.cli, ["drop-index", db_path, "Gosh", "idx_Gosh_c1", "--ignore"]
+    )
+    assert result.exit_code == 0
 
 
 def test_create_index_analyze(db_path):
@@ -782,6 +801,25 @@ def test_query_json(db_path, sql, args, expected):
     assert expected == result.output.strip()
 
 
+def test_query_sql_from_stdin(db_path):
+    # https://github.com/simonw/sqlite-utils/issues/765
+    db = Database(db_path)
+    with db.conn:
+        db["dogs"].insert_all(
+            [
+                {"id": 1, "age": 4, "name": "Cleo"},
+                {"id": 2, "age": 2, "name": "Pancakes"},
+            ]
+        )
+    result = CliRunner().invoke(
+        cli.cli,
+        ["query", db_path, "-"],
+        input="select name from dogs order by name",
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == [{"name": "Cleo"}, {"name": "Pancakes"}]
+
+
 def test_query_json_empty(db_path):
     result = CliRunner().invoke(
         cli.cli,
@@ -1216,8 +1254,9 @@ def test_upsert(db_path, tmpdir):
     ]
 
 
-def test_upsert_pk_required(db_path, tmpdir):
+def test_upsert_pk_inferred_from_existing_table(db_path, tmpdir):
     json_path = str(tmpdir / "dogs.json")
+    db = Database(db_path)
     insert_dogs = [
         {"id": 1, "name": "Cleo", "age": 4},
         {"id": 2, "name": "Nixie", "age": 4},
@@ -1225,11 +1264,28 @@ def test_upsert_pk_required(db_path, tmpdir):
     write_json(json_path, insert_dogs)
     result = CliRunner().invoke(
         cli.cli,
+        ["insert", db_path, "dogs", json_path, "--pk", "id"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+
+    write_json(
+        json_path,
+        [
+            {"id": 1, "age": 5},
+            {"id": 2, "age": 5},
+        ],
+    )
+    result = CliRunner().invoke(
+        cli.cli,
         ["upsert", db_path, "dogs", json_path],
         catch_exceptions=False,
     )
-    assert result.exit_code == 2
-    assert "Error: Missing option '--pk'" in result.output
+    assert result.exit_code == 0, result.output
+    assert list(db.query("select * from dogs order by id")) == [
+        {"id": 1, "name": "Cleo", "age": 5},
+        {"id": 2, "name": "Nixie", "age": 5},
+    ]
 
 
 def test_upsert_analyze(db_path, tmpdir):
@@ -1882,6 +1938,64 @@ def test_transform_sql(db_path):
     assert 'DROP TABLE "dogs";' in result.output
     assert 'ALTER TABLE "dogs_new_' in result.output
     assert db["dogs"].schema == original_schema
+
+
+@pytest.mark.parametrize(
+    "initial_strict,args,expected_strict",
+    (
+        (False, [], False),
+        (True, [], True),
+        (False, ["--strict"], True),
+        (True, ["--no-strict"], False),
+    ),
+)
+def test_transform_strict_option(db_path, initial_strict, args, expected_strict):
+    db = Database(db_path)
+    if not db.supports_strict:
+        pytest.skip("SQLite version does not support strict tables")
+    db["dogs"].create({"id": int}, strict=initial_strict)
+
+    result = CliRunner().invoke(cli.cli, ["transform", db_path, "dogs"] + args)
+
+    assert result.exit_code == 0, result.output
+    assert db["dogs"].strict is expected_strict
+
+
+@pytest.mark.parametrize(
+    "initial_strict,flag,sql_is_strict",
+    (
+        (False, "--strict", True),
+        (True, "--no-strict", False),
+    ),
+)
+def test_transform_strict_option_sql(db_path, initial_strict, flag, sql_is_strict):
+    db = Database(db_path)
+    if not db.supports_strict:
+        pytest.skip("SQLite version does not support strict tables")
+    db["dogs"].create({"id": int}, strict=initial_strict)
+
+    result = CliRunner().invoke(cli.cli, ["transform", db_path, "dogs", flag, "--sql"])
+
+    assert result.exit_code == 0, result.output
+    assert (") STRICT;" in result.output) is sql_is_strict
+    assert db["dogs"].strict is initial_strict
+
+
+def test_transform_strict_option_with_invalid_data(db_path):
+    db = Database(db_path)
+    if not db.supports_strict:
+        pytest.skip("SQLite version does not support strict tables")
+    dogs = db["dogs"]
+    dogs.create({"id": int})
+    dogs.insert({"id": "not-an-integer"})
+
+    result = CliRunner().invoke(cli.cli, ["transform", db_path, "dogs", "--strict"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, sqlite3.IntegrityError)
+    assert dogs.strict is False
+    assert list(dogs.rows) == [{"id": "not-an-integer"}]
+    assert not any(name.startswith("dogs_new_") for name in db.table_names())
 
 
 @pytest.mark.parametrize(

@@ -136,20 +136,7 @@ def _rust_descriptor_class(name: str) -> type[Any]:
     existing consumer.
     """
     module = _rust_module()
-    rust_cls = getattr(module, name, None)
-    if rust_cls is None:
-
-        class _MissingRustDescriptor:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                del args, kwargs
-                raise AttributeError(
-                    f"gamfit._rust does not expose {name}; rebuild the local Rust extension"
-                )
-
-        _MissingRustDescriptor.__name__ = name
-        _MissingRustDescriptor.__qualname__ = name
-        return _MissingRustDescriptor
-
+    rust_cls = getattr(module, name)
     wrapper = _build_penalty_wrapper(name, rust_cls)
     return wrapper
 
@@ -633,7 +620,7 @@ serializes to ``kind="topk_activation"``. Direct evaluation uses the same Rust
     "JumpReLUPenalty": """Analytic JumpReLU SAE sparsity penalty descriptor.
 
 Represents the hard-threshold SAE assignment family exposed by
-``sae_manifold_fit(..., assignment="jumprelu")``. The Python wrapper forwards
+``sae_manifold_fit(..., assignment="threshold_gate")``. The Python wrapper forwards
 constructor arguments to the Rust descriptor and
 supports ``value_grad(t)`` / ``hvp(t, v)`` in NumPy, Torch, and JAX frames.
 """,

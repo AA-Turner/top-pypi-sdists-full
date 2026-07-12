@@ -18,7 +18,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class AdGroupAdsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, advertiserId: str, body: AdGroupAd = ..., **kwargs: typing.Any
+                self, *, advertiserId: str, body: AdGroupAd, **kwargs: typing.Any
             ) -> AdGroupAdHttpRequest: ...
             def delete(
                 self, *, advertiserId: str, adGroupAdId: str, **kwargs: typing.Any
@@ -30,10 +30,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAdGroupAdsResponseHttpRequest: ...
             def list_next(
@@ -46,8 +46,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 adGroupAdId: str,
-                body: AdGroupAd = ...,
-                updateMask: str = ...,
+                body: AdGroupAd,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AdGroupAdHttpRequest: ...
 
@@ -117,7 +117,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                             "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                             "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                         ],
-                        body: AssignedTargetingOption = ...,
+                        body: AssignedTargetingOption,
                         **kwargs: typing.Any,
                     ) -> AssignedTargetingOptionHttpRequest: ...
                     def delete(
@@ -300,10 +300,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                             "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                             "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                         ],
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListAdGroupAssignedTargetingOptionsResponseHttpRequest: ...
                     def list_next(
@@ -322,18 +322,18 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                body: BulkEditAdGroupAssignedTargetingOptionsRequest = ...,
+                body: BulkEditAdGroupAssignedTargetingOptionsRequest,
                 **kwargs: typing.Any,
             ) -> BulkEditAdGroupAssignedTargetingOptionsResponseHttpRequest: ...
             def bulkListAdGroupAssignedTargetingOptions(
                 self,
                 *,
                 advertiserId: str,
-                adGroupIds: str | _list[str] = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                adGroupIds: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> BulkListAdGroupAssignedTargetingOptionsResponseHttpRequest: ...
             def bulkListAdGroupAssignedTargetingOptions_next(
@@ -342,7 +342,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 previous_response: BulkListAdGroupAssignedTargetingOptionsResponse,
             ) -> BulkListAdGroupAssignedTargetingOptionsResponseHttpRequest | None: ...
             def create(
-                self, *, advertiserId: str, body: AdGroup = ..., **kwargs: typing.Any
+                self, *, advertiserId: str, body: AdGroup, **kwargs: typing.Any
             ) -> AdGroupHttpRequest: ...
             def delete(
                 self, *, advertiserId: str, adGroupId: str, **kwargs: typing.Any
@@ -354,10 +354,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAdGroupsResponseHttpRequest: ...
             def list_next(
@@ -370,8 +370,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 adGroupId: str,
-                body: AdGroup = ...,
-                updateMask: str = ...,
+                body: AdGroup,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AdGroupHttpRequest: ...
             def targetingTypes(self) -> TargetingTypesResource: ...
@@ -382,14 +382,14 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                body: CreateAssetRequest = ...,
+                body: CreateAssetRequest,
                 **kwargs: typing.Any,
             ) -> CreateAssetResponseHttpRequest: ...
 
         @typing.type_check_only
         class CampaignsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, advertiserId: str, body: Campaign = ..., **kwargs: typing.Any
+                self, *, advertiserId: str, body: Campaign, **kwargs: typing.Any
             ) -> CampaignHttpRequest: ...
             def delete(
                 self, *, advertiserId: str, campaignId: str, **kwargs: typing.Any
@@ -401,10 +401,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCampaignsResponseHttpRequest: ...
             def list_next(
@@ -417,8 +417,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 campaignId: str,
-                body: Campaign = ...,
-                updateMask: str = ...,
+                body: Campaign,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CampaignHttpRequest: ...
 
@@ -431,7 +431,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     channelId: str,
-                    body: BulkEditSitesRequest = ...,
+                    body: BulkEditSitesRequest,
                     **kwargs: typing.Any,
                 ) -> BulkEditSitesResponseHttpRequest: ...
                 def create(
@@ -439,8 +439,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     channelId: str,
-                    body: Site = ...,
-                    partnerId: str = ...,
+                    body: Site,
+                    partnerId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> SiteHttpRequest: ...
                 def delete(
@@ -449,7 +449,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     advertiserId: str,
                     channelId: str,
                     urlOrAppId: str,
-                    partnerId: str = ...,
+                    partnerId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def list(
@@ -457,11 +457,11 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     channelId: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    partnerId: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    partnerId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSitesResponseHttpRequest: ...
                 def list_next(
@@ -474,7 +474,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     channelId: str,
-                    body: ReplaceSitesRequest = ...,
+                    body: ReplaceSitesRequest,
                     **kwargs: typing.Any,
                 ) -> ReplaceSitesResponseHttpRequest: ...
 
@@ -482,8 +482,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                body: Channel = ...,
-                partnerId: str = ...,
+                body: Channel,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ChannelHttpRequest: ...
             def get(
@@ -491,18 +491,18 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 channelId: str,
-                partnerId: str = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ChannelHttpRequest: ...
             def list(
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                partnerId: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListChannelsResponseHttpRequest: ...
             def list_next(
@@ -515,9 +515,9 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 channelId: str,
-                body: Channel = ...,
-                partnerId: str = ...,
-                updateMask: str = ...,
+                body: Channel,
+                partnerId: str | None = ...,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ChannelHttpRequest: ...
             def sites(self) -> SitesResource: ...
@@ -525,7 +525,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class CreativesResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, advertiserId: str, body: Creative = ..., **kwargs: typing.Any
+                self, *, advertiserId: str, body: Creative, **kwargs: typing.Any
             ) -> CreativeHttpRequest: ...
             def delete(
                 self, *, advertiserId: str, creativeId: str, **kwargs: typing.Any
@@ -537,10 +537,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCreativesResponseHttpRequest: ...
             def list_next(
@@ -553,19 +553,15 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 creativeId: str,
-                body: Creative = ...,
-                updateMask: str = ...,
+                body: Creative,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CreativeHttpRequest: ...
 
         @typing.type_check_only
         class InsertionOrdersResource(googleapiclient.discovery.Resource):
             def create(
-                self,
-                *,
-                advertiserId: str,
-                body: InsertionOrder = ...,
-                **kwargs: typing.Any,
+                self, *, advertiserId: str, body: InsertionOrder, **kwargs: typing.Any
             ) -> InsertionOrderHttpRequest: ...
             def delete(
                 self, *, advertiserId: str, insertionOrderId: str, **kwargs: typing.Any
@@ -577,10 +573,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListInsertionOrdersResponseHttpRequest: ...
             def list_next(
@@ -593,8 +589,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 insertionOrderId: str,
-                body: InsertionOrder = ...,
-                updateMask: str = ...,
+                body: InsertionOrder,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> InsertionOrderHttpRequest: ...
 
@@ -604,14 +600,15 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                issueMonth: str = ...,
+                issueMonth: str | None = ...,
                 loiSapinInvoiceType: typing_extensions.Literal[
                     "LOI_SAPIN_INVOICE_TYPE_UNSPECIFIED",
                     "LOI_SAPIN_INVOICE_TYPE_MEDIA",
                     "LOI_SAPIN_INVOICE_TYPE_PLATFORM",
-                ] = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListInvoicesResponseHttpRequest: ...
             def list_next(
@@ -623,7 +620,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                invoiceMonth: str = ...,
+                invoiceMonth: str | None = ...,
                 **kwargs: typing.Any,
             ) -> LookupInvoiceCurrencyResponseHttpRequest: ...
 
@@ -693,7 +690,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                             "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                             "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                         ],
-                        body: AssignedTargetingOption = ...,
+                        body: AssignedTargetingOption,
                         **kwargs: typing.Any,
                     ) -> AssignedTargetingOptionHttpRequest: ...
                     def delete(
@@ -876,10 +873,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                             "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                             "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                         ],
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListLineItemAssignedTargetingOptionsResponseHttpRequest: ...
                     def list_next(
@@ -898,18 +895,18 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                body: BulkEditAssignedTargetingOptionsRequest = ...,
+                body: BulkEditAssignedTargetingOptionsRequest,
                 **kwargs: typing.Any,
             ) -> BulkEditAssignedTargetingOptionsResponseHttpRequest: ...
             def bulkListAssignedTargetingOptions(
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                lineItemIds: str | _list[str] = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                lineItemIds: str | _list[str] | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> BulkListAssignedTargetingOptionsResponseHttpRequest: ...
             def bulkListAssignedTargetingOptions_next(
@@ -921,11 +918,11 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                body: BulkUpdateLineItemsRequest = ...,
+                body: BulkUpdateLineItemsRequest,
                 **kwargs: typing.Any,
             ) -> BulkUpdateLineItemsResponseHttpRequest: ...
             def create(
-                self, *, advertiserId: str, body: LineItem = ..., **kwargs: typing.Any
+                self, *, advertiserId: str, body: LineItem, **kwargs: typing.Any
             ) -> LineItemHttpRequest: ...
             def delete(
                 self, *, advertiserId: str, lineItemId: str, **kwargs: typing.Any
@@ -935,7 +932,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 lineItemId: str,
-                body: DuplicateLineItemRequest = ...,
+                body: DuplicateLineItemRequest,
                 **kwargs: typing.Any,
             ) -> DuplicateLineItemResponseHttpRequest: ...
             def get(
@@ -945,10 +942,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLineItemsResponseHttpRequest: ...
             def list_next(
@@ -961,8 +958,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 lineItemId: str,
-                body: LineItem = ...,
-                updateMask: str = ...,
+                body: LineItem,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> LineItemHttpRequest: ...
             def targetingTypes(self) -> TargetingTypesResource: ...
@@ -976,7 +973,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     locationListId: str,
-                    body: BulkEditAssignedLocationsRequest = ...,
+                    body: BulkEditAssignedLocationsRequest,
                     **kwargs: typing.Any,
                 ) -> BulkEditAssignedLocationsResponseHttpRequest: ...
                 def create(
@@ -984,7 +981,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     locationListId: str,
-                    body: AssignedLocation = ...,
+                    body: AssignedLocation,
                     **kwargs: typing.Any,
                 ) -> AssignedLocationHttpRequest: ...
                 def delete(
@@ -1000,10 +997,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     locationListId: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAssignedLocationsResponseHttpRequest: ...
                 def list_next(
@@ -1013,11 +1010,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 ) -> ListAssignedLocationsResponseHttpRequest | None: ...
 
             def create(
-                self,
-                *,
-                advertiserId: str,
-                body: LocationList = ...,
-                **kwargs: typing.Any,
+                self, *, advertiserId: str, body: LocationList, **kwargs: typing.Any
             ) -> LocationListHttpRequest: ...
             def get(
                 self, *, advertiserId: str, locationListId: str, **kwargs: typing.Any
@@ -1026,10 +1019,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationListsResponseHttpRequest: ...
             def list_next(
@@ -1042,8 +1035,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 locationListId: str,
-                body: LocationList = ...,
-                updateMask: str = ...,
+                body: LocationList,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> LocationListHttpRequest: ...
             def assignedLocations(self) -> AssignedLocationsResource: ...
@@ -1057,7 +1050,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     negativeKeywordListId: str,
-                    body: BulkEditNegativeKeywordsRequest = ...,
+                    body: BulkEditNegativeKeywordsRequest,
                     **kwargs: typing.Any,
                 ) -> BulkEditNegativeKeywordsResponseHttpRequest: ...
                 def create(
@@ -1065,7 +1058,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     negativeKeywordListId: str,
-                    body: NegativeKeyword = ...,
+                    body: NegativeKeyword,
                     **kwargs: typing.Any,
                 ) -> NegativeKeywordHttpRequest: ...
                 def delete(
@@ -1081,10 +1074,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     negativeKeywordListId: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListNegativeKeywordsResponseHttpRequest: ...
                 def list_next(
@@ -1097,7 +1090,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     advertiserId: str,
                     negativeKeywordListId: str,
-                    body: ReplaceNegativeKeywordsRequest = ...,
+                    body: ReplaceNegativeKeywordsRequest,
                     **kwargs: typing.Any,
                 ) -> ReplaceNegativeKeywordsResponseHttpRequest: ...
 
@@ -1105,7 +1098,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                body: NegativeKeywordList = ...,
+                body: NegativeKeywordList,
                 **kwargs: typing.Any,
             ) -> NegativeKeywordListHttpRequest: ...
             def delete(
@@ -1126,8 +1119,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 advertiserId: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListNegativeKeywordListsResponseHttpRequest: ...
             def list_next(
@@ -1140,8 +1133,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 advertiserId: str,
                 negativeKeywordListId: str,
-                body: NegativeKeywordList = ...,
-                updateMask: str = ...,
+                body: NegativeKeywordList,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> NegativeKeywordListHttpRequest: ...
             def negativeKeywords(self) -> NegativeKeywordsResource: ...
@@ -1207,7 +1200,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                         "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                         "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                     ],
-                    body: AssignedTargetingOption = ...,
+                    body: AssignedTargetingOption,
                     **kwargs: typing.Any,
                 ) -> AssignedTargetingOptionHttpRequest: ...
                 def delete(
@@ -1387,10 +1380,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                         "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                         "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                     ],
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAdvertiserAssignedTargetingOptionsResponseHttpRequest: ...
                 def list_next(
@@ -1404,10 +1397,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             def assignedTargetingOptions(self) -> AssignedTargetingOptionsResource: ...
 
         def audit(
-            self, *, advertiserId: str, readMask: str = ..., **kwargs: typing.Any
+            self, *, advertiserId: str, readMask: str | None = ..., **kwargs: typing.Any
         ) -> AuditAdvertiserResponseHttpRequest: ...
         def create(
-            self, *, body: Advertiser = ..., **kwargs: typing.Any
+            self, *, body: Advertiser, **kwargs: typing.Any
         ) -> AdvertiserHttpRequest: ...
         def delete(
             self, *, advertiserId: str, **kwargs: typing.Any
@@ -1416,7 +1409,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             advertiserId: str,
-            body: BulkEditAdvertiserAssignedTargetingOptionsRequest = ...,
+            body: BulkEditAdvertiserAssignedTargetingOptionsRequest,
             **kwargs: typing.Any,
         ) -> BulkEditAdvertiserAssignedTargetingOptionsResponseHttpRequest: ...
         def get(
@@ -1425,11 +1418,11 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListAdvertisersResponseHttpRequest: ...
         def list_next(
@@ -1441,10 +1434,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             advertiserId: str,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> BulkListAdvertiserAssignedTargetingOptionsResponseHttpRequest: ...
         def listAssignedTargetingOptions_next(
@@ -1456,8 +1449,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             advertiserId: str,
-            body: Advertiser = ...,
-            updateMask: str = ...,
+            body: Advertiser,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> AdvertiserHttpRequest: ...
         def adGroupAds(self) -> AdGroupAdsResource: ...
@@ -1479,19 +1472,19 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             combinedAudienceId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> CombinedAudienceHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListCombinedAudiencesResponseHttpRequest: ...
         def list_next(
@@ -1508,9 +1501,9 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 customBiddingAlgorithmId: str,
-                body: CustomBiddingAlgorithmRules = ...,
-                advertiserId: str = ...,
-                partnerId: str = ...,
+                body: CustomBiddingAlgorithmRules,
+                advertiserId: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CustomBiddingAlgorithmRulesHttpRequest: ...
             def get(
@@ -1518,19 +1511,19 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 customBiddingAlgorithmId: str,
                 customBiddingAlgorithmRulesId: str,
-                advertiserId: str = ...,
-                partnerId: str = ...,
+                advertiserId: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CustomBiddingAlgorithmRulesHttpRequest: ...
             def list(
                 self,
                 *,
                 customBiddingAlgorithmId: str,
-                advertiserId: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                partnerId: str = ...,
+                advertiserId: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCustomBiddingAlgorithmRulesResponseHttpRequest: ...
             def list_next(
@@ -1545,9 +1538,9 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 customBiddingAlgorithmId: str,
-                body: CustomBiddingScript = ...,
-                advertiserId: str = ...,
-                partnerId: str = ...,
+                body: CustomBiddingScript,
+                advertiserId: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CustomBiddingScriptHttpRequest: ...
             def get(
@@ -1555,19 +1548,19 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 customBiddingAlgorithmId: str,
                 customBiddingScriptId: str,
-                advertiserId: str = ...,
-                partnerId: str = ...,
+                advertiserId: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CustomBiddingScriptHttpRequest: ...
             def list(
                 self,
                 *,
                 customBiddingAlgorithmId: str,
-                advertiserId: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                partnerId: str = ...,
+                advertiserId: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCustomBiddingScriptsResponseHttpRequest: ...
             def list_next(
@@ -1577,25 +1570,25 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             ) -> ListCustomBiddingScriptsResponseHttpRequest | None: ...
 
         def create(
-            self, *, body: CustomBiddingAlgorithm = ..., **kwargs: typing.Any
+            self, *, body: CustomBiddingAlgorithm, **kwargs: typing.Any
         ) -> CustomBiddingAlgorithmHttpRequest: ...
         def get(
             self,
             *,
             customBiddingAlgorithmId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> CustomBiddingAlgorithmHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListCustomBiddingAlgorithmsResponseHttpRequest: ...
         def list_next(
@@ -1607,24 +1600,24 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             customBiddingAlgorithmId: str,
-            body: CustomBiddingAlgorithm = ...,
-            updateMask: str = ...,
+            body: CustomBiddingAlgorithm,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> CustomBiddingAlgorithmHttpRequest: ...
         def uploadRules(
             self,
             *,
             customBiddingAlgorithmId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> CustomBiddingAlgorithmRulesRefHttpRequest: ...
         def uploadScript(
             self,
             *,
             customBiddingAlgorithmId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> CustomBiddingScriptRefHttpRequest: ...
         def rules(self) -> RulesResource: ...
@@ -1633,16 +1626,20 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class CustomListsResource(googleapiclient.discovery.Resource):
         def get(
-            self, *, customListId: str, advertiserId: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            customListId: str,
+            advertiserId: str | None = ...,
+            **kwargs: typing.Any,
         ) -> CustomListHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListCustomListsResponseHttpRequest: ...
         def list_next(
@@ -1656,34 +1653,34 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: FirstAndThirdPartyAudience = ...,
-            advertiserId: str = ...,
+            body: FirstAndThirdPartyAudience,
+            advertiserId: str | None = ...,
             **kwargs: typing.Any,
         ) -> FirstAndThirdPartyAudienceHttpRequest: ...
         def editCustomerMatchMembers(
             self,
             *,
             firstAndThirdPartyAudienceId: str,
-            body: EditCustomerMatchMembersRequest = ...,
+            body: EditCustomerMatchMembersRequest,
             **kwargs: typing.Any,
         ) -> EditCustomerMatchMembersResponseHttpRequest: ...
         def get(
             self,
             *,
             firstAndThirdPartyAudienceId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> FirstAndThirdPartyAudienceHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListFirstAndThirdPartyAudiencesResponseHttpRequest: ...
         def list_next(
@@ -1695,9 +1692,9 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             firstAndThirdPartyAudienceId: str,
-            body: FirstAndThirdPartyAudience = ...,
-            advertiserId: str = ...,
-            updateMask: str = ...,
+            body: FirstAndThirdPartyAudience,
+            advertiserId: str | None = ...,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> FirstAndThirdPartyAudienceHttpRequest: ...
 
@@ -1710,17 +1707,17 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 floodlightGroupId: str,
                 floodlightActivityId: str,
-                partnerId: str = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> FloodlightActivityHttpRequest: ...
             def list(
                 self,
                 *,
                 floodlightGroupId: str,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                partnerId: str = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListFloodlightActivitiesResponseHttpRequest: ...
             def list_next(
@@ -1730,15 +1727,19 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             ) -> ListFloodlightActivitiesResponseHttpRequest | None: ...
 
         def get(
-            self, *, floodlightGroupId: str, partnerId: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            floodlightGroupId: str,
+            partnerId: str | None = ...,
+            **kwargs: typing.Any,
         ) -> FloodlightGroupHttpRequest: ...
         def patch(
             self,
             *,
             floodlightGroupId: str,
-            body: FloodlightGroup = ...,
-            partnerId: str = ...,
-            updateMask: str = ...,
+            body: FloodlightGroup,
+            partnerId: str | None = ...,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> FloodlightGroupHttpRequest: ...
         def floodlightActivities(self) -> FloodlightActivitiesResource: ...
@@ -1749,19 +1750,19 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             googleAudienceId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleAudienceHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListGoogleAudiencesResponseHttpRequest: ...
         def list_next(
@@ -1775,35 +1776,35 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: GuaranteedOrder = ...,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            body: GuaranteedOrder,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> GuaranteedOrderHttpRequest: ...
         def editGuaranteedOrderReadAccessors(
             self,
             *,
             guaranteedOrderId: str,
-            body: EditGuaranteedOrderReadAccessorsRequest = ...,
+            body: EditGuaranteedOrderReadAccessorsRequest,
             **kwargs: typing.Any,
         ) -> EditGuaranteedOrderReadAccessorsResponseHttpRequest: ...
         def get(
             self,
             *,
             guaranteedOrderId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> GuaranteedOrderHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListGuaranteedOrdersResponseHttpRequest: ...
         def list_next(
@@ -1815,10 +1816,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             guaranteedOrderId: str,
-            body: GuaranteedOrder = ...,
-            advertiserId: str = ...,
-            partnerId: str = ...,
-            updateMask: str = ...,
+            body: GuaranteedOrder,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> GuaranteedOrderHttpRequest: ...
 
@@ -1830,16 +1831,16 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 inventorySourceGroupId: str,
-                body: BulkEditAssignedInventorySourcesRequest = ...,
+                body: BulkEditAssignedInventorySourcesRequest,
                 **kwargs: typing.Any,
             ) -> BulkEditAssignedInventorySourcesResponseHttpRequest: ...
             def create(
                 self,
                 *,
                 inventorySourceGroupId: str,
-                body: AssignedInventorySource = ...,
-                advertiserId: str = ...,
-                partnerId: str = ...,
+                body: AssignedInventorySource,
+                advertiserId: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AssignedInventorySourceHttpRequest: ...
             def delete(
@@ -1847,20 +1848,20 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 inventorySourceGroupId: str,
                 assignedInventorySourceId: str,
-                advertiserId: str = ...,
-                partnerId: str = ...,
+                advertiserId: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> EmptyHttpRequest: ...
             def list(
                 self,
                 *,
                 inventorySourceGroupId: str,
-                advertiserId: str = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                partnerId: str = ...,
+                advertiserId: str | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                partnerId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAssignedInventorySourcesResponseHttpRequest: ...
             def list_next(
@@ -1872,36 +1873,36 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: InventorySourceGroup = ...,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            body: InventorySourceGroup,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> InventorySourceGroupHttpRequest: ...
         def delete(
             self,
             *,
             inventorySourceGroupId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> EmptyHttpRequest: ...
         def get(
             self,
             *,
             inventorySourceGroupId: str,
-            advertiserId: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> InventorySourceGroupHttpRequest: ...
         def list(
             self,
             *,
-            advertiserId: str = ...,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            partnerId: str = ...,
+            advertiserId: str | None = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            partnerId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListInventorySourceGroupsResponseHttpRequest: ...
         def list_next(
@@ -1913,10 +1914,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             inventorySourceGroupId: str,
-            body: InventorySourceGroup = ...,
-            advertiserId: str = ...,
-            partnerId: str = ...,
-            updateMask: str = ...,
+            body: InventorySourceGroup,
+            advertiserId: str | None = ...,
+            partnerId: str | None = ...,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> InventorySourceGroupHttpRequest: ...
         def assignedInventorySources(self) -> AssignedInventorySourcesResource: ...
@@ -1933,7 +1934,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             resourceName: str,
-            body: GoogleBytestreamMedia = ...,
+            body: GoogleBytestreamMedia,
             **kwargs: typing.Any,
         ) -> GoogleBytestreamMediaHttpRequest: ...
 
@@ -1948,7 +1949,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     partnerId: str,
                     channelId: str,
-                    body: BulkEditSitesRequest = ...,
+                    body: BulkEditSitesRequest,
                     **kwargs: typing.Any,
                 ) -> BulkEditSitesResponseHttpRequest: ...
                 def create(
@@ -1956,8 +1957,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     partnerId: str,
                     channelId: str,
-                    body: Site = ...,
-                    advertiserId: str = ...,
+                    body: Site,
+                    advertiserId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> SiteHttpRequest: ...
                 def delete(
@@ -1966,7 +1967,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     partnerId: str,
                     channelId: str,
                     urlOrAppId: str,
-                    advertiserId: str = ...,
+                    advertiserId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def list(
@@ -1974,11 +1975,11 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     partnerId: str,
                     channelId: str,
-                    advertiserId: str = ...,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    advertiserId: str | None = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSitesResponseHttpRequest: ...
                 def list_next(
@@ -1991,7 +1992,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     *,
                     partnerId: str,
                     channelId: str,
-                    body: ReplaceSitesRequest = ...,
+                    body: ReplaceSitesRequest,
                     **kwargs: typing.Any,
                 ) -> ReplaceSitesResponseHttpRequest: ...
 
@@ -1999,8 +2000,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 partnerId: str,
-                body: Channel = ...,
-                advertiserId: str = ...,
+                body: Channel,
+                advertiserId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ChannelHttpRequest: ...
             def get(
@@ -2008,18 +2009,18 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 partnerId: str,
                 channelId: str,
-                advertiserId: str = ...,
+                advertiserId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ChannelHttpRequest: ...
             def list(
                 self,
                 *,
                 partnerId: str,
-                advertiserId: str = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                advertiserId: str | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListChannelsResponseHttpRequest: ...
             def list_next(
@@ -2032,9 +2033,9 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                 *,
                 partnerId: str,
                 channelId: str,
-                body: Channel = ...,
-                advertiserId: str = ...,
-                updateMask: str = ...,
+                body: Channel,
+                advertiserId: str | None = ...,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ChannelHttpRequest: ...
             def sites(self) -> SitesResource: ...
@@ -2100,7 +2101,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                         "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                         "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                     ],
-                    body: AssignedTargetingOption = ...,
+                    body: AssignedTargetingOption,
                     **kwargs: typing.Any,
                 ) -> AssignedTargetingOptionHttpRequest: ...
                 def delete(
@@ -2280,10 +2281,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                         "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                         "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                     ],
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPartnerAssignedTargetingOptionsResponseHttpRequest: ...
                 def list_next(
@@ -2298,7 +2299,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             partnerId: str,
-            body: BulkEditPartnerAssignedTargetingOptionsRequest = ...,
+            body: BulkEditPartnerAssignedTargetingOptionsRequest,
             **kwargs: typing.Any,
         ) -> BulkEditPartnerAssignedTargetingOptionsResponseHttpRequest: ...
         def get(
@@ -2307,10 +2308,10 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListPartnersResponseHttpRequest: ...
         def list_next(
@@ -2330,7 +2331,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             ) -> OperationHttpRequest: ...
 
         def create(
-            self, *, body: CreateSdfDownloadTaskRequest = ..., **kwargs: typing.Any
+            self, *, body: CreateSdfDownloadTaskRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def operations(self) -> OperationsResource: ...
 
@@ -2395,7 +2396,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                 ],
                 targetingOptionId: str,
-                advertiserId: str = ...,
+                advertiserId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> TargetingOptionHttpRequest: ...
             def list(
@@ -2454,11 +2455,11 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                     "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                 ],
-                advertiserId: str = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                advertiserId: str | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTargetingOptionsResponseHttpRequest: ...
             def list_next(
@@ -2522,7 +2523,7 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
                     "TARGETING_TYPE_CONTENT_THEME_EXCLUSION",
                     "TARGETING_TYPE_YOUTUBE_CHANNEL_PACK",
                 ],
-                body: SearchTargetingOptionsRequest = ...,
+                body: SearchTargetingOptionsRequest,
                 **kwargs: typing.Any,
             ) -> SearchTargetingOptionsResponseHttpRequest: ...
             def search_next(
@@ -2539,21 +2540,19 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             userId: str,
-            body: BulkEditAssignedUserRolesRequest = ...,
+            body: BulkEditAssignedUserRolesRequest,
             **kwargs: typing.Any,
         ) -> BulkEditAssignedUserRolesResponseHttpRequest: ...
-        def create(
-            self, *, body: User = ..., **kwargs: typing.Any
-        ) -> UserHttpRequest: ...
+        def create(self, *, body: User, **kwargs: typing.Any) -> UserHttpRequest: ...
         def delete(self, *, userId: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, userId: str, **kwargs: typing.Any) -> UserHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListUsersResponseHttpRequest: ...
         def list_next(
@@ -2565,8 +2564,8 @@ class DisplayVideoResource(googleapiclient.discovery.Resource):
             self,
             *,
             userId: str,
-            body: User = ...,
-            updateMask: str = ...,
+            body: User,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> UserHttpRequest: ...
 

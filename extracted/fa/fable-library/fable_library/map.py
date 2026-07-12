@@ -178,7 +178,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
         if isinstance(match_value, MapTreeNode_2):
             t2_0027: MapTreeNode_2[Any, Any] = match_value
 
-            def _arrow228(__unit: Unit = UNIT) -> int32:
+            def _arrow227(__unit: Unit = UNIT) -> int32:
                 m_2: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeNode_2__get_Left(t2_0027))
                 if m_2 is not None:
                     m2_2: MapTreeLeaf_2[Any, Any] = m_2
@@ -187,7 +187,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
                 else:
                     return int32.ZERO
 
-            if _arrow228() > (t1h + int32.ONE):
+            if _arrow227() > (t1h + int32.ONE):
                 match_value_1: MapTreeLeaf_2[Any, Any] = value_1(MapTreeNode_2__get_Left(t2_0027))
                 if isinstance(match_value_1, MapTreeNode_2):
                     t2l: MapTreeNode_2[Any, Any] = match_value_1
@@ -226,7 +226,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
         if isinstance(match_value_2, MapTreeNode_2):
             t1_0027: MapTreeNode_2[Any, Any] = match_value_2
 
-            def _arrow229(__unit: Unit = UNIT) -> int32:
+            def _arrow228(__unit: Unit = UNIT) -> int32:
                 m_3: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeNode_2__get_Right(t1_0027))
                 if m_3 is not None:
                     m2_3: MapTreeLeaf_2[Any, Any] = m_3
@@ -235,7 +235,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
                 else:
                     return int32.ZERO
 
-            if _arrow229() > (t2h + int32.ONE):
+            if _arrow228() > (t2h + int32.ONE):
                 match_value_3: MapTreeLeaf_2[Any, Any] = value_1(MapTreeNode_2__get_Right(t1_0027))
                 if isinstance(match_value_3, MapTreeNode_2):
                     t1r: MapTreeNode_2[Any, Any] = match_value_3

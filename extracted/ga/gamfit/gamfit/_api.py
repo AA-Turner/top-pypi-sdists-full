@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, NamedTuple, overload
+from typing import TYPE_CHECKING, Any, NamedTuple, overload
 
 from ._binding import RustExtensionUnavailableError, extension_status, rust_module
 from ._calibrated_slope import CtnStage1, normalize_ctn_stage1
@@ -24,6 +24,9 @@ from ._response_geometry import ResponseGeometryModel, fit_response_geometry
 from ._tables import normalize_table
 from ._validation import FormulaValidation
 from ._warnings import emit_inference_warnings
+
+if TYPE_CHECKING:
+    from ._sae_manifold import ManifoldSAE
 
 
 @dataclass(frozen=True, slots=True)
@@ -553,6 +556,28 @@ def _group_terms_from_formula(formula: str) -> list[str]:
     return [m.group(1).strip() for m in re.finditer(r"\bgroup\s*\(\s*([^)]+?)\s*\)", formula)]
 
 
+def _normalize_groups_config(rust_config: dict[str, Any]) -> None:
+    """Translate the ``config["groups"]`` list sugar into ``group_metadata``.
+
+    ``groups`` is a list of ``{"name": ..., "metadata": ...}`` entries (one
+    per group level); the Rust core only understands the ``group_metadata``
+    dict keyed by group name, so merge here before the payload is built.
+    """
+    groups = rust_config.pop("groups", None)
+    if groups is None:
+        return
+    if not isinstance(groups, Sequence) or isinstance(groups, (str, bytes)):
+        raise TypeError("config['groups'] must be a sequence of {'name', 'metadata'} entries")
+    metadata_by_name: dict[str, Any] = dict(rust_config.get("group_metadata") or {})
+    for entry in groups:
+        if not isinstance(entry, Mapping) or "name" not in entry:
+            raise ValueError("each config['groups'] entry needs a 'name'")
+        if "metadata" in entry and entry["metadata"] is not None:
+            metadata_by_name[str(entry["name"])] = entry["metadata"]
+    if metadata_by_name:
+        rust_config["group_metadata"] = metadata_by_name
+
+
 def _resolve_precision_hyperpriors(
     value: Any | None,
     formula: str,
@@ -668,7 +693,7 @@ def fit(
     formula: None = ...,
     *,
     config: Mapping[str, Any] | None = ...,
-) -> dict[str, Any]: ...
+) -> ManifoldSAE: ...
 
 
 @overload
@@ -793,12 +818,13 @@ def fit(
     penalties: Sequence[Any] | None = None,
     smooths: Mapping[Any, Any] | None = None,
     config: dict[str, Any] | None = None,
-) -> Model | ResponseGeometryModel | dict[str, Any]:
+) -> Model | ResponseGeometryModel | ManifoldSAE:
     """Fit a GAM model, or fit SAE activations when ``formula`` is omitted.
 
     ``gamfit.fit(data, formula, ...)`` keeps the formula-first GAM API.
     ``gamfit.fit(activations, config=...)`` dispatches to the SAE research-loop
-    API and returns typed atoms, coordinates, and trust-score hooks.
+    API and returns an explicit :class:`ManifoldSAE` handle. New activations are
+    featurized with ``model.featurize(X)`` on that handle.
 
     Parameters
     ----------
@@ -1006,11 +1032,12 @@ def fit(
 
     Returns
     -------
-    Model or ResponseGeometryModel or MultinomialModel
+    Model or ResponseGeometryModel or MultinomialModel or ManifoldSAE
         A fitted scalar GAM :class:`Model` by default. When
         ``response_geometry`` is supplied, returns a
         :class:`ResponseGeometryModel`; when ``family`` requests the
-        multinomial/softmax path, returns a :class:`MultinomialModel`.
+        multinomial/softmax path, returns a :class:`MultinomialModel`. When
+        ``formula`` is omitted, returns a model-scoped :class:`ManifoldSAE`.
 
     Raises
     ------
@@ -1160,49 +1187,6 @@ def fit(
         )
 
     headers, rows, table_kind = normalize_table(data)
-
-    # ── Vector-response (multinomial-logit) dispatch (#328). ──────────────
-    # The scalar `fit_table` payload pipeline is parameterised by a single
-    # `ResponseFamily × InverseLink` likelihood spec; multinomial-logit
-    # carries K-1 active linear predictors and a per-row dense Fisher block,
-    # which the scalar pipeline cannot represent. Routing here keeps the
-    # high-level Python API uniform — `gamfit.fit(data, formula,
-    # family='multinomial')` returns a `MultinomialModel` — while the
-    # underlying Rust entry is a dedicated formula→design→REML path that
-    # bypasses the workflow.rs `FitRequest::Standard` materialiser. The Rust
-    # `fit_penalized_multinomial_formula` driver runs the outer REML/LAML loop
-    # to select an independent smoothing parameter per (class, term); the
-    # `init_lambda` argument below is only the warm-start seed.
-    family_canonical = str(family).lower().replace("_", "-") if family is not None else "auto"
-    if family_canonical in {
-        "multinomial",
-        "multinomial-logit",
-        "categorical",
-        "categorical-logit",
-        "softmax",
-    }:
-        try:
-            model_bytes = bytes(
-                rust_module().fit_multinomial_formula_pyfunc(
-                    headers,
-                    rows,
-                    formula,
-                    1.0,   # init_lambda — warm-start seed; λ is REML-selected in Rust.
-                    50,    # max_iter
-                    1.0e-7,  # tol
-                )
-            )
-        except Exception as exc:
-            raise map_exception(exc) from exc
-        from ._model import MultinomialModel
-        return MultinomialModel(
-            _model_bytes=model_bytes,
-            _training_table_kind=table_kind,
-        )
-
-    fisher_w = None
-    if fisher_rao_w is not None:
-        fisher_w = _normalize_fisher_rao_w(fisher_rao_w, n_rows=len(rows), dim=1)
     rust_config = dict(config or {})
     for key in (
         "response_geometry",
@@ -1211,11 +1195,7 @@ def fit(
         "response_reference",
     ):
         rust_config.pop(key, None)
-    # Persist the training-table container type into the model payload (the
-    # single serialized source of truth) so the predict-time output-container
-    # fallback for dict/list inputs survives save/load and dumps/loads. Without
-    # this, a reloaded model silently returns dict instead of the original
-    # container type for ambiguous prediction inputs (#394).
+    _normalize_groups_config(rust_config)
     rust_config["training_table_kind"] = table_kind
     resolved_precision_hyperpriors = _resolve_precision_hyperpriors(
         precision_hyperpriors, formula, headers, rows, rust_config.get("group_metadata")
@@ -1250,6 +1230,50 @@ def fit(
         smooths=smooths,
         config=rust_config or None,
     )
+
+    # ── Vector-response (multinomial-logit) dispatch (#328). ──────────────
+    # The scalar `fit_table` payload pipeline is parameterised by a single
+    # `ResponseFamily × InverseLink` likelihood spec; multinomial-logit
+    # carries K-1 active linear predictors and a per-row dense Fisher block,
+    # which the scalar pipeline cannot represent. Routing here keeps the
+    # high-level Python API uniform — `gamfit.fit(data, formula,
+    # family='multinomial')` returns a `MultinomialModel` — while the
+    # underlying Rust entry is a dedicated formula→design→REML path that
+    # bypasses the workflow.rs `FitRequest::Standard` materialiser. The Rust
+    # `fit_penalized_multinomial_formula` driver runs the outer REML/LAML loop
+    # to select an independent smoothing parameter per (class, term); the
+    # `init_lambda` argument below is only the warm-start seed.
+    family_canonical = str(family).lower().replace("_", "-") if family is not None else "auto"
+    if family_canonical in {
+        "multinomial",
+        "multinomial-logit",
+        "categorical",
+        "categorical-logit",
+        "softmax",
+    }:
+        try:
+            model_bytes = bytes(
+                rust_module().fit_multinomial_formula_pyfunc(
+                    headers,
+                    rows,
+                    formula,
+                    json.dumps(payload),
+                    1.0,   # init_lambda — warm-start seed; λ is REML-selected in Rust.
+                    50,    # max_iter
+                    1.0e-7,  # tol
+                )
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        from ._model import MultinomialModel
+        return MultinomialModel(
+            _model_bytes=model_bytes,
+            _training_table_kind=table_kind,
+        )
+
+    fisher_w = None
+    if fisher_rao_w is not None:
+        fisher_w = _normalize_fisher_rao_w(fisher_rao_w, n_rows=len(rows), dim=1)
     try:
         model_bytes = bytes(
             rust_module().fit_table(headers, rows, formula, json.dumps(payload), fisher_w)
@@ -1377,7 +1401,7 @@ def fit_array(
 def load(path: str | Path) -> Any:
     """Load a fitted model previously written with :func:`gamfit.save`.
 
-    Auto-detects format: JSON files containing a ``gamfit.ManifoldSAE/v1``
+    Auto-detects format: JSON files containing a ``gamfit.ManifoldSAE/v3``
     schema header are returned as :class:`gamfit.ManifoldSAE`; everything
     else is treated as a binary :class:`Model` archive and dispatched to
     :func:`loads`.
@@ -1473,26 +1497,13 @@ def loads(model_bytes: bytes) -> Model:
     if multinomial_metadata is not None:
         from ._model import MultinomialModel  # local import avoids cycle
 
-        # The multinomial payload predates the `training_table_kind` sniff used
-        # by the scalar path; probe for it but tolerate the FFI rejecting the
-        # multinomial schema, in which case the container falls back to None.
-        try:
-            training_table_kind = rust_module().saved_model_payload_string(
-                model_bytes, "training_table_kind"
-            )
-        except Exception:
-            training_table_kind = None
         return MultinomialModel(
             _model_bytes=model_bytes,
-            _training_table_kind=training_table_kind,
+            _training_table_kind=str(multinomial_metadata["training_table_kind"]),
         )
     try:
         rust_module().load_model(model_bytes)
-        # Restore the training-table container type persisted in the payload so
-        # the reloaded model reproduces the original predict-time
-        # output-container fallback for dict/list inputs. `None` for older
-        # payloads written before #394, which degrade to the "dict" fallback.
-        training_table_kind = rust_module().saved_model_payload_string(
+        training_table_kind = rust_module().required_saved_model_payload_string(
             model_bytes, "training_table_kind"
         )
     except Exception as exc:
@@ -1545,7 +1556,7 @@ def _reconstruct_response_geometry(payload: Mapping[str, Any]) -> ResponseGeomet
         base_point=np.asarray(payload["base_point"], dtype=float),
         coordinates=str(payload["coordinates"]),
         reference=int(payload.get("reference", -1)),
-        training_table_kind=payload.get("training_table_kind"),
+        training_table_kind=str(payload["training_table_kind"]),
         shared_tangent_fit=shared_fit,
         curvature=payload.get("curvature"),
     )
@@ -2109,11 +2120,12 @@ def smoothness_penalty(
     degree: int = 3,
     order: int = 2,
 ) -> tuple[Any, Any]:
-    """Return ``(S, null_basis)`` for the Rust B-spline difference penalty.
+    """Return ``(S, null_basis)`` for exact B-spline derivative roughness.
 
     ``knots`` must be a knot vector here — auto-derivation requires
     sample positions, which this penalty constructor does not take. Build
-    one with :func:`bspline_basis`'s defaults (or pass any 1D array).
+    one with :func:`bspline_basis`'s defaults (or pass any 1D array). ``S``
+    represents ``integral (f^(order)(x))^2 dx`` in that spline basis.
     """
     import numpy as np
 
@@ -2182,8 +2194,8 @@ def periodic_spline_curve_basis(
     """Return ``(basis, penalty)`` for a closed cyclic B-spline basis on ``t``.
 
     The basis is uniform on ``[0, 1)`` and periodic (wraps cleanly). The
-    penalty is the cyclic ``order``-th difference penalty on the ``n_knots``
-    cyclic control points. To fit a closed curve ``t -> R^d``, regress a
+    penalty is the exact cyclic derivative roughness
+    ``integral_0^1 (f^(order)(t))^2 dt``. To fit a closed curve ``t -> R^d``, regress a
     ``(N, d)`` response against the returned ``(N, K)`` basis with the
     returned ``(K, K)`` penalty.
 
@@ -2192,7 +2204,7 @@ def periodic_spline_curve_basis(
     t : array-like of shape ``(N,)``. Values are taken modulo 1.
     n_knots : number of cyclic control points / basis columns.
     degree : B-spline degree. Default 3.
-    penalty_order : order of the cyclic difference penalty. Default 2.
+    penalty_order : derivative order in the cyclic roughness. Default 2.
 
     Returns
     -------
@@ -2392,30 +2404,8 @@ def gaussian_reml_fit(
     init_lambda: float | None = None,
     by: Any | None = None,
     by_start_col: int = 0,
-    geodesic_acceleration: bool = False,
 ) -> dict[str, Any]:
-    """Fit a closed-form Gaussian REML problem from NumPy-compatible arrays.
-
-    Parameters
-    ----------
-    geodesic_acceleration:
-        Enable the Transtrum-Sethna geodesic-acceleration second-order
-        correction in the inner Newton / Levenberg-Marquardt solver
-        (Transtrum & Sethna, 2011, "Improvements to the Levenberg-Marquardt
-        algorithm for nonlinear least-squares minimization"). The standard
-        LM step ``δp = −(H + λ_lm·diag(H))⁻¹ g`` is augmented with a
-        second-order correction ``δp₂ = −(H + λ_lm·diag(H))⁻¹ K`` where
-        ``K`` is a central-difference estimate of the directional second
-        derivative of the gradient along ``δp``; the correction is
-        accepted only when ``‖δp₂‖ ≤ 0.75 · ‖δp‖``. Most useful for fits
-        with near-singular Hessians (latent-coordinate fits, near-collinear
-        bases). Default ``False`` until validated. *Note:* the closed-form
-        Gaussian-identity path used by this function does not run an inner
-        Newton loop, so this flag is accepted for API parity with the
-        PIRLS-based fits and is a no-op here; it is honored by the
-        formula-based ``gamfit.fit(...)`` entrypoint and any GLM-family
-        fits that drive the inner Newton solver.
-    """
+    """Fit a closed-form Gaussian REML problem from NumPy-compatible arrays."""
     import numpy as np
 
     try:
@@ -3178,6 +3168,7 @@ def gaussian_reml_optimize_latent(
     sigma_eff_mode: str = "profiled",
     max_iter: int = 200,
     grad_tol: float = 1.0e-8,
+    stationarity_reference: float | None = None,
     trust_radius: float = 1.0,
     max_radius: float = 1.0e6,
     n_restarts: int = 1,
@@ -3213,9 +3204,11 @@ def gaussian_reml_optimize_latent(
     basis exactly as in :func:`gaussian_reml_fit_latent`; the spectral seed is
     affinely mapped onto the span of ``centers`` so it lands where ``Φ`` is
     well-conditioned. The result also carries ``"grad_t_norm"``,
-    ``"grad_t_norm_init"``, ``"grad_t_norm_scaled"``, ``"converged"``,
-    ``"objective_value"``, ``"n_restarts"``, and ``"init"`` diagnostics.
-    ``"converged"`` is decided from ``"grad_t_norm_scaled"`` -- the *relative*
+    ``"grad_t_norm_init"``, ``"grad_t_norm_scaled"``, ``"objective_value"``,
+    ``"n_restarts"``, and ``"init"`` diagnostics. A separate convergence flag
+    is unnecessary: returning a fit is itself the convergence certificate.
+
+    Convergence is decided from ``"grad_t_norm_scaled"`` -- the *relative*
     latent-gradient stationarity measure
     ``‖∇ₜ f(t̂)‖ / max(‖∇ₜ f(t₀)‖, 1)`` (``"grad_t_norm"`` divided by
     ``max("grad_t_norm_init", 1)``) -- rather than the raw ``"grad_t_norm"``,
@@ -3226,6 +3219,19 @@ def gaussian_reml_optimize_latent(
     shift ``f → f + C`` of the objective -- unlike the earlier
     ``‖∇ₜ f‖ · ‖t‖_typ / max(|f|, 1)``, whose ``max(|f|, 1)`` denominator a large
     additive constant could inflate into a false convergence (issue #954).
+
+    A fit is only ever returned from a *converged* optimization (SPEC rule 20).
+    If the relative stationarity measure does not reach ``grad_tol`` within the
+    iteration budget, this raises :class:`gamfit.RemlConvergenceError` instead
+    of returning a degraded payload. The exception carries the evidence as
+    attributes (``grad_t_norm``, ``grad_t_norm_init``, ``grad_t_norm_scaled``,
+    ``grad_tol``, ``latent_t_std``, ``objective_value``, ``max_iter``,
+    ``n_restarts``, ``restart_index``, ``init``) plus the one-dimensional
+    ``checkpoint_t`` and its ``checkpoint_shape``. Resume with
+    ``t=exc.checkpoint_t``, ``init="caller"``, and
+    ``stationarity_reference=exc.checkpoint_stationarity_reference``: carrying
+    that reference preserves the original relative-stationarity criterion
+    instead of silently renormalizing it at the checkpoint.
     """
     import numpy as np
 
@@ -3264,6 +3270,7 @@ def gaussian_reml_optimize_latent(
             str(sigma_eff_mode),
             int(max_iter),
             float(grad_tol),
+            None if stationarity_reference is None else float(stationarity_reference),
             float(trust_radius),
             float(max_radius),
             int(n_restarts),
@@ -4178,7 +4185,8 @@ def _resolve_position_penalty(
       single-penalty position helper.
     * ``"thinplate"`` (1D ``t``) → 1D thin-plate ≡ cubic smoothing spline,
       routed through the cubic-basis single-λ penalty at ``m=2``.
-    * ``"bspline"``  → P-spline 2nd-difference coefficient penalty.
+    * ``"bspline"``  → exact integrated second-derivative roughness of the
+      represented B-spline basis (open or periodic).
     """
     import numpy as np
 
@@ -4224,12 +4232,29 @@ def _resolve_position_penalty(
                 "gives each operator its own REML λ."
             )
         if kind in {"bspline", "spline"}:
-            if penalty_kind not in {None, "coefficient-difference", "coefficientdifference", "difference"}:
+            if penalty_kind not in {
+                None,
+                "roughness",
+                "bending-energy",
+                "bendingenergy",
+            }:
                 raise ValueError(f"unsupported B-spline penalty {penalty!r}")
             if periodic:
-                k = int(np.asarray(knots_or_centers, dtype=float).size - 1)
+                knots = np.asarray(knots_or_centers, dtype=float)
+                k = int(knots.size - 1)
+                effective_period = (
+                    float(period)
+                    if period is not None
+                    else float(knots[-1] - knots[0])
+                )
                 return np.asarray(
-                    rust_module().cyclic_difference_penalty(k, 2), dtype=float
+                    rust_module().cyclic_bspline_roughness_penalty(
+                        k,
+                        int(basis_order),
+                        effective_period,
+                        2,
+                    ),
+                    dtype=float,
                 )
             s, _ = smoothness_penalty(knots_or_centers, degree=int(basis_order), order=2)
             return s

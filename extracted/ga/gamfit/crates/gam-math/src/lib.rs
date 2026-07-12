@@ -4,14 +4,15 @@ pub mod jet_partitions;
 pub mod jet_scalar;
 pub mod jet_tower;
 pub mod probability;
+pub mod score_opt;
 pub mod special;
 
+#[cfg(test)]
+mod jet_cause_specific_oracle_tests;
 #[cfg(test)]
 mod jet_gamma_oracle_tests;
 #[cfg(test)]
 mod jet_gaulss_link_oracle_tests;
-#[cfg(test)]
-mod jet_cause_specific_oracle_tests;
 #[cfg(test)]
 mod jet_gaussian_oracle_tests;
 #[cfg(test)]

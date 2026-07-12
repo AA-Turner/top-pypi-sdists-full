@@ -23,7 +23,7 @@ class EventarcResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -36,9 +36,9 @@ class EventarcResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -53,18 +53,18 @@ class EventarcResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Trigger = ...,
-                    triggerId: str = ...,
-                    validateOnly: bool = ...,
+                    body: Trigger,
+                    triggerId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -74,16 +74,16 @@ class EventarcResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListTriggersResponseHttpRequest: ...
                 def list_next(
@@ -95,24 +95,24 @@ class EventarcResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Trigger = ...,
-                    allowMissing: bool = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: Trigger,
+                    allowMissing: bool | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -123,9 +123,9 @@ class EventarcResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

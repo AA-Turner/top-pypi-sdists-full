@@ -18,7 +18,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
         def search(
             self,
             *,
-            body: GoogleCloudDatacatalogV1SearchCatalogRequest = ...,
+            body: GoogleCloudDatacatalogV1SearchCatalogRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudDatacatalogV1SearchCatalogResponseHttpRequest: ...
         def search_next(
@@ -32,11 +32,11 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
         def lookup(
             self,
             *,
-            fullyQualifiedName: str = ...,
-            linkedResource: str = ...,
-            location: str = ...,
-            project: str = ...,
-            sqlResource: str = ...,
+            fullyQualifiedName: str | None = ...,
+            linkedResource: str | None = ...,
+            location: str | None = ...,
+            project: str | None = ...,
+            sqlResource: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudDatacatalogV1EntryHttpRequest: ...
 
@@ -54,7 +54,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudDatacatalogV1SetConfigRequest = ...,
+                body: GoogleCloudDatacatalogV1SetConfigRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudDatacatalogV1MigrationConfigHttpRequest: ...
 
@@ -74,7 +74,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudDatacatalogV1Tag = ...,
+                            body: GoogleCloudDatacatalogV1Tag,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudDatacatalogV1TagHttpRequest: ...
                         def delete(
@@ -84,8 +84,8 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudDatacatalogV1ListTagsResponseHttpRequest: ...
                         def list_next(
@@ -99,15 +99,15 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudDatacatalogV1Tag = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudDatacatalogV1Tag,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudDatacatalogV1TagHttpRequest: ...
                         def reconcile(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudDatacatalogV1ReconcileTagsRequest = ...,
+                            body: GoogleCloudDatacatalogV1ReconcileTagsRequest,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
 
@@ -115,8 +115,8 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudDatacatalogV1Entry = ...,
-                        entryId: str = ...,
+                        body: GoogleCloudDatacatalogV1Entry,
+                        entryId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1EntryHttpRequest: ...
                     def delete(
@@ -129,23 +129,23 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GetIamPolicyRequest = ...,
+                        body: GetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def import_(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudDatacatalogV1ImportEntriesRequest = ...,
+                        body: GoogleCloudDatacatalogV1ImportEntriesRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1ListEntriesResponseHttpRequest: ...
                     def list_next(
@@ -159,43 +159,43 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1ModifyEntryContactsRequest = ...,
+                        body: GoogleCloudDatacatalogV1ModifyEntryContactsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1ContactsHttpRequest: ...
                     def modifyEntryOverview(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1ModifyEntryOverviewRequest = ...,
+                        body: GoogleCloudDatacatalogV1ModifyEntryOverviewRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1EntryOverviewHttpRequest: ...
                     def patch(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1Entry = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudDatacatalogV1Entry,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1EntryHttpRequest: ...
                     def star(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1StarEntryRequest = ...,
+                        body: GoogleCloudDatacatalogV1StarEntryRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1StarEntryResponseHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
                     def unstar(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1UnstarEntryRequest = ...,
+                        body: GoogleCloudDatacatalogV1UnstarEntryRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1UnstarEntryResponseHttpRequest: ...
                     def tags(self) -> TagsResource: ...
@@ -206,7 +206,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudDatacatalogV1Tag = ...,
+                        body: GoogleCloudDatacatalogV1Tag,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1TagHttpRequest: ...
                     def delete(
@@ -216,8 +216,8 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1ListTagsResponseHttpRequest: ...
                     def list_next(
@@ -229,8 +229,8 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1Tag = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudDatacatalogV1Tag,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1TagHttpRequest: ...
 
@@ -238,29 +238,29 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudDatacatalogV1EntryGroup = ...,
-                    entryGroupId: str = ...,
+                    body: GoogleCloudDatacatalogV1EntryGroup,
+                    entryGroupId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1EntryGroupHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
-                    self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+                    self, *, name: str, readMask: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleCloudDatacatalogV1EntryGroupHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1ListEntryGroupsResponseHttpRequest: ...
                 def list_next(
@@ -274,22 +274,22 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogV1EntryGroup = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudDatacatalogV1EntryGroup,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1EntryGroupHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def entries(self) -> EntriesResource: ...
@@ -310,10 +310,10 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -332,7 +332,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudDatacatalogV1RenameTagTemplateFieldEnumValueRequest = ...,
+                            body: GoogleCloudDatacatalogV1RenameTagTemplateFieldEnumValueRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudDatacatalogV1TagTemplateFieldHttpRequest: ...
 
@@ -340,26 +340,30 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudDatacatalogV1TagTemplateField = ...,
-                        tagTemplateFieldId: str = ...,
+                        body: GoogleCloudDatacatalogV1TagTemplateField,
+                        tagTemplateFieldId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1TagTemplateFieldHttpRequest: ...
                     def delete(
-                        self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        force: bool | None = ...,
+                        **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def patch(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1TagTemplateField = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudDatacatalogV1TagTemplateField,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1TagTemplateFieldHttpRequest: ...
                     def rename(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1RenameTagTemplateFieldRequest = ...,
+                        body: GoogleCloudDatacatalogV1RenameTagTemplateFieldRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1TagTemplateFieldHttpRequest: ...
                     def enumValues(self) -> EnumValuesResource: ...
@@ -368,12 +372,12 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudDatacatalogV1TagTemplate = ...,
-                    tagTemplateId: str = ...,
+                    body: GoogleCloudDatacatalogV1TagTemplate,
+                    tagTemplateId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1TagTemplateHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -382,29 +386,29 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogV1TagTemplate = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudDatacatalogV1TagTemplate,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1TagTemplateHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def fields(self) -> FieldsResource: ...
@@ -417,7 +421,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudDatacatalogV1PolicyTag = ...,
+                        body: GoogleCloudDatacatalogV1PolicyTag,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1PolicyTagHttpRequest: ...
                     def delete(
@@ -430,15 +434,15 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GetIamPolicyRequest = ...,
+                        body: GetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1ListPolicyTagsResponseHttpRequest: ...
                     def list_next(
@@ -452,22 +456,22 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogV1PolicyTag = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudDatacatalogV1PolicyTag,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogV1PolicyTagHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -475,7 +479,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudDatacatalogV1Taxonomy = ...,
+                    body: GoogleCloudDatacatalogV1Taxonomy,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1TaxonomyHttpRequest: ...
                 def delete(
@@ -485,8 +489,8 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    serializedTaxonomies: bool = ...,
-                    taxonomies: str | _list[str] = ...,
+                    serializedTaxonomies: bool | None = ...,
+                    taxonomies: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1ExportTaxonomiesResponseHttpRequest: ...
                 def get(
@@ -496,23 +500,23 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def import_(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudDatacatalogV1ImportTaxonomiesRequest = ...,
+                    body: GoogleCloudDatacatalogV1ImportTaxonomiesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1ImportTaxonomiesResponseHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1ListTaxonomiesResponseHttpRequest: ...
                 def list_next(
@@ -526,29 +530,29 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogV1Taxonomy = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudDatacatalogV1Taxonomy,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1TaxonomyHttpRequest: ...
                 def replace(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogV1ReplaceTaxonomyRequest = ...,
+                    body: GoogleCloudDatacatalogV1ReplaceTaxonomyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogV1TaxonomyHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def policyTags(self) -> PolicyTagsResource: ...
@@ -560,7 +564,7 @@ class DataCatalogResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudDatacatalogV1SetConfigRequest = ...,
+                body: GoogleCloudDatacatalogV1SetConfigRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudDatacatalogV1MigrationConfigHttpRequest: ...
             def entryGroups(self) -> EntryGroupsResource: ...

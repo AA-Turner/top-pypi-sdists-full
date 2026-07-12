@@ -1,6 +1,6 @@
 [package]
 name = "gam-report"
-version = "0.3.148"
+version = "0.3.149"
 edition = "2024"
 rust-version = "1.93"
 description = "Human-readable fit/diagnostic report rendering for the gam engine"
@@ -10,5 +10,4 @@ license = "AGPL-3.0-or-later"
 warnings = "deny"
 
 [dependencies]
-serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149", features = ["float_roundtrip"] }

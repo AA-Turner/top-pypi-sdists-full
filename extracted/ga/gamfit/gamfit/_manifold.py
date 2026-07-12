@@ -14,10 +14,9 @@ Backward routes through the canonical Rust analytic vector–Jacobian product
 ``gam_pyffi._rust.manifold_exp_map_vjp`` (dispatching
 ``RiemannianManifold::exp_map_vjp``): exact for flat manifolds (Euclidean /
 Circle / Torus / products thereof, where the VJP collapses to the identity)
-*and* for curved ones (Sphere, products containing a Sphere). No
-straight-through identity is applied to a curved manifold, and no Riemannian
-math is recomputed on the torch side. Manifolds with no closed-form backward
-(Grassmann / Stiefel / SPD) raise from Rust rather than emit wrong gradients.
+*and* for curved ones (Sphere / Grassmann / Stiefel / SPD and products thereof).
+No straight-through identity is applied to a curved manifold, and no Riemannian
+math is recomputed on the torch side.
 """
 
 from __future__ import annotations
@@ -44,10 +43,9 @@ def _exp_map_vjp_rust(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Analytic vector–Jacobian product of ``exp_p(v)``, all math in Rust.
 
-    Returns ``(grad_points, grad_vecs)`` as float64 arrays. Raises whatever
-    the Rust ``RiemannianManifold::exp_map_vjp`` raises for manifolds with no
-    closed-form backward (Grassmann / Stiefel / SPD) — we never substitute a
-    silently-wrong identity gradient on a curved manifold."""
+    Returns ``(grad_points, grad_vecs)`` as float64 arrays. The canonical Rust
+    implementation owns every manifold-specific pullback; Python never
+    substitutes a silently-wrong identity gradient on a curved manifold."""
     grad_p, grad_v = _rust_module().manifold_exp_map_vjp(
         manifold_json, points, vecs, grad_output
     )
@@ -96,11 +94,10 @@ class _ExpMapFn:
     computed entirely in Rust via ``manifold_exp_map_vjp`` (which dispatches
     ``RiemannianManifold::exp_map_vjp``). This is exact for both flat manifolds
     (Euclidean / Circle / Torus / products thereof, where the VJP reduces to
-    the identity) and curved ones (Sphere, and products containing a Sphere,
-    where the Jacobi-field VJP is genuinely non-identity). There is no
-    straight-through approximation and no torch-side recompute of the
-    geometry. Manifolds without a closed-form backward (Grassmann / Stiefel /
-    SPD) raise from Rust rather than return a silently-wrong gradient.
+    the identity) and curved ones (Sphere / Grassmann / Stiefel / SPD and
+    products thereof, where the analytic VJP is genuinely non-identity). There
+    is no straight-through approximation and no torch-side recompute of the
+    geometry.
     """
 
     _impl = None
@@ -476,29 +473,16 @@ class Poincare(ManifoldDescriptor):
     def __repr__(self) -> str:
         return f"Poincare(dim={self._dim}, curvature={self.curvature})"
 
-    # -- single-point primitives (direct poincare_* FFI; all math in Rust) --
-    def _exp_one(self, p: np.ndarray, v: np.ndarray) -> np.ndarray:
-        out = _rust_module().poincare_exp_map(p, v, self.curvature)
-        return np.asarray(out, dtype=np.float64)
-
-    def _log_one(self, p: np.ndarray, q: np.ndarray) -> np.ndarray:
-        out = _rust_module().poincare_log_map(p, q, self.curvature)
-        return np.asarray(out, dtype=np.float64)
-
-    def _distance_one(self, a: np.ndarray, b: np.ndarray) -> float:
-        return float(_rust_module().poincare_distance(a, b, self.curvature))
-
-    def _project_one(self, p: np.ndarray) -> np.ndarray:
-        out = _rust_module().poincare_project_into_ball(p, self.curvature)
-        return np.asarray(out, dtype=np.float64)
-
-    # -- batched ManifoldDescriptor surface -------------------------------
+    # -- batched ManifoldDescriptor surface (one Rust call per operation) --
     def exp(self, p: Any, v: Any) -> Any:
         torch_mod = _maybe_import_torch()
         p_2d, p_shape = _to_2d_numpy(p)
         v_2d, _ = _to_2d_numpy(v)
-        out = np.stack(
-            [self._exp_one(p_2d[i], v_2d[i]) for i in range(p_2d.shape[0])]
+        out = np.asarray(
+            _rust_module().poincare_exp_map_batch(
+                p_2d, v_2d, self._dim, self.curvature
+            ),
+            dtype=np.float64,
         )
         if len(p_shape) == 1:
             out = out.reshape(-1)
@@ -510,8 +494,11 @@ class Poincare(ManifoldDescriptor):
         torch_mod = _maybe_import_torch()
         p_2d, p_shape = _to_2d_numpy(p)
         q_2d, _ = _to_2d_numpy(q)
-        out = np.stack(
-            [self._log_one(p_2d[i], q_2d[i]) for i in range(p_2d.shape[0])]
+        out = np.asarray(
+            _rust_module().poincare_log_map_batch(
+                p_2d, q_2d, self._dim, self.curvature
+            ),
+            dtype=np.float64,
         )
         if len(p_shape) == 1:
             out = out.reshape(-1)
@@ -526,8 +513,10 @@ class Poincare(ManifoldDescriptor):
         torch_mod = _maybe_import_torch()
         a_2d, a_shape = _to_2d_numpy(a)
         b_2d, _ = _to_2d_numpy(b)
-        dists = np.array(
-            [self._distance_one(a_2d[i], b_2d[i]) for i in range(a_2d.shape[0])],
+        dists = np.asarray(
+            _rust_module().poincare_distance_batch(
+                a_2d, b_2d, self._dim, self.curvature
+            ),
             dtype=np.float64,
         )
         if len(a_shape) == 1:
@@ -540,14 +529,21 @@ class Poincare(ManifoldDescriptor):
         return dists
 
     def metric(self, p: Any) -> Any:
-        """Conformal Poincaré metric ``g_p = lambda_p^2 I`` at ``p`` (a
-        ``(d, d)`` SPD matrix). Built from the conformal factor; no separate
-        FFI tensor call is needed because the metric is closed-form diagonal."""
+        """Conformal Poincaré metric tensor from the batched Rust core.
+
+        A single point returns ``(d, d)``; an ``(N, d)`` batch returns
+        ``(N, d, d)``.
+        """
         torch_mod = _maybe_import_torch()
-        p_arr, _ = _to_2d_numpy(p)
-        point = p_arr[0]
-        lam = float(_rust_module().poincare_conformal_factor(point, self.curvature))
-        g = (lam * lam) * np.eye(self._dim, dtype=np.float64)
+        p_2d, p_shape = _to_2d_numpy(p)
+        g = np.asarray(
+            _rust_module().poincare_metric_tensor_batch(
+                p_2d, self._dim, self.curvature
+            ),
+            dtype=np.float64,
+        )
+        if len(p_shape) == 1:
+            g = g[0]
         if torch_mod is not None and isinstance(p, torch_mod.Tensor):
             return torch_mod.as_tensor(g, dtype=p.dtype, device=p.device)
         return g
@@ -558,7 +554,12 @@ class Poincare(ManifoldDescriptor):
         points). Accepts a single point or an ``(N, d)`` batch."""
         torch_mod = _maybe_import_torch()
         p_2d, p_shape = _to_2d_numpy(p)
-        out = np.stack([self._project_one(p_2d[i]) for i in range(p_2d.shape[0])])
+        out = np.asarray(
+            _rust_module().poincare_project_into_ball_batch(
+                p_2d, self._dim, self.curvature
+            ),
+            dtype=np.float64,
+        )
         if len(p_shape) == 1:
             out = out.reshape(-1)
         if torch_mod is not None and isinstance(p, torch_mod.Tensor):

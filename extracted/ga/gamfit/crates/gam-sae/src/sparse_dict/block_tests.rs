@@ -12,6 +12,32 @@ use crate::sparse_dict::{
 };
 use ndarray::{Array1, Array2};
 
+#[test]
+fn scalar_budget_constructor_preserves_topk64_exactly() {
+    let config = BlockSparseConfig::from_scalar_budget(114_688, 64, 4)
+        .expect("DeepSeek-V3 comparison budget partitions into complete blocks");
+    assert_eq!(config.n_blocks, 28_672);
+    assert_eq!(config.block_topk, 16);
+    assert_eq!(config.block_size, 4);
+    assert_eq!(config.n_atoms(), 114_688);
+    assert_eq!(config.active_atoms(), 64);
+}
+
+#[test]
+fn scalar_budget_constructor_never_rounds_capacity_or_activity() {
+    let capacity = BlockSparseConfig::from_scalar_budget(114_689, 64, 4)
+        .expect_err("a partial final block must be rejected");
+    assert!(capacity.contains("not divisible"), "{capacity}");
+
+    let activity = BlockSparseConfig::from_scalar_budget(114_688, 63, 4)
+        .expect_err("a partial active block must be rejected");
+    assert!(activity.contains("not divisible"), "{activity}");
+
+    let excessive = BlockSparseConfig::from_scalar_budget(32, 64, 4)
+        .expect_err("the active budget cannot exceed scalar capacity");
+    assert!(excessive.contains("active_atoms in"), "{excessive}");
+}
+
 /// Deterministic LCG in `[-1, 1)` (no RNG dependency → reproducible tests).
 fn lcg(state: &mut u64) -> f32 {
     *state = state
@@ -53,6 +79,119 @@ fn make_decoder(n_blocks: usize, b: usize, p: usize, seed: u64) -> Array2<f32> {
         }
     }
     d
+}
+
+#[test]
+fn selected_no_improvement_birth_restores_complete_one_shot_state_2023() {
+    // Block 1 already reconstructs every row exactly. A duplicate frame in the
+    // lower-index dead block 0 wins the deterministic TopK tie, so it is
+    // SELECTED — the historical selection-only gate committed it forever even
+    // though it changed no objective value. The transaction must reject on the
+    // strict RSS/evidence gate and restore every live field.
+    let x = Array2::<f32>::from_shape_fn((16, 2), |(_, column)| {
+        if column == 0 { 1.0 } else { 0.0 }
+    });
+    let config = BlockSparseConfig {
+        n_blocks: 2,
+        block_size: 1,
+        block_topk: 1,
+        max_epochs: 4,
+        minibatch: 16,
+        block_tile: 2,
+        frame_ridge: 0.0,
+        aux_k: 1,
+        matryoshka_prefix: false,
+        tolerance: 0.0,
+    };
+    let mut decoder = Array2::<f32>::zeros((2, 2));
+    decoder[[1, 0]] = 1.0;
+    let mut gamma = 1.0_f32;
+    let mut codes = route_and_code_all(
+        x.view(),
+        decoder.view(),
+        gamma,
+        2,
+        1,
+        1,
+        16,
+        2,
+    )
+    .expect("baseline route");
+    let mut rss = reconstruction_rss(x.view(), &codes, decoder.view(), 1);
+    let tss = centered_total_sum_squares(x.view());
+    let mut criterion = explained_variance_from_rss(rss, tss);
+    let proposal = BlockBirthProposal {
+        block: 0,
+        proposed_frame: ndarray::array![[1.0_f32, 0.0_f32]],
+    };
+
+    let mut candidate_decoder = decoder.clone();
+    candidate_decoder.row_mut(0).assign(&proposal.proposed_frame.row(0));
+    let (_, candidate_codes) = route_and_close_gamma(
+        x.view(),
+        candidate_decoder.view(),
+        gamma,
+        &config,
+        1,
+    )
+    .expect("candidate route");
+    assert!(
+        proposal_is_selected(&candidate_codes, 0, 1),
+        "fixture must defeat a selection-only birth gate"
+    );
+
+    let decoder_before = decoder.clone();
+    let gamma_before = gamma;
+    let codes_before = codes.clone();
+    let rss_before = rss;
+    let criterion_before = criterion;
+    let accepted = try_commit_block_birth(
+        x.view(),
+        &mut decoder,
+        &mut gamma,
+        &mut codes,
+        &mut rss,
+        &mut criterion,
+        tss,
+        &proposal,
+        &config,
+        1,
+    )
+    .expect("birth transaction");
+
+    assert!(!accepted, "a zero-improvement selected birth must be rejected");
+    assert_eq!(decoder, decoder_before, "decoder frame was not restored");
+    assert_eq!(gamma.to_bits(), gamma_before.to_bits());
+    assert_eq!(rss.to_bits(), rss_before.to_bits());
+    assert_eq!(criterion.to_bits(), criterion_before.to_bits());
+    for (after, before) in codes.iter().zip(codes_before.iter()) {
+        assert_eq!(after.blocks, before.blocks);
+        assert_eq!(after.gates, before.gates);
+        assert_eq!(after.codes, before.codes);
+    }
+}
+
+#[test]
+fn positive_rss_noise_birth_still_fails_rank_charge_2023() {
+    let decoder = ndarray::array![[1.0_f32, 0.0_f32]];
+    let gram = ndarray::array![[100.0_f64]];
+    let margin = block_birth_evidence_margin(
+        0,
+        1.0e-2,
+        100.0,
+        100,
+        &gram,
+        decoder.view(),
+        100,
+        2,
+        1,
+    )
+    .expect("birth evidence calculation")
+    .expect("fixture has positive realised rank");
+    assert!(
+        margin < 0.0,
+        "a representable but sub-charge RSS gain must not birth a noise specialist: margin={margin}"
+    );
 }
 
 /// `K×P` planted orthonormal atoms from a fixed symmetric matrix's eigenvectors
@@ -291,11 +430,7 @@ fn splitting_dynamics_theorem_group_l2_kills_splitting_gradient() {
 
     let lambda = 0.17f64;
     let block_code = [3.0f64, -4.0, 12.0];
-    let rotation = [
-        [0.6f64, -0.8, 0.0],
-        [0.8f64, 0.6, 0.0],
-        [0.0f64, 0.0, -1.0],
-    ];
+    let rotation = [[0.6f64, -0.8, 0.0], [0.8f64, 0.6, 0.0], [0.0f64, 0.0, -1.0]];
     let rotated = [
         rotation[0][0] * block_code[0]
             + rotation[0][1] * block_code[1]
@@ -381,6 +516,98 @@ fn near_orthogonal_row_is_orphaned_by_gate_floor() {
 }
 
 #[test]
+fn small_k_block_fit_runs_on_cpu_baseline_2134() {
+    // #2134 wall #3: the block lane must provide a SMALL-`K` CPU baseline. The
+    // device launch break-even is `n_rows·K ≥ 2^20`; a small block dictionary
+    // (K = 4·2 = 8, minibatch 64 ⇒ 64·8 = 512 elems) is three orders of magnitude
+    // below it, so the device could never beat the CPU here. The lane must fit it
+    // on the CPU under ANY residency mode — never refuse — so the block lane can be
+    // compared against the curved lane at small `K`. On this (device-absent) host
+    // the CPU router runs unconditionally; the dispatch fix additionally routes a
+    // below-break-even block to the exact CPU oracle on a device-PRESENT host under
+    // `Required`, where it previously hard-refused. Either way, a small-`K` fit
+    // must succeed and reconstruct the planted subspaces.
+    let (p, b, n_blocks) = (8usize, 2usize, 4usize);
+    // Break-even is n_rows·K ≥ 2^20; here minibatch·K = 64·8 = 512, far below it.
+    let planted = planted_frames(p, n_blocks, b);
+    let x = planted_data(&planted, n_blocks, b, p, 200);
+
+    let config = BlockSparseConfig {
+        n_blocks,
+        block_size: b,
+        block_topk: 1,
+        max_epochs: 80,
+        minibatch: 64,
+        block_tile: 8,
+        frame_ridge: 1.0e-9,
+        aux_k: 3,
+        matryoshka_prefix: false,
+        tolerance: 1.0e-10,
+    };
+    let fit = fit_block_sparse_dictionary(x.view(), &config)
+        .expect("small-K block fit must run on the CPU baseline, not refuse");
+    eprintln!(
+        "[#2134 small-k] EV={:.12} epochs={} convergence={:?}",
+        fit.explained_variance, fit.epochs, fit.convergence
+    );
+    assert!(
+        fit.explained_variance > 0.95,
+        "small-K CPU block baseline must reconstruct the planted blocks: EV = {}",
+        fit.explained_variance
+    );
+    // The reconstruction is the data-size N×P, computable and non-degenerate.
+    let recon = fit.reconstruct();
+    assert_eq!(recon.dim(), (x.nrows(), p));
+    let energy: f32 = recon.iter().map(|v| v * v).sum();
+    assert!(
+        energy > 0.0,
+        "small-K CPU baseline reconstruction must be non-trivial"
+    );
+}
+
+#[test]
+fn block_seed_preserves_planted_subspaces_2134() {
+    // The scalar farthest-point seed used to choose G*b unrelated rows and only
+    // then group adjacent pairs.  On this orthogonal four-subspace fixture that
+    // produced four live mixed frames, so usage-only revival could not repair
+    // the EV=0.86 local optimum.  The production block-aware seed must cover
+    // every planted rank-b projector before alternating minimisation begins.
+    let (p, b, n_blocks) = (8usize, 2usize, 4usize);
+    let planted = planted_frames(p, n_blocks, b);
+    let x = planted_data(&planted, n_blocks, b, p, 200);
+    let seeded = seed_frames(x.view(), n_blocks, b);
+
+    let projector_roundoff = (p * b * b) as f64 * f32::EPSILON as f64;
+    for planted_block in 0..n_blocks {
+        let mut best_overlap = f64::NEG_INFINITY;
+        for seeded_block in 0..n_blocks {
+            // tr(P_planted P_seeded) = ||D_planted D_seeded^T||_F^2;
+            // it equals b exactly iff the two rank-b subspaces coincide.
+            let mut overlap = 0.0_f64;
+            for left_axis in 0..b {
+                for right_axis in 0..b {
+                    let mut dot = 0.0_f64;
+                    for column in 0..p {
+                        dot += planted[[planted_block * b + left_axis, column]] as f64
+                            * seeded[[seeded_block * b + right_axis, column]] as f64;
+                    }
+                    overlap += dot * dot;
+                }
+            }
+            best_overlap = best_overlap.max(overlap);
+        }
+        eprintln!(
+            "[#2134 seed] planted_block={planted_block} best_projector_overlap={best_overlap:.12} rank={b}"
+        );
+        assert!(
+            b as f64 - best_overlap <= projector_roundoff,
+            "block-aware seed must preserve planted subspace {planted_block}: \
+             best projector overlap {best_overlap} vs rank {b}"
+        );
+    }
+}
+
+#[test]
 fn planted_block_subspaces_recovered() {
     let (p, b, n_blocks) = (8usize, 2usize, 3usize);
     let planted = planted_frames(p, n_blocks, b);
@@ -399,6 +626,10 @@ fn planted_block_subspaces_recovered() {
         tolerance: 1.0e-10,
     };
     let fit = fit_block_sparse_dictionary(x.view(), &config).expect("block fit");
+    eprintln!(
+        "[#2134 planted] EV={:.12} epochs={} convergence={:?}",
+        fit.explained_variance, fit.epochs, fit.convergence
+    );
 
     assert!(
         fit.explained_variance > 0.98,
@@ -429,6 +660,7 @@ fn planted_block_subspaces_recovered() {
                 .expect("principal angle");
             best = best.min(ang);
         }
+        eprintln!("[#2134 planted] block={t} min_principal_angle={best:.12}");
         assert!(
             best < 2.0e-2,
             "planted subspace {t} not recovered by any fitted block: min angle {best} rad"
@@ -569,9 +801,8 @@ fn matryoshka_prefix_losses_are_monotone_and_match_truncated_readout() {
         )
         .expect("truncated prefix transform");
         assert_eq!(gates.nrows(), x.nrows(), "truncated prefix gate row count");
-        let recon =
-            reconstruct_block_sparse_rows(prefix_decoder, blocks.view(), codes.view(), b)
-                .expect("truncated prefix reconstruction");
+        let recon = reconstruct_block_sparse_rows(prefix_decoder, blocks.view(), codes.view(), b)
+            .expect("truncated prefix reconstruction");
         let mut loss = 0.0f64;
         for i in 0..x.nrows() {
             for c in 0..x.ncols() {
@@ -649,7 +880,10 @@ fn block_seed_manifest_is_rust_owned_and_gauge_shaped() {
     // (flat is the shorter code at these firings).
     let rec = &manifest.blocks[0];
     assert_eq!(rec.matched_dl_flat.coded_columns, config.block_size as i64);
-    assert_eq!(rec.matched_dl_chart.coded_columns, config.n_basis_chart as i64);
+    assert_eq!(
+        rec.matched_dl_chart.coded_columns,
+        config.n_basis_chart as i64
+    );
     assert_eq!(rec.matched_dl_flat.n_firings, n as i64);
     assert!(rec.matched_dl_flat.total_dl_bits.is_finite());
     assert!(rec.matched_dl_chart.total_dl_bits.is_finite());
@@ -697,7 +931,6 @@ fn block_coordinate_chart_pair_screen_accepts_split_circle() {
         min_firings: 8,
         max_blocks: 2,
         crossfit_folds: 4,
-        alpha: 1.0,
         min_effect: 0.0,
         whitening_ridge: 1.0e-8,
         pair_screen: true,
@@ -715,7 +948,7 @@ fn block_coordinate_chart_pair_screen_accepts_split_circle() {
         &config,
     )
     .expect("compose charts");
-    assert_eq!(result.accepted_pairs, vec![(0, 1)]);
+    assert_eq!(result.selected_chart_pairs, vec![(0, 1)]);
     assert_eq!(result.pair_records.len(), 1);
     assert!(result.pair_records[0].screen_score > 0.9);
     assert!(result.pair_records[0].evidence.deviance_gain > 0.0);

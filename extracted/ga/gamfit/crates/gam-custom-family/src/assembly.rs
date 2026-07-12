@@ -20,7 +20,7 @@ pub(crate) fn build_custom_family_inner_assembly<'dp>(
     specs: &[ParameterBlockSpec],
     per_block: &[Array1<f64>],
     beta_flat: &Array1<f64>,
-    hessian_op: Arc<dyn HessianOperator>,
+    hessian_op: Arc<dyn HessianFactorization>,
     ranges: &[(usize, usize)],
     total: usize,
     ridge: f64,
@@ -100,21 +100,64 @@ pub(crate) fn build_custom_family_inner_assembly<'dp>(
         let root = penalty_matrix_root(matrix)?;
         penalty_coords.push(PenaltyCoordinate::from_dense_root(root));
     }
+    // Hierarchical coefficient-group penalties are INDEPENDENT Gaussian prior
+    // factors, not additive pieces of one smooth prior: their evidence
+    // normalizer is per-factor `Σ_k(rank Sₖ·ρₖ + log|Sₖ|₊)` rather than the
+    // coalesced `log|Σ λₖSₖ|₊` of a multi-penalty smooth. The two differ
+    // exactly when factors overlap (each shared dimension loses ½·log λ from
+    // the coalesced form), so penalties whose precision label is declared in
+    // `options.independent_prior_factor_labels` are routed to their own
+    // singleton pseudo-logdet block. `None` for every ordinary fit.
+    let prior_factor_masks: Option<Vec<Vec<bool>>> =
+        if options.independent_prior_factor_labels.is_empty() {
+            None
+        } else {
+            Some(
+                specs
+                    .iter()
+                    .map(|spec| {
+                        spec.penalties
+                            .iter()
+                            .map(|penalty| {
+                                penalty.precision_label().is_some_and(|label| {
+                                    options
+                                        .independent_prior_factor_labels
+                                        .iter()
+                                        .any(|factor| factor == label)
+                                })
+                            })
+                            .collect()
+                    })
+                    .collect(),
+            )
+        };
     let per_block_with_joint: Vec<Array1<f64>>;
+    let masks_with_joint: Option<Vec<Vec<bool>>>;
     let penalty_logdet = if joint_penalty_matrices.is_empty() {
-        compute_block_penalty_logdet_derivs(per_block, &per_block_penalties, penalty_logdet_ridge)?
+        compute_block_penalty_logdet_derivs_with_prior_factors(
+            per_block,
+            &per_block_penalties,
+            prior_factor_masks.as_deref(),
+            penalty_logdet_ridge,
+        )?
     } else {
         // Append the joint pseudo-block to the per-block rho list and penalty list
         // so its logdet value / ρ-derivatives slot in after the per-block coords.
+        // Joint penalties are one coupled Gaussian prior — never prior factors.
         per_block_with_joint = per_block
             .iter()
             .cloned()
             .chain(std::iter::once(Array1::from(joint_log_lambdas.clone())))
             .collect();
         per_block_penalties.push(joint_penalty_matrices.as_slice());
-        compute_block_penalty_logdet_derivs(
+        masks_with_joint = prior_factor_masks.map(|mut masks| {
+            masks.push(vec![false; joint_penalty_matrices.len()]);
+            masks
+        });
+        compute_block_penalty_logdet_derivs_with_prior_factors(
             &per_block_with_joint,
             &per_block_penalties,
+            masks_with_joint.as_deref(),
             penalty_logdet_ridge,
         )?
     };
@@ -178,12 +221,12 @@ pub(crate) fn build_custom_family_inner_assembly<'dp>(
 }
 
 pub(crate) struct FirstOrderTraceSkipOperator {
-    pub(crate) inner: Arc<dyn HessianOperator>,
+    pub(crate) inner: Arc<dyn HessianFactorization>,
     pub(crate) remaining_first_order_traces: AtomicUsize,
 }
 
 impl FirstOrderTraceSkipOperator {
-    pub(crate) fn new(inner: Arc<dyn HessianOperator>, skip_count: usize) -> Self {
+    pub(crate) fn new(inner: Arc<dyn HessianFactorization>, skip_count: usize) -> Self {
         Self {
             inner,
             remaining_first_order_traces: AtomicUsize::new(skip_count),
@@ -211,7 +254,7 @@ impl FirstOrderTraceSkipOperator {
     }
 }
 
-impl HessianOperator for FirstOrderTraceSkipOperator {
+impl HessianFactorization for FirstOrderTraceSkipOperator {
     fn logdet(&self) -> f64 {
         self.inner.logdet()
     }
@@ -402,7 +445,7 @@ pub(crate) fn unified_joint_cost_gradient(
     per_block: &[Array1<f64>],
     rho: &Array1<f64>,
     beta_flat: &Array1<f64>,
-    hessian_op: Arc<dyn HessianOperator>,
+    hessian_op: Arc<dyn HessianFactorization>,
     ranges: &[(usize, usize)],
     total: usize,
     ridge: f64,
@@ -421,8 +464,8 @@ pub(crate) fn unified_joint_cost_gradient(
     // (`cost −= Φ`) so the outer criterion matches the Φ-augmented inner
     // objective (gam#979). `None` when the term is unavailable/gated to zero.
     firth_value: Option<f64>,
-) -> Result<(f64, Array1<f64>, gam_problem::HessianResult), String> {
-    let hessian_op: Arc<dyn HessianOperator> = match first_order_trace_skip.as_ref() {
+) -> Result<(f64, Array1<f64>, gam_problem::HessianValue), String> {
+    let hessian_op: Arc<dyn HessianFactorization> = match first_order_trace_skip.as_ref() {
         Some(trace_values) if !trace_values.is_empty() => Arc::new(
             FirstOrderTraceSkipOperator::new(hessian_op, trace_values.len()),
         ),
@@ -494,7 +537,7 @@ pub(crate) fn unified_joint_efs_eval(
     per_block: &[Array1<f64>],
     rho: &Array1<f64>,
     beta_flat: &Array1<f64>,
-    hessian_op: Arc<dyn HessianOperator>,
+    hessian_op: Arc<dyn HessianFactorization>,
     ranges: &[(usize, usize)],
     total: usize,
     ridge: f64,
@@ -573,7 +616,7 @@ pub(crate) fn unified_joint_efs_eval(
 
     if has_psi {
         let inner_hessian_scale =
-            hessian_operator_geometric_scale(inner_solution.hessian_op.as_ref());
+            hessian_factorization_geometric_scale(inner_solution.hessian_op.as_ref());
         let hybrid = compute_hybrid_efs_update(&inner_solution, rho_slice, gradient_slice);
         Ok(gam_problem::EfsEval {
             cost: result.cost,
@@ -591,10 +634,11 @@ pub(crate) fn unified_joint_efs_eval(
             },
             inner_hessian_scale,
             logdet_enclosure_gap: None,
+            consecutive_restored_incumbents: None,
         })
     } else {
         let inner_hessian_scale =
-            hessian_operator_geometric_scale(inner_solution.hessian_op.as_ref());
+            hessian_factorization_geometric_scale(inner_solution.hessian_op.as_ref());
         Ok(gam_problem::EfsEval {
             cost: result.cost,
             steps: compute_efs_update(&inner_solution, rho_slice, gradient_slice),
@@ -603,6 +647,7 @@ pub(crate) fn unified_joint_efs_eval(
             psi_indices: None,
             inner_hessian_scale,
             logdet_enclosure_gap: None,
+            consecutive_restored_incumbents: None,
         })
     }
 }
@@ -621,7 +666,7 @@ pub(crate) fn unified_joint_efs_eval(
 /// The operator is a deterministic function of `(β̂, ρ)` for a fixed
 /// family/data plus the scalar assembly knobs (ridges, curvature scale, logdet
 /// flags, pseudo-logdet mode, Jeffreys curvature). We therefore cache the
-/// assembled `Arc<dyn HessianOperator>` keyed by a content fingerprint of ALL of
+/// assembled `Arc<dyn HessianFactorization>` keyed by a content fingerprint of ALL of
 /// those inputs and reuse it on a bit-identical hit. Because the reuse condition
 /// is exact byte-equality of the build inputs, the reused operator — and so the
 /// LAML cost and its analytic gradient — is bit-identical to a fresh build.
@@ -629,20 +674,20 @@ pub(crate) fn unified_joint_efs_eval(
 /// entries, which bounds memory to the last two distinct ρ assemblies.
 struct AssembledOperatorCache {
     /// `(fingerprint, operator)` for at most the last two distinct assemblies.
-    entries: Vec<(u64, Arc<dyn HessianOperator>)>,
+    entries: Vec<(u64, Arc<dyn HessianFactorization>)>,
 }
 
 impl AssembledOperatorCache {
     const CAPACITY: usize = 2;
 
-    fn get(&self, fingerprint: u64) -> Option<Arc<dyn HessianOperator>> {
+    fn get(&self, fingerprint: u64) -> Option<Arc<dyn HessianFactorization>> {
         self.entries
             .iter()
             .find(|(key, _)| *key == fingerprint)
             .map(|(_, op)| Arc::clone(op))
     }
 
-    fn insert(&mut self, fingerprint: u64, op: Arc<dyn HessianOperator>) {
+    fn insert(&mut self, fingerprint: u64, op: Arc<dyn HessianFactorization>) {
         if self.entries.iter().any(|(key, _)| *key == fingerprint) {
             return;
         }
@@ -836,7 +881,7 @@ pub(crate) fn joint_outer_evaluate(
     >,
     ext_bundle: Option<ExtCoordBundle>,
     first_order_trace_skip: Option<Array1<f64>>,
-    batched_outer_hessian_operator: Option<Arc<dyn gam_problem::OuterHessianOperator>>,
+    batched_outer_hessian_operator: Option<Arc<dyn gam_problem::HessianOperator>>,
     // Universal under-identification robustness (always armed when the family can
     // expose an exact joint Hessian). The
     // outer REML logdet AND its trace derivatives must run on the same
@@ -902,7 +947,7 @@ pub(crate) fn joint_outer_evaluate(
     // logdet regularizes its large negative eigenvalue to a near-zero pivot, so the
     // IFT solve `v_k = −M⁻¹ Ṡ_k β̂` amplifies by `~1/ε²` and the outer gradient
     // explodes, after which the envelope tripwire suppresses the Hessian entirely
-    // (`HessianResult::Unavailable`). When the completed curvature is NOT PSD we
+    // (`HessianValue::Unavailable`). When the completed curvature is NOT PSD we
     // keep the bounded PSD `H_Φ` — which is exactly the curvature the criterion's
     // value (`½log|H+S_λ+H_Φ|`) and trace kernel already use, so the operator and
     // the criterion agree. The decision is all-or-nothing per evaluation:
@@ -1029,13 +1074,13 @@ pub(crate) fn joint_outer_evaluate(
         .ok()
         .and_then(|cache| cache.get(operator_fingerprint));
 
-    let hessian_op: Arc<dyn HessianOperator> = if let Some(cached) = cached_operator {
+    let hessian_op: Arc<dyn HessianFactorization> = if let Some(cached) = cached_operator {
         log::debug!(
             "[OUTER hessian-route] reusing cached same-ρ assembled operator (fingerprint hit)"
         );
         cached
     } else {
-        let built: Arc<dyn HessianOperator> = if use_joint_matrix_free_path(
+        let built: Arc<dyn HessianFactorization> = if use_joint_matrix_free_path(
             total,
             joint_observation_count(&inner.block_states),
         ) {
@@ -1368,7 +1413,7 @@ pub(crate) fn joint_outer_evaluate(
     // second-order, and Hessian work, but short-circuit only the
     // soon-discarded first-order trace calls. The projected-subspace
     // trace path is left untouched because the Hessian shares that
-    // kernel and it is not routed through HessianOperator trace methods.
+    // kernel and it is not routed through HessianFactorization trace methods.
     // Bind the gating flag before `penalty_subspace_trace` is consumed by
     // the call below so the trace-skip choice does not depend on a moved
     // value (was: `if penalty_subspace_trace.is_none()` evaluated AFTER
@@ -1403,7 +1448,7 @@ pub(crate) fn joint_outer_evaluate(
         // second-order, and Hessian work, but short-circuit only the
         // soon-discarded first-order trace calls. The projected-subspace
         // trace path is left untouched because the Hessian shares that
-        // kernel and it is not routed through HessianOperator trace methods.
+        // kernel and it is not routed through HessianFactorization trace methods.
         if has_penalty_subspace_trace {
             None
         } else {
@@ -1444,7 +1489,7 @@ pub(crate) fn joint_outer_evaluate(
         .into());
     }
     match &outer_hessian {
-        gam_problem::HessianResult::Analytic(hessian) => {
+        gam_problem::HessianValue::Dense(hessian) => {
             if hessian.iter().any(|value| !value.is_finite()) {
                 return Err(CustomFamilyError::NumericalFailure {
                     reason: "joint outer evaluation produced a non-finite Hessian".to_string(),
@@ -1464,7 +1509,7 @@ pub(crate) fn joint_outer_evaluate(
                 .into());
             }
         }
-        gam_problem::HessianResult::Operator(op) => {
+        gam_problem::HessianValue::Operator(op) => {
             if op.dim() != expected_theta_dim {
                 return Err(format!(
                     "joint outer evaluation returned operator Hessian dim {}, expected {}",
@@ -1473,7 +1518,7 @@ pub(crate) fn joint_outer_evaluate(
                 ));
             }
         }
-        gam_problem::HessianResult::Unavailable => {}
+        gam_problem::HessianValue::Unavailable => {}
     }
 
     let warm = ConstrainedWarmStart {
@@ -1595,7 +1640,7 @@ pub(crate) fn joint_outer_evaluate_efs(
             Some(matrix)
         });
 
-    let hessian_op: Arc<dyn HessianOperator> = if use_joint_matrix_free_path(
+    let hessian_op: Arc<dyn HessianFactorization> = if use_joint_matrix_free_path(
         total,
         joint_observation_count(&inner.block_states),
     ) {
@@ -1945,7 +1990,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                     spec,
                     block_idx,
                     |x_dyn, _| {
-                        let w = floor_positiveworking_weights(working_weights, options.minweight);
+                        let w = floor_positiveworking_weights(working_weights, options.minweight)?;
                         let (xtwx, _) = weighted_normal_equations(x_dyn, &w, None)?;
                         diagonal_design = Some(x_dyn.clone());
                         Ok(xtwx)
@@ -2003,7 +2048,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                                     )
                                 })?;
                         let wwork =
-                            floor_positiveworking_weights(working_weights, options.minweight);
+                            floor_positiveworking_weights(working_weights, options.minweight)?;
                         let x_dense = x_dyn.to_dense();
                         let n = x_dense.nrows();
 
@@ -2036,7 +2081,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                             }
                         }
 
-                        let dw = family
+                        let mut dw = family
                                     .diagonalworking_weights_directional_derivative(
                                         &inner.block_states,
                                         block_idx,
@@ -2054,6 +2099,23 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                                 n
                             ) }.into());
                         }
+                        // The Hessian VALUE above uses
+                        // `floor_positiveworking_weights(w, minweight)`, which is
+                        // CONSTANT (0 or minweight) on every row with
+                        // w_i < minweight (incl. w_i ≤ 0). The exact directional
+                        // derivative of that floored surface is therefore zero on
+                        // those rows; leaving the raw family dW there makes the
+                        // ½tr(H⁻¹Ḣ) EFS gradient differentiate a different
+                        // operator than the ½log|H_pen| value — the same
+                        // reconciliation the wx/wdx geometry terms already get
+                        // through `wwork`.
+                        ndarray::Zip::from(&mut dw)
+                            .and(working_weights)
+                            .par_for_each(|d, &wi| {
+                                if !(wi.is_finite() && wi >= options.minweight) {
+                                    *d = 0.0;
+                                }
+                            });
                         let mut scaled_x = x_dense.clone();
                         ndarray::Zip::from(scaled_x.rows_mut())
                             .and(&dw)
@@ -2092,7 +2154,10 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                             ) }.into()),
                         }
                     }
-                    BlockWorkingSet::Diagonal { .. } => {
+                    BlockWorkingSet::Diagonal {
+                        working_response: _,
+                        working_weights,
+                    } => {
                         let x_dyn = diagonal_design.as_ref().ok_or_else(|| {
                             format!(
                                 "missing dynamic design for block {block_idx} diagonal fixed-point second correction"
@@ -2135,7 +2200,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                         )?;
                         let d_eta_u = x_dyn.matrixvectormultiply(u);
                         let d_eta_v = x_dyn.matrixvectormultiply(v);
-                        let d2w = family
+                        let mut d2w = family
                             .diagonalworking_weights_second_directional_derivative(
                                 &inner.block_states,
                                 block_idx,
@@ -2154,6 +2219,17 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                                 n
                             ) }.into());
                         }
+                        // Same floored-surface reconciliation as the first-order
+                        // dW above: the value Hessian's floored weights are
+                        // constant on w_i < minweight rows, so their second
+                        // directional derivative is zero there too.
+                        ndarray::Zip::from(&mut d2w)
+                            .and(working_weights)
+                            .par_for_each(|d, &wi| {
+                                if !(wi.is_finite() && wi >= options.minweight) {
+                                    *d = 0.0;
+                                }
+                            });
                         let mut scaled_x = x_dense.clone();
                         ndarray::Zip::from(scaled_x.rows_mut())
                             .and(&d2w)

@@ -2,7 +2,7 @@ use super::*;
 use crate::estimate::smooth_floor_dp;
 use crate::estimate::smoothing_correction::DP_FLOOR;
 use approx::assert_relative_eq;
-use gam_problem::{BlockLocalDrift, ContractedPsiSecondOrder};
+use gam_problem::{BlockLocalDrift, ContractedPsiSecondOrder, HessianOperator};
 use ndarray::array;
 
 #[test]
@@ -21,7 +21,7 @@ pub(crate) fn trace_matrix_product_iterator_matches_scalar_reference_bitwise() {
     }
 
     assert_eq!(
-        trace_matrix_product(&left, &right).to_bits(),
+        dense::trace_product(&left, &right).to_bits(),
         reference.to_bits()
     );
 }
@@ -58,7 +58,7 @@ pub(crate) fn xt_logdet_kernel_diagonal_iterator_matches_scalar_reference() {
         pub(crate) kernel: Array2<f64>,
     }
 
-    impl HessianOperator for FixedKernelHessian {
+    impl HessianFactorization for FixedKernelHessian {
         fn logdet(&self) -> f64 {
             0.0
         }
@@ -98,7 +98,7 @@ pub(crate) fn xt_logdet_kernel_diagonal_iterator_matches_scalar_reference() {
     let op = FixedKernelHessian { kernel };
     let design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(x.clone()));
 
-    let got = HessianOperator::xt_logdet_kernel_x_diagonal(&op, &design);
+    let got = HessianFactorization::xt_logdet_kernel_x_diagonal(&op, &design);
     let solved = op.solve_multi(&x.t().to_owned());
     for i in 0..x.nrows() {
         let mut reference = 0.0;
@@ -1065,26 +1065,35 @@ pub(crate) fn projected_factor_cache_waiters_wake_when_producer_panics() {
     assert_eq!(recovered[[0, 0]], 9.0);
 }
 
-pub(crate) struct SentinelOuterHessianOperator {
+pub(crate) struct SentinelHessianOperator {
     pub(crate) matrix: Array2<f64>,
 }
 
-impl gam_problem::OuterHessianOperator for SentinelOuterHessianOperator {
+impl gam_problem::HessianOperator for SentinelHessianOperator {
     fn dim(&self) -> usize {
         self.matrix.nrows()
     }
 
-    fn matvec(&self, v: &Array1<f64>) -> Result<Array1<f64>, String> {
-        Ok(self.matrix.dot(v))
+    fn apply_into(
+        &self,
+        v: &Array1<f64>,
+        out: &mut Array1<f64>,
+    ) -> Result<(), opt::ObjectiveEvalError> {
+        out.assign(&self.matrix.dot(v));
+        Ok(())
     }
 
-    fn is_cheap_to_materialize(&self) -> bool {
-        true
+    fn materialization(&self) -> opt::HessianMaterialization {
+        opt::HessianMaterialization::Explicit
+    }
+
+    fn materialize_dense(&self) -> Result<Array2<f64>, opt::ObjectiveEvalError> {
+        Ok(self.matrix.clone())
     }
 }
 
 pub(crate) struct FamilyOperatorOnlyDerivatives {
-    pub(crate) op: Arc<dyn gam_problem::OuterHessianOperator>,
+    pub(crate) op: Arc<dyn gam_problem::HessianOperator>,
 }
 
 impl HessianDerivativeProvider for FamilyOperatorOnlyDerivatives {
@@ -1104,7 +1113,7 @@ impl HessianDerivativeProvider for FamilyOperatorOnlyDerivatives {
         None
     }
 
-    fn family_outer_hessian_operator(&self) -> Option<Arc<dyn gam_problem::OuterHessianOperator>> {
+    fn family_outer_hessian_operator(&self) -> Option<Arc<dyn gam_problem::HessianOperator>> {
         Some(Arc::clone(&self.op))
     }
 }
@@ -1117,7 +1126,7 @@ pub(crate) fn build_sentinel_tripwire_solution(
     kkt_residual: Option<ProjectedKktResidual>,
 ) -> InnerSolution<'static> {
     let hop = Arc::new(DenseSpectralOperator::from_symmetric(&Array2::eye(2)).unwrap());
-    let family_operator = Arc::new(SentinelOuterHessianOperator {
+    let family_operator = Arc::new(SentinelHessianOperator {
         matrix: array![[42.0]],
     });
     let deriv_provider = FamilyOperatorOnlyDerivatives {
@@ -1167,7 +1176,7 @@ pub(crate) fn dense_and_materialized_outer_hessian(
     solution: &InnerSolution<'_>,
     rho: &[f64],
     lambdas: &[f64],
-) -> (Array2<f64>, UnifiedOuterHessianOperator, Array2<f64>) {
+) -> (Array2<f64>, UnifiedHessianOperator, Array2<f64>) {
     let dense = compute_outer_hessian(
         solution,
         rho,
@@ -1190,7 +1199,11 @@ pub(crate) fn dense_and_materialized_outer_hessian(
         None,
     )
     .unwrap();
-    let materialized = gam_problem::OuterHessianOperator::materialize_dense(&operator).unwrap();
+    let materialized = gam_problem::HessianOperator::apply_mat(
+        &operator,
+        Array2::eye(operator.dim()).view(),
+    )
+    .unwrap();
     (dense, operator, materialized)
 }
 
@@ -1198,7 +1211,7 @@ pub(crate) fn dense_and_materialized_outer_hessian(
 pub(crate) fn value_gradient_hessian_prefers_family_supplied_outer_operator() {
     let hop = Arc::new(DenseSpectralOperator::from_symmetric(&Array2::eye(2)).unwrap());
     let family_matrix = array![[42.0]];
-    let family_operator = Arc::new(SentinelOuterHessianOperator {
+    let family_operator = Arc::new(SentinelHessianOperator {
         matrix: family_matrix.clone(),
     });
     let deriv_provider = FamilyOperatorOnlyDerivatives {
@@ -1245,7 +1258,7 @@ pub(crate) fn value_gradient_hessian_prefers_family_supplied_outer_operator() {
 
     let result = reml_laml_evaluate(&solution, &[0.0], EvalMode::ValueGradientHessian, None)
         .expect("family outer operator evaluation");
-    let gam_problem::HessianResult::Operator(op) = result.hessian else {
+    let gam_problem::HessianValue::Operator(op) = result.hessian else {
         panic!("expected family-supplied operator Hessian route");
     };
     let dense = op.materialize_dense().expect("sentinel materialization");
@@ -1779,7 +1792,7 @@ pub(crate) fn envelope_inconsistent_gradient_skips_outer_hessian_assembly() {
         "inconsistent envelope gradient should be suppressed"
     );
     assert!(
-        matches!(result.hessian, gam_problem::HessianResult::Unavailable),
+        matches!(result.hessian, gam_problem::HessianValue::Unavailable),
         "inconsistent envelope gradient should skip Hessian assembly"
     );
 }
@@ -2125,7 +2138,7 @@ pub(crate) fn operator_hessian_matches_dense_with_operator_drifts_and_extended_g
     }
 
     let alpha = array![0.37, -0.58];
-    let hvp = gam_problem::OuterHessianOperator::matvec(&operator, &alpha).expect("operator HVP");
+    let hvp = gam_problem::HessianOperator::apply(&operator, &alpha).expect("operator HVP");
     let dense_hvp = dense.dot(&alpha);
     for i in 0..hvp.len() {
         let tolerance = 1e-10_f64.max(1e-10 * dense_hvp[i].abs());
@@ -2310,17 +2323,21 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
     // if that happens.
     assert!(
         matches!(
-            gam_problem::OuterHessianOperator::materialization_capability(&operator),
-            gam_problem::OuterHessianMaterialization::Unavailable
+            gam_problem::HessianOperator::materialization(&operator),
+            gam_problem::HessianMaterialization::Unavailable
         ),
         "#740 operator must advertise Unavailable materialization to stay matrix-free"
     );
 
-    let materialized = gam_problem::OuterHessianOperator::materialize_dense(&operator).unwrap();
+    let materialized = gam_problem::HessianOperator::apply_mat(
+        &operator,
+        Array2::eye(operator.dim()).view(),
+    )
+    .unwrap();
 
     // CONTROL: the SAME operator built WITHOUT the hook (ψψ block filled from
     // the per-pair ext_coord_pair_fn tables) must already match the dense
-    // per-pair path — this is the pre-existing UnifiedOuterHessianOperator
+    // per-pair path — this is the pre-existing UnifiedHessianOperator
     // path, unrelated to #740. If this control matches dense but the
     // hook-operator above does not, the divergence is isolated to the #740
     // hook-injection arithmetic (psi_contracted_contrib / the ψψ-skip).
@@ -2339,7 +2356,11 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
     )
     .unwrap();
     let control_mat =
-        gam_problem::OuterHessianOperator::materialize_dense(&control_operator).unwrap();
+        gam_problem::HessianOperator::apply_mat(
+            &control_operator,
+            Array2::eye(control_operator.dim()).view(),
+        )
+        .unwrap();
 
     for row in 0..dense.nrows() {
         for col in 0..dense.ncols() {
@@ -2443,7 +2464,7 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
     // matvec path, distinct from the materialize column-probes above, so it
     // also exercises the hook's per-matvec injection directly.)
     let mixed = array![0.6_f64, -1.1_f64]; // [ρ, ψ], both live
-    let hvp = gam_problem::OuterHessianOperator::matvec(&operator, &mixed)
+    let hvp = gam_problem::HessianOperator::apply(&operator, &mixed)
         .expect("mixed-direction operator HVP");
     let dense_hvp = dense.dot(&mixed);
     for i in 0..hvp.len() {
@@ -2765,7 +2786,7 @@ pub(crate) fn outer_hessian_operator_matvec_matches_dense_subspace_with_null_alp
     ];
     for alpha in alphas.iter() {
         let hvp =
-            gam_problem::OuterHessianOperator::matvec(&operator, alpha).expect("operator HVP");
+            gam_problem::HessianOperator::apply(&operator, alpha).expect("operator HVP");
         let dense_hvp = dense.dot(alpha);
         for i in 0..hvp.len() {
             assert_relative_eq!(hvp[i], dense_hvp[i], epsilon = 1e-12, max_relative = 1e-12);
@@ -2978,7 +2999,7 @@ pub(crate) fn subspace_trace_large_k_routes_to_projected_operator() {
     let result = reml_laml_evaluate(&solution, &rho, EvalMode::ValueGradientHessian, None).unwrap();
 
     assert!(
-        matches!(result.hessian, gam_problem::HessianResult::Operator(_)),
+        matches!(result.hessian, gam_problem::HessianValue::Operator(_)),
         "large-k subspace-trace case should use projected outer Hessian operator"
     );
 }
@@ -3483,36 +3504,42 @@ pub(crate) fn fixed_dispersion_firth_cost_subtracts_jeffreys_term() {
     assert_relative_eq!(result.cost, -firth_value, epsilon = 1e-12);
 }
 
-pub(crate) struct FixedOuterHessianOperator {
+pub(crate) struct FixedHessianOperator {
     pub(crate) matrix: Array2<f64>,
 }
 
-impl gam_problem::OuterHessianOperator for FixedOuterHessianOperator {
+impl gam_problem::HessianOperator for FixedHessianOperator {
     fn dim(&self) -> usize {
         self.matrix.nrows()
     }
 
-    fn matvec(&self, v: &Array1<f64>) -> Result<Array1<f64>, String> {
+    fn apply_into(
+        &self,
+        v: &Array1<f64>,
+        out: &mut Array1<f64>,
+    ) -> Result<(), opt::ObjectiveEvalError> {
         if v.len() != self.dim() {
-            return Err(RemlError::DimensionMismatch {
-                reason: format!(
+            return Err(opt::ObjectiveEvalError::fatal(format!(
                     "fixed test outer Hessian dimension mismatch: got {}, expected {}",
                     v.len(),
                     self.dim()
-                ),
-            }
-            .into());
+                )));
         }
-        Ok(self.matrix.dot(v))
+        out.assign(&self.matrix.dot(v));
+        Ok(())
     }
 
-    fn is_cheap_to_materialize(&self) -> bool {
-        true
+    fn materialization(&self) -> opt::HessianMaterialization {
+        opt::HessianMaterialization::Explicit
+    }
+
+    fn materialize_dense(&self) -> Result<Array2<f64>, opt::ObjectiveEvalError> {
+        Ok(self.matrix.clone())
     }
 }
 
 pub(crate) struct FamilyOperatorDerivatives {
-    pub(crate) op: Arc<dyn gam_problem::OuterHessianOperator>,
+    pub(crate) op: Arc<dyn gam_problem::HessianOperator>,
 }
 
 impl HessianDerivativeProvider for FamilyOperatorDerivatives {
@@ -3540,7 +3567,7 @@ impl HessianDerivativeProvider for FamilyOperatorDerivatives {
         false
     }
 
-    fn family_outer_hessian_operator(&self) -> Option<Arc<dyn gam_problem::OuterHessianOperator>> {
+    fn family_outer_hessian_operator(&self) -> Option<Arc<dyn gam_problem::HessianOperator>> {
         Some(Arc::clone(&self.op))
     }
 }
@@ -3548,8 +3575,8 @@ impl HessianDerivativeProvider for FamilyOperatorDerivatives {
 #[test]
 pub(crate) fn family_outer_hessian_operator_short_circuits_dense_pairwise_assembly() {
     let supplied = array![[2.5]];
-    let provider_op: Arc<dyn gam_problem::OuterHessianOperator> =
-        Arc::new(FixedOuterHessianOperator {
+    let provider_op: Arc<dyn gam_problem::HessianOperator> =
+        Arc::new(FixedHessianOperator {
             matrix: supplied.clone(),
         });
     let solution = InnerSolution {
@@ -3591,11 +3618,11 @@ pub(crate) fn family_outer_hessian_operator_short_circuits_dense_pairwise_assemb
 
     let result =
         reml_laml_evaluate(&solution, &[0.0], EvalMode::ValueGradientHessian, None).unwrap();
-    let gam_problem::HessianResult::Operator(op) = result.hessian else {
+    let gam_problem::HessianValue::Operator(op) = result.hessian else {
         panic!("expected family-supplied operator Hessian");
     };
     assert_eq!(op.dim(), 1);
-    let hv = op.matvec(&array![4.0]).unwrap();
+    let hv = op.apply(&array![4.0]).unwrap();
     assert_relative_eq!(hv[0], 10.0, epsilon = 1e-12);
     let dense = op.materialize_dense().unwrap();
     assert_relative_eq!(dense[[0, 0]], supplied[[0, 0]], epsilon = 1e-12);
@@ -4284,11 +4311,11 @@ pub(crate) fn trace_hinv_operator_cross_default_routes_implicit_to_hutchpp() {
         }
         fn mul_vec(&self, v: &Array1<f64>) -> Array1<f64> {
             let mut out = Array1::<f64>::zeros(self.0.nrows());
-            dense_matvec_into(&self.0, v.view(), out.view_mut());
+            dense::matvec_into(&self.0, v.view(), out.view_mut());
             out
         }
         fn mul_vec_into(&self, v: ArrayView1<'_, f64>, out: ArrayViewMut1<'_, f64>) {
-            dense_matvec_into(&self.0, v, out);
+            dense::matvec_into(&self.0, v, out);
         }
         fn to_dense(&self) -> Array2<f64> {
             self.0.clone()
@@ -6299,8 +6326,8 @@ pub(crate) fn ift_correction_recovers_fd_hessian_at_perturbed_beta() {
             .unwrap()
             .hessian
         {
-            gam_problem::HessianResult::Analytic(hessian) => hessian,
-            gam_problem::HessianResult::Operator(_) | gam_problem::HessianResult::Unavailable => {
+            gam_problem::HessianValue::Dense(hessian) => hessian,
+            gam_problem::HessianValue::Operator(_) | gam_problem::HessianValue::Unavailable => {
                 panic!("expected dense analytic Hessian")
             }
         };
@@ -6310,8 +6337,8 @@ pub(crate) fn ift_correction_recovers_fd_hessian_at_perturbed_beta() {
         .unwrap()
         .hessian
     {
-        gam_problem::HessianResult::Analytic(hessian) => hessian,
-        gam_problem::HessianResult::Operator(_) | gam_problem::HessianResult::Unavailable => {
+        gam_problem::HessianValue::Dense(hessian) => hessian,
+        gam_problem::HessianValue::Operator(_) | gam_problem::HessianValue::Unavailable => {
             panic!("expected dense analytic Hessian")
         }
     };
@@ -6407,6 +6434,74 @@ pub(crate) fn bug_hunt_block_penalty_logdet_derivs_match_finite_difference_share
             fd
         );
     }
+}
+
+/// Overlapping INDEPENDENT prior factors keep per-factor normalizer
+/// multiplicity (audit finding 40).
+///
+/// Two normalized Gaussian factors with precision λ on the SAME scalar
+/// coefficient contribute `λ^{1/2}·λ^{1/2}` to the prior product, i.e. a
+/// doubled logdet `2·log λ`. Coalescing their quadratics into `2λ β²` and
+/// taking one pseudo-logdet yields only `log(2λ)` — losing `½ log λ` from
+/// the outer ρ-posterior. The factor-masked path must return the sum of the
+/// singleton logdets with per-factor rank derivatives and no cross-factor
+/// second-derivative coupling.
+#[test]
+pub(crate) fn prior_factor_mask_preserves_overlap_normalizer_multiplicity() {
+    let s1 = ndarray::arr2(&[[1.0_f64]]);
+    let s2 = ndarray::arr2(&[[1.0_f64]]);
+    let rho = ndarray::arr1(&[0.7_f64, -0.3]);
+    let per_block_rho = vec![rho.clone()];
+    let penalties_block = vec![s1.clone(), s2.clone()];
+    let per_block_penalties: Vec<&[Array2<f64>]> = vec![penalties_block.as_slice()];
+    let masks = vec![vec![true, true]];
+
+    let out = compute_block_penalty_logdet_derivs_with_prior_factors(
+        &per_block_rho,
+        &per_block_penalties,
+        Some(&masks),
+        0.0,
+    )
+    .expect("factor logdet derivs should be finite");
+
+    // Per-factor: Σ_k (rank·ρ_k + log|S_k|₊) = ρ_0 + ρ_1 (rank 1, log|I₁|₊ = 0).
+    let expected = rho[0] + rho[1];
+    assert!(
+        (out.value - expected).abs() < 1e-12,
+        "per-factor normalizer must be ρ₀+ρ₁ = {expected}, got {}",
+        out.value
+    );
+    // The coalesced form would give log(λ₀+λ₁) instead — strictly different here.
+    let coalesced = (rho[0].exp() + rho[1].exp()).ln();
+    assert!(
+        (out.value - coalesced).abs() > 0.3,
+        "test must exercise the overlap regime where the two conventions differ"
+    );
+    // d/dρ_k of Σ rank·ρ = rank = 1 per factor; second derivatives vanish.
+    let second = out.second.as_ref().expect("second derivatives populated");
+    for k in 0..2 {
+        assert!(
+            (out.first[k] - 1.0).abs() < 1e-12,
+            "factor {k} first derivative must equal its rank 1, got {}",
+            out.first[k]
+        );
+        for l in 0..2 {
+            assert!(
+                second[[k, l]].abs() < 1e-12,
+                "factor normalizer is linear in ρ: second[{k},{l}] must vanish, got {}",
+                second[[k, l]]
+            );
+        }
+    }
+
+    // An unmasked (None) call on the same inputs must reproduce the coalesced
+    // convention, unchanged.
+    let plain = compute_block_penalty_logdet_derivs(&per_block_rho, &per_block_penalties, 0.0)
+        .expect("coalesced logdet derivs should be finite");
+    assert!(
+        (plain.value - coalesced).abs() < 1e-12,
+        "unmasked path must keep the coalesced smooth-prior convention"
+    );
 }
 
 // ─── Issue #200 regression: cost and gradient agree under
@@ -6606,8 +6701,8 @@ pub(crate) fn dense_cholesky_value_only_matches_spectral() {
 
     // solve must agree.
     let rhs = array![1.0, 2.0, 3.0, 4.0];
-    let sol_spec = HessianOperator::solve(&spectral, &rhs);
-    let sol_chol = HessianOperator::solve(&cholesky, &rhs);
+    let sol_spec = HessianFactorization::solve(&spectral, &rhs);
+    let sol_chol = HessianFactorization::solve(&cholesky, &rhs);
     for i in 0..4 {
         assert_relative_eq!(sol_chol[i], sol_spec[i], epsilon = 1e-10);
     }

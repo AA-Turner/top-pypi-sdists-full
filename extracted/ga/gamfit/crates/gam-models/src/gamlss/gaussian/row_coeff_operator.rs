@@ -502,12 +502,9 @@ impl gam_problem::HyperOperator for DesignTwoBlockRowCoeffOperator {
 impl DesignTwoBlockRowCoeffOperator {
     pub(crate) fn design_cache_token(design: &DesignMatrix) -> usize {
         match design {
-            DesignMatrix::Dense(DenseDesignMatrix::Materialized(matrix)) => {
-                Arc::as_ptr(matrix) as usize
-            }
-            DesignMatrix::Dense(DenseDesignMatrix::Lazy(op)) => {
-                Arc::as_ptr(op) as *const () as usize
-            }
+            // `cache_identity` is the canonical shared-Arc identity for both
+            // materialized and lazy dense designs.
+            DesignMatrix::Dense(dense) => dense.cache_identity(),
             DesignMatrix::Sparse(sparse) => sparse as *const _ as usize,
         }
     }
@@ -619,11 +616,15 @@ impl DesignTwoBlockRowCoeffOperator {
 ///   H = [[X_mu^T diag(w) X_mu,    X_mu^T diag(cross) X_ls],
 ///        [X_ls^T diag(cross) X_mu, X_ls^T diag(scale) X_ls]],
 ///
-/// with `cross = 0` and `scale = 2κ²a` — the block-diagonal Gaussian Fisher
-/// (expected) information (μ ⊥ σ, #684; residual-free (log σ, log σ) block,
-/// #566). This MUST match the dense `exact_newton_joint_hessian_from_designs`
-/// curvature object exactly: the observed cross term `2κm` (mean-zero noise)
-/// over-smooths the scale and is its Fisher expectation 0. The matvec applies
+/// with the OBSERVED joint coefficients `mm = w`, `cross = 2κm`,
+/// `scale = κ′(a−n) + 2κ²n` (#1561 — the old block-Fisher object with
+/// `cross ≡ 0`, `scale = 2κ²a` overstated σ-block information and biased
+/// λ̂_σ upward on flat scale surfaces; at the null `n→a, m→0` observed
+/// collapses back to Fisher). This MUST match the dense
+/// `exact_newton_joint_hessian_from_designs` curvature object exactly, and
+/// both read `gaussian_locscale_observed_joint_row_coeffs` as the single
+/// source of truth so cross-block drift is structurally impossible.
+/// The matvec applies
 /// each block by a single design-matrix multiply on each side, so the cost
 /// is Θ(n (p_mu + p_ls)) per `Hv` rather than Θ(n (p_mu + p_ls)²) to form
 /// the dense matrix.
@@ -694,6 +695,17 @@ impl GaussianLocationScaleHessianWorkspace {
 }
 
 impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace {
+    fn warm_up_outer_caches_for_mode(
+        &self,
+        eval_mode: gam_problem::EvalMode,
+    ) -> Result<(), String> {
+        match eval_mode {
+            gam_problem::EvalMode::ValueOnly
+            | gam_problem::EvalMode::ValueAndGradient
+            | gam_problem::EvalMode::ValueGradientHessian => Ok(()),
+        }
+    }
+
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         // Same Hv structure as `hessian_matvec`, but built once via 3 GEMMs
         // (`Xᵀ diag(W) X` per block) instead of letting
@@ -819,12 +831,13 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
         let xi_ls = fast_av(self.x_ls.as_ref(), &d_beta_flat.slice(s![pmu..total]));
         let directional = gaussian_joint_first_directionalweights(&rows, &ximu, &xi_ls);
         let c_mm = directional.0;
+        let c_ml = directional.1;
         let c_ll = directional.2;
-        // Fisher cross block ≡ 0 (μ ⊥ σ; #684), so its directional derivative is
-        // identically 0 — matching the dense
-        // `exact_newton_joint_hessian_directional_derivative_from_designs`, which
-        // likewise does not assemble `directional.1`.
-        let c_ml = Array1::<f64>::zeros(c_mm.len());
+        // The value workspace carries the observed cross block H_{μ,ls}=2κm.
+        // Its directional derivative is therefore the observed `directional.1`
+        // channel too. Dropping it here made the operator-valued outer gradient
+        // differentiate the old Fisher block (cross ≡ 0) while the LAML value
+        // factorized the observed Hessian — an objective/gradient split (#1561).
         Ok(Some(Arc::new(make_two_block_row_coeff_operator(
             self.xmu.clone(),
             self.x_ls.clone(),
@@ -880,11 +893,11 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
         let directional =
             gaussian_jointsecond_directionalweights(&rows, &ximu_u, &xi_ls_u, &ximu_v, &xi_ls_v);
         let c_mm = directional.0;
+        let c_ml = directional.1;
         let c_ll = directional.2;
-        // Fisher cross block ≡ 0 (μ ⊥ σ; #684); its second directional
-        // derivative is identically 0 too — match the dense path (which does not
-        // assemble `directional.1`).
-        let c_ml = Array1::<f64>::zeros(c_mm.len());
+        // Same observed-curvature contract at fourth order: the operator must
+        // carry d²(2κm)[u,v], exactly as the dense path does. Otherwise the
+        // analytic outer Hessian is not the second derivative of its value.
         Ok(Some(Arc::new(make_two_block_row_coeff_operator(
             self.xmu.clone(),
             self.x_ls.clone(),
@@ -962,8 +975,7 @@ mod to_dense_direct_1720_tests {
     /// `(i, j, salt)` — a splitmix64 finaliser over a mixed index. Gives every
     /// test run identical designs/coefficients without an RNG dependency.
     fn pseudo(i: usize, j: usize, salt: u64) -> f64 {
-        let mut z = (i as u64)
-            .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        let mut z = (i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)
             ^ (j as u64).wrapping_mul(0xC2B2_AE3D_27D4_EB4F)
             ^ salt.wrapping_mul(0x1656_67B1_9E37_79F9);
         z ^= z >> 30;

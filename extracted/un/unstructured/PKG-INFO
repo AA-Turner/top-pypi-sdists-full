@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured
-Version: 0.24.0
+Version: 0.24.1
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -28,6 +28,7 @@ Requires-Dist: html5lib<2.0.0,>=1.1
 Requires-Dist: installer<1.0.0,>=0.7.0
 Requires-Dist: langdetect<2.0.0,>=1.0.9
 Requires-Dist: lxml<7.0.0,>=5.0.0
+Requires-Dist: nh3<1.0.0,>=0.3.0
 Requires-Dist: numba<1.0.0,>=0.60.0
 Requires-Dist: numpy<3.0.0,>=1.26.0
 Requires-Dist: psutil<8.0.0,>=7.2.2

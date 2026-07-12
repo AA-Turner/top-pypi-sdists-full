@@ -561,6 +561,56 @@ def select_single_calendar_period_features(df):
     return df[keep]
 
 
+def select_monthly_plus_fullseason_features(df):
+    """Keep single-calendar-period (monthly) features AND the full-season
+    window (the single longest cumulative chain), dropping the intermediate
+    cumulative spans. Middle ground between
+    ``select_single_calendar_period_features`` (monthly only, which strips the
+    season-integrated signal some crops need) and the full cumulative set
+    (monthly + every sub-window, which dilutes selection).
+
+    Same conventions as ``select_single_calendar_period_features``: applied
+    PRE-rename on ``_``-token names; AEF_/MEAN_FLDAS_ whitelisted; PS/IS
+    aggregates dropped; non-stage columns (target/cat/lag) kept.
+
+    Examples (monthly method, full season = 6 stages):
+        vDTR_7           → keep  (single month)
+        vDTR_7_6         → drop  (2-month intermediate span)
+        vDTR_7_6_5_4_3_2 → keep  (full season = longest chain)
+    """
+    def trailing_nums(col):
+        nums = []
+        for p in reversed(col.split("_")):
+            if p.isdigit():
+                nums.append(int(p))
+            else:
+                break
+        return nums
+
+    # Longest CID chain present = the full season (ignore AEF / FLDAS / PS/IS).
+    max_len = 1
+    for c in df.columns:
+        if c.startswith("AEF_") or c.startswith("MEAN_FLDAS_"):
+            continue
+        if "_PS_" in c or "_IS_" in c or c.endswith("_PS") or c.endswith("_IS"):
+            continue
+        n = trailing_nums(c)
+        if n:
+            max_len = max(max_len, len(n))
+
+    def keep_col(col):
+        if col.startswith("AEF_") or col.startswith("MEAN_FLDAS_"):
+            return True
+        if "_PS_" in col or "_IS_" in col or col.endswith("_PS") or col.endswith("_IS"):
+            return False
+        n = trailing_nums(col)
+        if not n:
+            return True                       # non-stage: target / cat / lag
+        return len(set(n)) == 1 or len(n) == max_len  # single month OR full season
+
+    return df[[c for c in df.columns if keep_col(c)]]
+
+
 def select_single_time_period_features(df):
     """
     Only select those features that span a single time-period

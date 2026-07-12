@@ -1,0 +1,113 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = [ "poetry-core>=1" ]
+
+[tool.poetry]
+name = "pylint-django"
+version = "2.8.0"
+description = "A Pylint plugin to help Pylint understand the Django web framework"
+authors = [ "Carl Crowder <git@carlcrowder.com>" ]
+readme = "README.rst"
+repository = "https://github.com/pylint-dev/pylint-django"
+keywords = [ "django", "plugin", "pylint" ]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Framework :: Django :: 2.2",
+  "Framework :: Django :: 3",
+  "Framework :: Django :: 3.0",
+  "Framework :: Django :: 3.1",
+  "Framework :: Django :: 3.2",
+  "Framework :: Django :: 4",
+  "Framework :: Django :: 4.0",
+  "Framework :: Django :: 4.1",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.0",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "Operating System :: Unix",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Quality Assurance",
+]
+packages = [
+  { include = "pylint_django/" },
+]
+include = [ "pylint_django/LICENSE" ]
+exclude = [ "**/tests.py", "**/tests/**", "**/testutils.py" ]
+dependencies.python = ">=3.9,<4.0"
+dependencies.Django = { version = ">=2.2", optional = true }
+dependencies.pylint = ">=3.0,<5"
+dependencies.pylint-plugin-utils = ">=0.8"
+group.dev.dependencies.django-tables2 = "^2.6"
+group.dev.dependencies.django-tastypie = "^0.14"
+group.dev.dependencies.factory-boy = "^3.3"
+group.dev.dependencies.pre-commit = ">=1"
+group.dev.dependencies.pytest = "^7.3.1"
+group.dev.dependencies.pytest-cov = "^4"
+group.dev.dependencies.ruff = ">=0.6.9"
+group.dev.dependencies.tox = ">=4.9"
+group.dev.dependencies.wheel = "^0.40"
+extras.with_django = [ "Django" ]
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+lint.select = [
+  "B",       # bugbear
+  "E",       # pycodestyle
+  "F",       # pyflakes
+  "FA100",   # add future annotations
+  "I",       # isort
+  "PGH004",  # pygrep-hooks - Use specific rule codes when using noqa
+  "PIE",     # flake8-pie
+  "PLC",     # pylint convention
+  "PLE",     # pylint error
+  "PLR",     # pylint refactor
+  "PLR1714", # Consider merging multiple comparisons
+  "PLW",     # pylint warning
+  "PYI",     # flake8-pyi
+  "RUF",     # ruff
+  "T100",    # flake8-debugger
+  "UP",      # pyupgrade
+  "W",       # pycodestyle
+]
+lint.ignore = [
+  "PLC0415", # `import` should be at the top-level of a file
+  "PLR0912", # Too many branches, worse than C901
+  "PLR0915", # Too many statements, worse than C901
+  "PLR2004", # Magic value used in comparison, opinionated
+  "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+]
+
+[tool.isort]
+line_length = 120
+multi_line_output = 3
+use_parentheses = true
+include_trailing_comma = true
+force_grid_wrap = 0
+
+[tool.pylint]
+main.disable = [
+  "fixme",
+  "missing-docstring",
+  "too-few-public-methods",
+  "too-many-ancestors",
+  "too-many-branches",
+  "too-many-return-statements",
+]
+main.ignore = "tests"
+main.max-line-length = 120
+
+[tool.codespell]
+ignore-words = [ "custom_dict.txt" ]

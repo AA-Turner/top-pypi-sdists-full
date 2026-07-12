@@ -1,4 +1,5 @@
 use super::*;
+use opt::{BacktrackConfig, backtracking_line_search};
 
 pub(crate) struct OuterFirstOrderBridge<'a> {
     pub(crate) obj: &'a mut dyn OuterObjective,
@@ -168,8 +169,10 @@ pub(crate) enum CostStallVerdict {
     /// reported `converged = false`.
     FlatValleyStall { residual_grad_norm: f64 },
     /// The objective has stopped improving over the window but the projected
-    /// gradient at the best iterate is FAR above the outer gradient tolerance
-    /// (`> FLAT_VALLEY_STALL_GRAD_CEILING`). A genuine flat-valley floor is, by
+    /// gradient at the best iterate is FAR above the certified-stationary band
+    /// (`> escape_threshold` = the score-relative stationarity bound times the
+    /// escape margin, capped at `FLAT_VALLEY_STALL_GRAD_CEILING`; the carried
+    /// `escape_threshold` is the value actually compared). A genuine flat-valley floor is, by
     /// definition, flat: its residual gradient is at most modestly above the
     /// convergence tolerance. A residual orders of magnitude above tolerance is
     /// NOT a flat valley — it is a *stuck* stall, the signature of an
@@ -182,7 +185,13 @@ pub(crate) enum CostStallVerdict {
     /// iterate, restoring a trustworthy gradient), for a bounded number of
     /// escapes before falling back to a `FlatValleyStall` halt so a genuinely
     /// pathological surface still terminates.
-    StuckKeepDescending { residual_grad_norm: f64 },
+    StuckKeepDescending {
+        residual_grad_norm: f64,
+        /// The score-relative keep-descending trigger the residual actually
+        /// exceeded (NOT the legacy fixed ceiling) — logged so the message can
+        /// never contradict its own numbers.
+        escape_threshold: f64,
+    },
 }
 
 /// Number of consecutive accepted outer iterates with negligible relative
@@ -261,8 +270,7 @@ pub(crate) const FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP: f64 = 1.0;
 /// trajectory is a genuine weakly-identified valley.
 #[inline]
 pub(crate) fn flat_valley_converged_grad_bound(score: f64) -> f64 {
-    (FLAT_VALLEY_CONVERGED_REL_GRAD * (1.0 + score.abs()))
-        .min(FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP)
+    (FLAT_VALLEY_CONVERGED_REL_GRAD * (1.0 + score.abs())).min(FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP)
 }
 
 /// Maximum number of consecutive [`CostStallVerdict::StuckKeepDescending`]
@@ -292,6 +300,13 @@ pub(crate) struct CostStallExit {
     /// residual gradient remains above tolerance — the runner reports the
     /// rebuilt outer result as non-converged in that case.
     pub(crate) converged: bool,
+    /// #2241 — the probe-noise-floor gradient bound σ̂/Δ measured at the stall
+    /// (see [`CostStallGuard::probe_noise_grad_bound`]); `None` when the stall
+    /// window carried too little evidence to measure it. Carried onto
+    /// `OuterResult.flat_noise_grad_bound` so the final analytic certificate
+    /// judges the re-measured gradient against the same flat band the guard
+    /// certified in the loop.
+    pub(crate) noise_grad_bound: Option<f64>,
 }
 
 /// Tracks the monotone best accepted-iterate REML objective and a
@@ -335,6 +350,13 @@ pub(crate) struct CostStallGuard {
     /// once exhausted the guard halts a far-above-tolerance stall as an ordinary
     /// flat-valley floor so the loop still terminates.
     stuck_escapes: usize,
+    /// #2241 — the most recent trusted accepted iterates `(ρ_i, f_i)` (finite
+    /// cost, inner solve converged), newest last, capped at `window + 1`
+    /// entries. This is the raw evidence for the probe-noise-floor flat
+    /// certificate: during a stall the consecutive value differences measure
+    /// the criterion's own evaluation-noise scale, and the consecutive ρ
+    /// distances measure the radius the search actually probed.
+    recent: std::collections::VecDeque<(Array1<f64>, f64)>,
     /// Shared publication slot read by the seed-loop runner after
     /// `optimizer.run()` returns the sentinel error.
     exit: Arc<Mutex<Option<CostStallExit>>>,
@@ -358,8 +380,84 @@ impl CostStallGuard {
             infeasible_streak: 0,
             accepted_iters: 0,
             stuck_escapes: 0,
+            recent: std::collections::VecDeque::new(),
             exit,
         }
+    }
+
+    /// Record one trusted accepted iterate into the #2241 noise-evidence
+    /// buffer, keeping only the latest `window + 1` (⇒ `window` consecutive
+    /// differences).
+    fn record_recent(&mut self, rho: &Array1<f64>, value: f64) {
+        self.recent.push_back((rho.clone(), value));
+        while self.recent.len() > self.window + 1 {
+            self.recent.pop_front();
+        }
+    }
+
+    /// #2241 — probe-noise-floor gradient bound at a halted stall.
+    ///
+    /// Derivation. Over the stalled window the accepted iterates
+    /// `(ρ_i, f_i)` satisfy: (i) the first-order model predicts
+    /// `|f(ρ+d) − f(ρ)| ≤ ‖g‖·‖d‖ + o(‖d‖)` for moves of the size the search
+    /// actually takes, and (ii) because the window is a stall (trend ≈ 0 by
+    /// the `rel_tol` test), the consecutive differences `|f_i − f_{i−1}|` are
+    /// dominated by the criterion's own evaluation noise — inner-solve
+    /// truncation, reassembly order, quadrature — not by descent. So
+    ///   σ̂ = median_i |f_i − f_{i−1}|   (robust noise-floor estimate),
+    ///   Δ  = max_i ‖ρ_i − ρ_{i−1}‖₂    (radius the steps actually probed),
+    /// and if `‖g_best‖ · Δ ≤ σ̂` then NO probe within the radius the line
+    /// search is exploring can change the criterion by more than its own
+    /// measurement noise: the surface is flat relative to its own noise scale
+    /// and the best iterate is stationary at the resolution the criterion can
+    /// be evaluated. Equivalently the gradient is certified below `σ̂/Δ`.
+    ///
+    /// Guards: σ̂ is floored at the roundoff scale `ε·(1+|f_best|)` (a
+    /// byte-identical window cannot license an infinite bound of 0/Δ — it
+    /// licenses exactly the roundoff resolution), and the returned bound is
+    /// capped at [`FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP`] so collapsed step
+    /// sizes (Δ → 0 inflating σ̂/Δ) can never certify a genuinely steep point:
+    /// the #1426 stuck stall (|g| ≈ 11) and the #509 seed-park (|g| ≈ 2) both
+    /// sit above the cap and remain uncertifiable by this route. Returns
+    /// `None` when fewer than three consecutive differences exist or the probe
+    /// radius is degenerate (zero / non-finite).
+    fn probe_noise_grad_bound(&self) -> Option<f64> {
+        if self.recent.len() < 4 {
+            return None;
+        }
+        let mut value_diffs: Vec<f64> = Vec::with_capacity(self.recent.len() - 1);
+        let mut probe_radius = 0.0_f64;
+        for (prev, next) in self.recent.iter().zip(self.recent.iter().skip(1)) {
+            value_diffs.push((next.1 - prev.1).abs());
+            let step = prev
+                .0
+                .iter()
+                .zip(next.0.iter())
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum::<f64>()
+                .sqrt();
+            probe_radius = probe_radius.max(step);
+        }
+        if !probe_radius.is_finite() || probe_radius <= 0.0 {
+            return None;
+        }
+        value_diffs.sort_by(|a, b| a.total_cmp(b));
+        let mid = value_diffs.len() / 2;
+        let median = if value_diffs.len() % 2 == 1 {
+            value_diffs[mid]
+        } else {
+            0.5 * (value_diffs[mid - 1] + value_diffs[mid])
+        };
+        if !median.is_finite() {
+            return None;
+        }
+        let best_scale = if self.best_value.is_finite() {
+            self.best_value.abs()
+        } else {
+            0.0
+        };
+        let noise_floor = median.max(f64::EPSILON * (1.0 + best_scale));
+        Some((noise_floor / probe_radius).min(FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP))
     }
 
     /// Register a precomputed feasible seed that the optimizer consumes from
@@ -379,6 +477,7 @@ impl CostStallGuard {
         self.no_improve_streak = 0;
         self.infeasible_streak = 0;
         self.accepted_iters = self.accepted_iters.saturating_add(1);
+        self.record_recent(rho, value);
         // Seed the shared exit cell so the budget-exhaustion path always has a
         // feasible best to fall back to, even if no later step improves (#1371).
         self.publish_best_so_far();
@@ -408,7 +507,7 @@ impl CostStallGuard {
     /// recorded as best and NEVER counted toward a stall: its cost/gradient are
     /// untrustworthy, so the guard treats it as forced descent (streak reset) and
     /// keeps the optimizer moving until an honest, converged iterate lands.
-    fn observe(
+    pub(crate) fn observe(
         &mut self,
         rho: &Array1<f64>,
         value: f64,
@@ -442,6 +541,7 @@ impl CostStallGuard {
         // separating-region infeasible run is broken, so clear its streak.
         self.infeasible_streak = 0;
         self.accepted_iters = self.accepted_iters.saturating_add(1);
+        self.record_recent(rho, value);
         let improvement = self.best_value - value;
         let floor = self.rel_tol * (1.0 + self.best_value.abs());
         if value < self.best_value {
@@ -471,6 +571,18 @@ impl CostStallGuard {
             self.no_improve_streak = self.no_improve_streak.saturating_add(1);
         } else {
             self.no_improve_streak = 0;
+            // A genuine super-floor improvement means the last stuck-stall
+            // escape (if any) restored real descent, so replenish the escape
+            // budget: [`STUCK_STALL_MAX_ESCAPES`] then bounds CONSECUTIVE
+            // fruitless escapes — the documented pathological-surface case —
+            // rather than the total number of productive basin hops a
+            // multi-shelf descent needs (measured on the #2253 repro: the
+            // 7th escape bought a 36-point objective drop and the lifetime
+            // cap still killed the seed). Termination is preserved because
+            // each replenishment requires an improvement strictly above the
+            // relative floor and the criterion is bounded below, so only
+            // finitely many resets can occur.
+            self.stuck_escapes = 0;
         }
         if self.no_improve_streak < self.window {
             return CostStallVerdict::Continue;
@@ -615,9 +727,17 @@ impl CostStallGuard {
         // separate `FLAT_VALLEY_STALL_GRAD_CEILING`) — is still rejected and routed
         // to `StuckKeepDescending`, so no near-full-basis overfit is ever certified.
         let score_relative_grad_bound = flat_valley_converged_grad_bound(best_value);
+        // #2241 — probe-noise-floor certificate: the stall window's own value
+        // scatter and probed radius bound the gradient at which further probes
+        // become indistinguishable from evaluation noise (derivation on
+        // `probe_noise_grad_bound`). It composes with the score-relative band
+        // as a second sufficient condition; both are capped well below the
+        // stuck-stall regimes so neither can certify a genuinely steep point.
+        let noise_grad_bound = self.probe_noise_grad_bound();
         let converged = best_grad_norm.is_finite()
             && (best_grad_norm <= self.grad_threshold
-                || best_grad_norm <= score_relative_grad_bound);
+                || best_grad_norm <= score_relative_grad_bound
+                || noise_grad_bound.is_some_and(|bound| best_grad_norm <= bound));
         if converged {
             if let Ok(mut slot) = self.exit.lock() {
                 *slot = Some(CostStallExit {
@@ -626,6 +746,7 @@ impl CostStallGuard {
                     grad_norm: best_grad_norm,
                     iterations: self.accepted_iters,
                     converged,
+                    noise_grad_bound,
                 });
             }
             return CostStallVerdict::Converged;
@@ -666,7 +787,8 @@ impl CostStallGuard {
         // descends to true stationarity. The `FLAT_VALLEY_STALL_GRAD_CEILING` caps
         // the trigger so a very large score can never raise it above the legacy
         // ceiling — the #1426 stuck regime (|g| ≈ 11) is always granted escapes.
-        let keep_descending_threshold = (FLAT_VALLEY_STALL_ESCAPE_MARGIN * score_relative_grad_bound)
+        let keep_descending_threshold = (FLAT_VALLEY_STALL_ESCAPE_MARGIN
+            * score_relative_grad_bound)
             .min(FLAT_VALLEY_STALL_GRAD_CEILING);
         let non_stationary_stall =
             best_grad_norm.is_finite() && best_grad_norm > keep_descending_threshold;
@@ -682,6 +804,7 @@ impl CostStallGuard {
             self.infeasible_streak = 0;
             return CostStallVerdict::StuckKeepDescending {
                 residual_grad_norm: best_grad_norm,
+                escape_threshold: keep_descending_threshold,
             };
         }
         if let Ok(mut slot) = self.exit.lock() {
@@ -691,6 +814,7 @@ impl CostStallGuard {
                 grad_norm: best_grad_norm,
                 iterations: self.accepted_iters,
                 converged,
+                noise_grad_bound,
             });
         }
         CostStallVerdict::FlatValleyStall {
@@ -731,6 +855,9 @@ impl CostStallGuard {
                 grad_norm: self.best_grad_norm,
                 iterations: self.accepted_iters,
                 converged,
+                // Not a halted stall: no noise-floor measurement is claimed
+                // for a running best-so-far snapshot (#2241).
+                noise_grad_bound: None,
             });
         }
     }
@@ -932,15 +1059,19 @@ impl ZerothOrderObjective for OuterFirstOrderBridge<'_> {
                 if let Some(guard) = self.cost_stall.as_mut() {
                     match guard.observe_infeasible(x) {
                         CostStallVerdict::Continue => {}
-                        CostStallVerdict::StuckKeepDescending { residual_grad_norm } => {
+                        CostStallVerdict::StuckKeepDescending {
+                            residual_grad_norm,
+                            escape_threshold,
+                        } => {
                             // #1426: best feasible iterate carries a residual far
                             // above tolerance — not a flat valley. Keep going.
                             log::warn!(
                                 "[OUTER] cost-stall STUCK (infeasible BFGS probes, NOT a flat \
-                                 valley): residual |g|={:.3e} far above ceiling {:.3e}; refusing \
+                                 valley): residual |g|={:.3e} far above the certified-stationary \
+                                 band (escape threshold {:.3e}); refusing \
                                  to halt-and-ship and continuing (escape {}/{}, value={:.6e}).",
                                 residual_grad_norm,
-                                FLAT_VALLEY_STALL_GRAD_CEILING,
+                                escape_threshold,
                                 guard.stuck_escapes,
                                 STUCK_STALL_MAX_ESCAPES,
                                 guard.best_value,
@@ -1147,7 +1278,10 @@ impl FirstOrderObjective for OuterFirstOrderBridge<'_> {
                 projected_gradient_norm(x, &gradient, self.cost_stall_bounds.as_ref());
             match guard.observe(x, eval.cost, projected_g_norm, inner_converged) {
                 CostStallVerdict::Continue => {}
-                CostStallVerdict::StuckKeepDescending { residual_grad_norm } => {
+                CostStallVerdict::StuckKeepDescending {
+                    residual_grad_norm,
+                    escape_threshold,
+                } => {
                     // #1426: cost flatlined but the projected gradient is far
                     // above tolerance — a stuck stall from an inconsistent
                     // (non-converged inner solve) objective/gradient, NOT a flat
@@ -1164,12 +1298,13 @@ impl FirstOrderObjective for OuterFirstOrderBridge<'_> {
                     log::warn!(
                         "[OUTER] cost-stall STUCK (NOT a flat valley): REML objective improved \
                          < {:.3e} (relative) over {} accepted outer steps but the projected \
-                         gradient is FAR above tolerance (|g|={:.3e} > ceiling {:.3e}); refusing \
+                         gradient is FAR above the certified-stationary band \
+                         (|g|={:.3e} > escape threshold {:.3e}); refusing \
                          to halt-and-ship and continuing the descent (escape {}/{}, value={:.6e}).",
                         guard.rel_tol,
                         guard.window,
                         residual_grad_norm,
-                        FLAT_VALLEY_STALL_GRAD_CEILING,
+                        escape_threshold,
                         guard.stuck_escapes,
                         STUCK_STALL_MAX_ESCAPES,
                         guard.best_value,
@@ -1368,7 +1503,7 @@ pub(crate) struct OuterSecondOrderBridge<'a> {
     pub(crate) obj: &'a mut dyn OuterObjective,
     pub(crate) layout: OuterThetaLayout,
     pub(crate) hessian_source: HessianSource,
-    /// When the evaluator returns `HessianResult::Operator(op)` and the
+    /// When the evaluator returns `HessianValue::Operator(op)` and the
     /// operator advertises an exact dense route, the bridge may materialize the
     /// operator into a dense K×K matrix so the dense ARC path can run an exact
     /// factorization instead of operator-CG.
@@ -1617,7 +1752,10 @@ impl OuterSecondOrderBridge<'_> {
         };
         match verdict {
             CostStallVerdict::Continue => None,
-            CostStallVerdict::StuckKeepDescending { residual_grad_norm } => {
+            CostStallVerdict::StuckKeepDescending {
+                residual_grad_norm,
+                escape_threshold,
+            } => {
                 // #1426: cost flatlined but the projected gradient is far above
                 // tolerance — a stuck stall, not a flat valley. Do not halt ARC.
                 // Uncap the inner PIRLS so the next solves run to full tolerance
@@ -1629,12 +1767,13 @@ impl OuterSecondOrderBridge<'_> {
                 log::warn!(
                     "[OUTER] ARC cost-stall STUCK (NOT a flat valley): REML objective improved \
                      < {:.3e} (relative) over {} outer steps but the projected gradient is FAR \
-                     above tolerance (|g|={:.3e} > ceiling {:.3e}); refusing to halt-and-ship \
+                     above the certified-stationary band (|g|={:.3e} > escape threshold \
+                     {:.3e}); refusing to halt-and-ship \
                      and continuing the descent (escape {}/{}, value={:.6e}).",
                     guard.rel_tol,
                     guard.window,
                     residual_grad_norm,
-                    FLAT_VALLEY_STALL_GRAD_CEILING,
+                    escape_threshold,
                     guard.stuck_escapes,
                     STUCK_STALL_MAX_ESCAPES,
                     guard.best_value,
@@ -1687,15 +1826,19 @@ impl OuterSecondOrderBridge<'_> {
         let guard = self.cost_stall.as_mut()?;
         match guard.observe_infeasible(x) {
             CostStallVerdict::Continue => None,
-            CostStallVerdict::StuckKeepDescending { residual_grad_norm } => {
+            CostStallVerdict::StuckKeepDescending {
+                residual_grad_norm,
+                escape_threshold,
+            } => {
                 // #1426: best feasible iterate carries a residual far above
                 // tolerance — not a flat valley. Keep ARC descending.
                 log::warn!(
                     "[OUTER] ARC cost-stall STUCK (infeasible run, NOT a flat valley): best \
-                     feasible residual |g|={:.3e} far above ceiling {:.3e}; refusing to \
+                     feasible residual |g|={:.3e} far above the certified-stationary band \
+                     (escape threshold {:.3e}); refusing to \
                      halt-and-ship and continuing (escape {}/{}, value={:.6e}).",
                     residual_grad_norm,
-                    FLAT_VALLEY_STALL_GRAD_CEILING,
+                    escape_threshold,
                     guard.stuck_escapes,
                     STUCK_STALL_MAX_ESCAPES,
                     guard.best_value,
@@ -1853,27 +1996,6 @@ impl SecondOrderObjective for OuterSecondOrderBridge<'_> {
     }
 }
 
-// =====================================================================
-// opt 0.4 matrix-free TR adapter (Phase 6)
-// =====================================================================
-//
-// `OuterToOptHessianOperator` wraps gam's `OuterHessianOperator` so it
-// can be passed to `opt::MatrixFreeTrustRegion` via
-// `opt::HessianValue::Operator`. The two traits have nearly identical
-// surfaces — the adapter is just shape/error translation:
-//
-//   gam::OuterHessianOperator              opt::HessianOperator
-//     dim()                       <-->       dim()
-//     matvec(v) -> Array1         <-->       apply_into(v, &mut out)
-//     mul_mat(X) -> Array2        <-->       apply_mat(X)
-//     materialization_capability  <-->       materialization
-//     materialize_dense           <-->       materialize_dense
-//
-// gam errors are `String`; opt errors are `ObjectiveEvalError`. We
-// promote everything to `ObjectiveEvalError::Fatal` because operator
-// failures inside a solver step are not generally recoverable —
-// shrinking the trust radius would not fix a dimension mismatch.
-//
 // `OuterOperatorBridge` is the bridge that implements
 // `opt::OperatorObjective` for `gam`'s outer objective — parallel to
 // `OuterSecondOrderBridge` but produces `OperatorSample` whose
@@ -1901,65 +2023,6 @@ impl OptimizerObserver for OuterAcceptObserver {
             info.actual_decrease,
         );
         self.feedback.accepted_iter.fetch_add(1, Ordering::Relaxed);
-    }
-}
-
-pub(crate) struct OuterToOptHessianOperator(Arc<dyn OuterHessianOperator>);
-
-impl HessianOperator for OuterToOptHessianOperator {
-    fn dim(&self) -> usize {
-        self.0.dim()
-    }
-
-    fn apply_into(&self, v: &Array1<f64>, out: &mut Array1<f64>) -> Result<(), ObjectiveEvalError> {
-        // Forward to gam's `OuterHessianOperator::apply_into` (default
-        // impl wraps `matvec`; backends with a native into-buffer
-        // kernel override for true zero-alloc CG iterations).
-        self.0
-            .apply_into(v, out)
-            .map_err(|message| ObjectiveEvalError::Fatal {
-                message: format!("outer Hessian operator apply_into failed: {message}"),
-            })
-    }
-
-    fn apply_mat(&self, x: ArrayView2<'_, f64>) -> Result<Array2<f64>, ObjectiveEvalError> {
-        self.0
-            .mul_mat(x)
-            .map_err(|message| ObjectiveEvalError::Fatal {
-                message: format!("outer Hessian operator mul_mat failed: {message}"),
-            })
-    }
-
-    fn materialization(&self) -> HessianMaterialization {
-        match self.0.materialization_capability() {
-            OuterHessianMaterialization::Unavailable => HessianMaterialization::Unavailable,
-            OuterHessianMaterialization::RepeatedHvp => HessianMaterialization::RepeatedHvp,
-            OuterHessianMaterialization::BatchedHvp => HessianMaterialization::BatchedHvp,
-            OuterHessianMaterialization::Explicit => HessianMaterialization::Explicit,
-        }
-    }
-
-    fn materialize_dense(&self) -> Result<Array2<f64>, ObjectiveEvalError> {
-        self.0
-            .materialize_dense()
-            .map_err(|message| ObjectiveEvalError::Fatal {
-                message: format!("outer Hessian operator materialization failed: {message}"),
-            })
-    }
-}
-
-/// Translate a gam `HessianResult` into an `opt::HessianValue` for
-/// consumption by `MatrixFreeTrustRegion`. `Analytic` becomes
-/// `Dense`; `Operator` is wrapped in the adapter; `Unavailable` is
-/// preserved (the solver's `HessianFallbackPolicy` decides what
-/// happens then).
-pub(crate) fn hessian_result_to_value(hessian: HessianResult) -> HessianValue {
-    match hessian {
-        HessianResult::Analytic(h) => HessianValue::Dense(h),
-        HessianResult::Operator(op) => {
-            HessianValue::Operator(Arc::new(OuterToOptHessianOperator(op)))
-        }
-        HessianResult::Unavailable => HessianValue::Unavailable,
     }
 }
 
@@ -2099,7 +2162,7 @@ impl OperatorObjective for OuterOperatorBridge<'_> {
         Ok(OperatorSample {
             value: eval.cost,
             gradient: eval.gradient,
-            hessian: hessian_result_to_value(eval.hessian),
+            hessian: eval.hessian,
         })
     }
 }
@@ -2133,30 +2196,46 @@ impl OperatorObjective for OuterOperatorBridge<'_> {
 /// constrained-stationary, which let the outer cost-stall guard certify a railed
 /// optimum as converged (the #1074 quakes-trend / #1082 / #1426 railing).
 #[inline]
+/// KKT-projected gradient VECTOR at a box-constrained point.
+///
+/// Zeros the infeasible (bound-multiplier) component on every axis pinned at a
+/// box bound, keeping only the feasible-descent part — the exact split
+/// [`projected_gradient_norm`] takes the norm of. Callers that need the
+/// direction (e.g. the curvature-scaled flat-valley Newton decrement in
+/// `certify_outer_optimality`) consume this; `projected_gradient_norm` is its
+/// Euclidean norm.
+pub(crate) fn project_gradient_vector(
+    x: &Array1<f64>,
+    gradient: &Array1<f64>,
+    bounds: Option<&(Array1<f64>, Array1<f64>)>,
+) -> Array1<f64> {
+    match bounds {
+        Some((lower, upper)) => Array1::from_iter((0..gradient.len()).map(|i| {
+            let gi = gradient[i];
+            // Active lower bound: feasible moves are upward, so a positive g_i
+            // (its downward step `-g_i` exits the box) is the infeasible
+            // KKT-multiplier pull → drop it, keeping the feasible-descent
+            // negative part.
+            let gi = if x[i] <= lower[i] { gi.min(0.0) } else { gi };
+            // Active upper bound: feasible moves are downward, so a negative g_i
+            // (its upward step `-g_i` exits the box) is the infeasible pull →
+            // drop it, keeping the feasible-descent positive part.
+            if x[i] >= upper[i] { gi.max(0.0) } else { gi }
+        })),
+        None => gradient.clone(),
+    }
+}
+
 pub(crate) fn projected_gradient_norm(
     x: &Array1<f64>,
     gradient: &Array1<f64>,
     bounds: Option<&(Array1<f64>, Array1<f64>)>,
 ) -> f64 {
-    let sumsq = match bounds {
-        Some((lower, upper)) => (0..gradient.len())
-            .map(|i| {
-                let gi = gradient[i];
-                // Active lower bound: feasible moves are upward, so a positive
-                // g_i (its downward step `-g_i` exits the box) is the infeasible
-                // KKT-multiplier pull → drop it, keeping the feasible-descent
-                // negative part.
-                let gi = if x[i] <= lower[i] { gi.min(0.0) } else { gi };
-                // Active upper bound: feasible moves are downward, so a negative
-                // g_i (its upward step `-g_i` exits the box) is the infeasible
-                // pull → drop it, keeping the feasible-descent positive part.
-                let gi = if x[i] >= upper[i] { gi.max(0.0) } else { gi };
-                gi * gi
-            })
-            .sum::<f64>(),
-        None => gradient.iter().map(|v| v * v).sum::<f64>(),
-    };
-    sumsq.sqrt()
+    project_gradient_vector(x, gradient, bounds)
+        .iter()
+        .map(|v| v * v)
+        .sum::<f64>()
+        .sqrt()
 }
 
 #[cfg(test)]
@@ -2233,7 +2312,7 @@ pub(crate) fn project_to_bounds(
 /// the seed loop can either retry, demote the plan, or fail the seed.
 ///
 /// Operator Hessians that *are* cheaply materializable (the operator's
-/// `materialization_capability` reports `Explicit` / `BatchedHvp` and the
+/// `materialization` reports `Explicit` / `BatchedHvp` and the
 /// dimension is below `materialize_operator_max_dim`) are converted to
 /// dense in-place so dense ARC can run an exact factorization. Operator
 /// Hessians that are NOT cheaply materializable should never arrive
@@ -2251,36 +2330,34 @@ pub(crate) fn project_to_bounds(
 /// reuses this bridge.)
 pub(crate) fn build_bridge_hessian_for_source(
     source: HessianSource,
-    hessian: HessianResult,
+    hessian: HessianValue,
     materialize_operator_max_dim: usize,
 ) -> Result<Option<Array2<f64>>, ObjectiveEvalError> {
     match source {
         HessianSource::Analytic => match hessian {
-            HessianResult::Analytic(h) => Ok(Some(h)),
-            HessianResult::Operator(op)
-                if op.materialization_capability().is_available()
+            HessianValue::Dense(h) => Ok(Some(h)),
+            HessianValue::Operator(op)
+                if op.materialization().is_available()
                     && op.dim() <= materialize_operator_max_dim =>
             {
                 op.materialize_dense()
                     .map(Some)
-                    .map_err(|message| ObjectiveEvalError::Fatal {
-                        message: format!(
-                            "outer Hessian operator materialization failed: {message}"
-                        ),
+                    .map_err(|error| ObjectiveEvalError::Fatal {
+                        message: format!("outer Hessian operator materialization failed: {error}"),
                     })
             }
-            HessianResult::Operator(op) => Err(ObjectiveEvalError::Fatal {
+            HessianValue::Operator(op) => Err(ObjectiveEvalError::Fatal {
                 message: format!(
                     "outer plan declared HessianSource::Analytic but the runtime returned a \
                      non-materializable Hessian operator (dim={}, materialization={:?}); \
                      finite-difference Hessian estimation is not permitted on the analytic route",
                     op.dim(),
-                    op.materialization_capability(),
+                    op.materialization(),
                 ),
             }),
-            HessianResult::Unavailable => Err(ObjectiveEvalError::Fatal {
+            HessianValue::Unavailable => Err(ObjectiveEvalError::Fatal {
                 message: "outer plan declared HessianSource::Analytic but the runtime returned \
-                          HessianResult::Unavailable; finite-difference Hessian estimation is \
+                          HessianValue::Unavailable; finite-difference Hessian estimation is \
                           not permitted on the analytic route"
                     .to_string(),
             }),
@@ -2303,6 +2380,19 @@ pub(crate) struct OuterFixedPointBridge<'a> {
     /// HybridEFS attempt and the fallback ladder routes to a joint
     /// gradient-based solver where ψ stationarity ∇_ψ V = 0 can be enforced.
     pub(crate) consecutive_psi_zero_iters: usize,
+    /// Restore streak reported by the previous fixed-point evaluation.  Keeping
+    /// this in the bridge requires the certificate to recur across two distinct
+    /// outer evaluations; multiple inner-refinement chunks at one rho cannot
+    /// terminate the outer walk by themselves.
+    pub(crate) last_restored_incumbent_streak: Option<usize>,
+    /// Publication slot for the recurrent-restored-incumbent stop (#2235
+    /// verdict 2). The bridge is moved into the `opt::FixedPoint` driver, so
+    /// when the model-state fixed point fires the streak count is handed back
+    /// to `run_fixed_point_outer_solver` through this shared cell and stamped
+    /// onto the returned [`OuterResult`] as
+    /// [`OuterConvergedVia::RecurrentIncumbent`]. `None` slot after the run
+    /// means the walk stopped through the ordinary step-norm test instead.
+    pub(crate) recurrent_incumbent_exit: Arc<Mutex<Option<usize>>>,
 }
 
 impl OuterFixedPointBridge<'_> {
@@ -2535,6 +2625,44 @@ impl FixedPointObjective for OuterFixedPointBridge<'_> {
         )?;
         let max_step_abs = raw_step.iter().map(|s| s.abs()).fold(0.0_f64, f64::max);
         let current_cost = eval.cost;
+        // #2241 — an objective may certify that consecutive inner solves
+        // returned to the same banked incumbent after non-monotone boundary
+        // mutations. One restore is merely a repair; a second consecutive
+        // restore is the first possible recurrence and proves that another outer
+        // update did not change the fitted state. Terminate on that model-state
+        // certificate instead of guessing flatness from a relative-cost scalar
+        // or exhausting an iteration budget. The current rho/cost is retained;
+        // `FixedPointStatus::Stop` prevents the non-stationary proposal from
+        // being applied.
+        let restored_incumbent_recurred = match (
+            self.last_restored_incumbent_streak,
+            eval.consecutive_restored_incumbents,
+        ) {
+            (Some(previous), Some(current)) => current > previous && current > 1,
+            _ => false,
+        };
+        self.last_restored_incumbent_streak = eval.consecutive_restored_incumbents;
+        if restored_incumbent_recurred {
+            let restores = eval.consecutive_restored_incumbents.unwrap_or_default();
+            if psi_indices.is_some() {
+                self.consecutive_psi_zero_iters = 0;
+            }
+            if let Ok(mut slot) = self.recurrent_incumbent_exit.lock() {
+                *slot = Some(restores);
+            }
+            log::info!(
+                "[OUTER] fixed-point convergence by recurrent restored incumbent: \
+                 consecutive_restores={} cost={current_cost:.6e} rho_dim={} psi_dim={}",
+                restores,
+                self.layout.rho_dim(),
+                self.layout.psi_dim,
+            );
+            return Ok(FixedPointSample {
+                value: current_cost,
+                step: raw_step,
+                status: FixedPointStatus::Stop,
+            });
+        }
         if self.fixed_point_step_converged(x, &raw_step, psi_indices.as_deref()) {
             if psi_indices.is_some() {
                 self.consecutive_psi_zero_iters = 0;
@@ -2722,36 +2850,55 @@ impl OuterFixedPointBridge<'_> {
         // cost. Pure `<` rejects ULP-noise dithering on flat regions of V
         // and forces unnecessary halvings.
         let cost_floor = current_cost + EFS_COST_DESCENT_TOL * current_cost.abs().max(1.0);
-        let mut alpha = 1.0_f64;
-        for bt in 0..=max_halvings {
-            let trial_step = raw_step * alpha;
-            let trial = x + &trial_step;
-            match self.obj.eval_cost(&trial) {
-                Ok(c) if c.is_finite() && c <= cost_floor => {
-                    if bt > 0 {
-                        log::debug!(
-                            "[EFS] backtrack accepted at α=2^-{bt}={alpha:.4e} \
-                             after {bt} halvings (cost: {current_cost:.6e} → {c:.6e})"
-                        );
+        // `bt` counts trials so the accepted step can report its halving count
+        // (trial `bt` runs at α = 2^-bt). An eval error is an INVALID trial
+        // (`Ok(None)`): the search halves without consulting the acceptance
+        // test, exactly as the pre-migration loop swallowed `Err(_)`.
+        let mut bt = 0usize;
+        let accepted = backtracking_line_search::<_, ObjectiveEvalError>(
+            BacktrackConfig {
+                max_steps: max_halvings + 1,
+                ..BacktrackConfig::default()
+            },
+            |alpha| {
+                bt += 1;
+                let trial_step = raw_step * alpha;
+                let trial = x + &trial_step;
+                match self.obj.eval_cost(&trial) {
+                    Ok(c) => {
+                        if !(c.is_finite() && c <= cost_floor) {
+                            log::trace!(
+                                "[EFS] backtrack α=2^-{bt}={alpha:.4e}: trial cost {c:.6e} \
+                                 not below current {current_cost:.6e}, halving",
+                                bt = bt - 1,
+                            );
+                        }
+                        Ok(Some((c, trial_step)))
                     }
-                    return Ok(Some(trial_step));
+                    Err(err) => {
+                        log::trace!(
+                            "[EFS] backtrack α=2^-{bt}={alpha:.4e}: trial eval failed \
+                             ({err}), halving",
+                            bt = bt - 1,
+                        );
+                        Ok(None)
+                    }
                 }
-                Ok(c) => {
-                    log::trace!(
-                        "[EFS] backtrack α=2^-{bt}={alpha:.4e}: trial cost {c:.6e} \
-                         not below current {current_cost:.6e}, halving"
-                    );
-                }
-                Err(err) => {
-                    log::trace!(
-                        "[EFS] backtrack α=2^-{bt}={alpha:.4e}: trial eval failed \
-                         ({err}), halving"
-                    );
-                }
+            },
+            |_alpha, c| c.is_finite() && c <= cost_floor,
+        )?;
+        Ok(accepted.map(|step| {
+            let halvings = bt - 1;
+            if halvings > 0 {
+                log::debug!(
+                    "[EFS] backtrack accepted at α=2^-{halvings}={alpha:.4e} \
+                     after {halvings} halvings (cost: {current_cost:.6e} → {c:.6e})",
+                    alpha = step.step,
+                    c = step.value,
+                );
             }
-            alpha *= 0.5;
-        }
-        Ok(None)
+            step.payload
+        }))
     }
 
     fn fixed_point_step_converged(

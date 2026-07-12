@@ -1,6 +1,6 @@
 //! Matrix-free assembled outer-Hessian operator.
 //!
-//! The [`UnifiedOuterHessianOperator`] precomputes per-coordinate mode
+//! The [`UnifiedHessianOperator`] precomputes per-coordinate mode
 //! responses, drift tables, and pair-wise logdet-Hessian cross traces once,
 //! then applies the `K × K` outer Hessian as an `O(K)`-build HVP without
 //! materialising the dense `K × K` matrix — winning when dense `p × p` drift
@@ -41,7 +41,7 @@ impl StoredFirstDrift {
             return;
         }
         if let Some(matrix) = self.dense.as_ref() {
-            dense_matvec_scaled_add_into(matrix, v, scale, out.view_mut());
+            dense::matvec_scaled_add_into(matrix, v, scale, out.view_mut());
         }
         if !self.operators.is_empty() {
             for op in &self.operators {
@@ -54,7 +54,7 @@ impl StoredFirstDrift {
         assert_eq!(v.len(), test.len());
         let mut total = 0.0;
         if let Some(matrix) = self.dense.as_ref() {
-            total += dense_bilinear(matrix, v, test);
+            total += dense::bilinear(matrix, v, test);
         }
         for op in &self.operators {
             total += op.bilinear_view(v, test);
@@ -88,7 +88,7 @@ impl HyperOperator for BorrowedStoredDriftOperator<'_> {
     fn mul_vec_into(&self, v: ArrayView1<'_, f64>, mut out: ArrayViewMut1<'_, f64>) {
         out.fill(0.0);
         if let Some(matrix) = self.drift.dense.as_ref() {
-            dense_matvec_into(matrix, v, out.view_mut());
+            dense::matvec_into(matrix, v, out.view_mut());
         }
         for op in &self.drift.operators {
             op.scaled_add_mul_vec(v, 1.0, out.view_mut());
@@ -101,7 +101,7 @@ impl HyperOperator for BorrowedStoredDriftOperator<'_> {
         }
         let mut out = out;
         if let Some(matrix) = self.drift.dense.as_ref() {
-            dense_matvec_scaled_add_into(matrix, v, scale, out.view_mut());
+            dense::matvec_scaled_add_into(matrix, v, scale, out.view_mut());
         }
         for op in &self.drift.operators {
             op.scaled_add_mul_vec(v, scale, out.view_mut());
@@ -321,8 +321,8 @@ pub(crate) struct OuterHessianCoord {
     pub(crate) b_depends_on_beta: bool,
 }
 
-pub(crate) struct UnifiedOuterHessianOperator {
-    pub(crate) hop: Arc<dyn HessianOperator>,
+pub(crate) struct UnifiedHessianOperator {
+    pub(crate) hop: Arc<dyn HessianFactorization>,
     pub(crate) coords: Vec<OuterHessianCoord>,
     pub(crate) pair_a: Array2<f64>,
     pub(crate) pair_ld_s: Array2<f64>,
@@ -365,7 +365,7 @@ pub(crate) struct UnifiedOuterHessianOperator {
     pub(crate) contracted_psi: Option<ContractedPsiSecondOrderFn>,
 }
 
-impl UnifiedOuterHessianOperator {
+impl UnifiedHessianOperator {
     /// Exact implicit-function-theorem mode response of the inner coefficient
     /// solution along a θ-direction `α = (α_ρ, α_ψ)` (#740 primitive).
     ///
@@ -722,80 +722,33 @@ impl UnifiedOuterHessianOperator {
     }
 }
 
-impl gam_problem::OuterHessianOperator for UnifiedOuterHessianOperator {
+impl gam_problem::HessianOperator for UnifiedHessianOperator {
     fn dim(&self) -> usize {
         self.coords.len()
     }
 
-    fn matvec(&self, alpha: &Array1<f64>) -> Result<Array1<f64>, String> {
-        if alpha.len() != self.coords.len() {
-            return Err(RemlError::DimensionMismatch {
-                reason: format!(
-                    "outer Hessian alpha length mismatch: got {}, expected {}",
-                    alpha.len(),
-                    self.coords.len()
-                ),
-            }
-            .into());
-        }
-        let mut a_alpha = 0.0;
-        for (idx, coord) in self.coords.iter().enumerate() {
-            if alpha[idx] != 0.0 {
-                a_alpha += alpha[idx] * coord.a;
-            }
-        }
-        let correction_m_alpha = self.theta_direction_mode_response(alpha);
-        // #740: one ψψ-block hook contraction per matvec (one family row pass),
-        // shared read-only across the parallel per-row entries below.
-        let psi_contrib = self.psi_contracted_contrib(alpha)?;
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
-
-        let values: Result<Vec<f64>, String> = (0..self.coords.len())
-            .into_par_iter()
-            .map(|idx| {
-                self.outer_hessian_index_entry(
-                    idx,
-                    alpha,
-                    a_alpha,
-                    &correction_m_alpha,
-                    psi_contrib.as_ref(),
-                )
-            })
-            .collect();
-
-        Ok(Array1::from_vec(values?))
-    }
-
     /// Zero-alloc override for the inner-CG hot path.
     ///
-    /// Eliminates the transient `Vec<f64>` + `Array1::from_vec` allocation that
-    /// `matvec` incurs on every CG step.  The parallel computation is identical;
-    /// results are written directly into the caller-supplied `out` buffer via
-    /// `par_iter_mut().enumerate()` rather than collected into a fresh `Vec`.
+    /// Results are written directly into the caller-supplied `out` buffer via
+    /// `par_iter_mut().enumerate()`.
     fn apply_into(
         &self,
         alpha: &ndarray::Array1<f64>,
         out: &mut ndarray::Array1<f64>,
-    ) -> Result<(), String> {
+    ) -> Result<(), opt::ObjectiveEvalError> {
         if alpha.len() != self.coords.len() {
-            return Err(RemlError::DimensionMismatch {
-                reason: format!(
-                    "outer Hessian alpha length mismatch: got {}, expected {}",
-                    alpha.len(),
-                    self.coords.len()
-                ),
-            }
-            .into());
+            return Err(opt::ObjectiveEvalError::fatal(format!(
+                "outer Hessian alpha length mismatch: got {}, expected {}",
+                alpha.len(),
+                self.coords.len()
+            )));
         }
         if out.len() != self.coords.len() {
-            return Err(RemlError::DimensionMismatch {
-                reason: format!(
-                    "outer Hessian apply_into output length mismatch: got {}, expected {}",
-                    out.len(),
-                    self.coords.len()
-                ),
-            }
-            .into());
+            return Err(opt::ObjectiveEvalError::fatal(format!(
+                "outer Hessian apply_into output length mismatch: got {}, expected {}",
+                out.len(),
+                self.coords.len()
+            )));
         }
         let mut a_alpha = 0.0;
         for (idx, coord) in self.coords.iter().enumerate() {
@@ -804,11 +757,13 @@ impl gam_problem::OuterHessianOperator for UnifiedOuterHessianOperator {
             }
         }
         let correction_m_alpha = self.theta_direction_mode_response(alpha);
-        // #740: one ψψ-block hook contraction per matvec (see `matvec`).
-        let psi_contrib = self.psi_contracted_contrib(alpha)?;
-        let slice = out
-            .as_slice_mut()
-            .ok_or_else(|| "outer Hessian apply_into: non-contiguous output buffer".to_string())?;
+        // #740: one ψψ-block hook contraction per HVP.
+        let psi_contrib = self
+            .psi_contracted_contrib(alpha)
+            .map_err(opt::ObjectiveEvalError::fatal)?;
+        let slice = out.as_slice_mut().ok_or_else(|| {
+            opt::ObjectiveEvalError::fatal("outer Hessian apply_into: non-contiguous output buffer")
+        })?;
         slice
             .par_iter_mut()
             .enumerate()
@@ -820,8 +775,9 @@ impl gam_problem::OuterHessianOperator for UnifiedOuterHessianOperator {
                     &correction_m_alpha,
                     psi_contrib.as_ref(),
                 )?;
-                Ok(())
+                Ok::<(), String>(())
             })
+            .map_err(opt::ObjectiveEvalError::fatal)
     }
 }
 
@@ -832,7 +788,7 @@ pub(crate) fn build_outer_hessian_operator(
     kernel: OuterHessianDerivativeKernel,
     precomputed_coord_vs: Option<&[Array1<f64>]>,
     precomputed_coord_corrections: Option<&[Option<DriftDerivResult>]>,
-) -> Result<UnifiedOuterHessianOperator, String> {
+) -> Result<UnifiedHessianOperator, String> {
     let hop = Arc::clone(&solution.hessian_op);
     let k = lambdas.len();
     let ext_dim = solution.ext_coords.len();
@@ -868,12 +824,11 @@ pub(crate) fn build_outer_hessian_operator(
             _ => (1.0, 1.0, 1.0, 0.0, false),
         };
 
-    let penalty_quad_atom =
-        crate::estimate::reml::atoms::PenaltyQuadAtom::from_penalty_coords(
-            lambdas,
-            &solution.penalty_coords,
-            &solution.beta,
-        )?;
+    let penalty_quad_atom = crate::estimate::reml::atoms::PenaltyQuadAtom::from_penalty_coords(
+        lambdas,
+        &solution.penalty_coords,
+        &solution.beta,
+    )?;
     let curvature_penalty_quad_atom =
         crate::estimate::reml::atoms::PenaltyQuadAtom::from_penalty_coords(
             &curvature_lambdas,
@@ -1586,7 +1541,7 @@ pub(crate) fn build_outer_hessian_operator(
         None
     };
 
-    Ok(UnifiedOuterHessianOperator {
+    Ok(UnifiedHessianOperator {
         hop,
         coords,
         pair_a,

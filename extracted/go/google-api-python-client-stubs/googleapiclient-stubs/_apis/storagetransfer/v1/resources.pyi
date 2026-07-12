@@ -27,8 +27,8 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 projectId: str,
-                body: AgentPool = ...,
-                agentPoolId: str = ...,
+                body: AgentPool,
+                agentPoolId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AgentPoolHttpRequest: ...
             def delete(
@@ -41,9 +41,9 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 projectId: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAgentPoolsResponseHttpRequest: ...
             def list_next(
@@ -55,8 +55,8 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: AgentPool = ...,
-                updateMask: str = ...,
+                body: AgentPool,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AgentPoolHttpRequest: ...
 
@@ -65,7 +65,7 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class TransferJobsResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, body: TransferJob = ..., **kwargs: typing.Any
+            self, *, body: TransferJob, **kwargs: typing.Any
         ) -> TransferJobHttpRequest: ...
         def delete(
             self, *, jobName: str, projectId: str, **kwargs: typing.Any
@@ -77,8 +77,8 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
             self,
             *,
             filter: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListTransferJobsResponseHttpRequest: ...
         def list_next(
@@ -87,24 +87,16 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
             previous_response: ListTransferJobsResponse,
         ) -> ListTransferJobsResponseHttpRequest | None: ...
         def patch(
-            self,
-            *,
-            jobName: str,
-            body: UpdateTransferJobRequest = ...,
-            **kwargs: typing.Any,
+            self, *, jobName: str, body: UpdateTransferJobRequest, **kwargs: typing.Any
         ) -> TransferJobHttpRequest: ...
         def run(
-            self,
-            *,
-            jobName: str,
-            body: RunTransferJobRequest = ...,
-            **kwargs: typing.Any,
+            self, *, jobName: str, body: RunTransferJobRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
 
     @typing.type_check_only
     class TransferOperationsResource(googleapiclient.discovery.Resource):
         def cancel(
-            self, *, name: str, body: CancelOperationRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CancelOperationRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> OperationHttpRequest: ...
         def list(
@@ -112,9 +104,9 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
             *,
             name: str,
             filter: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListOperationsResponseHttpRequest: ...
         def list_next(
@@ -126,14 +118,14 @@ class StoragetransferResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: PauseTransferOperationRequest = ...,
+            body: PauseTransferOperationRequest,
             **kwargs: typing.Any,
         ) -> EmptyHttpRequest: ...
         def resume(
             self,
             *,
             name: str,
-            body: ResumeTransferOperationRequest = ...,
+            body: ResumeTransferOperationRequest,
             **kwargs: typing.Any,
         ) -> EmptyHttpRequest: ...
 

@@ -29,9 +29,9 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: V1Beta1QuotaOverride = ...,
-                        force: bool = ...,
-                        forceJustification: str = ...,
+                        body: V1Beta1QuotaOverride,
+                        force: bool | None = ...,
+                        forceJustification: str | None = ...,
                         forceOnly: typing_extensions.Literal[
                             "QUOTA_SAFETY_CHECK_UNSPECIFIED",
                             "LIMIT_DECREASE_BELOW_USAGE",
@@ -43,15 +43,16 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                                 "LIMIT_DECREASE_BELOW_USAGE",
                                 "LIMIT_DECREASE_PERCENTAGE_TOO_HIGH",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        force: bool = ...,
-                        forceJustification: str = ...,
+                        force: bool | None = ...,
+                        forceJustification: str | None = ...,
                         forceOnly: typing_extensions.Literal[
                             "QUOTA_SAFETY_CHECK_UNSPECIFIED",
                             "LIMIT_DECREASE_BELOW_USAGE",
@@ -63,15 +64,16 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                                 "LIMIT_DECREASE_BELOW_USAGE",
                                 "LIMIT_DECREASE_PERCENTAGE_TOO_HIGH",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> V1Beta1ListProducerOverridesResponseHttpRequest: ...
                     def list_next(
@@ -83,9 +85,9 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: V1Beta1QuotaOverride = ...,
-                        force: bool = ...,
-                        forceJustification: str = ...,
+                        body: V1Beta1QuotaOverride,
+                        force: bool | None = ...,
+                        forceJustification: str | None = ...,
                         forceOnly: typing_extensions.Literal[
                             "QUOTA_SAFETY_CHECK_UNSPECIFIED",
                             "LIMIT_DECREASE_BELOW_USAGE",
@@ -97,8 +99,9 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                                 "LIMIT_DECREASE_BELOW_USAGE",
                                 "LIMIT_DECREASE_PERCENTAGE_TOO_HIGH",
                             ]
-                        ] = ...,
-                        updateMask: str = ...,
+                        ]
+                        | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -108,27 +111,27 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: V1Beta1ProducerQuotaPolicy = ...,
-                        force: bool = ...,
-                        forceJustification: str = ...,
-                        validateOnly: bool = ...,
+                        body: V1Beta1ProducerQuotaPolicy,
+                        force: bool | None = ...,
+                        forceJustification: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        force: bool = ...,
-                        forceJustification: str = ...,
-                        validateOnly: bool = ...,
+                        force: bool | None = ...,
+                        forceJustification: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> V1Beta1ListProducerQuotaPoliciesResponseHttpRequest: ...
                     def list_next(
@@ -140,11 +143,11 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: V1Beta1ProducerQuotaPolicy = ...,
-                        force: bool = ...,
-                        forceJustification: str = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: V1Beta1ProducerQuotaPolicy,
+                        force: bool | None = ...,
+                        forceJustification: str | None = ...,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -154,7 +157,8 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                     name: str,
                     view: typing_extensions.Literal[
                         "QUOTA_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> V1Beta1ConsumerQuotaLimitHttpRequest: ...
                 def producerOverrides(self) -> ProducerOverridesResource: ...
@@ -166,32 +170,34 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                 name: str,
                 view: typing_extensions.Literal[
                     "QUOTA_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> V1Beta1ConsumerQuotaMetricHttpRequest: ...
             def importProducerOverrides(
                 self,
                 *,
                 parent: str,
-                body: V1Beta1ImportProducerOverridesRequest = ...,
+                body: V1Beta1ImportProducerOverridesRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def importProducerQuotaPolicies(
                 self,
                 *,
                 parent: str,
-                body: V1Beta1ImportProducerQuotaPoliciesRequest = ...,
+                body: V1Beta1ImportProducerQuotaPoliciesRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 view: typing_extensions.Literal[
                     "QUOTA_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> V1Beta1ListConsumerQuotaMetricsResponseHttpRequest: ...
             def list_next(

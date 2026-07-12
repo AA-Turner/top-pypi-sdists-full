@@ -125,7 +125,7 @@ impl PenaltySubspaceTrace {
         // left = H_proj⁻¹ · R_A ;  right = H_proj⁻¹ · R_B ;  tr(left · right).
         let left = self.h_proj_inverse.dot(ra);
         let right = self.h_proj_inverse.dot(rb);
-        trace_matrix_product(&left, &right)
+        dense::trace_product(&left, &right)
     }
 
     /// Reduce a `HyperOperator` `A` to its `r × r` projection
@@ -490,7 +490,7 @@ pub(crate) const THETA_MODE_RESPONSE_TANGENCY_GATE: f64 = 1e-6;
 /// contraction of this kernel, so atoms borrowing the shared drift can no
 /// longer see a different chain rule than their neighbors.
 pub(crate) struct ThetaModeResponseKernel<'s> {
-    pub(crate) hop: &'s dyn HessianOperator,
+    pub(crate) hop: &'s dyn HessianFactorization,
     /// `Some` exactly when the selection rule chose the lifted constrained
     /// kernel. Built once per evaluation point (one Schur-complement
     /// factorization), shared by every gradient/Hessian consumer — the
@@ -503,7 +503,7 @@ impl<'s> ThetaModeResponseKernel<'s> {
     pub(crate) fn select(
         subspace: Option<&'s PenaltySubspaceTrace>,
         active_constraints: Option<&'s ActiveLinearConstraintBlock>,
-        hop: &'s dyn HessianOperator,
+        hop: &'s dyn HessianFactorization,
     ) -> Self {
         let constrained = match (subspace, active_constraints) {
             (Some(kernel), Some(block)) => {
@@ -562,7 +562,7 @@ impl<'s> ThetaModeResponseKernel<'s> {
     /// stream, exactly like the outer-optimum criterion audit. The
     /// unconstrained arm carries no separate certify: its coherence with
     /// the criterion VALUE is audited end-to-end by the #934
-    /// `CriterionCertificate` at every returned optimum.
+    /// `OuterCriterionCertificate` at every returned optimum.
     pub(crate) fn certify_tangency(&self, ck: &ConstrainedSubspaceKernel<'_>, v: &Array1<f64>) {
         let residual = ck.a_act.dot(v);
         for (row, r) in residual.iter().enumerate() {

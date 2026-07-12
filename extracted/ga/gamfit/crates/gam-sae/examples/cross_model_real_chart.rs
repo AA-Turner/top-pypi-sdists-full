@@ -60,7 +60,6 @@ struct ChartFit {
     final_grad_norm: Option<f64>,
     fit_wall_seconds: f64,
     criterion_calls: usize,
-    fd_probe_calls: usize,
     infeasible_total: usize,
     coords_radians: Array1<f64>,
 }
@@ -169,7 +168,9 @@ fn run(
     )?;
     let n = a.coords_radians.len().min(b.coords_radians.len());
     if n < 16 {
-        return Err(format!("need at least 16 paired fitted coordinates, got {n}"));
+        return Err(format!(
+            "need at least 16 paired fitted coordinates, got {n}"
+        ));
     }
     let coord_a = ModelCoordinate::new(
         a.label,
@@ -193,7 +194,10 @@ fn run(
         println!("transport_phase_rad={:.9}", circle.phase);
         println!("transport_phase_degrees={:.9}", circle.phase_degrees());
         println!("transport_o2_defect={:.9}", circle.defect);
-        println!("transport_gauge_defect_scale={:.9}", report.gauge_defect_scale);
+        println!(
+            "transport_gauge_defect_scale={:.9}",
+            report.gauge_defect_scale
+        );
     }
     println!("transport_degree={:?}", report.fit.degree);
     println!(
@@ -208,7 +212,10 @@ fn run(
         "transport_min_directional_derivative={:.9}",
         report.fit.min_directional_derivative
     );
-    println!("transport_isometry_defect={:.9}", report.fit.isometry_defect);
+    println!(
+        "transport_isometry_defect={:.9}",
+        report.fit.isometry_defect
+    );
     println!(
         "transport_isometry_defect_se={:.9}",
         report.fit.isometry_defect_se
@@ -266,7 +273,6 @@ fn print_chart_fit(fit: &ChartFit) {
     );
     println!("{prefix}_fit_wall_seconds={:.3}", fit.fit_wall_seconds);
     println!("{prefix}_criterion_calls={}", fit.criterion_calls);
-    println!("{prefix}_fd_probe_calls={}", fit.fd_probe_calls);
     println!("{prefix}_infeasible_total={}", fit.infeasible_total);
 }
 
@@ -327,8 +333,11 @@ fn fit_real_chart(
         })
         .run(&mut objective, label)
         .map_err(|err| format!("{label}: outer fit failed: {err}"))?;
+    objective
+        .certify_outer_result(&result)
+        .map_err(|err| format!("{label}: outer fit certificate rejected: {err}"))?;
     let telemetry = objective.probe_telemetry();
-    let fitted = objective.into_fitted();
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let final_term = fitted.term;
     let fitted_matrix = final_term.fitted();
     let full_reconstruction_ev = reconstruction_ev(post_peel.view(), fitted_matrix.view())?;
@@ -343,9 +352,9 @@ fn fit_real_chart(
     let topm_linear_ev = verdict
         .topm_linear_ev
         .ok_or_else(|| format!("{label}: hybrid envelope report omitted topm_linear_ev"))?;
-    let curved_vs_envelope_ratio = verdict
-        .curved_vs_envelope_ratio
-        .ok_or_else(|| format!("{label}: hybrid envelope report omitted curved_vs_envelope_ratio"))?;
+    let curved_vs_envelope_ratio = verdict.curved_vs_envelope_ratio.ok_or_else(|| {
+        format!("{label}: hybrid envelope report omitted curved_vs_envelope_ratio")
+    })?;
     let coords_radians = final_term.assignment.coords[0]
         .as_matrix()
         .column(0)
@@ -375,7 +384,6 @@ fn fit_real_chart(
         final_grad_norm: result.final_grad_norm,
         fit_wall_seconds: fit_started.elapsed().as_secs_f64(),
         criterion_calls: telemetry.criterion_calls,
-        fd_probe_calls: telemetry.fd_probe_calls,
         infeasible_total: telemetry.infeasible_total(),
         coords_radians,
     })
@@ -390,7 +398,8 @@ fn periodic_k1_term(
     let p = z.ncols();
     let dim = 1usize;
     let num_basis = 1 + 2 * harmonics;
-    let evaluator: Arc<dyn SaeBasisSecondJet> = Arc::new(PeriodicHarmonicEvaluator::new(num_basis)?);
+    let evaluator: Arc<dyn SaeBasisSecondJet> =
+        Arc::new(PeriodicHarmonicEvaluator::new(num_basis)?);
     let basis_kinds = vec![SaeAtomBasisKind::Periodic];
     let atom_dims = vec![dim];
     let seed_coords = gam_sae::manifold::sae_pca_seed_initial_coords(z, &basis_kinds, &atom_dims)?;
@@ -501,12 +510,14 @@ fn envelope_report(
         total_centered_variance,
         term.n_obs(),
         dispersion,
-        term.rank_charge_evidence(),
     )?
     .ok_or_else(|| "hybrid envelope report had no eligible d=1 atom".to_string())
 }
 
-fn reconstruction_ev(target: ArrayView2<'_, f64>, fitted: ArrayView2<'_, f64>) -> Result<f64, String> {
+fn reconstruction_ev(
+    target: ArrayView2<'_, f64>,
+    fitted: ArrayView2<'_, f64>,
+) -> Result<f64, String> {
     if target.dim() != fitted.dim() {
         return Err(format!(
             "reconstruction_ev: target {:?} != fitted {:?}",

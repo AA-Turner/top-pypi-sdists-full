@@ -14,6 +14,18 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    "json",
+    "nox.command",
+    "nox.logger",
+    "packaging",
+    "re",
+    "shutil",
+    "socket",
+    "subprocess",
+}
+
 import abc
 import contextlib
 import functools
@@ -26,7 +38,7 @@ import sys
 import sysconfig
 from pathlib import Path
 from socket import gethostbyname
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from packaging import version
 
@@ -38,6 +50,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from nox._typing import Python
+
+    # These are implemented via the module-level __getattr__ below, so that
+    # uv detection (which spawns a subprocess) only runs when first needed.
+    HAS_UV: bool
+    UV: str
+    UV_VERSION: version.Version
+    OPTIONAL_VENVS: dict[str, bool]
 
 __all__ = [
     "ALL_VENVS",
@@ -82,6 +101,7 @@ _BLACKLISTED_ENV_VARS = frozenset(
 NOX_PBS_PYTHONS = Path.home() / ".local" / "share" / "nox" / "pythons"
 
 
+@functools.cache
 def find_uv() -> tuple[bool, str, version.Version]:
     uv_name = os.environ.get("UV", None)
     uv_on_path = shutil.which(uv_name or "uv")
@@ -111,15 +131,21 @@ def find_uv() -> tuple[bool, str, version.Version]:
     )
 
 
+@functools.cache
 def _find_python(interpreter: str, xy_ver: str) -> str | None:
-    """Find a python executable matching the requested interpreter"""
+    """Find a python executable matching the requested interpreter.
+
+    Cached: discovery is pure PATH/launcher lookup, and on Windows a miss
+    spawns ``py -X.Y`` subprocesses, which would otherwise repeat for every
+    session using the same interpreter.
+    """
     if shutil.which(interpreter):
         return interpreter
 
     # Windows only search for the executable
     if _PLATFORM.startswith("win"):
         # Allow versions of the form ``X.Y-32`` for Windows.
-        match = re.match(r"^\d\.\d+-32?$", interpreter)
+        match = re.match(r"^\d\.\d+-32$", interpreter)
         if match:
             # preserve the "-32" suffix, as the Python launcher expects it.
             xy_ver = interpreter
@@ -169,8 +195,9 @@ def uv_version(uv_bin: str) -> version.Version:
 
 def uv_install_python(python_version: str) -> bool:
     """Attempts to install a given python version with uv"""
+    _, uv, _ = _uv_state()
     ret = subprocess.run(
-        [UV, "python", "install", python_version],
+        [uv, "python", "install", python_version],
         check=False,
     )
     return ret.returncode == 0
@@ -184,7 +211,10 @@ def _find_pbs_python(implementation: str, version: str) -> str | None:
 
     if NOX_PBS_PYTHONS.exists():
         for path in NOX_PBS_PYTHONS.iterdir():
-            if path.is_dir() and path.name.startswith(f"{implementation}@{version}."):
+            if path.is_dir() and (
+                path.name == f"{implementation}@{version}"
+                or path.name.startswith(f"{implementation}@{version}.")
+            ):
                 python_exe = path / executable
                 if python_exe.exists():
                     return str(python_exe)
@@ -204,14 +234,16 @@ def pbs_install_python(python_version: str) -> str | None:
         re.IGNORECASE,
     )
 
-    if not match:
+    if not match or match["xyz_ver"] is None:
         logger.warning(f"{python_version=} is not a valid version to install with pbs")
         return None
 
+    # A bare version with no implementation prefix means CPython.
+    impl = match["impl"] or "cpython"
     implementation: Literal["cpython", "pypy"] = (
-        "cpython" if match.group("impl").lower() in ("cpython", "python") else "pypy"
+        "pypy" if impl.lower() == "pypy" else "cpython"
     )
-    xyz_ver = match.group("xyz_ver")
+    xyz_ver: str = match["xyz_ver"]
 
     if python_exe := _find_pbs_python(implementation, xyz_ver):
         return python_exe
@@ -239,7 +271,39 @@ def pbs_install_python(python_version: str) -> str | None:
     return _find_pbs_python(implementation, xyz_ver)
 
 
-HAS_UV, UV, UV_VERSION = find_uv()
+def _uv_state() -> tuple[bool, str, version.Version]:
+    """Read ``(HAS_UV, UV, UV_VERSION)``, respecting monkeypatched values."""
+    mod = sys.modules[__name__]
+    has_uv: bool = mod.HAS_UV
+    uv: str = mod.UV
+    uv_ver: version.Version = mod.UV_VERSION
+    return has_uv, uv, uv_ver
+
+
+def _optional_venvs() -> dict[str, bool]:
+    """Read ``OPTIONAL_VENVS``, respecting monkeypatched values."""
+    optional_venvs: dict[str, bool] = sys.modules[__name__].OPTIONAL_VENVS
+    return optional_venvs
+
+
+def __getattr__(name: str) -> Any:
+    """Compute uv detection lazily; importing this module must not run uv."""
+    if name in {"HAS_UV", "UV", "UV_VERSION"}:
+        has_uv, uv, uv_ver = find_uv()
+        return {"HAS_UV": has_uv, "UV": uv, "UV_VERSION": uv_ver}[name]
+    if name == "OPTIONAL_VENVS":
+        # Any environment in this dict could be missing, and is only available
+        # if the value is True. If an environment is always available, it
+        # should not be in this dict. "virtualenv" is not considered optional
+        # since it's a dependency of nox.
+        return {
+            "conda": shutil.which("conda") is not None,
+            "mamba": shutil.which("mamba") is not None,
+            "micromamba": shutil.which("micromamba") is not None,
+            "uv": _uv_state()[0],
+        }
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 def _ensure_gitignore(envdir: Path) -> None:
@@ -286,8 +350,10 @@ class ProcessEnv(abc.ABC):
     # Does this environment provide any process isolation?
     is_sandboxed = False
 
-    # Special programs that aren't included in the environment.
-    allowed_globals: ClassVar[tuple[Any, ...]] = ()
+    @property
+    def allowed_globals(self) -> tuple[str, ...]:
+        """Special programs that aren't included in the environment."""
+        return ()
 
     def __init__(
         self,
@@ -406,14 +472,17 @@ def locate_using_path_and_version(version: str) -> str | None:
     script = "import platform; print(platform.python_version())"
     path_python = shutil.which("python")
     if path_python:
-        prefix = f"{version}"
         ret = subprocess.run(
             [path_python, "-c", script],
             check=False,
             text=True,
             capture_output=True,
         )
-        if ret.returncode == 0 and ret.stdout and ret.stdout.strip().startswith(prefix):
+        if (
+            ret.returncode == 0
+            and ret.stdout
+            and ret.stdout.strip().startswith(version)
+        ):
             return path_python
 
     return None
@@ -465,7 +534,11 @@ class CondaEnv(ProcessEnv):
     """
 
     is_sandboxed = True
-    allowed_globals = ("conda", "mamba", "micromamba")
+
+    @property
+    def allowed_globals(self) -> tuple[str, ...]:
+        """Conda-family launchers are allowed, even if not in the environment."""
+        return ("conda", "mamba", "micromamba")
 
     def __init__(
         self,
@@ -481,7 +554,7 @@ class CondaEnv(ProcessEnv):
         self.location = os.path.abspath(location)
         self.interpreter = interpreter
         self.reuse_existing = reuse_existing
-        self.venv_params = venv_params or []
+        self.venv_params = list(venv_params)
         self.conda_cmd = conda_cmd
         super().__init__(env={"CONDA_PREFIX": self.location, "VIRTUAL_ENV": None})
 
@@ -572,10 +645,10 @@ class CondaEnv(ProcessEnv):
         """
         try:
             # DNS resolution to detect situation (1) or (2).
-            host = gethostbyname("repo.anaconda.com")
+            gethostbyname("repo.anaconda.com")
         except OSError:  # pragma: no cover
             return True
-        return host is None
+        return False
 
     @property
     def venv_backend(self) -> str:
@@ -604,7 +677,12 @@ class VirtualEnv(ProcessEnv):
     """
 
     is_sandboxed = True
-    allowed_globals = (UV, f"{UV}x")
+
+    @property
+    def allowed_globals(self) -> tuple[str, ...]:
+        """uv/uvx are allowed, even if not in the environment."""
+        _, uv, _ = _uv_state()
+        return (uv, f"{uv}x")
 
     def __init__(
         self,
@@ -626,7 +704,7 @@ class VirtualEnv(ProcessEnv):
         self._resolved: None | str | InterpreterNotFound = None
         self.reuse_existing = reuse_existing
         self._venv_backend = venv_backend
-        self.venv_params = venv_params or []
+        self.venv_params = list(venv_params)
         self.download_python = download_python
         if venv_backend not in {"virtualenv", "venv", "uv"}:
             msg = f"venv_backend {venv_backend!r} not recognized"
@@ -777,52 +855,45 @@ class VirtualEnv(ProcessEnv):
             t = match.group("t")
             cleaned_interpreter = f"python{xy_version}{t}"
 
-        # never -> check for interpreters
-        if self.download_python == "never":
-            if resolved := _find_python(cleaned_interpreter, xy_version):
-                self._resolved = resolved
-                return self._resolved
-
-        # always -> skip check, always install
-        elif self.download_python == "always" and self.venv_backend == "uv":
-            if HAS_UV and version.Version("0.4.16") <= UV_VERSION:
-                uv_python_success = uv_install_python(cleaned_interpreter)
-                if uv_python_success:
-                    self._resolved = cleaned_interpreter
+        match self.download_python:
+            # never -> check for interpreters
+            case "never":
+                if resolved := _find_python(cleaned_interpreter, xy_version):
+                    self._resolved = resolved
                     return self._resolved
 
-        elif self.download_python == "always" and self.venv_backend in (
-            "venv",
-            "virtualenv",
-        ):
-            pbs_python_path = pbs_install_python(cleaned_interpreter)
-            if pbs_python_path:
-                self._resolved = pbs_python_path
-                return self._resolved
-
-        # auto -> check interpreters -> fallback to installing
-        else:
-            if resolved := _find_python(cleaned_interpreter, xy_version):
-                self._resolved = resolved
-                return self._resolved
-
-            if (
-                self.venv_backend == "uv"
-                and HAS_UV
-                and version.Version("0.4.16") <= UV_VERSION
-            ):
-                uv_python_success = uv_install_python(cleaned_interpreter)
-                if uv_python_success:
-                    self._resolved = cleaned_interpreter
+            # always -> skip check, always install
+            case "always":
+                if resolved := self._install_python(cleaned_interpreter):
+                    self._resolved = resolved
                     return self._resolved
-            elif self.venv_backend in ("venv", "virtualenv"):
-                pbs_python_path = pbs_install_python(cleaned_interpreter)
-                if pbs_python_path:
-                    self._resolved = pbs_python_path
+
+            case _:
+                # auto -> check interpreters -> fallback to installing
+                if resolved := _find_python(
+                    cleaned_interpreter, xy_version
+                ) or self._install_python(cleaned_interpreter):
+                    self._resolved = resolved
                     return self._resolved
 
         self._resolved = InterpreterNotFound(self.interpreter)
         raise self._resolved
+
+    def _install_python(self, cleaned_interpreter: str) -> str | None:
+        """Install the requested interpreter for this backend, if possible.
+
+        Returns the resolved interpreter on success, or ``None`` on failure.
+        """
+        if self.venv_backend == "uv":
+            has_uv, _, uv_ver = _uv_state()
+            if (
+                has_uv
+                and version.Version("0.4.16") <= uv_ver
+                and uv_install_python(cleaned_interpreter)
+            ):
+                return cleaned_interpreter
+            return None
+        return pbs_install_python(cleaned_interpreter)
 
     @property
     def bin_paths(self) -> list[str]:
@@ -846,28 +917,30 @@ class VirtualEnv(ProcessEnv):
 
             return False
 
-        if self.venv_backend == "virtualenv":
-            cmd = [
-                sys.executable,
-                "-m",
-                "virtualenv",
-                self.location,
-                "--no-periodic-update",
-            ]
-            if self.interpreter:
-                cmd.extend(["-p", self._resolved_interpreter])
-        elif self.venv_backend == "uv":
-            cmd = [
-                UV,
-                "venv",
-                "-p",
-                self._resolved_interpreter if self.interpreter else sys.executable,
-                self.location,
-            ]
-            if version.Version("0.8") <= UV_VERSION:
-                cmd += ["--clear"]
-        else:
-            cmd = [self._resolved_interpreter, "-m", "venv", self.location]
+        match self.venv_backend:
+            case "virtualenv":
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "virtualenv",
+                    self.location,
+                    "--no-periodic-update",
+                ]
+                if self.interpreter:
+                    cmd.extend(["-p", self._resolved_interpreter])
+            case "uv":
+                _, uv, uv_ver = _uv_state()
+                cmd = [
+                    uv,
+                    "venv",
+                    "-p",
+                    self._resolved_interpreter if self.interpreter else sys.executable,
+                    self.location,
+                ]
+                if version.Version("0.8") <= uv_ver:
+                    cmd += ["--clear"]
+            case _:
+                cmd = [self._resolved_interpreter, "-m", "venv", self.location]
         cmd.extend(self.venv_params)
 
         resolved_interpreter_name = os.path.basename(self._resolved_interpreter)
@@ -895,16 +968,6 @@ ALL_VENVS: dict[str, Callable[..., ProcessEnv]] = {
     "none": PassthroughEnv,
 }
 
-# Any environment in this dict could be missing, and is only available if the
-# value is True. If an environment is always available, it should not be in this
-# dict. "virtualenv" is not considered optional since it's a dependency of nox.
-OPTIONAL_VENVS = {
-    "conda": shutil.which("conda") is not None,
-    "mamba": shutil.which("mamba") is not None,
-    "micromamba": shutil.which("micromamba") is not None,
-    "uv": HAS_UV,
-}
-
 
 def get_virtualenv(
     *backends: str,
@@ -920,13 +983,15 @@ def get_virtualenv(
             msg = f"Expected venv_backend one of {sorted(ALL_VENVS)!r}, but got {bk!r}."
             raise ValueError(msg)
 
+    optional_venvs = _optional_venvs()
+
     for bk in backends[:-1]:
-        if bk not in OPTIONAL_VENVS:
-            msg = f"Only optional backends ({sorted(OPTIONAL_VENVS)!r}) may have a fallback, {bk!r} is not optional."
+        if bk not in optional_venvs:
+            msg = f"Only optional backends ({sorted(optional_venvs)!r}) may have a fallback, {bk!r} is not optional."
             raise ValueError(msg)
 
     for bk in backends:
-        if OPTIONAL_VENVS.get(bk, True):
+        if optional_venvs.get(bk, True):
             backend = bk
             break
     else:

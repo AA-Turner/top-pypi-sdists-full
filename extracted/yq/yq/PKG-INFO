@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yq
-Version: 4.1.1
+Version: 4.1.2
 Summary: Command-line YAML/XML processor - jq wrapper for YAML/XML documents
 Project-URL: Homepage, https://github.com/kislyuk/yq
 Project-URL: Documentation, https://kislyuk.github.io/yq/

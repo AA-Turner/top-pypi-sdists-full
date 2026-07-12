@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import traceback
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote as urlquote
 
 import click
@@ -22,6 +22,7 @@ from mycli.constants import (
     ER_MUST_CHANGE_PASSWORD_LOGIN,
 )
 from mycli.packages.filepaths import guess_socket_location
+from mycli.packages.special.utils import format_connection_dsn
 from mycli.sqlexecute import SQLExecute
 from mycli.ssh_tunnel import SshTunnel, SshTunnelError
 
@@ -61,6 +62,7 @@ class ClientConnectionMixin:
         reset_keyring: bool | None = None,
         keepalive_ticks: int | None = None,
         ssh_jump: str | None = None,
+        ssh_cli_options: str | None = None,
     ) -> None:
         mylogin_cnf: dict[str, Any] = self.read_mylogin_cnf(self.mylogin_cnf)
         # Fall back to .mylogin.cnf values only if user did not specify a value.
@@ -83,7 +85,8 @@ class ClientConnectionMixin:
             remote_port = int_port or DEFAULT_PORT
             remote_socket = socket or None
             ssh_executable = self.config.get('ssh', {}).get('ssh_executable', 'ssh') or 'ssh'
-            ssh_options = self.config.get('ssh', {}).get('ssh_options')
+            ssh_config_options = self.config.get('ssh', {}).get('ssh_options')
+            tunnel_method: Literal['auto', 'socket', 'port'] = self.config.get('ssh', {}).get('tunnel_method', 'auto').lower() or 'auto'
             try:
                 self.ssh_tunnel = SshTunnel.from_target(
                     ssh_jump,
@@ -91,7 +94,9 @@ class ClientConnectionMixin:
                     remote_port=int(remote_port),
                     remote_socket=remote_socket,
                     ssh_executable=ssh_executable,
-                    ssh_options=ssh_options,
+                    ssh_config_options=ssh_config_options,
+                    ssh_cli_options=ssh_cli_options,
+                    tunnel_method=tunnel_method,
                 )
                 self.ssh_tunnel.start()
             except (OSError, ValueError, SshTunnelError) as exc:
@@ -161,8 +166,9 @@ class ClientConnectionMixin:
         # 2. --password-file CLI option
         # 3. envvar (MYSQL_PWD)
         # 4. DSN (mysql://user:password)
-        # 5. .mylogin.cnf
-        # 6. keyring
+        # 5. Vault
+        # 6. .mylogin.cnf
+        # 7. keyring
 
         ssh_tunnel_field = urlquote(ssh_jump or '')
         if ssh_tunnel_field:
@@ -184,6 +190,18 @@ class ClientConnectionMixin:
         # should not fail, but will help the typechecker
         assert not isinstance(passwd, int)
 
+        display_dsn = None
+        if self.ssh_tunnel:
+            display_dsn = format_connection_dsn(
+                user=user,
+                host=remote_host,
+                port=remote_port,
+                socket=remote_socket,
+                database=database,
+                character_set=character_set,
+                ssh_jump=ssh_jump,
+            )
+
         connection_info: dict[str, Any] = {
             'database': database,
             'user': user,
@@ -193,8 +211,13 @@ class ClientConnectionMixin:
             'ssl': ssl_config,
             'init_command': init_command,
             'unbuffered': unbuffered,
+            'display_dsn': display_dsn,
         }
-        if self.ssh_tunnel:
+        if self.ssh_tunnel and self.ssh_tunnel.local_socket:
+            connection_info['host'] = None
+            connection_info['port'] = None
+            connection_info['socket'] = self.ssh_tunnel.local_socket
+        elif self.ssh_tunnel:
             connection_info['host'] = self.ssh_tunnel.local_host
             connection_info['port'] = self.ssh_tunnel.local_port
             connection_info['socket'] = None

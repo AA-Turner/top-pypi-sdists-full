@@ -22,19 +22,23 @@ class TasksResource(googleapiclient.discovery.Resource):
             self, *, tasklist: str, **kwargs: typing.Any
         ) -> TaskListHttpRequest: ...
         def insert(
-            self, *, body: TaskList = ..., **kwargs: typing.Any
+            self, *, body: TaskList, **kwargs: typing.Any
         ) -> TaskListHttpRequest: ...
         def list(
-            self, *, maxResults: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> TaskListsHttpRequest: ...
         def list_next(
             self, previous_request: TaskListsHttpRequest, previous_response: TaskLists
         ) -> TaskListsHttpRequest | None: ...
         def patch(
-            self, *, tasklist: str, body: TaskList = ..., **kwargs: typing.Any
+            self, *, tasklist: str, body: TaskList, **kwargs: typing.Any
         ) -> TaskListHttpRequest: ...
         def update(
-            self, *, tasklist: str, body: TaskList = ..., **kwargs: typing.Any
+            self, *, tasklist: str, body: TaskList, **kwargs: typing.Any
         ) -> TaskListHttpRequest: ...
 
     @typing.type_check_only
@@ -52,26 +56,26 @@ class TasksResource(googleapiclient.discovery.Resource):
             self,
             *,
             tasklist: str,
-            body: Task = ...,
-            parent: str = ...,
-            previous: str = ...,
+            body: Task,
+            parent: str | None = ...,
+            previous: str | None = ...,
             **kwargs: typing.Any,
         ) -> TaskHttpRequest: ...
         def list(
             self,
             *,
             tasklist: str,
-            completedMax: str = ...,
-            completedMin: str = ...,
-            dueMax: str = ...,
-            dueMin: str = ...,
-            maxResults: int = ...,
-            pageToken: str = ...,
-            showAssigned: bool = ...,
-            showCompleted: bool = ...,
-            showDeleted: bool = ...,
-            showHidden: bool = ...,
-            updatedMin: str = ...,
+            completedMax: str | None = ...,
+            completedMin: str | None = ...,
+            dueMax: str | None = ...,
+            dueMin: str | None = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            showAssigned: bool | None = ...,
+            showCompleted: bool | None = ...,
+            showDeleted: bool | None = ...,
+            showHidden: bool | None = ...,
+            updatedMin: str | None = ...,
             **kwargs: typing.Any,
         ) -> TasksHttpRequest: ...
         def list_next(
@@ -82,16 +86,16 @@ class TasksResource(googleapiclient.discovery.Resource):
             *,
             tasklist: str,
             task: str,
-            destinationTasklist: str = ...,
-            parent: str = ...,
-            previous: str = ...,
+            destinationTasklist: str | None = ...,
+            parent: str | None = ...,
+            previous: str | None = ...,
             **kwargs: typing.Any,
         ) -> TaskHttpRequest: ...
         def patch(
-            self, *, tasklist: str, task: str, body: Task = ..., **kwargs: typing.Any
+            self, *, tasklist: str, task: str, body: Task, **kwargs: typing.Any
         ) -> TaskHttpRequest: ...
         def update(
-            self, *, tasklist: str, task: str, body: Task = ..., **kwargs: typing.Any
+            self, *, tasklist: str, task: str, body: Task, **kwargs: typing.Any
         ) -> TaskHttpRequest: ...
 
     def new_batch_http_request(

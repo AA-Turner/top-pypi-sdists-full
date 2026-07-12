@@ -2904,9 +2904,13 @@ class Expression(google.protobuf.message.Message):
             microseconds: builtins.int
             """use precision and subseconds below, they cover and replace microseconds."""
             precision: builtins.int
-            """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds. Should be used with subseconds below."""
+            """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds, 12 is picoseconds. Should be used with subseconds below."""
             subseconds: builtins.int
-            """the number of fractional seconds using 1e(-precision) units. Should only be used with precision field, not microseconds."""
+            """The sub-second component only, expressed as the number of 1e(-precision)
+            units (e.g. with precision 12 this is a number of picoseconds in the
+            range [0, 1e12)). Whole seconds belong in the seconds field above, not
+            here. Should only be used with precision field, not microseconds.
+            """
             def __init__(
                 self,
                 *,

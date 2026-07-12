@@ -48,6 +48,7 @@
 //!   than manufacturing spurious weight.
 
 use super::*;
+use opt::{BacktrackConfig, backtracking_line_search};
 
 /// Outcome of a two-block REML fit: the converged weight, the trajectory, and
 /// the final inner loss.
@@ -203,7 +204,13 @@ impl SaeManifoldTerm {
         }
 
         let n_obs = anchor.nrows();
-        let dims: Vec<usize> = blocks.iter().map(|b| b.block_dim()).collect();
+        // Stacked-column bookkeeping owner. The block WIDTHS (hence every column
+        // range) are fixed for the whole fit, so one layout serves every in-loop
+        // range read (RSS spans, per-block decoder rescale); its stored `log λ_ℓ`
+        // is the sweep-entry value and is NOT read for ranging. The FITTED layout
+        // (converged weights) is installed on the term at the end.
+        let range_layout = CrosscoderLayout::from_blocks(px, blocks);
+        let dims: Vec<usize> = range_layout.block_dims().to_vec();
         let mut cur_log_lambda: Vec<f64> = blocks.iter().map(|b| b.log_lambda).collect();
         let mut trajectories: Vec<Vec<f64>> = vec![Vec::with_capacity(max_sweeps); blocks.len()];
         let mut identifiable = vec![true; blocks.len()];
@@ -267,7 +274,8 @@ impl SaeManifoldTerm {
                 ridge_ext_coord,
                 ridge_beta,
             )?;
-            let (base_rx, base_scaled) = self.augmented_block_rss(base_aug.view(), rho, px, &dims)?;
+            let (base_rx, base_scaled) =
+                self.augmented_block_rss(base_aug.view(), rho, &range_layout)?;
             let base_unscaled: Vec<f64> = (0..blocks.len())
                 .map(|i| base_scaled[i] / cur_log_lambda[i].exp())
                 .collect();
@@ -321,74 +329,85 @@ impl SaeManifoldTerm {
             // that would abandon a block is rejected — the fix that makes the
             // otherwise non-contractive (fit, λ-update) alternation monotone.
             let armijo_eps = 1e-9 * (1.0 + baseline_crit.abs());
-            let mut s = 1.0_f64;
-            let mut accepted = false;
-            for _bt in 0..MAX_BACKTRACK {
-                let mut trial_ll = cur_log_lambda.clone();
-                for idx in 0..blocks.len() {
-                    if identifiable[idx] {
-                        trial_ll[idx] =
-                            cur_log_lambda[idx] + s * (log_lambda_star[idx] - cur_log_lambda[idx]);
-                    }
-                }
-                for idx in 0..blocks.len() {
-                    blocks[idx] = blocks[idx].with_log_lambda(trial_ll[idx])?;
-                }
-                self.fit_state_restore(&base)?;
-                // EXACT warm-start reparameterization: the stacked target's block
-                // columns are `√λ_ℓ·Y_ℓ`, and quadratic β-penalties are scale-
-                // equivariant (`min_β ‖√λ·y − Φβ‖² + βᵀSβ` maps to
-                // `λ(‖y − Φb‖² + bᵀSb)` under `β = √λ·b`), so the incumbent fit at
-                // `λ_cur` maps to the EXACT incumbent at `λ_trial` by scaling each
-                // behavior block's decoder columns by `√(λ_trial/λ_cur)`. Without
-                // this rescale every trial starts with a spurious scaled-residual
-                // `(√λ_t − √λ_c)²·‖Ŷ‖²` that the TRUNCATED inner solve must burn
-                // its iteration budget removing — which biases the Armijo
-                // comparison against exactly the large closed-form λ jumps the
-                // fixed point needs from a distant start (the from-0.0
-                // 20-sweep-exhaustion failure of `reml_selects_lambda_y…`). The
-                // rescaled state is the same fit in the new parameterization, so
-                // this changes no fixed point — it only stops the line search from
-                // paying an artificial re-fitting tax proportional to the step.
-                let mut col_base = px;
-                for idx in 0..blocks.len() {
-                    let scale = (0.5 * (trial_ll[idx] - cur_log_lambda[idx])).exp();
-                    if scale != 1.0 {
-                        for atom in &mut self.atoms {
-                            let mut cols = atom
-                                .decoder_coefficients
-                                .slice_mut(s![.., col_base..col_base + dims[idx]]);
-                            cols.mapv_inplace(|v| v * scale);
+            // Backtracking line search on the closed-form λ step, migrated onto
+            // the shared `opt` primitive. `trial(s)` evaluates the step
+            // of scale `s` (always well defined here, so never `Ok(None)`) and
+            // threads the trial iterate `(trial_ll, trial_loss)` through the
+            // payload; `accept` inlines the exact Armijo sufficient-decrease test
+            // (`trial_crit < baseline_crit − armijo_eps`), bit-for-bit identical to
+            // the pre-migration loop (initial step 1.0, ×0.5 contraction,
+            // `MAX_BACKTRACK` trials).
+            let accepted_step = backtracking_line_search::<(Vec<f64>, SaeManifoldLoss), String>(
+                BacktrackConfig {
+                    initial_step: 1.0,
+                    contraction: 0.5,
+                    max_steps: MAX_BACKTRACK,
+                },
+                |s| {
+                    let mut trial_ll = cur_log_lambda.clone();
+                    for idx in 0..blocks.len() {
+                        if identifiable[idx] {
+                            trial_ll[idx] = cur_log_lambda[idx]
+                                + s * (log_lambda_star[idx] - cur_log_lambda[idx]);
                         }
                     }
-                    col_base += dims[idx];
-                }
-                let aug = stack_augmented_target(anchor, blocks)?;
-                let trial_loss = self.run_joint_fit_arrow_schur(
-                    aug.view(),
-                    rho,
-                    analytic_penalties,
-                    inner_max_iter,
-                    step_size,
-                    ridge_ext_coord,
-                    ridge_beta,
-                )?;
-                let (trx, trb_scaled) = self.augmented_block_rss(aug.view(), rho, px, &dims)?;
-                let trb_unscaled: Vec<f64> = (0..blocks.len())
-                    .map(|i| trb_scaled[i] / trial_ll[i].exp())
-                    .collect();
-                let trial_crit =
-                    profiled_reml_criterion(n_obs, px, trx, &trb_unscaled, &dims, &trial_ll);
-                if trial_crit < baseline_crit - armijo_eps {
-                    cur_log_lambda = trial_ll;
-                    loss = trial_loss;
-                    accepted = true;
-                    break;
-                }
-                s *= 0.5;
-            }
+                    for idx in 0..blocks.len() {
+                        blocks[idx] = blocks[idx].with_log_lambda(trial_ll[idx])?;
+                    }
+                    self.fit_state_restore(&base)?;
+                    // EXACT warm-start reparameterization: the stacked target's block
+                    // columns are `√λ_ℓ·Y_ℓ`, and quadratic β-penalties are scale-
+                    // equivariant (`min_β ‖√λ·y − Φβ‖² + βᵀSβ` maps to
+                    // `λ(‖y − Φb‖² + bᵀSb)` under `β = √λ·b`), so the incumbent fit at
+                    // `λ_cur` maps to the EXACT incumbent at `λ_trial` by scaling each
+                    // behavior block's decoder columns by `√(λ_trial/λ_cur)`. Without
+                    // this rescale every trial starts with a spurious scaled-residual
+                    // `(√λ_t − √λ_c)²·‖Ŷ‖²` that the TRUNCATED inner solve must burn
+                    // its iteration budget removing — which biases the Armijo
+                    // comparison against exactly the large closed-form λ jumps the
+                    // fixed point needs from a distant start (the from-0.0
+                    // 20-sweep-exhaustion failure of `reml_selects_lambda_y…`). The
+                    // rescaled state is the same fit in the new parameterization, so
+                    // this changes no fixed point — it only stops the line search from
+                    // paying an artificial re-fitting tax proportional to the step.
+                    for idx in 0..blocks.len() {
+                        let scale = (0.5 * (trial_ll[idx] - cur_log_lambda[idx])).exp();
+                        if scale != 1.0 {
+                            let range = range_layout.block_range(idx);
+                            for atom in &mut self.atoms {
+                                let mut cols =
+                                    atom.decoder_coefficients.slice_mut(s![.., range.clone()]);
+                                cols.mapv_inplace(|v| v * scale);
+                            }
+                        }
+                    }
+                    let aug = stack_augmented_target(anchor, blocks)?;
+                    let trial_loss = self.run_joint_fit_arrow_schur(
+                        aug.view(),
+                        rho,
+                        analytic_penalties,
+                        inner_max_iter,
+                        step_size,
+                        ridge_ext_coord,
+                        ridge_beta,
+                    )?;
+                    let (trx, trb_scaled) =
+                        self.augmented_block_rss(aug.view(), rho, &range_layout)?;
+                    let trb_unscaled: Vec<f64> = (0..blocks.len())
+                        .map(|i| trb_scaled[i] / trial_ll[i].exp())
+                        .collect();
+                    let trial_crit =
+                        profiled_reml_criterion(n_obs, px, trx, &trb_unscaled, &dims, &trial_ll);
+                    Ok(Some((trial_crit, (trial_ll, trial_loss))))
+                },
+                |_s, trial_crit| trial_crit < baseline_crit - armijo_eps,
+            )?;
 
-            if !accepted {
+            if let Some(step) = accepted_step {
+                let (trial_ll, trial_loss) = step.payload;
+                cur_log_lambda = trial_ll;
+                loss = trial_loss;
+            } else {
                 // No fraction of the closed-form λ step beats the current-λ
                 // baseline: moving λ cannot lower the criterion from here. Reinstate
                 // the improved current-λ fit (`baseline_state`, no worse than the
@@ -419,6 +438,12 @@ impl SaeManifoldTerm {
                 trajectories[idx].push(cur_log_lambda[idx]);
             }
         }
+        // Install the FITTED stacked-column layout (converged per-block weights)
+        // so `layer_decoder(k, ℓ)` returns each layer's honest-units decoder with
+        // no caller re-slicing. `blocks` now carry the converged `log λ_ℓ`; the
+        // width equals `output_dim()` (validated above), so the install succeeds.
+        self.set_crosscoder_layout(CrosscoderLayout::from_blocks(px, blocks))?;
+
         let outcomes = blocks
             .iter()
             .enumerate()
@@ -438,15 +463,17 @@ impl SaeManifoldTerm {
     }
 
     /// Anchor RSS `R_x` (over the `p_x` anchor columns) and the SCALED per-block
-    /// RSS (over each block's column span) of the current fitted residual.
+    /// RSS (over each block's column span) of the current fitted residual. The
+    /// column offsets come from `layout` (the single owner of the stacked-column
+    /// bookkeeping), not a by-hand `off_ℓ` accumulation.
     fn augmented_block_rss(
         &self,
         augmented: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
-        px: usize,
-        block_dims: &[usize],
+        layout: &CrosscoderLayout,
     ) -> Result<(f64, Vec<f64>), String> {
         let residual = self.reconstruction_residual(augmented, rho)?;
+        let px = layout.anchor_dim();
         let mut rss_x = 0.0_f64;
         for row in residual.rows() {
             for j in 0..px {
@@ -454,20 +481,77 @@ impl SaeManifoldTerm {
                 rss_x += r * r;
             }
         }
-        let mut out = Vec::with_capacity(block_dims.len());
-        let mut off = px;
-        for &pl in block_dims {
+        let mut out = Vec::with_capacity(layout.num_blocks());
+        for l in 0..layout.num_blocks() {
             let mut rss = 0.0_f64;
             for row in residual.rows() {
-                for j in off..off + pl {
+                for j in layout.block_range(l) {
                     let r = row[j];
                     rss += r * r;
                 }
             }
             out.push(rss);
-            off += pl;
         }
         Ok((rss_x, out))
+    }
+
+    /// Install the crosscoder stacked-column layout on the term, validating that
+    /// its total width matches the atoms' output dimension
+    /// (`p_x + Σ_ℓ p_ℓ == output_dim()`). Called by
+    /// [`Self::run_multiblock_reml_fit`] with the fitted per-block weights; a
+    /// caller may also install one explicitly to enable [`Self::layer_decoder`]
+    /// on a term whose decoders were fit elsewhere at the augmented width.
+    pub fn set_crosscoder_layout(&mut self, layout: CrosscoderLayout) -> Result<(), String> {
+        if layout.total_dim() != self.output_dim() {
+            return Err(format!(
+                "SaeManifoldTerm::set_crosscoder_layout: layout total width p_x + Σ p_ℓ = {} but \
+                 the term's output_dim is {} (atoms must be built at the augmented width)",
+                layout.total_dim(),
+                self.output_dim()
+            ));
+        }
+        self.crosscoder_layout = Some(layout);
+        Ok(())
+    }
+
+    /// The installed crosscoder stacked-column layout, or `None` for a term with
+    /// no multi-block layout recorded.
+    pub fn crosscoder_layout(&self) -> Option<&CrosscoderLayout> {
+        self.crosscoder_layout.as_ref()
+    }
+
+    /// The HONEST-units per-layer decoder `B_k^(ℓ)` of atom `k`, output block `ℓ`:
+    /// the decoder columns of block `ℓ` divided by `√λ_ℓ` (un-doing the target
+    /// scaling that `stack_augmented_target` applied). Requires an installed
+    /// [`CrosscoderLayout`] (via a multi-block fit or [`Self::set_crosscoder_layout`]).
+    ///
+    /// This is the first-class form of the by-hand slice+unscale
+    /// (`decoder_coefficients[:, off_ℓ..off_ℓ+p_ℓ] / √λ_ℓ`): identical values, but
+    /// the offsets and `√λ_ℓ` are owned by the layout so no caller recomputes them.
+    pub fn layer_decoder(&self, k: usize, l: usize) -> Result<Array2<f64>, String> {
+        let layout = self.crosscoder_layout.as_ref().ok_or_else(|| {
+            "SaeManifoldTerm::layer_decoder: no crosscoder layout installed (run \
+             run_multiblock_reml_fit or set_crosscoder_layout first)"
+                .to_string()
+        })?;
+        if k >= self.atoms.len() {
+            return Err(format!(
+                "SaeManifoldTerm::layer_decoder: atom index k={k} out of range (K = {})",
+                self.atoms.len()
+            ));
+        }
+        if l >= layout.num_blocks() {
+            return Err(format!(
+                "SaeManifoldTerm::layer_decoder: block index ℓ={l} out of range (L-1 = {})",
+                layout.num_blocks()
+            ));
+        }
+        let inv = 1.0 / layout.sqrt_lambda(l);
+        // Materialize the full-width decoder before crossing the layer boundary;
+        // the fit may use a reduced Grassmann coordinate internally.
+        let physical = self.atoms[k].full_width_decoder();
+        let scaled = physical.slice(s![.., layout.block_range(l)]);
+        Ok(scaled.mapv(|value| inv * value))
     }
 
     /// Snapshot the ENTIRE mutable fit state a λ line-search trial perturbs, so a
@@ -486,18 +570,21 @@ impl SaeManifoldTerm {
     /// rank reduction, [`Self::reduce_atoms_to_data_supported_rank`], is idempotent
     /// after the sweep-entry fit, so the restored decoder width always matches.)
     fn fit_state_snapshot(&self) -> (SaeManifoldMutableState, Option<GumbelTemperatureSchedule>) {
-        (self.snapshot_mutable_state(), self.temperature_schedule.clone())
+        (
+            self.snapshot_mutable_state(),
+            self.temperature_schedule.clone(),
+        )
     }
 
-    /// Restore a [`Self::fit_state_snapshot`]. Because the snapshot carries the
-    /// refreshed `basis_values` / `basis_jacobian` (not just the coords), the
-    /// restored state is immediately consistent for a residual/fitted read — no
-    /// post-restore basis refresh is required.
+    /// Restore a [`Self::fit_state_snapshot`]. `restore_mutable_state` rebuilds
+    /// each atom's `basis_values` / `basis_jacobian` from the restored coordinates
+    /// (the differential snapshot stores only the cheap driving state), so the
+    /// restored state is immediately consistent for a residual/fitted read.
     fn fit_state_restore(
         &mut self,
         snap: &(SaeManifoldMutableState, Option<GumbelTemperatureSchedule>),
     ) -> Result<(), String> {
-        self.restore_mutable_state(&snap.0);
+        self.restore_mutable_state(&snap.0)?;
         self.temperature_schedule.clone_from(&snap.1);
         Ok(())
     }
@@ -566,8 +653,11 @@ impl SaeManifoldTerm {
         // The behavior block IS an output block: its (unscaled) tangent target,
         // its width p_y, and its weight λ_y drive the same augmented fit and the
         // same variance-ratio update.
-        let mut output_blocks =
-            vec![OutputBlock::new("behavior", block.target.clone(), block.log_lambda_y)?];
+        let mut output_blocks = vec![OutputBlock::new(
+            "behavior",
+            block.target.clone(),
+            block.log_lambda_y,
+        )?];
         let report = self.run_multiblock_reml_fit(
             activation,
             &mut output_blocks,

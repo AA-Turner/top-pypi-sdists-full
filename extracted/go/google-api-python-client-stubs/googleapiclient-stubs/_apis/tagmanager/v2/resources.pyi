@@ -26,8 +26,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    allowUserPermissionFeatureUpdate: bool = ...,
-                    destinationId: str = ...,
+                    allowUserPermissionFeatureUpdate: bool | None = ...,
+                    destinationId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> DestinationHttpRequest: ...
                 def list(
@@ -37,7 +37,7 @@ class TagManagerResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class EnvironmentsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: Environment = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Environment, **kwargs: typing.Any
                 ) -> EnvironmentHttpRequest: ...
                 def delete(
                     self, *, path: str, **kwargs: typing.Any
@@ -46,7 +46,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self, *, path: str, **kwargs: typing.Any
                 ) -> EnvironmentHttpRequest: ...
                 def list(
-                    self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    parent: str,
+                    pageToken: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> ListEnvironmentsResponseHttpRequest: ...
                 def list_next(
                     self,
@@ -54,14 +58,14 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     previous_response: ListEnvironmentsResponse,
                 ) -> ListEnvironmentsResponseHttpRequest | None: ...
                 def reauthorize(
-                    self, *, path: str, body: Environment = ..., **kwargs: typing.Any
+                    self, *, path: str, body: Environment, **kwargs: typing.Any
                 ) -> EnvironmentHttpRequest: ...
                 def update(
                     self,
                     *,
                     path: str,
-                    body: Environment = ...,
-                    fingerprint: str = ...,
+                    body: Environment,
+                    fingerprint: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> EnvironmentHttpRequest: ...
 
@@ -74,8 +78,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    includeDeleted: bool = ...,
-                    pageToken: str = ...,
+                    includeDeleted: bool | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListContainerVersionsResponseHttpRequest: ...
                 def list_next(
@@ -93,14 +97,18 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     path: str,
-                    containerVersionId: str = ...,
+                    containerVersionId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ContainerVersionHttpRequest: ...
                 def live(
                     self, *, parent: str, **kwargs: typing.Any
                 ) -> ContainerVersionHttpRequest: ...
                 def publish(
-                    self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    path: str,
+                    fingerprint: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> PublishContainerVersionResponseHttpRequest: ...
                 def set_latest(
                     self, *, path: str, **kwargs: typing.Any
@@ -112,8 +120,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     path: str,
-                    body: ContainerVersion = ...,
-                    fingerprint: str = ...,
+                    body: ContainerVersion,
+                    fingerprint: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ContainerVersionHttpRequest: ...
 
@@ -364,7 +372,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                                 "analyticsSessionId",
                                 "analyticsSessionNumber",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> CreateBuiltInVariableResponseHttpRequest: ...
                     def delete(
@@ -610,11 +619,16 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                                 "analyticsSessionId",
                                 "analyticsSessionNumber",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListEnabledBuiltInVariablesResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -743,14 +757,15 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                             "analyticsClientId",
                             "analyticsSessionId",
                             "analyticsSessionNumber",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> RevertBuiltInVariableResponseHttpRequest: ...
 
                 @typing.type_check_only
                 class ClientsResource(googleapiclient.discovery.Resource):
                     def create(
-                        self, *, parent: str, body: Client = ..., **kwargs: typing.Any
+                        self, *, parent: str, body: Client, **kwargs: typing.Any
                     ) -> ClientHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -759,7 +774,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> ClientHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListClientsResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -767,27 +786,35 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListClientsResponse,
                     ) -> ListClientsResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertClientResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Client = ...,
-                        fingerprint: str = ...,
+                        body: Client,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ClientHttpRequest: ...
 
                 @typing.type_check_only
                 class FoldersResource(googleapiclient.discovery.Resource):
                     def create(
-                        self, *, parent: str, body: Folder = ..., **kwargs: typing.Any
+                        self, *, parent: str, body: Folder, **kwargs: typing.Any
                     ) -> FolderHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
                     ) -> googleapiclient.http.HttpRequest: ...
                     def entities(
-                        self, *, path: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> FolderEntitiesHttpRequest: ...
                     def entities_next(
                         self,
@@ -798,7 +825,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> FolderHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListFoldersResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -809,32 +840,32 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         path: str,
-                        body: Folder = ...,
-                        tagId: str | _list[str] = ...,
-                        triggerId: str | _list[str] = ...,
-                        variableId: str | _list[str] = ...,
+                        body: Folder,
+                        tagId: str | _list[str] | None = ...,
+                        triggerId: str | _list[str] | None = ...,
+                        variableId: str | _list[str] | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertFolderResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Folder = ...,
-                        fingerprint: str = ...,
+                        body: Folder,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> FolderHttpRequest: ...
 
                 @typing.type_check_only
                 class Gtag_configResource(googleapiclient.discovery.Resource):
                     def create(
-                        self,
-                        *,
-                        parent: str,
-                        body: GtagConfig = ...,
-                        **kwargs: typing.Any,
+                        self, *, parent: str, body: GtagConfig, **kwargs: typing.Any
                     ) -> GtagConfigHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -843,7 +874,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> GtagConfigHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListGtagConfigResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -854,15 +889,15 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         path: str,
-                        body: GtagConfig = ...,
-                        fingerprint: str = ...,
+                        body: GtagConfig,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GtagConfigHttpRequest: ...
 
                 @typing.type_check_only
                 class TagsResource(googleapiclient.discovery.Resource):
                     def create(
-                        self, *, parent: str, body: Tag = ..., **kwargs: typing.Any
+                        self, *, parent: str, body: Tag, **kwargs: typing.Any
                     ) -> TagHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -871,7 +906,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> TagHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListTagsResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -879,25 +918,25 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListTagsResponse,
                     ) -> ListTagsResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertTagResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Tag = ...,
-                        fingerprint: str = ...,
+                        body: Tag,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TagHttpRequest: ...
 
                 @typing.type_check_only
                 class TemplatesResource(googleapiclient.discovery.Resource):
                     def create(
-                        self,
-                        *,
-                        parent: str,
-                        body: CustomTemplate = ...,
-                        **kwargs: typing.Any,
+                        self, *, parent: str, body: CustomTemplate, **kwargs: typing.Any
                     ) -> CustomTemplateHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -909,14 +948,18 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        acknowledgePermissions: bool = ...,
-                        galleryOwner: str = ...,
-                        galleryRepository: str = ...,
-                        gallerySha: str = ...,
+                        acknowledgePermissions: bool | None = ...,
+                        galleryOwner: str | None = ...,
+                        galleryRepository: str | None = ...,
+                        gallerySha: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> CustomTemplateHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListTemplatesResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -924,25 +967,25 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListTemplatesResponse,
                     ) -> ListTemplatesResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertTemplateResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: CustomTemplate = ...,
-                        fingerprint: str = ...,
+                        body: CustomTemplate,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> CustomTemplateHttpRequest: ...
 
                 @typing.type_check_only
                 class TransformationsResource(googleapiclient.discovery.Resource):
                     def create(
-                        self,
-                        *,
-                        parent: str,
-                        body: Transformation = ...,
-                        **kwargs: typing.Any,
+                        self, *, parent: str, body: Transformation, **kwargs: typing.Any
                     ) -> TransformationHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -951,7 +994,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> TransformationHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListTransformationsResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -959,21 +1006,25 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListTransformationsResponse,
                     ) -> ListTransformationsResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertTransformationResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Transformation = ...,
-                        fingerprint: str = ...,
+                        body: Transformation,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TransformationHttpRequest: ...
 
                 @typing.type_check_only
                 class TriggersResource(googleapiclient.discovery.Resource):
                     def create(
-                        self, *, parent: str, body: Trigger = ..., **kwargs: typing.Any
+                        self, *, parent: str, body: Trigger, **kwargs: typing.Any
                     ) -> TriggerHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -982,7 +1033,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> TriggerHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListTriggersResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -990,21 +1045,25 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListTriggersResponse,
                     ) -> ListTriggersResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertTriggerResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Trigger = ...,
-                        fingerprint: str = ...,
+                        body: Trigger,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TriggerHttpRequest: ...
 
                 @typing.type_check_only
                 class VariablesResource(googleapiclient.discovery.Resource):
                     def create(
-                        self, *, parent: str, body: Variable = ..., **kwargs: typing.Any
+                        self, *, parent: str, body: Variable, **kwargs: typing.Any
                     ) -> VariableHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -1013,7 +1072,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> VariableHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListVariablesResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -1021,21 +1084,25 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListVariablesResponse,
                     ) -> ListVariablesResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertVariableResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Variable = ...,
-                        fingerprint: str = ...,
+                        body: Variable,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> VariableHttpRequest: ...
 
                 @typing.type_check_only
                 class ZonesResource(googleapiclient.discovery.Resource):
                     def create(
-                        self, *, parent: str, body: Zone = ..., **kwargs: typing.Any
+                        self, *, parent: str, body: Zone, **kwargs: typing.Any
                     ) -> ZoneHttpRequest: ...
                     def delete(
                         self, *, path: str, **kwargs: typing.Any
@@ -1044,7 +1111,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         self, *, path: str, **kwargs: typing.Any
                     ) -> ZoneHttpRequest: ...
                     def list(
-                        self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        parent: str,
+                        pageToken: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> ListZonesResponseHttpRequest: ...
                     def list_next(
                         self,
@@ -1052,28 +1123,32 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                         previous_response: ListZonesResponse,
                     ) -> ListZonesResponseHttpRequest | None: ...
                     def revert(
-                        self, *, path: str, fingerprint: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        path: str,
+                        fingerprint: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> RevertZoneResponseHttpRequest: ...
                     def update(
                         self,
                         *,
                         path: str,
-                        body: Zone = ...,
-                        fingerprint: str = ...,
+                        body: Zone,
+                        fingerprint: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ZoneHttpRequest: ...
 
                 def bulk_update(
-                    self, *, path: str, body: ProposedChange = ..., **kwargs: typing.Any
+                    self, *, path: str, body: ProposedChange, **kwargs: typing.Any
                 ) -> BulkUpdateWorkspaceResponseHttpRequest: ...
                 def create(
-                    self, *, parent: str, body: Workspace = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Workspace, **kwargs: typing.Any
                 ) -> WorkspaceHttpRequest: ...
                 def create_version(
                     self,
                     *,
                     path: str,
-                    body: CreateContainerVersionRequestVersionOptions = ...,
+                    body: CreateContainerVersionRequestVersionOptions,
                     **kwargs: typing.Any,
                 ) -> CreateContainerVersionResponseHttpRequest: ...
                 def delete(
@@ -1086,7 +1161,11 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self, *, path: str, **kwargs: typing.Any
                 ) -> GetWorkspaceStatusResponseHttpRequest: ...
                 def list(
-                    self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    parent: str,
+                    pageToken: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> ListWorkspacesResponseHttpRequest: ...
                 def list_next(
                     self,
@@ -1100,8 +1179,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     path: str,
-                    body: Entity = ...,
-                    fingerprint: str = ...,
+                    body: Entity,
+                    fingerprint: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def sync(
@@ -1111,8 +1190,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     path: str,
-                    body: Workspace = ...,
-                    fingerprint: str = ...,
+                    body: Workspace,
+                    fingerprint: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> WorkspaceHttpRequest: ...
                 def built_in_variables(self) -> Built_in_variablesResource: ...
@@ -1130,15 +1209,16 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 path: str,
-                allowUserPermissionFeatureUpdate: bool = ...,
-                containerId: str = ...,
+                allowUserPermissionFeatureUpdate: bool | None = ...,
+                containerId: str | None = ...,
                 settingSource: typing_extensions.Literal[
                     "settingSourceUnspecified", "current", "other"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ContainerHttpRequest: ...
             def create(
-                self, *, parent: str, body: Container = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Container, **kwargs: typing.Any
             ) -> ContainerHttpRequest: ...
             def delete(
                 self, *, path: str, **kwargs: typing.Any
@@ -1147,7 +1227,7 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                 self, *, path: str, **kwargs: typing.Any
             ) -> ContainerHttpRequest: ...
             def list(
-                self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                self, *, parent: str, pageToken: str | None = ..., **kwargs: typing.Any
             ) -> ListContainersResponseHttpRequest: ...
             def list_next(
                 self,
@@ -1157,20 +1237,20 @@ class TagManagerResource(googleapiclient.discovery.Resource):
             def lookup(
                 self,
                 *,
-                destinationId: str = ...,
-                tagId: str = ...,
+                destinationId: str | None = ...,
+                tagId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ContainerHttpRequest: ...
             def move_tag_id(
                 self,
                 *,
                 path: str,
-                allowUserPermissionFeatureUpdate: bool = ...,
-                copySettings: bool = ...,
-                copyTermsOfService: bool = ...,
-                copyUsers: bool = ...,
-                tagId: str = ...,
-                tagName: str = ...,
+                allowUserPermissionFeatureUpdate: bool | None = ...,
+                copySettings: bool | None = ...,
+                copyTermsOfService: bool | None = ...,
+                copyUsers: bool | None = ...,
+                tagId: str | None = ...,
+                tagName: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ContainerHttpRequest: ...
             def snippet(
@@ -1180,8 +1260,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 path: str,
-                body: Container = ...,
-                fingerprint: str = ...,
+                body: Container,
+                fingerprint: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ContainerHttpRequest: ...
             def destinations(self) -> DestinationsResource: ...
@@ -1193,7 +1273,7 @@ class TagManagerResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class User_permissionsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: UserPermission = ..., **kwargs: typing.Any
+                self, *, parent: str, body: UserPermission, **kwargs: typing.Any
             ) -> UserPermissionHttpRequest: ...
             def delete(
                 self, *, path: str, **kwargs: typing.Any
@@ -1202,7 +1282,7 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                 self, *, path: str, **kwargs: typing.Any
             ) -> UserPermissionHttpRequest: ...
             def list(
-                self, *, parent: str, pageToken: str = ..., **kwargs: typing.Any
+                self, *, parent: str, pageToken: str | None = ..., **kwargs: typing.Any
             ) -> ListUserPermissionsResponseHttpRequest: ...
             def list_next(
                 self,
@@ -1210,15 +1290,15 @@ class TagManagerResource(googleapiclient.discovery.Resource):
                 previous_response: ListUserPermissionsResponse,
             ) -> ListUserPermissionsResponseHttpRequest | None: ...
             def update(
-                self, *, path: str, body: UserPermission = ..., **kwargs: typing.Any
+                self, *, path: str, body: UserPermission, **kwargs: typing.Any
             ) -> UserPermissionHttpRequest: ...
 
         def get(self, *, path: str, **kwargs: typing.Any) -> AccountHttpRequest: ...
         def list(
             self,
             *,
-            includeGoogleTags: bool = ...,
-            pageToken: str = ...,
+            includeGoogleTags: bool | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListAccountsResponseHttpRequest: ...
         def list_next(
@@ -1230,8 +1310,8 @@ class TagManagerResource(googleapiclient.discovery.Resource):
             self,
             *,
             path: str,
-            body: Account = ...,
-            fingerprint: str = ...,
+            body: Account,
+            fingerprint: str | None = ...,
             **kwargs: typing.Any,
         ) -> AccountHttpRequest: ...
         def containers(self) -> ContainersResource: ...

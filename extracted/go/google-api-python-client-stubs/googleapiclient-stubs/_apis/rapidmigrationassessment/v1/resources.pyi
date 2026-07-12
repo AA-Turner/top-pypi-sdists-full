@@ -23,8 +23,8 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Annotation = ...,
-                    requestId: str = ...,
+                    body: Annotation,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -37,13 +37,17 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Collector = ...,
-                    collectorId: str = ...,
-                    requestId: str = ...,
+                    body: Collector,
+                    collectorId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -52,10 +56,10 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListCollectorsResponseHttpRequest: ...
                 def list_next(
@@ -67,30 +71,30 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Collector = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Collector,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def pause(
                     self,
                     *,
                     name: str,
-                    body: PauseCollectorRequest = ...,
+                    body: PauseCollectorRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def register(
                     self,
                     *,
                     name: str,
-                    body: RegisterCollectorRequest = ...,
+                    body: RegisterCollectorRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def resume(
                     self,
                     *,
                     name: str,
-                    body: ResumeCollectorRequest = ...,
+                    body: ResumeCollectorRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -100,7 +104,7 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -113,9 +117,9 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -131,10 +135,10 @@ class RapidMigrationAssessmentResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

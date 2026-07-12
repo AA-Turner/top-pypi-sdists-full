@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import base64
+import contextlib
+import importlib
+import importlib.machinery
 import importlib.util
 import os
 import pkgutil
@@ -19,7 +22,7 @@ from dictdiffer import diff
 from tortoise import BaseDBAsyncClient, Tortoise
 from tortoise.log import logger
 
-from aerich._compat import tomllib
+from aerich._compat import is_tortoise_inited, tomllib
 from aerich.coder import decoder, encoder
 from aerich.exceptions import NotInitedError
 
@@ -58,7 +61,7 @@ def get_app_connection_name(config: dict[str, dict[str, Any]], app_name: str) ->
     get connection name
     :param config:
     :param app_name:
-    :return: the default connection name (Usally it is 'default')
+    :return: the default connection name (Usually it is 'default')
     """
     if app := config["apps"].get(app_name):
         return cast(str, app.get("default_connection", "default"))
@@ -153,7 +156,8 @@ def _load_tortoise_aerich_config(
         text = config_file.read_text(encoding="utf-8")
         doc = tomllib.loads(text)
         try:
-            aerich_config = doc["tool"]["aerich"]
+            tool_section = doc["tool"]
+            aerich_config = tool_section.get("aerich", {}) or tool_section["tortoise"]
         except KeyError:
             ...
         else:
@@ -177,8 +181,8 @@ def get_models_describe(app: str) -> dict[str, dict[str, Any]]:
     ret: dict[str, dict[str, Any]] = {}
     try:
         app_config = Tortoise.apps[app]
-    except KeyError as e:
-        if not Tortoise._inited:
+    except (KeyError, TypeError) as e:
+        if not is_tortoise_inited():
             raise NotInitedError("Tortoise not inited yet.") from e
         logger.debug(f"{Tortoise.apps.keys() = }")
         raise e
@@ -213,28 +217,74 @@ def import_py_file(file: str | Path) -> ModuleType:
     return module
 
 
-def import_py_module(module_info: pkgutil.ModuleInfo) -> ModuleType:
+def _load_py_spec(module_info: pkgutil.ModuleInfo):
     module_finder: FileFinder
     name: str
     ispkg: bool
     module_finder, name, ispkg = module_info  # type:ignore[assignment]
-    module_finder.invalidate_caches()
-    spec = module_finder.find_spec(name)
-    module = importlib.util.module_from_spec(spec)  # type:ignore[arg-type]
-    spec.loader.exec_module(module)  # type:ignore[union-attr]
+    spec = None
+    with contextlib.suppress(AttributeError):
+        # 'nuitka_module_loader' object has no attribute 'invalidate_caches'
+        module_finder.invalidate_caches()
+        spec = module_finder.find_spec(name)
+    return spec, name, module_finder
+
+
+def _get_module_file(finder: FileFinder, name: str) -> tuple[Path, Path | None]:
+    dirpath = Path(finder.path)
+    if dirpath.is_file() or dirpath.name == "__init__.py":
+        dirpath = dirpath.parent
+    for suffix in (".py", ".pyc"):
+        if (f := dirpath / (name + suffix)).exists():
+            return dirpath, f
+    return dirpath, None
+
+
+def _nuitka_module_loader(name: str, finder: FileFinder) -> ModuleType:
+    dirpath, file = _get_module_file(finder, name)
+    if file is not None:
+        filename = file.as_posix()
+        try:
+            from imp import load_source  # type:ignore[import-not-found]
+        except ImportError:
+            loader = importlib.machinery.SourceFileLoader(name, filename)
+            spec = importlib.util.spec_from_file_location(name, filename, loader=loader)
+            if spec is not None:
+                module = importlib.util.module_from_spec(spec)
+                loader.exec_module(module)
+                return module
+        else:
+            return load_source(name, filename)
+    raise ImportError(f"Failed to import {name} from {dirpath}")
+
+
+def import_py_module(module_info: pkgutil.ModuleInfo) -> ModuleType:
+    spec, name, finder = _load_py_spec(module_info)
+    if spec is None or spec.loader is None:
+        return _nuitka_module_loader(name, finder)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     return module
 
 
 def py_module_path(module_info: pkgutil.ModuleInfo) -> Path:
-    module_finder: FileFinder
-    name: str
-    ispkg: bool
-    module_finder, name, ispkg = module_info  # type:ignore[assignment]
-    module_finder.invalidate_caches()
-    spec = module_finder.find_spec(name)
+    spec, name, module_finder = _load_py_spec(module_info)
     if not spec or not spec.origin or not Path(spec.origin).is_file():
-        raise FileNotFoundError(f"Module {name} not found in {module_finder.path}.")
+        dirpath, file = _get_module_file(module_finder, name)
+        if file is not None:
+            return file
+        raise FileNotFoundError(f"Module {name} not found in {dirpath}.")
     return Path(spec.origin)
+
+
+def _get_field_diffs(old_field: dict, new_field: dict) -> Generator:
+    """Get diffs with field name"""
+    changes = list(diff([old_field], [new_field]))
+    if changes:
+        field_name = new_field.get("name") or old_field.get("name", "")
+        for c in changes:
+            c[1][0] = field_name
+    yield from changes
 
 
 def get_dict_diff_by_key(
@@ -264,8 +314,10 @@ def get_dict_diff_by_key(
 
     """
     length_old, length_new = len(old_fields), len(new_fields)
-    if length_old == 0 or length_new == 0 or length_old == length_new == 1:
+    if length_old == 0 or length_new == 0:
         yield from diff(old_fields, new_fields)
+    elif length_old == length_new == 1:
+        yield from _get_field_diffs(old_fields[0], new_fields[0])
     else:
         should_use_second_key = len({i[key] for i in old_fields}) < length_old or (
             len({i[key] for i in new_fields}) < length_new
@@ -280,7 +332,7 @@ def get_dict_diff_by_key(
             value = (field[key], field[second_key]) if should_use_second_key else field[key]
             if (index := value_index.get(value)) is not None:
                 additions.remove(index)
-                yield from diff([field], [new_fields[index]])  # change
+                yield from _get_field_diffs(field, new_fields[index])  # change
             else:
                 yield from diff([field], [])  # remove
         if additions:

@@ -16,7 +16,7 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class OperationsResource(googleapiclient.discovery.Resource):
         def cancel(
-            self, *, name: str, body: CancelOperationRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CancelOperationRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> OperationHttpRequest: ...
@@ -24,10 +24,10 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListOperationsResponseHttpRequest: ...
         def list_next(
@@ -44,28 +44,28 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: AddTenantProjectRequest = ...,
+                body: AddTenantProjectRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def applyProjectConfig(
                 self,
                 *,
                 name: str,
-                body: ApplyTenantProjectConfigRequest = ...,
+                body: ApplyTenantProjectConfigRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def attachProject(
                 self,
                 *,
                 name: str,
-                body: AttachTenantProjectRequest = ...,
+                body: AttachTenantProjectRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def create(
                 self,
                 *,
                 parent: str,
-                body: CreateTenancyUnitRequest = ...,
+                body: CreateTenancyUnitRequest,
                 **kwargs: typing.Any,
             ) -> TenancyUnitHttpRequest: ...
             def delete(
@@ -75,16 +75,16 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: DeleteTenantProjectRequest = ...,
+                body: DeleteTenantProjectRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTenancyUnitsResponseHttpRequest: ...
             def list_next(
@@ -96,14 +96,14 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: RemoveTenantProjectRequest = ...,
+                body: RemoveTenantProjectRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def undeleteProject(
                 self,
                 *,
                 name: str,
-                body: UndeleteTenantProjectRequest = ...,
+                body: UndeleteTenantProjectRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
@@ -111,9 +111,9 @@ class ServiceConsumerManagementResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchTenancyUnitsResponseHttpRequest: ...
         def search_next(

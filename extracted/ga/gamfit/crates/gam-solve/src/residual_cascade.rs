@@ -52,15 +52,15 @@
 //! `log|λD|₊ = r·logλ + Σ_j log d_j` over the `r` penalized columns and
 //! `σ̂² = (y'Wy − c'X'Wy)/(n−d−1)` — the same shape as the siblings, with the
 //! penalty-logdet constant kept so criteria are comparable across cascade
-//! depths. On the dense route `log|X'WX+λD|` is exact; on the iterative
-//! route it is `Σ_j log P_jj + tr log(P^{−1/2}AP^{−1/2})` with the trace
-//! estimated by stochastic Lanczos quadrature on FIXED Rademacher probes
-//! (deterministic seed, shared across every λ trial — common random numbers
-//! make the criterion a smooth deterministic function of λ, so the coarse-
-//! grid + golden-section search is exactly as deterministic as the
-//! siblings'). The diagonal split is the level-block control variate: the
-//! dominant λ-dependence rides the exactly-computed `Σ log P_jj` term and
-//! SLQ only sees the well-conditioned remainder.
+//! depths. Eliminating the polynomial null block once gives the
+//! penalty-whitened Schur complement `B`, for which the normalized determinant
+//! is `log|G₀₀| + log|I+B/λ|`. Its spectrum is exact on the dense route and
+//! represented by one fixed-probe Lanczos quadrature on the iterative route.
+//! Thus the score, gradient, and curvature are analytic functions of log λ
+//! with the SAME spectral nodes at every trial. Rigorous derivative enclosures
+//! isolate every stationary interval before safeguarded root refinement; both
+//! bounded-domain endpoints are compared exactly, with no basin-selecting
+//! lattice.
 //!
 //! Refinement certificate. After fitting L levels, the candidate level L+1
 //! is constructed (O(n)) and the EXACT objective decrease available from
@@ -93,7 +93,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use faer::Side;
+use gam_linalg::faer_ndarray::FaerEigh;
+use gam_math::score_opt::{ClosedInterval, DerivativeEnclosure, ScoreJet, maximize_score_1d};
 use gam_terms::grid_spline_2d::{chol_solve, cholesky_logdet};
+use ndarray::Array2;
 
 /// Bump support radius as a multiple of the level's covering radius:
 /// `δ_l = OVERLAP·h_l`. Separation ≥ h_l caps the bumps covering a point at
@@ -114,13 +118,6 @@ const REFINE_TOL: f64 = 1e-3;
 /// Column count up to which the normal equations go through dense Cholesky
 /// (exact logdet, no iteration); above it, PCG + SLQ. 1536² doubles ≈ 18 MB.
 const DENSE_GRAM_MAX: usize = 1536;
-
-/// Deterministic coarse-grid width and bounds for the log-λ search (same
-/// scheme as the siblings), then golden-section refinement.
-const LOG_LAMBDA_GRID: usize = 25;
-const LOG_LAMBDA_LO: f64 = -18.0;
-const LOG_LAMBDA_HI: f64 = 18.0;
-const LOG_LAMBDA_TOL: f64 = 1e-6;
 
 /// PCG convergence: relative residual ‖b − Ac‖/‖b‖ (the backward-error
 /// certificate) demanded of every solve, and the iteration cap past which
@@ -409,9 +406,63 @@ pub struct RefinementCertificate {
     pub next_level_gain_bound: f64,
     /// The absolute tolerance it was compared against (`REFINE_TOL·rss_pen`).
     pub tolerance: f64,
-    /// True when refinement stopped because the net produced no new centers
-    /// or a cap was reached rather than because the bound passed.
-    pub exhausted: bool,
+}
+
+/// A structural limit that prevented the cascade from assessing or adding the
+/// next resolution level. These are never convergence certificates: if the
+/// requested gain tolerance has not passed, they produce
+/// [`ResidualCascadeError::Underresolved`] instead of a fit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RefinementObstruction {
+    /// The representation reached its supported maximum number of levels.
+    LevelCapacity {
+        levels: usize,
+        maximum_levels: usize,
+    },
+    /// Extending the nested net would exceed its supported center capacity.
+    CenterCapacity {
+        centers: usize,
+        maximum_centers: usize,
+    },
+}
+
+impl std::fmt::Display for RefinementObstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::LevelCapacity {
+                levels,
+                maximum_levels,
+            } => write!(
+                f,
+                "level capacity reached ({levels} of {maximum_levels} levels)"
+            ),
+            Self::CenterCapacity {
+                centers,
+                maximum_centers,
+            } => write!(
+                f,
+                "center capacity exceeded ({centers} centers for capacity {maximum_centers})"
+            ),
+        }
+    }
+}
+
+/// Result of assessing the candidate level immediately finer than a fitted
+/// design. Empty-net exhaustion is distinct from representation capacity:
+/// only the former proves that the remaining gain is exactly zero.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NextLevelAssessment {
+    /// The nested net produced no new centers, so the next-level gain is zero.
+    EmptyNet,
+    /// The complete candidate level was assessed and has this gain bound.
+    GainBound(f64),
+    /// A representation limit was reached. `gain_bound` is the computed bound
+    /// when the candidate could be assessed (level capacity), and positive
+    /// infinity when center capacity prevented a complete assessment.
+    CapacityExceeded {
+        obstruction: RefinementObstruction,
+        gain_bound: f64,
+    },
 }
 
 /// Multiresolution residual-cascade design: nested nets, sparse design,
@@ -445,6 +496,103 @@ pub struct ResidualCascadeFit {
     /// Present when the fit came from the refinement loop.
     pub refinement: Option<RefinementCertificate>,
 }
+
+/// Opaque work checkpoint carried by an underresolved cascade result.
+///
+/// The current finite-resolution iterate is deliberately private: callers can
+/// inspect its numerical evidence, but cannot turn an uncertified iterate into
+/// a [`ResidualCascadeFit`]. The retained design and coefficients allow a
+/// future refinement backend to resume the work without minting a partial fit.
+pub struct ResidualCascadeCheckpoint {
+    iterate: ResidualCascadeFit,
+}
+
+impl ResidualCascadeCheckpoint {
+    fn new(iterate: ResidualCascadeFit) -> Self {
+        Self { iterate }
+    }
+
+    /// Number of levels already fitted in this checkpoint.
+    pub fn num_levels(&self) -> usize {
+        self.iterate.num_levels()
+    }
+
+    /// Number of centers already fitted in this checkpoint.
+    pub fn num_centers(&self) -> usize {
+        self.iterate.num_centers()
+    }
+
+    /// REML-selected log smoothing parameter of the retained iterate.
+    pub fn log_lambda(&self) -> f64 {
+        self.iterate.log_lambda
+    }
+
+    /// Penalized residual used to scale the requested refinement tolerance.
+    pub fn rss_pen(&self) -> f64 {
+        self.iterate.rss_pen
+    }
+
+    /// Linear-solve evidence attached to the retained iterate.
+    pub fn certificate(&self) -> CascadeCertificate {
+        self.iterate.certificate
+    }
+}
+
+impl std::fmt::Debug for ResidualCascadeCheckpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResidualCascadeCheckpoint")
+            .field("num_levels", &self.num_levels())
+            .field("num_centers", &self.num_centers())
+            .field("log_lambda", &self.log_lambda())
+            .field("rss_pen", &self.rss_pen())
+            .field("certificate", &self.certificate())
+            .finish_non_exhaustive()
+    }
+}
+
+/// Typed failure of the magic-default cascade fit.
+#[derive(Debug)]
+pub enum ResidualCascadeError {
+    /// Invalid input or a numerical failure in design construction/optimization.
+    Computation(String),
+    /// Refinement could not meet its requested tolerance before a structural
+    /// capacity was reached. The checkpoint preserves all completed work while
+    /// remaining unusable as a public fit.
+    Underresolved {
+        checkpoint: ResidualCascadeCheckpoint,
+        gain_bound: f64,
+        requested_tolerance: f64,
+        obstruction: RefinementObstruction,
+    },
+}
+
+impl From<String> for ResidualCascadeError {
+    fn from(reason: String) -> Self {
+        Self::Computation(reason)
+    }
+}
+
+impl std::fmt::Display for ResidualCascadeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Computation(reason) => f.write_str(reason),
+            Self::Underresolved {
+                checkpoint,
+                gain_bound,
+                requested_tolerance,
+                obstruction,
+            } => write!(
+                f,
+                "residual cascade underresolved after {} levels: next-level gain bound \
+                 {gain_bound:.6e} exceeds requested tolerance {requested_tolerance:.6e}; \
+                 {obstruction}",
+                checkpoint.num_levels()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ResidualCascadeError {}
 
 /// One resolution level's geometry in a persisted snapshot: the data needed to
 /// rebuild a [`Level`] (its lookup grid, bumps, and column block) without the
@@ -584,7 +732,481 @@ impl Preconditioner {
     }
 }
 
+/// One positive-semidefinite eigenmode of the penalty-whitened Schur
+/// complement. `weight == 1` on the dense exact route; on the large route it
+/// is the fixed-probe Lanczos quadrature weight. The weights sum to the
+/// penalized rank, so constants have the same null-recovery limit on both
+/// routes.
+#[derive(Clone, Copy)]
+struct CascadeSpectralMode {
+    eigenvalue: f64,
+    weight: f64,
+}
+
+/// Lambda-independent spectral representation of the profiled REML score.
+///
+/// Partition the normal matrix into the polynomial null space `0` and the
+/// penalized cascade columns `1`. Eliminating the null block gives
+///
+/// `|G + lambda D| / |lambda D|_+ = |G00| |I + B/lambda|`,
+///
+/// with `B = D^(-1/2) (G11 - G10 G00^(-1) G01) D^(-1/2)`. Consequently every
+/// determinant mode is an analytic logistic function of `log(lambda)`. The
+/// representation is built once, rather than re-running a basin-selecting
+/// lattice of lambda-dependent factorizations.
+struct CascadeRemlProfile<'a> {
+    core: &'a Core,
+    null_logdet: f64,
+    modes: Vec<CascadeSpectralMode>,
+}
+
+struct CascadeScoreEvaluation {
+    jet: ScoreJet,
+    /// `log|G + lambda D| - rank(D) log(lambda) - log|D|_+`.
+    normalized_logdet: f64,
+}
+
+impl CascadeRemlProfile<'_> {
+    /// Machine-resolved bounded domain containing every determinant transition
+    /// `lambda ≈ theta`. Outside it, every positive mode is within
+    /// `sqrt(epsilon)` of its analytic small- or large-lambda limit. The bounds
+    /// scale with the actual design spectrum rather than a fixed log-lambda
+    /// window.
+    fn log_lambda_domain(&self) -> Result<(f64, f64), String> {
+        let mut smallest = f64::INFINITY;
+        let mut largest = 0.0_f64;
+        for mode in &self.modes {
+            if mode.weight > 0.0 && mode.eigenvalue > 0.0 {
+                smallest = smallest.min(mode.eigenvalue);
+                largest = largest.max(mode.eigenvalue);
+            }
+        }
+        if !(smallest.is_finite() && smallest > 0.0 && largest.is_finite() && largest > 0.0) {
+            return Err(
+                "residual cascade: the data identify no positive penalized Schur mode; log lambda is not estimable"
+                    .into(),
+            );
+        }
+        let log_relative_resolution = f64::EPSILON.sqrt().ln();
+        let lo = (smallest.ln() + log_relative_resolution).max(f64::MIN_POSITIVE.ln());
+        let hi = (largest.ln() - log_relative_resolution).min(f64::MAX.ln());
+        if !(lo.is_finite() && hi.is_finite() && lo < hi) {
+            return Err(format!(
+                "residual cascade: invalid spectrum-derived log-lambda domain [{lo}, {hi}]"
+            ));
+        }
+        Ok((lo, hi))
+    }
+
+    fn evaluate(&self, log_lambda: f64) -> Result<CascadeScoreEvaluation, String> {
+        if !log_lambda.is_finite() {
+            return Err(format!(
+                "residual cascade: non-finite log lambda {log_lambda}"
+            ));
+        }
+        let lambda = log_lambda.exp();
+        if !(lambda.is_finite() && lambda > 0.0) {
+            return Err(format!(
+                "residual cascade: log lambda {log_lambda} is outside the finite exponential range"
+            ));
+        }
+
+        let core = self.core;
+        let (coeff, _, _) = core.solve_coeff(lambda, &core.rhs, None)?;
+        let rss = core.rss_pen(&coeff);
+        if !(rss.is_finite() && rss > 0.0) {
+            return Err(format!(
+                "residual cascade: degenerate penalized residual {rss}"
+            ));
+        }
+
+        // R = y'Wy - b'A^-1b. With A' = lambda D,
+        // R' = lambda c'Dc and
+        // R'' = lambda c'Dc - 2 lambda^2 (Dc)'A^-1(Dc).
+        // The third derivative is retained to justify the analytic enclosure
+        // used below; it needs no third solve because the last quadratic is
+        // u'Du for u=A^-1Dc.
+        let dc: Vec<f64> = coeff
+            .iter()
+            .zip(core.pen_diag.iter())
+            .map(|(&c, &d)| d * c)
+            .collect();
+        let penalty_energy = coeff
+            .iter()
+            .zip(dc.iter())
+            .map(|(&c, &v)| c * v)
+            .sum::<f64>();
+        let (u, _, _) = core.solve_coeff(lambda, &dc, None)?;
+        let inverse_penalty_energy = dc.iter().zip(u.iter()).map(|(&a, &b)| a * b).sum::<f64>();
+        let third_energy = u
+            .iter()
+            .zip(core.pen_diag.iter())
+            .map(|(&v, &d)| d * v * v)
+            .sum::<f64>();
+        let rss_d1 = lambda * penalty_energy;
+        let lambda2 = lambda * lambda;
+        let rss_d2 = rss_d1 - 2.0 * lambda2 * inverse_penalty_energy;
+        let rss_d3 =
+            rss_d1 - 6.0 * lambda2 * inverse_penalty_energy + 6.0 * lambda2 * lambda * third_energy;
+
+        let mut normalized_logdet = self.null_logdet;
+        let mut determinant_d1 = 0.0;
+        let mut determinant_d2 = 0.0;
+        for mode in &self.modes {
+            let theta = mode.eigenvalue;
+            let weight = mode.weight;
+            if theta == 0.0 || weight == 0.0 {
+                continue;
+            }
+            // Stable forms for log(1 + theta/lambda) and
+            // t=theta/(lambda+theta), including widely separated scales.
+            let log_theta = theta.ln();
+            normalized_logdet += weight
+                * if log_theta > log_lambda {
+                    (log_theta - log_lambda) + (log_lambda - log_theta).exp().ln_1p()
+                } else {
+                    (log_theta - log_lambda).exp().ln_1p()
+                };
+            let t = if theta > lambda {
+                1.0 / (1.0 + lambda / theta)
+            } else {
+                theta / (lambda + theta)
+            };
+            determinant_d1 -= weight * t;
+            determinant_d2 += weight * t * (1.0 - t);
+        }
+
+        let dof = (core.y.len() - core.nullity()) as f64;
+        let rss_log_d1 = rss_d1 / rss;
+        let rss_log_d2 = rss_d2 / rss - rss_log_d1 * rss_log_d1;
+        let rss_log_d3 = rss_d3 / rss - 3.0 * rss_d1 * rss_d2 / (rss * rss)
+            + 2.0 * rss_log_d1 * rss_log_d1 * rss_log_d1;
+        if !(rss_log_d3.is_finite()) {
+            return Err(format!(
+                "residual cascade: non-finite analytic residual derivative at log lambda {log_lambda}"
+            ));
+        }
+        let jet = ScoreJet {
+            value: -0.5 * (normalized_logdet + dof * (rss / dof).ln()),
+            derivative: -0.5 * (determinant_d1 + dof * rss_log_d1),
+            curvature: -0.5 * (determinant_d2 + dof * rss_log_d2),
+        };
+        if !(jet.value.is_finite() && jet.derivative.is_finite() && jet.curvature.is_finite()) {
+            return Err(format!(
+                "residual cascade: non-finite REML jet at log lambda {log_lambda}: value {}, derivative {}, curvature {}",
+                jet.value, jet.derivative, jet.curvature
+            ));
+        }
+        Ok(CascadeScoreEvaluation {
+            jet,
+            normalized_logdet,
+        })
+    }
+
+    /// Outer derivative ranges from analytic global Lipschitz bounds.
+    ///
+    /// Each determinant mode has `|f''| <= 1/4` and `|f'''| <= 1/4`.
+    /// After the null-space elimination the profiled residual is a positive
+    /// mixture of `lambda/(theta+lambda)` kernels plus a lambda-independent
+    /// residual. Its log therefore has `|g''| <= 2`, `|g'''| <= 6` (the loose
+    /// moment bounds for variables in `[0,1]`). Endpoint jets plus these bounds
+    /// enclose the complete interval without sampling it.
+    fn enclose(&self, lo: f64, hi: f64) -> Result<DerivativeEnclosure, String> {
+        if !(lo.is_finite() && hi.is_finite() && lo <= hi) {
+            return Err(format!(
+                "residual cascade: invalid score-enclosure interval [{lo}, {hi}]"
+            ));
+        }
+        let left = self.evaluate(lo)?.jet;
+        let right = self.evaluate(hi)?.jet;
+        let width = hi - lo;
+        let rank = (self.core.m - self.core.nullity()) as f64;
+        let dof = (self.core.y.len() - self.core.nullity()) as f64;
+        let curvature_abs_bound = 0.5 * (0.25 * rank + 2.0 * dof);
+        let third_abs_bound = 0.5 * (0.25 * rank + 6.0 * dof);
+        let derivative_radius = curvature_abs_bound * width;
+        let curvature_radius = third_abs_bound * width;
+        Ok(DerivativeEnclosure {
+            derivative: ClosedInterval::outward(
+                (left.derivative - derivative_radius).min(right.derivative - derivative_radius),
+                (left.derivative + derivative_radius).max(right.derivative + derivative_radius),
+            ),
+            curvature: ClosedInterval::outward(
+                (left.curvature - curvature_radius).min(right.curvature - curvature_radius),
+                (left.curvature + curvature_radius).max(right.curvature + curvature_radius),
+            ),
+        })
+    }
+}
+
 impl Core {
+    #[inline]
+    fn dense_gram_entry(&self, row: usize, col: usize) -> Option<f64> {
+        let gram = self.dense_gram.as_ref()?;
+        let (i, j) = if row <= col { (row, col) } else { (col, row) };
+        Some(gram[i * self.m + j])
+    }
+
+    /// Factor the unpenalized polynomial Gram block. It is tiny (`dim+1 <= 4`)
+    /// on every route and is the exact anchor for the Schur complement.
+    fn null_gram_factor(&self) -> Result<(Vec<f64>, f64), String> {
+        let q = self.nullity();
+        let mut gram = vec![0.0; q * q];
+        if self.dense_gram.is_some() {
+            for i in 0..q {
+                for j in i..q {
+                    let value = self.dense_gram_entry(i, j).expect("dense Gram exists");
+                    gram[i * q + j] = value;
+                    gram[j * q + i] = value;
+                }
+            }
+        } else {
+            for row in 0..self.w.len() {
+                let lo = self.row_ptr[row];
+                let hi = self.row_ptr[row + 1];
+                for ea in lo..hi {
+                    let ca = self.col_idx[ea] as usize;
+                    if ca >= q {
+                        break;
+                    }
+                    let weighted = self.w[row] * self.vals[ea];
+                    for eb in ea..hi {
+                        let cb = self.col_idx[eb] as usize;
+                        if cb >= q {
+                            break;
+                        }
+                        gram[ca * q + cb] += weighted * self.vals[eb];
+                    }
+                }
+            }
+            for i in 0..q {
+                for j in i + 1..q {
+                    gram[j * q + i] = gram[i * q + j];
+                }
+            }
+        }
+        let logdet = cholesky_logdet(&mut gram, q).map_err(|error| {
+            format!("residual cascade: polynomial null-space factorization failed: {error}")
+        })?;
+        Ok((gram, logdet))
+    }
+
+    /// Apply the penalty-whitened Schur complement `B` without materializing
+    /// the data Gram. Scratch buffers are supplied by the Lanczos caller so
+    /// each iteration remains allocation-free apart from the tiny null solve.
+    fn schur_whitened_matvec(
+        &self,
+        null_chol: &[f64],
+        input: &[f64],
+        output: &mut [f64],
+        full: &mut [f64],
+        gram_full: &mut [f64],
+        projected_null: &mut [f64],
+    ) {
+        let q = self.nullity();
+        full.fill(0.0);
+        for (i, &value) in input.iter().enumerate() {
+            full[q + i] = value / self.pen_diag[q + i].sqrt();
+        }
+        self.matvec(0.0, full, gram_full);
+        let null_coeff = chol_solve(null_chol, q, &gram_full[..q]);
+        full.fill(0.0);
+        full[..q].copy_from_slice(&null_coeff);
+        self.matvec(0.0, full, projected_null);
+        for i in 0..output.len() {
+            output[i] = (gram_full[q + i] - projected_null[q + i]) / self.pen_diag[q + i].sqrt();
+        }
+    }
+
+    fn dense_cascade_spectrum(
+        &self,
+        null_chol: &[f64],
+    ) -> Result<Vec<CascadeSpectralMode>, String> {
+        let q = self.nullity();
+        let rank = self.m - q;
+        let mut schur = Array2::<f64>::zeros((rank, rank));
+        let mut cross = vec![0.0; q];
+        for j in 0..rank {
+            for (k, value) in cross.iter_mut().enumerate() {
+                *value = self.dense_gram_entry(k, q + j).expect("dense Gram exists");
+            }
+            let projected = chol_solve(null_chol, q, &cross);
+            for i in 0..=j {
+                let mut value = self
+                    .dense_gram_entry(q + i, q + j)
+                    .expect("dense Gram exists");
+                for (k, &coefficient) in projected.iter().enumerate() {
+                    value -=
+                        self.dense_gram_entry(q + i, k).expect("dense Gram exists") * coefficient;
+                }
+                value /= (self.pen_diag[q + i] * self.pen_diag[q + j]).sqrt();
+                schur[(i, j)] = value;
+                schur[(j, i)] = value;
+            }
+        }
+        let (eigenvalues, _) = schur.eigh(Side::Lower).map_err(|error| {
+            format!("residual cascade: Schur-complement eigendecomposition failed: {error}")
+        })?;
+        let scale = eigenvalues
+            .iter()
+            .copied()
+            .map(f64::abs)
+            .fold(0.0, f64::max);
+        let roundoff = f64::EPSILON * rank.max(1) as f64 * scale.max(f64::MIN_POSITIVE);
+        eigenvalues
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(index, eigenvalue)| {
+                if !eigenvalue.is_finite() || eigenvalue < -roundoff {
+                    Err(format!(
+                        "residual cascade: penalty-whitened Schur mode {index} is not positive semidefinite ({eigenvalue})"
+                    ))
+                } else {
+                    Ok(CascadeSpectralMode {
+                        eigenvalue: eigenvalue.max(0.0),
+                        weight: 1.0,
+                    })
+                }
+            })
+            .collect()
+    }
+
+    /// Fixed-probe Lanczos quadrature of the lambda-independent Schur
+    /// spectrum. Unlike the previous lambda-dependent SLQ call, its nodes and
+    /// weights define one smooth analytic score across the entire search
+    /// domain, so differentiating the scalar kernels is exact for the score
+    /// being optimized.
+    fn iterative_cascade_spectrum(
+        &self,
+        null_chol: &[f64],
+    ) -> Result<Vec<CascadeSpectralMode>, String> {
+        let q0 = self.nullity();
+        let rank = self.m - q0;
+        let steps = SLQ_LANCZOS_STEPS.min(rank);
+        let mut modes = Vec::with_capacity(SLQ_PROBES * steps);
+        let mut full = vec![0.0; self.m];
+        let mut gram_full = vec![0.0; self.m];
+        let mut projected_null = vec![0.0; self.m];
+        let mut matvec = vec![0.0; rank];
+        let mut basis: Vec<Vec<f64>> = Vec::with_capacity(steps);
+
+        for probe in 0..SLQ_PROBES {
+            let mut rng =
+                SplitMix64::new(RNG_SEED ^ (probe as u64).wrapping_mul(0xD134_2543_DE82_EF95));
+            let inv_norm = 1.0 / (rank as f64).sqrt();
+            let mut q = (0..rank)
+                .map(|_| rng.next_sign() * inv_norm)
+                .collect::<Vec<_>>();
+            let mut q_previous: Option<Vec<f64>> = None;
+            let mut alpha = Vec::with_capacity(steps);
+            let mut beta = Vec::with_capacity(steps.saturating_sub(1));
+            basis.clear();
+
+            for _ in 0..steps {
+                self.schur_whitened_matvec(
+                    null_chol,
+                    &q,
+                    &mut matvec,
+                    &mut full,
+                    &mut gram_full,
+                    &mut projected_null,
+                );
+                let diagonal = matvec
+                    .iter()
+                    .zip(q.iter())
+                    .map(|(&a, &b)| a * b)
+                    .sum::<f64>();
+                alpha.push(diagonal);
+                let mut residual = matvec.clone();
+                for i in 0..rank {
+                    residual[i] -= diagonal * q[i];
+                }
+                if let Some(previous) = &q_previous {
+                    let previous_beta = beta.last().copied().unwrap_or(0.0);
+                    for i in 0..rank {
+                        residual[i] -= previous_beta * previous[i];
+                    }
+                }
+                basis.push(q.clone());
+                for direction in &basis {
+                    let projection = residual
+                        .iter()
+                        .zip(direction.iter())
+                        .map(|(&a, &b)| a * b)
+                        .sum::<f64>();
+                    for i in 0..rank {
+                        residual[i] -= projection * direction[i];
+                    }
+                }
+                let norm = residual
+                    .iter()
+                    .map(|value| value * value)
+                    .sum::<f64>()
+                    .sqrt();
+                if !norm.is_finite() {
+                    return Err(
+                        "residual cascade: Schur-spectrum Lanczos produced a non-finite norm"
+                            .into(),
+                    );
+                }
+                let rounding_floor =
+                    f64::EPSILON * rank.max(1) as f64 * diagonal.abs().max(f64::MIN_POSITIVE);
+                if norm <= rounding_floor {
+                    break;
+                }
+                beta.push(norm);
+                q_previous = Some(std::mem::replace(&mut q, residual));
+                for value in &mut q {
+                    *value /= norm;
+                }
+            }
+
+            beta.truncate(alpha.len().saturating_sub(1));
+            let (eigenvalues, first_components) = symmetric_tridiagonal_eigen(&alpha, &beta)?;
+            let scale = eigenvalues
+                .iter()
+                .copied()
+                .map(f64::abs)
+                .fold(0.0, f64::max);
+            let roundoff = f64::EPSILON * alpha.len().max(1) as f64 * scale.max(f64::MIN_POSITIVE);
+            for (index, (&eigenvalue, &first)) in
+                eigenvalues.iter().zip(first_components.iter()).enumerate()
+            {
+                if !eigenvalue.is_finite() || eigenvalue < -roundoff {
+                    return Err(format!(
+                        "residual cascade: Schur-spectrum Ritz value {index} is not positive semidefinite ({eigenvalue})"
+                    ));
+                }
+                let weight = rank as f64 * first * first / SLQ_PROBES as f64;
+                if !(weight.is_finite() && weight >= 0.0) {
+                    return Err(format!(
+                        "residual cascade: invalid Schur-spectrum quadrature weight {weight}"
+                    ));
+                }
+                modes.push(CascadeSpectralMode {
+                    eigenvalue: eigenvalue.max(0.0),
+                    weight,
+                });
+            }
+        }
+        Ok(modes)
+    }
+
+    fn reml_profile(&self) -> Result<CascadeRemlProfile<'_>, String> {
+        let (null_chol, null_logdet) = self.null_gram_factor()?;
+        let modes = if self.dense_gram.is_some() {
+            self.dense_cascade_spectrum(&null_chol)?
+        } else {
+            self.iterative_cascade_spectrum(&null_chol)?
+        };
+        Ok(CascadeRemlProfile {
+            core: self,
+            null_logdet,
+            modes,
+        })
+    }
+
     /// Scale a raw point into shifted metric coordinates.
     fn scale_point(&self, x: &[f64]) -> [f64; 3] {
         let mut z = [0.0_f64; 3];
@@ -1205,8 +1827,8 @@ fn extend_net(
     // level `l`. At fine levels below the data spacing that is an explosion
     // (every sub-data-spacing cell of the whole domain becomes a synthetic
     // center), which is unbounded work the caller never needs: once the net
-    // crosses `MAX_CENTERS` the build path errors and the auto-route
-    // refinement (`next_level_gain_bound`) treats it as "stop refining". So
+    // crosses `MAX_CENTERS` the build path errors and the auto-route's typed
+    // next-level assessment reports center-capacity underresolution. So
     // cap the fill IN the loop — stop planting synthetic centers the moment
     // the net exceeds the cap rather than materializing the entire fine-level
     // box first. Coarse levels (few cells, never near the cap) keep the full
@@ -1600,38 +2222,10 @@ impl ResidualCascadeDesign {
     }
 
     /// Profiled-σ² REML criterion at `log λ` (differences across λ are exact
-    /// REML differences on the dense route; SLQ-estimated past the cap).
+    /// REML differences on the dense route; one fixed spectral quadrature is
+    /// used past the cap).
     pub fn criterion(&self, log_lambda: f64) -> Result<f64, String> {
-        Ok(self.criterion_with_warm(log_lambda, None)?.0)
-    }
-
-    fn criterion_with_warm(
-        &self,
-        log_lambda: f64,
-        warm: Option<&[f64]>,
-    ) -> Result<(f64, Vec<f64>), String> {
-        if !log_lambda.is_finite() {
-            return Err(format!(
-                "residual cascade: non-finite log lambda {log_lambda}"
-            ));
-        }
-        let core = &self.core;
-        let lambda = log_lambda.exp();
-        let (coeff, _, _) = core.solve_coeff(lambda, &core.rhs, warm)?;
-        let rss_pen = core.rss_pen(&coeff);
-        if !(rss_pen > 0.0) {
-            return Err(format!(
-                "residual cascade: degenerate penalized residual {rss_pen}"
-            ));
-        }
-        let (logdet, _) = core.logdet(lambda)?;
-        let dof = (core.y.len() - core.nullity()) as f64;
-        let r = (core.m - core.nullity()) as f64;
-        let sigma2 = rss_pen / dof;
-        Ok((
-            -0.5 * (logdet - r * log_lambda - core.pen_logdet_const + dof * sigma2.ln()),
-            coeff,
-        ))
+        Ok(self.core.reml_profile()?.evaluate(log_lambda)?.jet.value)
     }
 
     /// Fit at a FIXED `log λ`, with σ² either supplied or profiled.
@@ -1640,7 +2234,7 @@ impl ResidualCascadeDesign {
         log_lambda: f64,
         sigma2: Option<f64>,
     ) -> Result<ResidualCascadeFit, String> {
-        self.fit_at_with_warm(log_lambda, sigma2, None)
+        self.fit_at_with_warm(log_lambda, sigma2, None, None)
     }
 
     fn fit_at_with_warm(
@@ -1648,6 +2242,7 @@ impl ResidualCascadeDesign {
         log_lambda: f64,
         sigma2: Option<f64>,
         warm: Option<&[f64]>,
+        profile_normalized_logdet: Option<f64>,
     ) -> Result<ResidualCascadeFit, String> {
         if !log_lambda.is_finite() {
             return Err(format!(
@@ -1675,8 +2270,18 @@ impl ResidualCascadeDesign {
                 rss_pen / dof
             }
         };
-        let (logdet, logdet_method) = core.logdet(lambda)?;
         let r = (core.m - core.nullity()) as f64;
+        let (logdet, logdet_method) = match profile_normalized_logdet {
+            Some(normalized) => (
+                normalized + r * log_lambda + core.pen_logdet_const,
+                if core.dense_gram.is_some() {
+                    LogdetMethod::DenseExact
+                } else {
+                    LogdetMethod::Slq
+                },
+            ),
+            None => core.logdet(lambda)?,
+        };
         // Full restricted log-likelihood at this (λ, σ²) up to λ- and σ-free
         // constants; at the profiled σ̂² the quadratic collapses to `dof`.
         let restricted_loglik = -0.5
@@ -1705,73 +2310,69 @@ impl ResidualCascadeDesign {
         })
     }
 
-    /// Fit with `log λ` selected by the profiled REML criterion:
-    /// deterministic coarse grid then golden-section refinement (the SLQ
-    /// probes are fixed, so the iterative-route criterion is just as
-    /// deterministic — same data, same fit).
+    /// Fit with `log λ` selected by the profiled REML criterion. Every
+    /// stationary interval in the bounded domain is isolated from analytic
+    /// derivative enclosures, refined by safeguarded Newton/bisection, and
+    /// compared with both exact boundary candidates. The large route uses one
+    /// lambda-independent fixed-probe spectral profile, so it is the same
+    /// smooth deterministic score at every trial.
     pub fn fit_reml(&self) -> Result<ResidualCascadeFit, String> {
-        let mut best_i = 0usize;
-        let mut best_v = f64::NEG_INFINITY;
-        let mut best_coeff = Vec::new();
-        let mut warm: Option<Vec<f64>> = None;
-        let step = (LOG_LAMBDA_HI - LOG_LAMBDA_LO) / (LOG_LAMBDA_GRID - 1) as f64;
-        for i in 0..LOG_LAMBDA_GRID {
-            let ll = LOG_LAMBDA_LO + step * i as f64;
-            let (v, coeff) = self.criterion_with_warm(ll, warm.as_deref())?;
-            if v > best_v {
-                best_v = v;
-                best_i = i;
-                best_coeff = coeff.clone();
-            }
-            warm = Some(coeff);
-        }
-        let mut lo = LOG_LAMBDA_LO + step * best_i.saturating_sub(1) as f64;
-        let mut hi = (LOG_LAMBDA_LO + step * (best_i + 1) as f64).min(LOG_LAMBDA_HI);
-        let inv_phi = 0.618_033_988_749_894_9_f64;
-        let mut x1 = hi - inv_phi * (hi - lo);
-        let mut x2 = lo + inv_phi * (hi - lo);
-        let (mut f1, mut c1) = self.criterion_with_warm(x1, Some(&best_coeff))?;
-        let (mut f2, mut c2) = self.criterion_with_warm(x2, Some(&c1))?;
-        while hi - lo > LOG_LAMBDA_TOL {
-            if f1 < f2 {
-                lo = x1;
-                x1 = x2;
-                f1 = f2;
-                c1 = c2;
-                x2 = lo + inv_phi * (hi - lo);
-                (f2, c2) = self.criterion_with_warm(x2, Some(&c1))?;
-            } else {
-                hi = x2;
-                x2 = x1;
-                f2 = f1;
-                c2 = c1;
-                x1 = hi - inv_phi * (hi - lo);
-                (f1, c1) = self.criterion_with_warm(x1, Some(&c2))?;
-            }
-        }
-        let warm = if f1 >= f2 { &c1 } else { &c2 };
-        self.fit_at_with_warm(0.5 * (lo + hi), None, Some(warm))
+        let profile = self.core.reml_profile()?;
+        let (log_lambda_lo, log_lambda_hi) = profile.log_lambda_domain()?;
+        let search = maximize_score_1d(
+            log_lambda_lo,
+            log_lambda_hi,
+            f64::EPSILON.sqrt(),
+            |log_lambda| {
+                profile
+                    .evaluate(log_lambda)
+                    .map(|evaluation| evaluation.jet)
+            },
+            |lo, hi| profile.enclose(lo, hi),
+        )
+        .map_err(|error| format!("residual cascade: REML stationary isolation failed: {error}"))?;
+        let selected = profile.evaluate(search.optimum.x)?;
+        self.fit_at_with_warm(
+            search.optimum.x,
+            None,
+            None,
+            Some(selected.normalized_logdet),
+        )
     }
 
-    /// Exact upper bound on the penalized-objective decrease available from
-    /// appending the candidate level L+1 at this fit's λ:
-    /// `‖X₂'W r̂‖² / (λ·d_{L+1})` (see the module header for the Schur-
-    /// complement argument). Returns `None` when the net is exhausted (no new
-    /// centers — every data point is already a center).
-    pub fn next_level_gain_bound(&self, fit: &ResidualCascadeFit) -> Result<Option<f64>, String> {
+    /// Assess the candidate level L+1 at this fit's λ. A complete candidate
+    /// reports the exact upper bound `‖X₂'W r̂‖² / (λ·d_{L+1})` on its
+    /// penalized-objective decrease (see the module header for the Schur-
+    /// complement argument). Empty-net exhaustion and representation capacity
+    /// are different typed outcomes because only an empty net certifies zero
+    /// remaining gain.
+    pub fn assess_next_level(
+        &self,
+        fit: &ResidualCascadeFit,
+    ) -> Result<NextLevelAssessment, String> {
         let core = &self.core;
         if !Arc::ptr_eq(core, &fit.core) {
             return Err("residual cascade: fit does not belong to this design".into());
         }
         let next_l = core.levels.len();
-        if next_l >= MAX_LEVELS {
-            return Ok(None);
-        }
         let h = core.levels[next_l - 1].h * 0.5;
         let mut net = core.net.clone();
         let candidates = extend_net(&mut net, &core.z, core.dim, h, &core.z_range);
-        if candidates.is_empty() || net.len() > MAX_CENTERS {
-            return Ok(None);
+        if candidates.is_empty() {
+            return Ok(NextLevelAssessment::EmptyNet);
+        }
+        if net.len() > MAX_CENTERS {
+            return Ok(NextLevelAssessment::CapacityExceeded {
+                obstruction: RefinementObstruction::CenterCapacity {
+                    centers: net.len(),
+                    maximum_centers: MAX_CENTERS,
+                },
+                // The cap stopped candidate construction before every column
+                // could contribute to ‖X₂'Wr̂‖². Infinity is the honest
+                // conservative upper bound; a finite partial sum would not
+                // certify the omitted columns.
+                gain_bound: f64::INFINITY,
+            });
         }
         let delta = OVERLAP * h;
         let mut grid = HashGrid::new(delta, core.dim);
@@ -1789,7 +2390,18 @@ impl ResidualCascadeDesign {
         }
         let g2: f64 = g.iter().map(|v| v * v).sum();
         let d_next = level_weight(next_l, core.sobolev_s, core.dim);
-        Ok(Some(g2 / (fit.log_lambda.exp() * d_next)))
+        let gain_bound = g2 / (fit.log_lambda.exp() * d_next);
+        if next_l >= MAX_LEVELS {
+            Ok(NextLevelAssessment::CapacityExceeded {
+                obstruction: RefinementObstruction::LevelCapacity {
+                    levels: next_l,
+                    maximum_levels: MAX_LEVELS,
+                },
+                gain_bound,
+            })
+        } else {
+            Ok(NextLevelAssessment::GainBound(gain_bound))
+        }
     }
 }
 
@@ -2163,34 +2775,63 @@ impl ResidualCascadeFit {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum RefinementDecision {
+    Converged {
+        gain_bound: f64,
+    },
+    Refine,
+    Underresolved {
+        gain_bound: f64,
+        obstruction: RefinementObstruction,
+    },
+}
+
+/// Turn the typed next-level assessment into the only three legal refinement
+/// transitions. In particular, a capacity limit can yield a fit only when its
+/// already-computed gain bound independently passes the requested tolerance.
+fn decide_refinement(
+    assessment: NextLevelAssessment,
+    requested_tolerance: f64,
+) -> RefinementDecision {
+    match assessment {
+        NextLevelAssessment::EmptyNet => RefinementDecision::Converged { gain_bound: 0.0 },
+        NextLevelAssessment::GainBound(gain_bound) if gain_bound <= requested_tolerance => {
+            RefinementDecision::Converged { gain_bound }
+        }
+        NextLevelAssessment::GainBound(_) => RefinementDecision::Refine,
+        NextLevelAssessment::CapacityExceeded {
+            gain_bound,
+            obstruction: _,
+        } if gain_bound <= requested_tolerance => RefinementDecision::Converged { gain_bound },
+        NextLevelAssessment::CapacityExceeded {
+            gain_bound,
+            obstruction,
+        } => RefinementDecision::Underresolved {
+            gain_bound,
+            obstruction,
+        },
+    }
+}
+
 /// Fit the full magic-default cascade: start at [`INITIAL_LEVELS`], REML-fit,
 /// and refine (add a level, refit, re-select λ) until the exact next-level
 /// gain bound certifies that one more level cannot move the penalized
-/// objective by more than [`REFINE_TOL`] of the penalized residual — or the
-/// net/cap is exhausted. Returns the certified fit.
+/// objective by more than [`REFINE_TOL`] of the penalized residual. A genuinely
+/// empty next-level net certifies zero remaining gain; a level/center capacity
+/// reached before the tolerance passes is a typed
+/// [`ResidualCascadeError::Underresolved`] carrying the retained work and its
+/// evidence, never a fit.
 pub fn fit_residual_cascade(
     xs: &[&[f64]],
     y: &[f64],
     w: &[f64],
     metric: &[f64],
     sobolev_s: f64,
-) -> Result<ResidualCascadeFit, String> {
+) -> Result<ResidualCascadeFit, ResidualCascadeError> {
     let mut levels = INITIAL_LEVELS;
-    let mut capped_fit: Option<ResidualCascadeFit> = None;
     loop {
-        let design = match ResidualCascadeDesign::build(xs, y, w, metric, sobolev_s, levels) {
-            Ok(design) => design,
-            Err(err)
-                if levels > INITIAL_LEVELS
-                    && err.contains(&format!("center cap {MAX_CENTERS} exceeded")) =>
-            {
-                if let Some(fit) = capped_fit {
-                    return Ok(fit);
-                }
-                return Err(err);
-            }
-            Err(err) => return Err(err),
-        };
+        let design = ResidualCascadeDesign::build(xs, y, w, metric, sobolev_s, levels)?;
         // Quasi-uniformity guard (issue #1032, caveat 2): if the metric has
         // collapsed the cloud onto a near-degenerate sheet in scaled
         // coordinates, the BPX iteration bound no longer holds. Refuse the
@@ -2206,7 +2847,8 @@ pub fn fit_residual_cascade(
                  iteration bound is not trustworthy on this (near-degenerate) metric — \
                  fall back to the dense kernel path",
                 design.metric_scaled_aspect_ratio()
-            ));
+            )
+            .into());
         }
         let mut fit = design.fit_reml()?;
         // The realized CG iteration count at this cascade depth is the runtime
@@ -2219,36 +2861,175 @@ pub fn fit_residual_cascade(
         // caller that wants to watch the bound reads them off the returned fit
         // instead of scraping log lines. (A library solve never writes to
         // stderr.)
-        let gain = design.next_level_gain_bound(&fit)?;
-        let tolerance = REFINE_TOL * fit.rss_pen;
-        match gain {
-            None => {
+        let assessment = design.assess_next_level(&fit)?;
+        let requested_tolerance = REFINE_TOL * fit.rss_pen;
+        match decide_refinement(assessment, requested_tolerance) {
+            RefinementDecision::Converged { gain_bound } => {
                 fit.refinement = Some(RefinementCertificate {
-                    next_level_gain_bound: 0.0,
-                    tolerance,
-                    exhausted: true,
+                    next_level_gain_bound: gain_bound,
+                    tolerance: requested_tolerance,
                 });
                 return Ok(fit);
             }
-            Some(bound) if bound <= tolerance || levels >= MAX_LEVELS => {
-                fit.refinement = Some(RefinementCertificate {
-                    next_level_gain_bound: bound,
-                    tolerance,
-                    exhausted: bound > tolerance,
-                });
-                return Ok(fit);
-            }
-            Some(bound) => {
-                capped_fit = Some({
-                    fit.refinement = Some(RefinementCertificate {
-                        next_level_gain_bound: bound,
-                        tolerance,
-                        exhausted: true,
-                    });
-                    fit
-                });
+            RefinementDecision::Refine => {
                 levels += 1;
             }
+            RefinementDecision::Underresolved {
+                gain_bound,
+                obstruction,
+            } => {
+                return Err(ResidualCascadeError::Underresolved {
+                    checkpoint: ResidualCascadeCheckpoint::new(fit),
+                    gain_bound,
+                    requested_tolerance,
+                    obstruction,
+                });
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod refinement_decision_tests {
+    use super::*;
+
+    const TOLERANCE: f64 = 0.25;
+
+    #[test]
+    fn only_empty_or_passing_bound_converges() {
+        assert_eq!(
+            decide_refinement(NextLevelAssessment::EmptyNet, TOLERANCE),
+            RefinementDecision::Converged { gain_bound: 0.0 }
+        );
+        assert_eq!(
+            decide_refinement(NextLevelAssessment::GainBound(0.2), TOLERANCE),
+            RefinementDecision::Converged { gain_bound: 0.2 }
+        );
+        assert_eq!(
+            decide_refinement(NextLevelAssessment::GainBound(0.3), TOLERANCE),
+            RefinementDecision::Refine
+        );
+    }
+
+    #[test]
+    fn capacity_above_tolerance_is_underresolved() {
+        let obstruction = RefinementObstruction::LevelCapacity {
+            levels: MAX_LEVELS,
+            maximum_levels: MAX_LEVELS,
+        };
+        assert_eq!(
+            decide_refinement(
+                NextLevelAssessment::CapacityExceeded {
+                    obstruction,
+                    gain_bound: 0.3,
+                },
+                TOLERANCE,
+            ),
+            RefinementDecision::Underresolved {
+                gain_bound: 0.3,
+                obstruction,
+            }
+        );
+
+        let center_obstruction = RefinementObstruction::CenterCapacity {
+            centers: MAX_CENTERS + 1,
+            maximum_centers: MAX_CENTERS,
+        };
+        assert_eq!(
+            decide_refinement(
+                NextLevelAssessment::CapacityExceeded {
+                    obstruction: center_obstruction,
+                    gain_bound: f64::INFINITY,
+                },
+                TOLERANCE,
+            ),
+            RefinementDecision::Underresolved {
+                gain_bound: f64::INFINITY,
+                obstruction: center_obstruction,
+            }
+        );
+    }
+
+    #[test]
+    fn capacity_does_not_block_an_independently_passing_bound() {
+        assert_eq!(
+            decide_refinement(
+                NextLevelAssessment::CapacityExceeded {
+                    obstruction: RefinementObstruction::LevelCapacity {
+                        levels: MAX_LEVELS,
+                        maximum_levels: MAX_LEVELS,
+                    },
+                    gain_bound: 0.2,
+                },
+                TOLERANCE,
+            ),
+            RefinementDecision::Converged { gain_bound: 0.2 }
+        );
+    }
+
+    #[test]
+    fn dense_spectral_profile_matches_factorization_and_analytic_slope() {
+        let side = 6usize;
+        let mut x1 = Vec::with_capacity(side * side);
+        let mut x2 = Vec::with_capacity(side * side);
+        let mut y = Vec::with_capacity(side * side);
+        for i in 0..side {
+            for j in 0..side {
+                let a = i as f64 / (side - 1) as f64;
+                let b = j as f64 / (side - 1) as f64;
+                x1.push(a);
+                x2.push(b);
+                y.push((2.3 * a).sin() + (1.7 * b).cos() + 0.07 * ((3 * i + 5 * j) % 7) as f64);
+            }
+        }
+        let weights = vec![1.0; y.len()];
+        let axes: [&[f64]; 2] = [&x1, &x2];
+        let design = ResidualCascadeDesign::build(&axes, &y, &weights, &[1.0, 1.0], 2.0, 2)
+            .expect("cascade design");
+        assert!(design.core.dense_gram.is_some());
+        let profile = design.core.reml_profile().expect("spectral profile");
+        let rank = (design.core.m - design.core.nullity()) as f64;
+        let dof = (design.core.y.len() - design.core.nullity()) as f64;
+
+        for log_lambda in [-4.0, 0.0, 3.0] {
+            let evaluation = profile.evaluate(log_lambda).expect("analytic score");
+            let lambda = log_lambda.exp();
+            let logdet = design.core.logdet_dense(lambda).expect("dense logdet");
+            let coefficients = design
+                .core
+                .solve_coeff(lambda, &design.core.rhs, None)
+                .expect("dense solve")
+                .0;
+            let rss = design.core.rss_pen(&coefficients);
+            let direct = -0.5
+                * (logdet - rank * log_lambda - design.core.pen_logdet_const
+                    + dof * (rss / dof).ln());
+            assert!(
+                (evaluation.jet.value - direct).abs() <= f64::EPSILON.sqrt() * (1.0 + direct.abs()),
+                "spectral/direct score mismatch at {log_lambda}: {} versus {direct}",
+                evaluation.jet.value,
+            );
+
+            // Finite differences are confined to this oracle test. The
+            // production optimizer consumes the hand-derived score jet above.
+            let step = f64::EPSILON.cbrt();
+            let right = profile
+                .evaluate(log_lambda + step)
+                .expect("right score")
+                .jet
+                .value;
+            let left = profile
+                .evaluate(log_lambda - step)
+                .expect("left score")
+                .jet
+                .value;
+            let numerical_slope = (right - left) / (2.0 * step);
+            assert!(
+                (evaluation.jet.derivative - numerical_slope).abs()
+                    <= f64::EPSILON.sqrt() * (1.0 + numerical_slope.abs()),
+                "analytic slope mismatch at {log_lambda}: {} versus {numerical_slope}",
+                evaluation.jet.derivative,
+            );
         }
     }
 }

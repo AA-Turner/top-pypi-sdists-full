@@ -52,6 +52,7 @@ def default_config() -> dict[str, Any]:
     return {
         'main': {'use_keyring': 'false'},
         'connection': {'default_keepalive_ticks': 0},
+        'vault_beta': {},
         'alias_dsn': {},
         'init-commands': {},
         'alias_dsn.init-commands': {},
@@ -217,6 +218,22 @@ def test_run_from_cli_args_expands_whole_dsn_alias_env_vars_when_enabled(
     assert client.connect_calls[-1]['keepalive_ticks'] == 9
 
 
+def test_run_from_cli_args_expands_dsn_alias_ssh_jump_env_var_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'prod'
+    monkeypatch.setenv('MYCLI_TEST_DSN_SSH_JUMP', 'env-bastion')
+    config = default_config()
+    config['main'] = {**config['main'], 'expand_dsn_alias_env_vars': 'true'}
+    config['alias_dsn'] = {'prod': 'mysql://user@host/db?ssh_jump=${MYCLI_TEST_DSN_SSH_JUMP}'}
+    client = DummyMyCli(config=config)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['ssh_jump'] == 'env-bastion'
+
+
 def test_run_from_cli_args_does_not_expand_partial_values_or_query_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -251,6 +268,70 @@ def test_run_from_cli_args_does_not_expand_unbraced_dsn_alias_env_vars(
     run_with_client(monkeypatch, cli_args, client)
 
     assert client.connect_calls[-1]['user'] == '$MYCLI_TEST_DSN_USER'
+
+
+def test_run_from_cli_args_warns_about_unknown_dsn_query_parameter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?unknown=value'
+    client = DummyMyCli()
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['database'] == 'db'
+    assert secho_calls == [
+        (
+            'Warning: Ignored unknown DSN URI query parameters: unknown.',
+            {'err': True, 'fg': 'yellow'},
+        )
+    ]
+
+
+def test_run_from_cli_args_warns_once_about_sorted_unknown_dsn_query_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?zzz=1&aaa&character_set=utf8&aaa=2'
+    client = DummyMyCli()
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['character_set'] == 'utf8'
+    assert secho_calls == [
+        (
+            'Warning: Ignored unknown DSN URI query parameters: aaa, zzz.',
+            {'err': True, 'fg': 'yellow'},
+        )
+    ]
+
+
+def test_run_from_cli_args_warns_about_unknown_alias_dsn_query_parameter_with_env_expansion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'prod'
+    monkeypatch.setenv('MYCLI_TEST_DSN_CHARSET', 'utf8')
+    config = default_config()
+    config['main'] = {**config['main'], 'expand_dsn_alias_env_vars': 'true'}
+    config['alias_dsn'] = {'prod': 'mysql://user@host/db?unknown=value&character_set=${MYCLI_TEST_DSN_CHARSET}'}
+    client = DummyMyCli(config=config)
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['character_set'] == 'utf8'
+    assert secho_calls == [
+        (
+            'Warning: Ignored unknown DSN URI query parameters: unknown.',
+            {'err': True, 'fg': 'yellow'},
+        )
+    ]
 
 
 def test_run_from_cli_args_reports_missing_dsn_alias_env_var(
@@ -354,10 +435,48 @@ def test_run_from_cli_args_accepts_mysql_plus_dsn_scheme(monkeypatch: pytest.Mon
     assert client.connect_calls[-1]['database'] == 'db'
 
 
+def test_run_from_cli_args_maps_dsn_ssh_jump_parameter(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?ssh_jump=bastion'
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['ssh_jump'] == 'bastion'
+
+
+def test_run_from_cli_args_does_not_warn_about_known_dsn_query_parameter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?ssh_jump=bastion'
+    client = DummyMyCli()
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['ssh_jump'] == 'bastion'
+    assert secho_calls == []
+
+
+def test_run_from_cli_args_prefers_cli_ssh_jump_over_dsn_parameter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?ssh_jump=dsn-bastion'
+    cli_args.ssh_jump = 'cli-bastion'
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['ssh_jump'] == 'cli-bastion'
+
+
 def test_run_from_cli_args_maps_dsn_ssl_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
     cli_args = make_cli_args()
     cli_args.dsn = (
-        'mysql://user:pass@host:3306/db?ssl=true&ssl_ca=~/ca.pem&ssl_capath=/capath'
+        'mysql://user:pass@host:3306/db?ssl_mode=on&ssl_ca=~/ca.pem&ssl_capath=/capath'
         '&ssl_cert=~/cert.pem&ssl_key=~/key.pem&ssl_cipher=AES256&tls_version=TLSv1.3'
         '&ssl_verify_server_cert=true'
     )
@@ -378,7 +497,6 @@ def test_run_from_cli_args_maps_dsn_ssl_parameters(monkeypatch: pytest.MonkeyPat
         'tls_version': 'TLSv1.3',
         'check_hostname': True,
     }
-    assert any('"ssl" DSN URI parameter is deprecated' in call for call in secho_calls)
 
 
 def test_run_from_cli_args_merges_global_list_and_alias_scalar_init_commands(
@@ -421,6 +539,244 @@ def test_run_from_cli_args_uses_explicit_keyring_flag(monkeypatch: pytest.Monkey
 
     assert client.connect_calls[-1]['use_keyring'] is True
     assert client.connect_calls[-1]['reset_keyring'] is False
+
+
+def test_run_from_cli_args_reads_password_from_vault_when_password_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.user = 'existing-user'
+    cli_args.vault_secret = 'database/prod'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'vault_beta': {
+                'vault_executable': '/opt/bin/vault',
+                'address': 'https://vault.config',
+                'default_mount': 'kv',
+                'default_password_field': 'mysql_password',
+            },
+        }
+    )
+    vault_calls: list[dict[str, str | None]] = []
+
+    def fake_get_field_from_vault(field: str, secret: str, **kwargs: str | None) -> str:
+        vault_calls.append({'field': field, 'secret': secret, **kwargs})
+        return 'vault-secret'
+
+    monkeypatch.delenv('VAULT_ADDR', raising=False)
+    monkeypatch.setattr(cli_runner, 'get_field_from_vault', fake_get_field_from_vault)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['passwd'] == 'vault-secret'
+    assert vault_calls == [
+        {
+            'secret': 'database/prod',
+            'executable': '/opt/bin/vault',
+            'field': 'mysql_password',
+            'mount': 'kv',
+            'address': 'https://vault.config',
+        }
+    ]
+
+
+def test_run_from_cli_args_reads_username_from_vault_when_user_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.password = 'existing-password'
+    cli_args.vault_secret = 'database/prod'
+    cli_args.vault_username_field = 'mysql_username'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'vault_beta': {
+                'vault_executable': '/opt/bin/vault',
+                'address': 'https://vault.config',
+                'default_mount': 'kv',
+            },
+        }
+    )
+    vault_calls: list[dict[str, str | None]] = []
+
+    def fake_get_field_from_vault(field: str, secret: str, **kwargs: str | None) -> str:
+        vault_calls.append({'field': field, 'secret': secret, **kwargs})
+        return 'vault-user'
+
+    monkeypatch.delenv('VAULT_ADDR', raising=False)
+    monkeypatch.setattr(cli_runner, 'get_field_from_vault', fake_get_field_from_vault)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['user'] == 'vault-user'
+    assert vault_calls == [
+        {
+            'secret': 'database/prod',
+            'executable': '/opt/bin/vault',
+            'field': 'mysql_username',
+            'mount': 'kv',
+            'address': 'https://vault.config',
+        }
+    ]
+
+
+def test_run_from_cli_args_prefers_dsn_user_over_vault_username(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://dsn-user@host/db'
+    cli_args.password = 'existing-password'
+    cli_args.vault_secret = 'database/prod'
+    cli_args.vault_username_field = 'mysql_username'
+    client = DummyMyCli()
+    vault_calls: list[dict[str, str | None]] = []
+
+    def fake_get_field_from_vault(field: str, secret: str, **kwargs: str | None) -> str:
+        vault_calls.append({'field': field, 'secret': secret, **kwargs})
+        return 'vault-user'
+
+    monkeypatch.setattr(cli_runner, 'get_field_from_vault', fake_get_field_from_vault)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['user'] == 'dsn-user'
+    assert vault_calls == []
+
+
+def test_run_from_cli_args_reports_vault_username_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.password = 'existing-password'
+    cli_args.vault_secret = 'database/prod'
+    cli_args.vault_username_field = 'mysql_username'
+    client = DummyMyCli()
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+    monkeypatch.setattr(
+        cli_runner,
+        'get_field_from_vault',
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(cli_runner.VaultError('permission denied')),
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_with_client(monkeypatch, cli_args, client)
+
+    assert excinfo.value.code == 1
+    assert client.connect_calls == []
+    assert secho_calls == [('Error reading username from Vault: permission denied', {'err': True, 'fg': 'red'})]
+
+
+def test_run_from_cli_args_prefers_dsn_password_over_vault(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user:dsn-secret@host/db'
+    cli_args.vault_secret = 'database/prod'
+    client = DummyMyCli()
+    vault_calls: list[dict[str, str | None]] = []
+
+    def fake_get_field_from_vault(field: str, secret: str, **kwargs: str | None) -> str:
+        vault_calls.append({'field': field, 'secret': secret, **kwargs})
+        return 'vault-secret'
+
+    monkeypatch.setattr(cli_runner, 'get_field_from_vault', fake_get_field_from_vault)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['passwd'] == 'dsn-secret'
+    assert vault_calls == []
+
+
+def test_run_from_cli_args_prefers_vault_cli_values_and_env_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.user = 'existing-user'
+    cli_args.vault_secret = 'database/prod'
+    cli_args.vault_mount = 'cli-mount'
+    cli_args.vault_password_field = 'cli-field'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'vault_beta': {
+                'vault_executable': '/opt/bin/vault',
+                'address': 'https://vault.config',
+                'default_mount': 'config-mount',
+                'default_password_field': 'config-field',
+            },
+        }
+    )
+    vault_calls: list[dict[str, str | None]] = []
+    monkeypatch.setenv('VAULT_ADDR', 'https://vault.env')
+
+    def fake_get_field_from_vault(field: str, secret: str, **kwargs: str | None) -> str:
+        vault_calls.append({'field': field, 'secret': secret, **kwargs})
+        return 'vault-secret'
+
+    monkeypatch.setattr(cli_runner, 'get_field_from_vault', fake_get_field_from_vault)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['passwd'] == 'vault-secret'
+    assert vault_calls == [
+        {
+            'secret': 'database/prod',
+            'executable': '/opt/bin/vault',
+            'field': 'cli-field',
+            'mount': 'cli-mount',
+            'address': 'https://vault.env',
+        }
+    ]
+
+
+def test_run_from_cli_args_prefers_vault_cli_address_over_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.user = 'existing-user'
+    cli_args.vault_secret = 'database/prod'
+    cli_args.vault_address = 'https://vault.cli'
+    client = DummyMyCli()
+    vault_calls: list[dict[str, str | None]] = []
+    monkeypatch.setenv('VAULT_ADDR', 'https://vault.env')
+
+    def fake_get_field_from_vault(field: str, secret: str, **kwargs: str | None) -> str:
+        vault_calls.append({'field': field, 'secret': secret, **kwargs})
+        return 'vault-secret'
+
+    monkeypatch.setattr(cli_runner, 'get_field_from_vault', fake_get_field_from_vault)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['passwd'] == 'vault-secret'
+    assert vault_calls[-1]['address'] == 'https://vault.cli'
+
+
+def test_run_from_cli_args_reports_vault_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.user = 'existing-user'
+    cli_args.vault_secret = 'database/prod'
+    client = DummyMyCli()
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+    monkeypatch.setattr(
+        cli_runner,
+        'get_field_from_vault',
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(cli_runner.VaultError('permission denied')),
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_with_client(monkeypatch, cli_args, client)
+
+    assert excinfo.value.code == 1
+    assert client.connect_calls == []
+    assert secho_calls == [('Error reading password from Vault: permission denied', {'err': True, 'fg': 'red'})]
+
+
+def test_run_from_cli_args_passes_ssh_options_to_connect(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.ssh_options = '-o Compression=yes'
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['ssh_cli_options'] == '-o Compression=yes'
 
 
 @pytest.mark.parametrize(

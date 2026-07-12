@@ -21,7 +21,7 @@
 //!
 //! This module separates those concerns into honest submodules:
 //! - [`error`]: the [`RemlError`] type and its `String` boundary conversion.
-//! - [`hessian_operator_trait`]: the [`HessianOperator`] trait — backend-specific
+//! - [`hessian_factorization`]: the [`HessianFactorization`] trait — backend-specific
 //!   linear algebra (logdet, trace, solve) plus its default trace-estimation
 //!   machinery and the shared [`StochasticTraceState`].
 //! - [`derivative_providers`]: the [`HessianDerivativeProvider`] trait and every
@@ -45,16 +45,16 @@
 //!   covariance and the spectral-regularization helpers.
 //! - [`dense_spectral`]: the dense spectral [`DenseSpectralOperator`] backend.
 //! - [`sparse_cholesky_backends`]: the [`SparseCholeskyOperator`] and the other
-//!   concrete [`HessianOperator`] backends (dense-Cholesky value-only,
+//!   concrete [`HessianFactorization`] backends (dense-Cholesky value-only,
 //!   block-coupled, matrix-free SPD) plus the penalty-root helpers.
 //! - [`stochastic_trace`]: the Girard–Hutchinson / Hutch++ trace estimators and
 //!   their deterministic RNG.
-//! - [`dense_linalg`], [`pseudo_logdet`], [`dense_projection`]: leaf,
+//! - [`pseudo_logdet`], [`dense_projection`]: leaf,
 //!   state-free linear-algebra kernels.
 //!
 //! # Spectral Consistency Guarantee
 //!
-//! The `HessianOperator` trait ensures that `logdet()` (used in cost) and
+//! The `HessianFactorization` trait ensures that `logdet()` (used in cost) and
 //! `trace_hinv_product()` (used in gradient) are computed from the same
 //! internal decomposition. This eliminates the class of bugs where cost uses
 //! Cholesky-based logdet while gradient uses eigendecomposition-based traces
@@ -74,7 +74,7 @@
 //! `p × p` matrix and summing the diagonal of `H⁻¹ M` is cheap, OR when a
 //! backend has a structure-aware exact path (e.g. Takahashi-selected
 //! inverse for sparse Cholesky), use it. Examples: every concrete
-//! `HessianOperator` impl overrides `trace_hinv_operator` and the
+//! `HessianFactorization` impl overrides `trace_hinv_operator` and the
 //! cross-trace family with a native exact path.
 //!
 //! ## Tier 2: Hutchinson (multi-target shared-probe)
@@ -101,8 +101,8 @@
 //! same-operator cross-trace `tr((H⁻¹A)²)` (used by outer-Hessian
 //! diagonals); [`hutchpp_estimate_trace_hinv_operator_cross`] handles
 //! the asymmetric `tr(H⁻¹A_L H⁻¹A_R)` via a shared sketch. Default
-//! impls of [`HessianOperator::trace_hinv_operator`],
-//! [`HessianOperator::trace_logdet_operator`], and the cross-trace
+//! impls of [`HessianFactorization::trace_hinv_operator`],
+//! [`HessianFactorization::trace_logdet_operator`], and the cross-trace
 //! family auto-select Hutch++ for implicit operators at moderate
 //! `dim()`. Concrete backends with native paths (dense spectral,
 //! Takahashi Cholesky) override and never reach Hutch++.
@@ -157,15 +157,10 @@ pub use gam_problem::{
 // ─────────────────────────────────────────────────────────────────────────
 // Leaf, state-free linear-algebra kernels (already real modules).
 // ─────────────────────────────────────────────────────────────────────────
-pub(crate) mod dense_linalg;
 mod dense_projection;
 mod pseudo_logdet;
 
-pub(crate) use dense_linalg::{
-    dense_bilinear, dense_matvec_into, dense_matvec_scaled_add_into, dense_transpose_matvec_into,
-    design_matrix_apply_view, design_matrix_apply_view_into, design_matrix_column_into,
-    design_matrix_transpose_apply_view_into, trace_matrix_product,
-};
+use gam_linalg::dense;
 pub(crate) use dense_projection::{dense_projected_matrix, dense_trace_projected_factor};
 pub use pseudo_logdet::exact_pseudo_logdet;
 // Re-exported at `pub` (#1521) so the lifted gam-models bms deviation-runtime
@@ -181,7 +176,8 @@ mod dense_spectral;
 mod derivative_providers;
 mod efs;
 mod error;
-mod hessian_operator_trait;
+#[path = "reml_outer_engine/hessian_operator_trait.rs"]
+mod hessian_factorization;
 mod hyper_operator;
 mod inner_solution;
 mod objective;
@@ -203,13 +199,10 @@ pub use dense_spectral::*;
 pub use derivative_providers::*;
 pub use efs::*;
 pub use error::*;
-pub use hessian_operator_trait::*;
+pub use hessian_factorization::*;
 pub use hyper_operator::*;
 pub use inner_solution::*;
 pub(crate) use objective::*;
-// TEMP-ATOMS-1122: cross-crate accessor for the cost-atom capture used by the
-// #1122 HSWEEP decomposition in gam-models. REMOVE before commit.
-pub use objective::LAST_COST_ATOMS_1122;
 pub(crate) use outer_derivatives::*;
 // Re-surface the outer-Hessian routing predicates/thresholds at the flat
 // `reml_outer_engine` namespace for the #1521-carve cross-crate family tests.

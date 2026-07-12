@@ -1,5 +1,4 @@
 use super::*;
-use gam_math::jet_scalar::JetScalar;
 
 // ── Theorem K: the rank charge is a RUNNING COMPLEXITY λ(n) ──────────────────
 //
@@ -15,11 +14,10 @@ use gam_math::jet_scalar::JetScalar;
 //
 //   • HARD rank (n → ∞ limit, atom well above the noise edge): every resolved
 //     decoder direction is a regular parameter, λ → ½·rank_eff·basis_edf = ½·d_eff.
-//     This is the shipped default (`rank_charge_evidence`, hard MP count).
-//   • WBIC SOFT count (finite n, atom NEAR the Marchenko–Pastur edge): a direction
-//     only fractionally resolved contributes a fraction of ½, λ = ½·rank_soft·basis_edf
-//     with rank_soft = Σ_j μ_j/(μ_j+e·log n_eff) the tempered (β=1/log n_eff) count. This is the
-//     opt-in `soft_rank_charge` ledger below (Theorem K, `wbic_audit`).
+//     This is the canonical criterion (hard MP count).
+//   • WBIC SOFT count (finite n, atom NEAR the Marchenko–Pastur edge): the
+//     audit-only `wbic_audit` report records the tempered fractional count. It
+//     is diagnostic, not an alternative production criterion.
 //   • RLCT (SINGULAR truth, a symmetry orbit or a null atom): λ drops below ½·d
 //     to the real log-canonical threshold. The null atom (truth B*=0) has λ=½ from
 //     the amplitude singularity of a²‖B‖² — see the veto in `reml_criterion`.
@@ -30,18 +28,13 @@ use gam_math::jet_scalar::JetScalar;
 // (Fisher information actually accumulated by a gated atom), never the global row
 // count — see the #2a inert-row axiom in `reml_criterion`.
 //
-// GATING: the soft ledger is an OPT-IN alternative to the shipped hard charge,
-// selected by the persisted per-fit flag `SaeManifoldTerm::soft_rank_charge`
-// (default false ⇒ bit-for-bit historical hard path). The flag is the SINGLE source
-// of truth: it is carried across clones (including stagewise per-birth clones) and
-// therefore propagates correctly into rayon worker threads during parallel folds —
-// a thread-local scope would silently fail to apply in worker threads, so it is
-// deliberately NOT used. Effect only when `rank_charge_evidence` is also on (the
-// soft coefficient substitutes for the hard one INSIDE that branch).
+// The production criterion has one charge currency: the hard MP branch. Keeping
+// an un-differentiated soft alternative would make value and analytic gradient
+// describe different objectives, so the fractional count remains audit-only.
 
 /// #9 streaming rank-charge inputs, accumulated in a SINGLE pass through
-/// [`SaeManifoldTerm::streaming_exact_arrow_log_det`] when `rank_charge_evidence`
-/// is on: the coordinate-block log-det `log_det_tt` (= 2·`htt_half`; the part the
+/// [`SaeManifoldTerm::streaming_exact_arrow_log_det`]: the coordinate-block
+/// log-det `log_det_tt` (= 2·`htt_half`; the part the
 /// rank charge replaces), plus the per-atom decoder Grams `G_k =
 /// Φ_kᵀdiag(a_k²)Φ_k` and the effective sample sizes `N_eff,k = Σ_row a_k²`.
 /// Both are chunk-additive, so accumulating them over the streaming chunks equals
@@ -103,25 +96,102 @@ pub(crate) fn realised_rank_charge_dof(
     // basis_edf = tr(gram·(gram+λS)⁻¹).
     let mut mmat = gram.clone();
     if let Some(pen) = smooth_penalty {
-        if pen.dim() == (m, m) {
-            for i in 0..m {
-                for j in 0..m {
-                    mmat[[i, j]] += lam_smooth * pen[[i, j]];
-                }
+        if pen.dim() != (m, m) {
+            return Err(format!(
+                "realised_rank_charge_dof: smooth penalty shape {:?} does not match Gram shape ({m}, {m})",
+                pen.dim()
+            ));
+        }
+        for i in 0..m {
+            for j in 0..m {
+                mmat[[i, j]] += lam_smooth * pen[[i, j]];
             }
         }
     }
-    for i in 0..m {
-        mmat[[i, i]] += 1.0e-12; // SPD guard for the factorization
-    }
-    let basis_edf = match mmat.cholesky(super::Side::Lower) {
-        Ok(factor) => {
-            let x = factor.solve_mat(gram); // X = (G+λS)⁻¹ G
-            (0..m).map(|i| x[[i, i]]).sum::<f64>().clamp(0.0, m as f64)
-        }
-        Err(_) => m as f64, // fallback: full basis count (conservative)
-    };
+    let factor = mmat.cholesky(super::Side::Lower).map_err(|error| {
+        format!("realised_rank_charge_dof: G + lambda*S is not positive definite: {error}")
+    })?;
+    let x = factor.solve_mat(gram); // X = (G+λS)⁻¹ G
+    let basis_edf = (0..m).map(|i| x[[i, i]]).sum::<f64>().clamp(0.0, m as f64);
     Ok(rank_eff * basis_edf)
+}
+
+/// Coordinate-block log-determinant `log|H_tt|` carried by an exact dense
+/// arrow cache. The undamped row factors are the value operator used by the
+/// rank-adjusted Laplace criterion, so a non-positive or non-finite diagonal is
+/// an invalid factorization, not a term to skip.
+pub(crate) fn coordinate_block_log_det(cache: &ArrowFactorCache) -> Result<f64, String> {
+    let mut log_det_tt = 0.0_f64;
+    for row in 0..cache.undamped_factor_count() {
+        let factor = cache.undamped_factor(row);
+        for diagonal in 0..factor.nrows() {
+            let value = factor[[diagonal, diagonal]];
+            if !(value.is_finite() && value > 0.0) {
+                return Err(format!(
+                    "coordinate_block_log_det: row {row} diagonal {diagonal} is {value}; \
+                     the undamped coordinate factor is invalid"
+                ));
+            }
+            log_det_tt += 2.0 * value.ln();
+        }
+    }
+    Ok(log_det_tt)
+}
+
+/// The one production Laplace-complexity scalar:
+///
+/// `0.5 * log|H| - 0.5 * log|H_tt| +
+///  sum_k 0.5 * d_eff_k * log(max(N_eff_k, 1))`.
+///
+/// Dense, streaming, and criterion-as-atoms assembly all call this function so
+/// the value cannot retain the full coordinate logdet after the analytic
+/// gradient has switched to the realised-rank charge. A zero realised rank is
+/// the categorical Laplace-invalid branch and therefore yields positive
+/// infinity, matching the production criterion contract.
+pub(crate) fn rank_adjusted_laplace_complexity(
+    log_det: f64,
+    log_det_tt: f64,
+    d_eff: &[f64],
+    n_eff: &[f64],
+) -> Result<f64, String> {
+    if d_eff.len() != n_eff.len() {
+        return Err(format!(
+            "rank_adjusted_laplace_complexity: d_eff length {} does not match N_eff length {}",
+            d_eff.len(),
+            n_eff.len()
+        ));
+    }
+    if d_eff.iter().any(|&value| value == 0.0) {
+        return Ok(f64::INFINITY);
+    }
+    if !(log_det.is_finite() && log_det_tt.is_finite()) {
+        return Err(format!(
+            "rank_adjusted_laplace_complexity: non-finite logdet input \
+             (joint={log_det}, coordinate={log_det_tt})"
+        ));
+    }
+    let mut rank_charge = 0.0_f64;
+    for (atom, (&dof, &occupancy)) in d_eff.iter().zip(n_eff.iter()).enumerate() {
+        if !(dof.is_finite() && dof > 0.0) {
+            return Err(format!(
+                "rank_adjusted_laplace_complexity: atom {atom} has invalid positive realised DOF {dof}"
+            ));
+        }
+        if !(occupancy.is_finite() && occupancy >= 0.0) {
+            return Err(format!(
+                "rank_adjusted_laplace_complexity: atom {atom} has invalid effective sample size {occupancy}"
+            ));
+        }
+        rank_charge += 0.5 * dof * occupancy.max(1.0).ln();
+    }
+    let value = 0.5 * (log_det - log_det_tt) + rank_charge;
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(format!(
+            "rank_adjusted_laplace_complexity: assembled non-finite value {value}"
+        ))
+    }
 }
 
 // [#780] Softmax-entropy Gershgorin majorizer leaf helpers live in a sibling
@@ -134,12 +204,30 @@ include!("softmax_entropy_majorizer.rs");
 // gate.
 include!("construction_exact_hessian.rs");
 
+// [#2253] Exact hard-rank-charge direct and implicit-response derivatives.
+include!("construction_rank_charge_derivative.rs");
+
 // [#780] The outer-gradient error taxonomy (`OuterGradientError`), the
 // `ForcedRowLayout` override alias, the `COTRAIN_*` co-training weight
 // constants, and the `AmortizedEncoderConsistency` report were extracted
 // verbatim into the sibling `construction_aux_types` module to keep this file
 // under the per-file line-count gate. They re-enter this module's scope via the
 // parent's glob re-export (`use super::*;` above).
+
+/// The undamped (ridge-0) deflated evidence factorization at an acceptance
+/// iterate, packaged with the factorisation-independent KKT residual norms read
+/// off the SAME assembled system. Produced by
+/// [`SaeManifoldTerm::factor_deflated_evidence_with_grad_norms`] at the
+/// objective-stall diagnostic point; the discarded Newton step
+/// `(delta_t, delta_beta)` is retained only to report the affine Newton
+/// decrement. A small decrement cannot replace the KKT acceptance gate.
+pub(crate) struct DeflatedEvidenceFactor {
+    pub(crate) delta_t: Array1<f64>,
+    pub(crate) delta_beta: Array1<f64>,
+    pub(crate) cache: ArrowFactorCache,
+    pub(crate) grad_norm: f64,
+    pub(crate) quotient_grad_norm: f64,
+}
 
 impl SaeManifoldTerm {
     #[must_use = "build error must be handled"]
@@ -181,25 +269,23 @@ impl SaeManifoldTerm {
         Ok(Self {
             atoms,
             assignment,
+            chart_atlases: Vec::new(),
             temperature_schedule: None,
             last_row_layout: None,
             row_metric: None,
-            // #2022/#2023 — per-fit opt-ins, default false (bit-for-bit historical).
-            quotient_scale: false,
-            cone_atom_recovery: false,
-            rank_charge_evidence: false,
-            soft_rank_charge: false,
             data_row_reseed: false,
             // SAC — the collapse-guard stack is armed by default; the stagewise
             // K=1 lane disarms it explicitly (see the field docs on term.rs).
             guards_enabled: true,
             collapse_events: Vec::new(),
             row_loss_weights: None,
+            crosscoder_pricing_spans: None,
             last_frames_active: false,
             assembly_chunk_override: None,
             fixed_decoder_assembly: false,
             softmax_active_cap: None,
             border_hbb_workspace: Array2::<f64>::zeros((0, 0)),
+            arrow_assembly_workspace: SaeArrowAssemblyWorkspace::default(),
             certificate_dispersion: None,
             curvature_walk_report: None,
             expected_evidence_gauge_deflated_directions: None,
@@ -222,6 +308,10 @@ impl SaeManifoldTerm {
             // Rung-2 behavioral block: default None (ordinary single-block term,
             // bit-for-bit unchanged). Attached via `set_behavior_block`.
             behavior: None,
+            // Crosscoder stacked-column layout: default None (no multi-block
+            // layout installed; `layer_decoder` errors until a multi-block fit or
+            // `set_crosscoder_layout` records one). Bit-for-bit historical path.
+            crosscoder_layout: None,
             // #2023 C4 — Tier-0 shared mean: default None (no de-meaning; the
             // historical path is bit-for-bit). Installed via `set_tier0_mean` /
             // `fit_tier0_mean`.
@@ -229,18 +319,14 @@ impl SaeManifoldTerm {
         })
     }
 
-    /// #1777 — apply the PER-FIT configuration overrides (the FFI-facing
-    /// [`SaeFitConfig`]) as the source of truth for this term's fit, isolating it
-    /// from the deprecated process-global barrier/α atomics.
+    /// Apply the FFI-facing [`SaeFitConfig`] as the source of truth for this fit.
     ///
     /// Distributes the config to its two authorities: the barrier strength override
     /// onto the term (read by `separation_barrier_strength`), and the IBP-α
     /// override onto the assignment (read by
-    /// [`SaeAssignment::resolved_ibp_alpha`]). Any `None` field leaves that axis on
-    /// its historical fallback (process-global override, then the
-    /// data-derived/mode default), so an all-`None` config is a strict no-op. Call
-    /// this after building the term (before the fit) so concurrent fits carrying
-    /// distinct configs stay isolated without any global writes.
+    /// [`SaeAssignment::resolved_ibp_alpha`]). A `None` field selects the canonical
+    /// data-derived or assignment-mode default. Call this after building the term
+    /// and before fitting; distinct terms remain isolated by construction.
     pub fn set_fit_config(&mut self, config: SaeFitConfig) {
         self.separation_barrier_strength_override = config.separation_barrier_strength_override;
         self.assignment
@@ -265,7 +351,7 @@ impl SaeManifoldTerm {
     /// Concatenates in (primary, secondary) order: atoms; assignment logits
     /// (column hstack), coords, ungated; rho `log_lambda_smooth` and `log_ard`.
     /// The global sparsity ρ and ALL per-fit config (row_metric, row-loss
-    /// weights, fit-config, quotient_scale, data_row_reseed, temperature, softmax
+    /// weights, fit-config, data-row reseeding, temperature, and softmax
     /// cap, assignment mode) are carried from `primary`; `secondary`'s config is
     /// discarded. This asymmetry is deliberate: in the two-tier fit-order
     /// `primary` is the linear/bulk tier that defines the fit's global regime —
@@ -371,8 +457,15 @@ impl SaeManifoldTerm {
             .ungated
             .extend(secondary.assignment.ungated);
         primary.assignment.frozen_logits = None;
-        // Atoms.
+        // Atoms and first-class chart atlases.  Secondary atlas chart indices
+        // are local to its atom vector, so shift them by the primary width
+        // before appending; primary indices are unchanged.
+        let mut secondary_atlases = secondary.chart_atlases;
+        for atlas in &mut secondary_atlases {
+            atlas.shift_indices(k1);
+        }
         primary.atoms.extend(secondary.atoms);
+        primary.chart_atlases.extend(secondary_atlases);
         // Reset K-dependent / per-assembly transient state (rebuilt next assembly).
         primary.last_row_layout = None;
         primary.last_frames_active = false;
@@ -401,6 +494,7 @@ impl SaeManifoldTerm {
         rho.log_lambda_smooth
             .extend_from_slice(&secondary_rho.log_lambda_smooth);
         rho.log_ard.extend(secondary_rho.log_ard.iter().cloned());
+        rho = rho.for_assignment(primary.assignment.mode);
         Ok((primary, rho))
     }
 
@@ -486,6 +580,15 @@ impl SaeManifoldTerm {
         // Per-atom Vecs (atoms / coords / ungated) and the paired rho blocks.
         let atoms = std::mem::take(&mut self.atoms);
         self.atoms = Self::gather_by_order(atoms, order);
+        // Atlas endpoints are atom indices.  `order[new] = old`, so invert the
+        // gather permutation to obtain old -> new and remap every seam.
+        let mut old_to_new = vec![None; k];
+        for (new, &old) in order.iter().enumerate() {
+            old_to_new[old] = Some(new);
+        }
+        for atlas in &mut self.chart_atlases {
+            atlas.remap(&old_to_new)?;
+        }
         let coords = std::mem::take(&mut self.assignment.coords);
         self.assignment.coords = Self::gather_by_order(coords, order);
         let ungated = std::mem::take(&mut self.assignment.ungated);
@@ -549,7 +652,6 @@ impl SaeManifoldTerm {
     pub fn set_atom_inner_fits(
         &mut self,
         target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
         dispersion: f64,
     ) -> Result<(), String> {
         if !dispersion.is_finite() || dispersion <= 0.0 {
@@ -579,7 +681,7 @@ impl SaeManifoldTerm {
         // per-atom partial residual is `e_k = (z − fitted) + a_k decoded_k`.
         let mut assignments = Vec::with_capacity(n);
         for row in 0..n {
-            assignments.push(self.assignment.try_assignments_row_for_rho(row, rho)?);
+            assignments.push(self.assignment.try_assignments_row(row)?);
         }
         let mut decoded = Array3::<f64>::zeros((n, k_atoms, p));
         let mut dbuf = vec![0.0_f64; p];
@@ -806,6 +908,17 @@ impl SaeManifoldTerm {
     /// as `None`, so the unweighted path stays bit-for-bit identical rather
     /// than "multiplied by 1.0".
     pub fn set_row_loss_weights(&mut self, weights: Vec<f64>) -> Result<(), String> {
+        // The reciprocal of `with_crosscoder_blocks`'s refusal: block pricing
+        // snapshots a full-N pristine copy and prices the Jacobian at the full
+        // row count, so engaging a row subsample AFTER pricing is installed
+        // would desync the two silently (#2231 stage-1 deferral, both ways).
+        if self.crosscoder_pricing_spans.is_some() {
+            return Err(
+                "SaeManifoldTerm::set_row_loss_weights: crosscoder block pricing is installed; \
+                 the #991 row-subsample and block pricing are mutually exclusive (stage 1)"
+                    .to_string(),
+            );
+        }
         if weights.len() != self.n_obs() {
             return Err(format!(
                 "SaeManifoldTerm::set_row_loss_weights: {} weights for {} rows",
@@ -840,44 +953,6 @@ impl SaeManifoldTerm {
     /// exact unweighted path.
     pub fn row_loss_weights(&self) -> Option<&[f64]> {
         self.row_loss_weights.as_deref()
-    }
-
-    /// Install a single UNIFORM Horvitz–Thompson inverse-inclusion weight
-    /// `w_i = weight` on every row, riding the same #977 `row_loss_weights` √w
-    /// seam as the design-honesty path but DELIBERATELY bypassing the mean-1
-    /// normalization [`Self::set_row_loss_weights`] applies.
-    ///
-    /// This is the outer-criterion row-subsample installer: a term built as the
-    /// `n_sub`-row restriction of an `N`-row problem takes `weight = N / n_sub`,
-    /// the inverse inclusion probability of uniform-without-replacement sampling.
-    /// Unlike the #991 design-honesty weights (where only the *relative* row
-    /// corrections matter at the fitted sample size, so mean-1 is correct), the
-    /// ABSOLUTE `N / n_sub` scale is load-bearing here: the √w seam scales the
-    /// residual, latent Jacobian, and β basis load by `√weight`, so the weighted
-    /// log-likelihood and joint Hessian are lifted back to the FULL-`N` scale and
-    /// the assembled REML criterion `data_fit + penalty + ½ log|H|` becomes the
-    /// Horvitz–Thompson estimator of the full-`N` criterion. The ρ-fixed penalty
-    /// (already at full-`N` scale) then balances against a full-scale data term,
-    /// keeping ρ selection unbiased. Mean-normalizing a uniform weight would
-    /// collapse it to `1` (the *unweighted* `n_sub`-row subproblem), whose
-    /// penalty/data balance is off by `N / n_sub` and systematically over-smooths.
-    ///
-    /// `weight == 1.0` stores `None` (the exact unweighted path), so a degenerate
-    /// `n_sub == N` subsample is byte-identical to the full-batch fit.
-    pub(crate) fn set_uniform_inclusion_weight(&mut self, weight: f64) -> Result<(), String> {
-        if !(weight.is_finite() && weight > 0.0) {
-            return Err(format!(
-                "SaeManifoldTerm::set_uniform_inclusion_weight: weight must be finite and \
-                 strictly positive, got {weight}"
-            ));
-        }
-        let n = self.n_obs();
-        self.row_loss_weights = if weight == 1.0 {
-            None
-        } else {
-            Some(vec![weight; n])
-        };
-        Ok(())
     }
 
     /// Drop any installed per-row reconstruction weights, returning the term to
@@ -971,57 +1046,6 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
-    /// #2022 — set the per-fit SCALE-gauge quotient opt-in (typed kwarg, no env
-    /// lever). Default false ⇒ historical path bit-for-bit.
-    pub fn set_quotient_scale(&mut self, enabled: bool) {
-        self.quotient_scale = enabled;
-    }
-
-    /// #2022 — read the per-fit SCALE-gauge quotient opt-in.
-    pub fn quotient_scale(&self) -> bool {
-        self.quotient_scale
-    }
-
-    /// #1939 — set the per-fit cone-atom RECOVERY-retraction opt-in (typed kwarg,
-    /// no env lever). Default false ⇒ historical path bit-for-bit. Distinct from
-    /// `quotient_scale`: this engages ONLY the stable breach-gated boundary
-    /// retraction (never the #2022 per-Newton fold), so it cannot detonate.
-    pub fn set_cone_atom_recovery(&mut self, enabled: bool) {
-        self.cone_atom_recovery = enabled;
-    }
-
-    /// #1939 — read the per-fit cone-atom RECOVERY-retraction opt-in.
-    pub fn cone_atom_recovery(&self) -> bool {
-        self.cone_atom_recovery
-    }
-
-    /// #5/(B) — set the per-fit rank-charge evidence opt-in (typed kwarg, no env
-    /// lever). Default false ⇒ historical path bit-for-bit. Replaces the
-    /// coordinate-block ½log|H_tt| with the honest BIC ½·d_eff·log n on the
-    /// realised decoder rank (over-charge + co-collapse fix).
-    pub fn set_rank_charge_evidence(&mut self, enabled: bool) {
-        self.rank_charge_evidence = enabled;
-    }
-
-    /// #5/(B) — read the per-fit rank-charge evidence opt-in.
-    pub fn rank_charge_evidence(&self) -> bool {
-        self.rank_charge_evidence
-    }
-
-    /// Theorem K — set the per-fit WBIC SOFT rank-charge ledger opt-in (typed kwarg,
-    /// no env lever). Default false ⇒ historical hard path bit-for-bit. Only has
-    /// effect when `rank_charge_evidence` is also on. Persisted per-fit config,
-    /// carried across clones (including stagewise per-birth clones) and across rayon
-    /// worker threads — the field is the single source of truth.
-    pub fn set_soft_rank_charge(&mut self, enabled: bool) {
-        self.soft_rank_charge = enabled;
-    }
-
-    /// Theorem K — read the per-fit WBIC soft rank-charge ledger opt-in.
-    pub fn soft_rank_charge(&self) -> bool {
-        self.soft_rank_charge
-    }
-
     /// #2023 C4 — install a Tier-0 shared mean μ (the manifold analogue of
     /// [`crate::tiered::Tier0Mean`]). Once set, [`Self::try_fitted_with_rho`] adds
     /// μ back to the assembled per-atom reconstruction, so the atoms only ever
@@ -1093,9 +1117,9 @@ impl SaeManifoldTerm {
         if z.nrows() == 0 {
             return Err("SaeManifoldTerm::fit_tier0_mean: empty target".to_string());
         }
-        let mean = z
-            .mean_axis(ndarray::Axis(0))
-            .ok_or_else(|| "SaeManifoldTerm::fit_tier0_mean: mean_axis returned None".to_string())?;
+        let mean = z.mean_axis(ndarray::Axis(0)).ok_or_else(|| {
+            "SaeManifoldTerm::fit_tier0_mean: mean_axis returned None".to_string()
+        })?;
         let demeaned = &z - &mean.view().insert_axis(ndarray::Axis(0));
         self.set_tier0_mean(mean)?;
         Ok(demeaned)
@@ -1150,65 +1174,6 @@ impl SaeManifoldTerm {
                     .expect("term assignment shape must match atom count")
             })
             .collect()
-    }
-
-    /// Theorem K WBIC SOFT learning coefficient `λ_k = ½·rank_soft_k·basis_edf_k` per
-    /// atom, from the PRE-ACCUMULATED per-atom Grams (the streaming twin of
-    /// [`Self::per_atom_soft_learning_coefficient`], as `rank_dof_from_grams` is the
-    /// twin of the dense hard path). `rank_soft_k = Σ_j μ_{kj}/(μ_{kj}+e_k·log n_eff,k)` is the
-    /// tempered (β=1/log n) count on atom k's occupancy-corrected reconstruction
-    /// spectrum `μ = sv(diag(√λ)·Uᵀ·D)²/N_eff` against the SAME Marchenko–Pastur edge
-    /// `e = R·(1+√(p/N_eff))²` the hard count thresholds on. It is bit-consistent with
-    /// the hard `d_eff` (`rank_dof_from_grams`) — both come from one
-    /// [`super::wbic_audit::recon_spectrum`], whose `rank_hard·basis_edf` matches
-    /// `realised_rank_charge_dof` — so the two ledgers agree away from the edge
-    /// (μ≫e ⇒ rank_soft→rank_hard) and the soft one is strictly smaller near it.
-    pub(crate) fn soft_learning_coefficient_from_grams(
-        &self,
-        grams: &[Array2<f64>],
-        n_eff: &[f64],
-        rho: &SaeManifoldRho,
-        dispersion_r: f64,
-    ) -> Result<Vec<f64>, String> {
-        let lam = rho.lambda_smooth_vec();
-        let r_floor = if dispersion_r.is_finite() && dispersion_r > 0.0 {
-            dispersion_r
-        } else {
-            f64::MIN_POSITIVE
-        };
-        let p_out = self.output_dim() as f64;
-        let mut out = Vec::with_capacity(self.k_atoms());
-        for k in 0..self.k_atoms() {
-            let n_eff_k = n_eff.get(k).copied().unwrap_or(0.0);
-            let lam_k = lam.get(k).copied().unwrap_or(0.0);
-            let spec = super::wbic_audit::recon_spectrum(
-                &grams[k],
-                &self.atoms[k].decoder_coefficients,
-                n_eff_k,
-                p_out,
-                r_floor,
-                lam_k,
-                Some(&self.atoms[k].smooth_penalty),
-            )
-            .map_err(|e| format!("soft_learning_coefficient_from_grams: atom {k}: {e}"))?;
-            out.push(spec.learning_coefficient());
-        }
-        Ok(out)
-    }
-
-    /// Dense twin of [`Self::soft_learning_coefficient_from_grams`]: materialise the
-    /// per-atom Grams from `self` and return the WBIC soft learning coefficient `λ_k`.
-    /// Used only when the per-fit `soft_rank_charge` flag is on, so the extra Gram pass is off
-    /// the shipped hot path.
-    pub(crate) fn per_atom_soft_learning_coefficient(
-        &self,
-        rho: &SaeManifoldRho,
-        dispersion_r: f64,
-    ) -> Result<Vec<f64>, String> {
-        let mut grams = self.empty_decoder_gram_accumulator();
-        self.accumulate_decoder_gram(&mut grams);
-        let n_eff = self.per_atom_effective_sample_size();
-        self.soft_learning_coefficient_from_grams(&grams, &n_eff, rho, dispersion_r)
     }
 
     /// Shared rank-charge DOF core (#11): `d_eff_k = rank_eff_k · basis_edf_k` from the
@@ -1374,8 +1339,17 @@ impl SaeManifoldTerm {
         per_atom_ard_variances: Option<&[Option<Array1<f64>>]>,
         isometry_pin_active: bool,
         reconstruction_dispersion: Option<f64>,
+        fitted: ArrayView2<'_, f64>,
         assignments_override: Option<ArrayView2<'_, f64>>,
     ) -> Result<SaeManifoldFitDiagnostics, String> {
+        if fitted.dim() != (self.n_obs(), self.output_dim()) {
+            return Err(format!(
+                "fit_diagnostics_report: fitted shape {:?} must be ({}, {})",
+                fitted.dim(),
+                self.n_obs(),
+                self.output_dim()
+            ));
+        }
         if let Some(view) = assignments_override {
             let n = self.n_obs();
             let k = self.k_atoms();
@@ -1475,7 +1449,7 @@ impl SaeManifoldTerm {
             residual_gauge,
             incoherence_report: match reconstruction_dispersion.or(self.certificate_dispersion) {
                 Some(dispersion) => Some(dictionary_incoherence_report_with_dispersion(
-                    self, dispersion,
+                    self, dispersion, fitted,
                 )?),
                 None => None,
             },
@@ -1513,18 +1487,14 @@ impl SaeManifoldTerm {
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
             let support = SupportMeasure::from_assignment_matrix(assignments, atom_idx)?;
             let active_token_count = support.positive_rows().len();
-            let coverage = if n > 0 {
-                support.ess() / n as f64
-            } else {
-                0.0
-            };
+            let coverage = if n > 0 { support.ess() / n as f64 } else { 0.0 };
             let activation_frequency = if n > 0 {
                 support.mass() / n as f64
             } else {
                 0.0
             };
-            let (sigma_min_tangent, sigma_max_tangent) = self
-                .atom_tangent_spectrum_from_assignments(atom_idx, &support, &metric)?;
+            let (sigma_min_tangent, sigma_max_tangent) =
+                self.atom_tangent_spectrum_from_assignments(atom_idx, &support, &metric)?;
             let tangent_condition_score = if sigma_max_tangent > 0.0 {
                 (sigma_min_tangent / sigma_max_tangent).clamp(0.0, 1.0)
             } else {
@@ -1746,6 +1716,9 @@ impl SaeManifoldTerm {
                 // mixing the periodic and linear axes. `Circle` fixes the one
                 // real continuous gauge and leaves the linear axis ungauged.
                 (SaeAtomBasisKind::Cylinder, _) => AtomTopology::Circle,
+                // The double-cover chart has one continuous angular gauge;
+                // the bounded width axis carries no rotational gauge.
+                (SaeAtomBasisKind::Mobius, _) => AtomTopology::Circle,
                 (
                     SaeAtomBasisKind::Linear
                     | SaeAtomBasisKind::Duchon
@@ -2310,6 +2283,41 @@ impl SaeManifoldTerm {
         self.border_hbb_workspace = workspace;
     }
 
+    pub(crate) fn take_arrow_assembly_buffers(&mut self) -> (Vec<ArrowRowBlock>, Array1<f64>) {
+        (
+            std::mem::take(&mut self.arrow_assembly_workspace.rows),
+            std::mem::replace(
+                &mut self.arrow_assembly_workspace.gb,
+                Array1::<f64>::zeros(0),
+            ),
+        )
+    }
+
+    /// Install a completely refreshed device descriptor while retaining its
+    /// allocation identity when the prior iterate returned one to the pool.
+    pub(crate) fn install_device_sae_pcg_data(
+        &mut self,
+        sys: &mut ArrowSchurSystem,
+        data: DeviceSaePcgData,
+    ) {
+        let recycled = self.arrow_assembly_workspace.device_sae_pcg.take();
+        sys.set_device_sae_pcg_data_reusing(data, recycled);
+    }
+
+    /// Return allocation storage after every consumer of this iteration's
+    /// numerical system has finished. No operator or factor cache is retained;
+    /// the next assembly zeroes and recomputes all row/shared blocks.
+    pub(crate) fn reclaim_arrow_assembly_workspace(&mut self, sys: &mut ArrowSchurSystem) {
+        self.arrow_assembly_workspace.rows = std::mem::take(&mut sys.rows);
+        self.arrow_assembly_workspace.gb = std::mem::replace(&mut sys.gb, Array1::<f64>::zeros(0));
+        if let Some(device) = sys.device_sae_pcg.take() {
+            self.arrow_assembly_workspace.device_sae_pcg = Some(device);
+        }
+        if !sys.hbb.is_empty() {
+            self.reclaim_border_hbb_workspace(sys);
+        }
+    }
+
     /// Factored arrow-Schur border dimension `Σ_k M_k · r_k` (issue #972): the
     /// number of decoder coordinates the border actually carries once the
     /// low-rank Grassmann frames are profiled out. Atoms with no active frame
@@ -2572,7 +2580,6 @@ impl SaeManifoldTerm {
     pub(crate) fn refresh_active_frames_from_data(
         &mut self,
         target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
     ) -> Result<usize, String> {
         let n = self.n_obs();
         let p = self.output_dim();
@@ -2581,31 +2588,78 @@ impl SaeManifoldTerm {
             return Ok(0);
         }
         // Per-row assignments and per-(row, atom) decoded outputs, computed once.
-        let mut assignments = Vec::with_capacity(n);
-        for row in 0..n {
-            assignments.push(self.assignment.try_assignments_row_for_rho(row, rho)?);
-        }
+        // All three builds below are per-row independent (each row reads only
+        // immutable `&self`/prior arrays and writes ONLY its own output row), so
+        // the row-parallel paths are bit-identical to the serial sweeps
+        // (disjoint-writes determinism — no cross-row float reduction).
+        let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+        // Gate map: order-preserving parallel collect == serial push.
+        let assignments = self.assignments_all_parallel(n)?;
         let mut decoded = Array3::<f64>::zeros((n, k_atoms, p));
-        let mut dbuf = vec![0.0_f64; p];
-        for row in 0..n {
-            for atom_idx in 0..k_atoms {
-                self.atoms[atom_idx].fill_decoded_row(row, &mut dbuf);
-                for c in 0..p {
-                    decoded[[row, atom_idx, c]] = dbuf[c];
+        {
+            let atoms = &self.atoms;
+            if parallel {
+                use rayon::prelude::*;
+                decoded
+                    .axis_iter_mut(ndarray::Axis(0))
+                    .into_par_iter()
+                    .enumerate()
+                    .for_each(|(row, mut drow)| {
+                        // #1557 — pin any faer GEMM reachable via `fill_decoded_row`.
+                        with_nested_parallel(|| {
+                            for atom_idx in 0..k_atoms {
+                                let mut arow = drow.row_mut(atom_idx);
+                                let arow = arow.as_slice_mut().expect("contiguous decoded row");
+                                atoms[atom_idx].fill_decoded_row(row, arow);
+                            }
+                        });
+                    });
+            } else {
+                let mut dbuf = vec![0.0_f64; p];
+                for row in 0..n {
+                    for atom_idx in 0..k_atoms {
+                        atoms[atom_idx].fill_decoded_row(row, &mut dbuf);
+                        for c in 0..p {
+                            decoded[[row, atom_idx, c]] = dbuf[c];
+                        }
+                    }
                 }
             }
         }
         // Full fitted reconstruction `Σ_k a_k decoded_k`, so the per-atom partial
         // residual is `e_k = (z − fitted) + a_k decoded_k` (add atom k back in).
         let mut fitted = Array2::<f64>::zeros((n, p));
-        for row in 0..n {
-            for atom_idx in 0..k_atoms {
-                let a = assignments[row][atom_idx];
-                if a == 0.0 {
-                    continue;
-                }
-                for c in 0..p {
-                    fitted[[row, c]] += a * decoded[[row, atom_idx, c]];
+        {
+            let decoded_ref = &decoded;
+            let assignments_ref = &assignments;
+            if parallel {
+                use rayon::prelude::*;
+                fitted
+                    .axis_iter_mut(ndarray::Axis(0))
+                    .into_par_iter()
+                    .enumerate()
+                    .for_each(|(row, mut frow)| {
+                        for atom_idx in 0..k_atoms {
+                            let a = assignments_ref[row][atom_idx];
+                            if a == 0.0 {
+                                continue;
+                            }
+                            for c in 0..p {
+                                frow[c] += a * decoded_ref[[row, atom_idx, c]];
+                            }
+                        }
+                    });
+            } else {
+                for row in 0..n {
+                    for atom_idx in 0..k_atoms {
+                        let a = assignments[row][atom_idx];
+                        if a == 0.0 {
+                            continue;
+                        }
+                        for c in 0..p {
+                            fitted[[row, c]] += a * decoded[[row, atom_idx, c]];
+                        }
+                    }
                 }
             }
         }
@@ -2627,21 +2681,46 @@ impl SaeManifoldTerm {
             // `a_k`).
             let mut targets = Array2::<f64>::zeros((n, p));
             let mut rcoords = Array2::<f64>::zeros((n, r));
-            for row in 0..n {
+            // Per-row build of `(a_k·e_k, a_k·ĉ_k)`: each row reads only immutable
+            // state and writes ONLY its own `targets`/`rcoords` rows (disjoint), so
+            // the row-parallel path is bit-identical to the serial sweep. Pure
+            // scalar work (no faer GEMM) — no nested-parallel guard needed.
+            let atom = &self.atoms[atom_idx];
+            let build_row = |row: usize, trow: &mut [f64], rrow: &mut [f64]| {
                 let a = assignments[row][atom_idx];
                 // Partial residual e_{n,k} = z_n − (fitted − a_k decoded_k).
                 for c in 0..p {
                     let e = target[[row, c]] - fitted[[row, c]] + a * decoded[[row, atom_idx, c]];
-                    targets[[row, c]] = a * e;
+                    trow[c] = a * e;
                 }
                 // In-span coordinate ĉ_{n,k} = Φ_k(t_n)·C_k ∈ ℝ^r.
                 for j in 0..r {
                     let mut acc = 0.0_f64;
                     for basis_col in 0..m {
-                        acc += self.atoms[atom_idx].basis_values[[row, basis_col]]
-                            * coords_c[[basis_col, j]];
+                        acc += atom.basis_values[[row, basis_col]] * coords_c[[basis_col, j]];
                     }
-                    rcoords[[row, j]] = a * acc;
+                    rrow[j] = a * acc;
+                }
+            };
+            if parallel {
+                use rayon::prelude::*;
+                targets
+                    .axis_iter_mut(ndarray::Axis(0))
+                    .into_par_iter()
+                    .zip(rcoords.axis_iter_mut(ndarray::Axis(0)).into_par_iter())
+                    .enumerate()
+                    .for_each(|(row, (mut trow, mut rrow))| {
+                        let trow = trow.as_slice_mut().expect("contiguous targets row");
+                        let rrow = rrow.as_slice_mut().expect("contiguous rcoords row");
+                        build_row(row, trow, rrow);
+                    });
+            } else {
+                for row in 0..n {
+                    let mut trow = targets.row_mut(row);
+                    let trow = trow.as_slice_mut().expect("contiguous targets row");
+                    let mut rrow = rcoords.row_mut(row);
+                    let rrow = rrow.as_slice_mut().expect("contiguous rcoords row");
+                    build_row(row, trow, rrow);
                 }
             }
             cross.accumulate(targets.view(), rcoords.view())?;
@@ -2822,7 +2901,32 @@ impl SaeManifoldTerm {
             return None;
         }
         let budget_plan = self.sparse_active_plan();
-        match (self.softmax_active_cap, budget_plan) {
+        // #2134 — the deployment `top_k` (`softmax_active_cap`) is a HARD fit-time
+        // truncation of the softmax RECONSTRUCTION, faithful in only two regimes:
+        //   * the FIXED-DECODER encode / OOS assembly, where the decoder is frozen
+        //     so the dictionary cannot co-collapse — this is the load-bearing
+        //     large-K compact-encode contract
+        //     (`large_k_softmax_compact_encode_is_o1_per_token_and_recovers_support`);
+        //   * the winner-take-all `cap == 1` (#2132): the top-1 truncation's
+        //     optimum coincides with a valid full-softmax state (`a_winner → 1`),
+        //     and installing it keeps the cold routing-refine seed and the
+        //     subsequent Arrow-Schur solve on the SAME support (the saddle escape).
+        //
+        // In the JOINT co-training fit with `cap >= 2`, nothing forces the softmax
+        // to concentrate onto exactly `top_k` atoms per row, so the truncated,
+        // NON-renormalized reconstruction `Σ_{k∈top_k} a_k B_k g_k` (formed
+        // identically by the compact assembly and the line-search objective) is a
+        // SUPPORT-DEPENDENT surrogate: the per-row top-k support flips across outer
+        // Newton iterations, the objective jumps at every re-selection, monotone
+        // descent breaks, and the dictionary co-collapses — the reported top_k>1
+        // divergence. Route joint `cap >= 2` through the memory-budget lever ALONE
+        // (faithful at large K where the softmax IS concentrated so the dropped
+        // mass is `O(a²)`; a no-op dense fit at small/moderate K) and apply `top_k`
+        // only as the post-fit projection. The winner-take-all cap and the
+        // fixed-decoder encode cap are unchanged.
+        let honor_user_cap = self.fixed_decoder_assembly || self.softmax_active_cap == Some(1);
+        let user_cap = self.softmax_active_cap.filter(|_| honor_user_cap);
+        match (user_cap, budget_plan) {
             (Some(cap), Some((budget_cap, cutoff))) => Some((cap.min(budget_cap), cutoff)),
             // Explicit cap only: retain exactly the top-`cap` atoms (no extra
             // magnitude cutoff beyond the cap).
@@ -2890,7 +2994,7 @@ impl SaeManifoldTerm {
         let mut design = Array2::<f64>::zeros((n, m_total));
         for row in 0..n {
             let assignments = match rho {
-                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
+                Some(_) => self.assignment.try_assignments_row(row)?,
                 None => self.assignment.try_assignments_row(row)?,
             };
             for atom_idx in 0..k_atoms {
@@ -2920,20 +3024,14 @@ impl SaeManifoldTerm {
                 }
             }
             self.atoms[atom_idx].refresh_intrinsic_smooth_penalty();
-            // #2022 refit-peel (RESET form). This LSQ solved the ABSOLUTE decoder
-            // (design = a·φ, exp(s)-unaware), so under the quotient reset s to 0
-            // then peel ⇒ s = ln‖B_abs‖, B unit, reconstruction = a·Φ·B_abs (the
-            // LSQ intent). Gated: default-off keeps the write bit-for-bit.
-            if self.quotient_scale {
-                self.atoms[atom_idx].log_amplitude = 0.0;
-                self.atoms[atom_idx].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-            }
         }
         Ok(())
     }
 
     pub fn fitted(&self) -> Array2<f64> {
-        self.try_fitted().expect("assignment logits must be finite")
+        self.try_fitted().expect(
+            "fitted reconstruction requires finite assignments and no target-dependent rescue",
+        )
     }
 
     /// The #1026 hybrid-collapse substitution map: `atom_idx → &AtomLinearImage`
@@ -2966,14 +3064,14 @@ impl SaeManifoldTerm {
     }
 
     /// #1228 — attach the trained dictionary's hybrid-collapsed linear images to
-    /// this (typically OOS) term so its reconstruction (`fitted` / the top-k
-    /// assembler) decodes verdict-linear `d = 1` slots by the SAME straight
-    /// sub-model the training reconstruction used, instead of the original
-    /// curved decoder. Each image's `atom_idx` must index a real slot; an image
-    /// whose channel count `p` disagrees with this term's output dim, or whose
-    /// `atom_idx` is out of range, is rejected so a stale/mismatched payload
-    /// cannot silently corrupt the reconstruction. Pass an empty slice (or never
-    /// call this) for an all-curved OOS reconstruction.
+    /// this (typically OOS) term so target-aware reconstruction decodes
+    /// verdict-linear `d = 1` slots by the SAME straight sub-model the training
+    /// reconstruction used, instead of the original curved decoder. Each image's
+    /// `atom_idx` must be unique and index a real slot; an image whose channel
+    /// count `p` disagrees with this term's output dim, or whose `atom_idx` is out
+    /// of range, is rejected so a stale/mismatched payload cannot silently corrupt
+    /// the reconstruction. Pass an empty vector (or never call this) for an
+    /// all-curved OOS reconstruction.
     ///
     /// `pub` (not `pub(crate)`): this is part of the FFI surface — the gam-pyffi
     /// crate calls it from `latent_basis_and_sae_ffi.rs` to attach a trained
@@ -2986,7 +3084,14 @@ impl SaeManifoldTerm {
     ) -> Result<(), String> {
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
+        let mut seen = std::collections::HashSet::with_capacity(images.len());
         for img in &images {
+            if !seen.insert(img.atom_idx) {
+                return Err(format!(
+                    "set_hybrid_linear_images: duplicate image for atom {}",
+                    img.atom_idx
+                ));
+            }
             if img.atom_idx >= k_atoms {
                 return Err(format!(
                     "set_hybrid_linear_images: atom_idx {} out of range (k_atoms={k_atoms})",
@@ -3037,7 +3142,10 @@ impl SaeManifoldTerm {
     /// reconstruction composes with hybrid collapse (#1233) instead of
     /// re-deriving the curved image by hand and silently bypassing the verdict.
     /// The atom coordinates (`t`) and decoded curves are the term's own fitted
-    /// ones; only the assignment masses come from `assignments`.
+    /// ones; only the assignment masses come from `assignments`. Because this
+    /// entry point has no target, it explicitly refuses a collapse-rescued image;
+    /// callers with a target must use
+    /// [`Self::reconstruct_from_assignments_target_aware`].
     pub fn reconstruct_from_assignments(
         &self,
         assignments: ArrayView2<'_, f64>,
@@ -3057,9 +3165,24 @@ impl SaeManifoldTerm {
         } else {
             std::collections::HashMap::new()
         };
+        if let Some(image) = linear_images
+            .values()
+            .find(|image| image.is_collapse_rescued())
+        {
+            return Err(format!(
+                "SaeManifoldTerm::reconstruct_from_assignments: collapse-rescued atom {} requires reconstruct_from_assignments_target_aware",
+                image.atom_idx
+            ));
+        }
         let mut out = Array2::<f64>::zeros((n, p));
-        let mut g_buf = vec![0.0_f64; p];
-        for row in 0..n {
+        // Per-row reconstruction: each row reads only immutable `&self`/`assignments`
+        // state and writes ONLY its own `out` row (a per-row accumulation over atoms,
+        // never a cross-row float reduction), so the row-parallel path is bit-identical
+        // to the serial sweep (disjoint-writes determinism). Structural twin of the
+        // reconstruction in `try_fitted_with_rho`; the only difference is that the
+        // per-row mass here is read straight from the `assignments` view (no per-row
+        // `?`), so the closure is infallible.
+        let fill_out_row = |row: usize, out_row: &mut [f64], g_buf: &mut [f64]| {
             for atom_idx in 0..k_atoms {
                 let a_k = assignments[[row, atom_idx]];
                 if a_k == 0.0 {
@@ -3067,17 +3190,109 @@ impl SaeManifoldTerm {
                 }
                 if let Some(image) = linear_images.get(&atom_idx) {
                     let own_t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
-                    image.fill_row(image.coordinate_for_row(row, own_t), &mut g_buf);
+                    image.fill_row(own_t, g_buf);
                 } else {
-                    self.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
+                    self.atoms[atom_idx].fill_decoded_row(row, g_buf);
                 }
-                let mut out_row = out.row_mut(row);
                 for out_col in 0..p {
                     out_row[out_col] += a_k * g_buf[out_col];
                 }
             }
+        };
+        let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+        if parallel {
+            use rayon::prelude::*;
+            const CHUNK: usize = 32;
+            // #1557 — pin any faer GEMM reached via `fill_decoded_row` / `image.fill_row`
+            // to `Par::Seq` so nested faer does not re-fan the pool (bit-identical).
+            out.axis_chunks_iter_mut(ndarray::Axis(0), CHUNK)
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(chunk, mut block)| {
+                    with_nested_parallel(|| {
+                        let start = chunk * CHUNK;
+                        let mut g_buf = vec![0.0_f64; p];
+                        for local in 0..block.nrows() {
+                            let row = start + local;
+                            let mut out_row = block.row_mut(local);
+                            let out_row = out_row.as_slice_mut().expect("contiguous out row");
+                            fill_out_row(row, out_row, &mut g_buf);
+                        }
+                    });
+                });
+        } else {
+            let mut g_buf = vec![0.0_f64; p];
+            for row in 0..n {
+                let mut out_row = out.row_mut(row);
+                let out_row = out_row.as_slice_mut().expect("contiguous out row");
+                fill_out_row(row, out_row, &mut g_buf);
+            }
         }
         // #2023 C4 — Tier-0 shared mean add-back (no-op when inactive).
+        self.add_tier0_mean_inplace(&mut out);
+        Ok(out)
+    }
+
+    /// Assemble a hybrid-collapsed reconstruction from explicit assignment
+    /// masses and the response being reconstructed. Ordinary straight images use
+    /// the atom's realized coordinate. A collapse-rescued image derives every
+    /// coordinate from that row's leave-this-atom-out residual projected onto its
+    /// persisted direction `v`; no train-row coordinate cache exists.
+    pub fn reconstruct_from_assignments_target_aware(
+        &self,
+        target: ArrayView2<'_, f64>,
+        assignments: ArrayView2<'_, f64>,
+    ) -> Result<Array2<f64>, String> {
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let k_atoms = self.k_atoms();
+        if target.dim() != (n, p) || assignments.dim() != (n, k_atoms) {
+            return Err(format!(
+                "SaeManifoldTerm::reconstruct_from_assignments_target_aware: target={:?}, assignments={:?} disagree with ({n}, {p}) and ({n}, {k_atoms})",
+                target.dim(),
+                assignments.dim()
+            ));
+        }
+        let linear_images = self.hybrid_linear_image_map();
+        let full_curved = self.reconstruct_from_assignments(assignments, false)?;
+        if linear_images.is_empty() {
+            return Ok(full_curved);
+        }
+
+        let mut out = Array2::<f64>::zeros((n, p));
+        let mut decoded = vec![0.0_f64; p];
+        let mut image_row = vec![0.0_f64; p];
+        let mut residual = vec![0.0_f64; p];
+        for row in 0..n {
+            for atom_idx in 0..k_atoms {
+                let mass = assignments[[row, atom_idx]];
+                if mass == 0.0 {
+                    continue;
+                }
+                if let Some(image) = linear_images.get(&atom_idx) {
+                    let coordinate = if image.is_collapse_rescued() {
+                        self.atoms[atom_idx].fill_decoded_row(row, &mut decoded);
+                        for output in 0..p {
+                            residual[output] = target[[row, output]] - full_curved[[row, output]]
+                                + mass * decoded[output];
+                        }
+                        image.coordinate_from_residual(&residual).ok_or_else(|| {
+                            format!(
+                                "SaeManifoldTerm::reconstruct_from_assignments_target_aware: collapse-rescued atom {atom_idx} cannot project a {p}-channel residual"
+                            )
+                        })?
+                    } else {
+                        self.assignment.coords[atom_idx].as_matrix()[[row, 0]]
+                    };
+                    image.fill_row(coordinate, &mut image_row);
+                } else {
+                    self.atoms[atom_idx].fill_decoded_row(row, &mut image_row);
+                }
+                for output in 0..p {
+                    out[[row, output]] += mass * image_row[output];
+                }
+            }
+        }
         self.add_tier0_mean_inplace(&mut out);
         Ok(out)
     }
@@ -3087,15 +3302,13 @@ impl SaeManifoldTerm {
     /// (whose linear image carries a projection direction `v`) recomputes each
     /// row's coordinate from THIS `target` as
     /// `uᵢ = ⟨y_i − Σ_{j≠k} f_j(x_i), v⟩` — its own leave-this-atom-out residual
-    /// projected onto `v` — instead of reading the train-only cached
-    /// `row_codes[i]` (or, worse, the atom's collapsed own coordinate `own_t`).
+    /// projected onto `v`. This projection is the only collapse-rescue coordinate
+    /// model; there is no train-row cache or own-coordinate substitute.
     ///
-    /// This is the SAME math the train split used to build `row_codes`
-    /// (`row_codes[i] = ⟨target_resid[i], v⟩`), so on the TRAIN rows/target it
-    /// reproduces the train reconstruction bit-for-bit, and on a HELD-OUT
-    /// rows/target it produces the correct out-of-sample coordinate — train and
-    /// OOS are ONE model. Ordinary (non-rescued) straight images and curved slots
-    /// are decoded exactly as in [`Self::try_fitted`]; they ignore `target`.
+    /// This is the SAME math the train split used to fit the image, so train and
+    /// held-out rows use one model. Ordinary (non-rescued) straight images and
+    /// curved slots are decoded exactly as in [`Self::try_fitted`]; they ignore
+    /// `target`.
     ///
     /// `rho` selects the assignment-mass resolution (`Some` uses the ρ-keyed
     /// gates, `None` the persisted gates), mirroring [`Self::try_fitted_with_rho`].
@@ -3126,7 +3339,7 @@ impl SaeManifoldTerm {
         let mut resid_buf = vec![0.0_f64; p];
         for row in 0..n {
             let a = match rho {
-                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
+                Some(_) => self.assignment.try_assignments_row(row)?,
                 None => self.assignment.try_assignments_row(row)?,
             };
             for atom_idx in 0..k_atoms {
@@ -3140,23 +3353,16 @@ impl SaeManifoldTerm {
                             resid_buf[col] = target[[row, col]] - full_curved[[row, col]]
                                 + a_k * decoded_buf[col];
                         }
-                        // `coordinate_from_residual` returns `None` only on a
-                        // length mismatch (impossible here — validated at attach)
-                        // or a non-rescued image (excluded by the branch); fall
-                        // back to the train code/own-coord path if it ever does.
-                        let coord =
-                            image
-                                .coordinate_from_residual(&resid_buf)
-                                .unwrap_or_else(|| {
-                                    let own_t =
-                                        self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
-                                    image.coordinate_for_row(row, own_t)
-                                });
+                        let coord = image.coordinate_from_residual(&resid_buf).ok_or_else(|| {
+                            format!(
+                                "SaeManifoldTerm::try_fitted_target_aware: collapse-rescued atom {atom_idx} cannot project a {p}-channel residual"
+                            )
+                        })?;
                         image.fill_row(coord, &mut g_buf);
                     } else {
                         // Ordinary straight image: decode at the atom's own coord.
                         let own_t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
-                        image.fill_row(image.coordinate_for_row(row, own_t), &mut g_buf);
+                        image.fill_row(own_t, &mut g_buf);
                     }
                 } else {
                     self.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
@@ -3219,29 +3425,76 @@ impl SaeManifoldTerm {
         } else {
             std::collections::HashMap::new()
         };
+        if let Some(image) = linear_images
+            .values()
+            .find(|image| image.is_collapse_rescued())
+        {
+            return Err(format!(
+                "SaeManifoldTerm::try_fitted: collapse-rescued atom {} requires try_fitted_target_aware",
+                image.atom_idx
+            ));
+        }
         // Reuse a single scratch buffer across all (row, atom) pairs instead of
         // allocating a fresh `Array1<f64>` of length p per call.
-        let mut g_buf = vec![0.0_f64; p];
-        for row in 0..n {
-            let a = match rho {
-                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
-                None => self.assignment.try_assignments_row(row)?,
+        //
+        // Per-row reconstruction: each row reads only immutable `&self` state and
+        // writes ONLY its own `out` row. Every output cell is written exactly once
+        // (a per-row accumulation over atoms — never a cross-row float reduction),
+        // so the row-parallel path is bit-identical to the serial sweep
+        // (disjoint-writes determinism).
+        let fill_out_row =
+            |row: usize, out_row: &mut [f64], g_buf: &mut [f64]| -> Result<(), String> {
+                let a = match rho {
+                    Some(_) => self.assignment.try_assignments_row(row)?,
+                    None => self.assignment.try_assignments_row(row)?,
+                };
+                for atom_idx in 0..k_atoms {
+                    let a_k = a[atom_idx];
+                    if let Some(image) = linear_images.get(&atom_idx) {
+                        // Verdict-linear slot: substitute the straight sub-model
+                        // image at this row's fitted on-atom coordinate. Rescued
+                        // images were refused above because they require a target.
+                        let own_t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
+                        image.fill_row(own_t, g_buf);
+                    } else {
+                        self.atoms[atom_idx].fill_decoded_row(row, g_buf);
+                    }
+                    for out_col in 0..p {
+                        out_row[out_col] += a_k * g_buf[out_col];
+                    }
+                }
+                Ok(())
             };
-            for atom_idx in 0..k_atoms {
-                let a_k = a[atom_idx];
-                if let Some(image) = linear_images.get(&atom_idx) {
-                    // Verdict-linear slot: substitute the straight sub-model image
-                    // at this row's fitted on-atom coordinate — or, for a #1026
-                    // collapse-rescued slot, at its fresh per-row code.
-                    let own_t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
-                    image.fill_row(image.coordinate_for_row(row, own_t), &mut g_buf);
-                } else {
-                    self.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
-                }
+        let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+        if parallel {
+            use rayon::prelude::*;
+            const CHUNK: usize = 32;
+            // Disjoint row-block writes via `axis_chunks_iter_mut`; per-worker
+            // `g_buf` scratch. #1557 — wrap the chunk body in `with_nested_parallel`
+            // so any faer GEMM reached via `fill_decoded_row` / `image.fill_row`
+            // pins to `Par::Seq` rather than re-fanning the pool (bit-identical).
+            out.axis_chunks_iter_mut(ndarray::Axis(0), CHUNK)
+                .into_par_iter()
+                .enumerate()
+                .try_for_each(|(chunk, mut block)| -> Result<(), String> {
+                    with_nested_parallel(|| {
+                        let start = chunk * CHUNK;
+                        let mut g_buf = vec![0.0_f64; p];
+                        for local in 0..block.nrows() {
+                            let row = start + local;
+                            let mut out_row = block.row_mut(local);
+                            let out_row = out_row.as_slice_mut().expect("contiguous out row");
+                            fill_out_row(row, out_row, &mut g_buf)?;
+                        }
+                        Ok(())
+                    })
+                })?;
+        } else {
+            let mut g_buf = vec![0.0_f64; p];
+            for row in 0..n {
                 let mut out_row = out.row_mut(row);
-                for out_col in 0..p {
-                    out_row[out_col] += a_k * g_buf[out_col];
-                }
+                let out_row = out_row.as_slice_mut().expect("contiguous out row");
+                fill_out_row(row, out_row, &mut g_buf)?;
             }
         }
         // #2023 C4 — Tier-0 shared mean add-back (no-op when inactive).
@@ -3323,7 +3576,7 @@ impl SaeManifoldTerm {
         // fit uses the same row weighting the joint reconstruction loss does.
         let mut weights: Vec<Array1<f64>> = Vec::with_capacity(n);
         for row in 0..n {
-            weights.push(self.assignment.try_assignments_row_for_rho(row, rho)?);
+            weights.push(self.assignment.try_assignments_row(row)?);
         }
         // The full assembled reconstruction `Σ_k a[i,k]·γ_k`, computed once. Each
         // atom's leave-this-atom-out response residual is `y_resp = target −
@@ -3425,7 +3678,6 @@ impl SaeManifoldTerm {
             total_centered_variance,
             n,
             dispersion_r,
-            self.rank_charge_evidence(),
         )
     }
 
@@ -3452,7 +3704,7 @@ impl SaeManifoldTerm {
         // whole dictionary k times.
         let mut weights: Vec<Array1<f64>> = Vec::with_capacity(n);
         for row in 0..n {
-            weights.push(self.assignment.try_assignments_row_for_rho(row, rho)?);
+            weights.push(self.assignment.try_assignments_row(row)?);
         }
         let mut g_buf = vec![0.0_f64; p];
         let mut out = Vec::with_capacity(k_atoms);
@@ -3489,7 +3741,9 @@ impl SaeManifoldTerm {
     /// realized inside [`Self::compute_hybrid_split_report`] (no re-fit, no outer
     /// continuation, sidestepping #1051). Returns the curved reconstruction
     /// unchanged when no verdict selected linear, or when the report has not been
-    /// computed yet (`hybrid_split_report == None`).
+    /// computed yet (`hybrid_split_report == None`). A collapse-rescued image is
+    /// refused because this method has no target from which to derive its
+    /// coordinate; use [`Self::try_fitted_target_aware`] instead.
     pub fn hybrid_collapsed_reconstruction(
         &self,
         rho: &SaeManifoldRho,
@@ -3500,8 +3754,8 @@ impl SaeManifoldTerm {
         // instead of its curved curve. This replaces the dedicated re-collapse
         // loop this method used to carry (a parallel layer). The production
         // `try_fitted` shares the identical routine at `rho = None`; this entry
-        // point keeps the rho-keyed collapse for the #1026 EV-dominance reporting
-        // (`hybrid_collapsed_explained_variance`) and the regression battery.
+        // point keeps the rho-keyed, target-less collapse for callers whose
+        // report contains only ordinary straight images.
         self.try_fitted_with_rho(Some(rho), true)
     }
 
@@ -3527,7 +3781,7 @@ impl SaeManifoldTerm {
                 target.dim()
             ));
         }
-        let collapsed = self.hybrid_collapsed_reconstruction(rho)?;
+        let collapsed = self.try_fitted_target_aware(target, Some(rho))?;
         Ok(reconstruction_explained_variance(target, collapsed.view()))
     }
 
@@ -3535,18 +3789,16 @@ impl SaeManifoldTerm {
     /// dictionary. Builds the offline certified [`EncodeAtlas`] over this term's
     /// frozen atoms and encodes a target corpus `targets` (`n × p`) through the
     /// per-chart distilled Jacobian predictor, with the Kantorovich certificate
-    /// gating each row and an exact-solve fallback for the rows the amortized
-    /// predictor cannot certify. Returns one [`EncodeResult`] per atom (the
-    /// per-atom encoded coordinates + per-row certificate mask), in dictionary
-    /// order.
+    /// supplying chart-aware starts. Those starts are then refined together by
+    /// the frozen dictionary's shared-residual objective. The returned
+    /// [`JointEncodeResult`] carries one coordinate block per atom plus a
+    /// numerical joint-stationarity mask; it does not mislabel a composition of
+    /// per-atom certificates as a certificate for the multi-atom problem.
     ///
-    /// This is the thread's "encoder + certificate-gated exact fallback"
-    /// deployment made reachable from a fit: the distilled map approximates
-    /// inference at one mat-vec/row, and any row whose amortized prediction fails
-    /// `h ≤ ½` falls back to the certified IFT-warm-start Newton encode
-    /// ([`EncodeAtlas::certified_encode_row`]); rows that still cannot be
-    /// certified ride the [`EncodeResult::encode_uncertified_count`] flag for the
-    /// upstream exact multi-start solve (honesty, never a silent wrong encode).
+    /// The distilled map and per-atom atlas are initializer machinery only. A
+    /// row whose cheap start is not certifiable tries the atlas's colder start;
+    /// either way, the final coordinates come from the joint residual solve and
+    /// its explicit first-order convergence verdict.
     ///
     /// Magic by default: the atlas's worst-case bounds are auto-derived from the
     /// fit — `amplitude_bound[k]` is the largest fitted assignment mass `a[i,k]`
@@ -3560,7 +3812,7 @@ impl SaeManifoldTerm {
         &self,
         targets: ArrayView2<'_, f64>,
         amplitudes: ArrayView2<'_, f64>,
-    ) -> Result<Vec<crate::encode::EncodeResult>, String> {
+    ) -> Result<crate::encode::JointEncodeResult, String> {
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
         let n = targets.nrows();
@@ -3639,152 +3891,99 @@ impl SaeManifoldTerm {
         // keep the one-mat-vec encode without a broad slow-path regression.
         // Euclidean-metric, prior-free fits (empty `log_ard`) skip this branch and
         // take the cascade below bit-for-bit unchanged.
-        let metric = self
-            .row_metric
-            .as_ref()
-            .filter(|m| m.whitens_likelihood());
-        let prior_active = self
+        let metric = self.row_metric.as_ref().filter(|m| m.whitens_likelihood());
+        let (metric_rank, metric_norm_bound) = match metric {
+            Some(m) => {
+                if m.p_out() != p || m.n_rows() != n {
+                    return Err(format!(
+                        "SaeManifoldTerm::amortized_encode_target: row_metric is ({} rows, \
+                         p={}) but target is (n={n}, p={p})",
+                        m.n_rows(),
+                        m.p_out()
+                    ));
+                }
+                let bound = m.row_traces().iter().copied().fold(0.0_f64, f64::max);
+                (m.metric_rank(), bound)
+            }
+            None => (0usize, 1.0_f64),
+        };
+        let mut coords: Vec<Array2<f64>> = self
             .atoms
             .iter()
-            .any(|a| a.ard_precisions.as_ref().is_some_and(|pa| !pa.is_empty()));
-        if metric.is_some() || prior_active {
-            let (metric_rank, metric_norm_bound) = match metric {
-                Some(m) => {
-                    if m.p_out() != p || m.n_rows() != n {
-                        return Err(format!(
-                            "SaeManifoldTerm::amortized_encode_target: row_metric is ({} rows, \
-                             p={}) but target is (n={n}, p={p})",
-                            m.n_rows(),
-                            m.p_out()
-                        ));
-                    }
-                    // max_n tr(M_n) — conservative upper bound on max_n ‖M_n‖ (the
-                    // offline Lipschitz scale); `row_traces()` is the criterion-facing
-                    // (un-floored) trace stack the metric already carries.
-                    let bound = m.row_traces().iter().copied().fold(0.0_f64, f64::max);
-                    (m.metric_rank(), bound)
-                }
-                // Prior-only (Euclidean metric): identity whitening, unit Lipschitz
-                // scale — only the ARD prior departs from the Euclidean field.
-                None => (0usize, 1.0_f64),
-            };
-            let mut coords: Vec<Array2<f64>> = self
-                .atoms
-                .iter()
-                .map(|a| Array2::<f64>::zeros((n, a.latent_dim)))
-                .collect();
-            let mut certified: Vec<Vec<bool>> = vec![vec![false; n]; k_atoms];
-            for row in 0..n {
-                // The row's metric factor `U_n ∈ ℝ^{p×rank}` (`factor_entry` reads the
-                // un-floored criterion-face factors), materialized once and shared
-                // across atoms (the metric is atom-independent — output-space). `None`
-                // when no likelihood-whitening metric is active (identity whitening).
-                let u_row = metric.map(|m| {
-                    Array2::<f64>::from_shape_fn((p, metric_rank), |(i, k)| m.factor_entry(row, i, k))
-                });
-                for atom_idx in 0..k_atoms {
-                    // The atom's fitted per-axis ARD precisions (empty ⇒ prior-free).
-                    let prior_alpha = self.atoms[atom_idx]
-                        .ard_precisions
-                        .as_ref()
-                        .filter(|pa| !pa.is_empty())
-                        .and_then(|pa| pa.as_slice());
-                    let objective = crate::encode::EncodeObjective {
-                        metric_factor: u_row.as_ref().map(|u| u.view()),
-                        prior_alpha,
-                        metric_norm_bound,
-                    };
-                    let amp = amplitudes[[row, atom_idx]];
-                    // Same amortized-then-certified cascade as the Euclidean path,
-                    // both tiers certifying under the objective: the one-mat-vec
-                    // distilled predictor first, the certified IFT-warm-start Newton
-                    // encode only for rows it cannot certify.
-                    let (mut t, mut cert) = atlas.amortized_encode_row_with_objective(
-                        &self.atoms[atom_idx],
+            .map(|a| Array2::<f64>::zeros((n, a.latent_dim)))
+            .collect();
+        let mut converged = vec![false; n];
+
+        for row in 0..n {
+            let u_row = metric.map(|m| {
+                Array2::<f64>::from_shape_fn((p, metric_rank), |(i, k)| m.factor_entry(row, i, k))
+            });
+            let mut starts = Vec::with_capacity(k_atoms);
+            for atom_idx in 0..k_atoms {
+                let atom = &self.atoms[atom_idx];
+                let prior_alpha = atom
+                    .ard_precisions
+                    .as_ref()
+                    .filter(|pa| !pa.is_empty())
+                    .and_then(|pa| pa.as_slice());
+                let objective = crate::encode::EncodeObjective {
+                    metric_factor: u_row.as_ref().map(|u| u.view()),
+                    prior_alpha,
+                    metric_norm_bound,
+                };
+                let amplitude = amplitudes[[row, atom_idx]];
+                let (mut start, start_cert) = atlas.amortized_encode_row_with_objective(
+                    atom,
+                    atom_idx,
+                    targets.row(row),
+                    amplitude,
+                    &objective,
+                )?;
+                if !start_cert.certified() {
+                    let (cold, cold_cert) = atlas.certified_encode_row_with_objective(
+                        atom,
                         atom_idx,
                         targets.row(row),
-                        amp,
+                        amplitude,
                         &objective,
                     )?;
-                    if !cert.certified() {
-                        let (t_c, cert_c) = atlas.certified_encode_row_with_objective(
-                            &self.atoms[atom_idx],
-                            atom_idx,
-                            targets.row(row),
-                            amp,
-                            &objective,
-                        )?;
-                        if cert_c.certified() {
-                            t = t_c;
-                            cert = cert_c;
-                        }
-                    }
-                    if cert.certified() {
-                        coords[atom_idx].row_mut(row).assign(&t);
-                        certified[atom_idx][row] = true;
+                    // A valid per-atom certificate improves the initializer. If it
+                    // is unavailable, retain the finite amortized chart start; the
+                    // joint solver below, not this initializer, decides validity.
+                    if cold_cert.certified() {
+                        start = cold;
                     }
                 }
+                starts.push(start);
             }
-            let mut results = Vec::with_capacity(k_atoms);
-            for atom_idx in 0..k_atoms {
-                results.push(crate::encode::EncodeResult::from_rows(
-                    std::mem::take(&mut coords[atom_idx]),
-                    std::mem::take(&mut certified[atom_idx]),
-                ));
-            }
-            return Ok(results);
-        }
 
-        // Euclidean path (bit-for-bit unchanged): per-atom amortized encode with a
-        // certificate-gated exact-solve fallback — a row whose distilled prediction
-        // fails `h ≤ ½` is retried through the certified IFT-warm-start Newton path;
-        // a row that still cannot be certified stays flagged for the upstream
-        // multi-start solve. (The atlas is rho-free; the per-row amplitudes already
-        // carry the rho-resolved assignment masses the caller produced upstream.)
-        let mut results = Vec::with_capacity(k_atoms);
-        for atom_idx in 0..k_atoms {
-            let atom = &self.atoms[atom_idx];
-            let amp_col = amplitudes.column(atom_idx).to_owned();
-            let amortized =
-                atlas.amortized_encode_batch(atom, atom_idx, targets, amp_col.view())?;
-            let mut coords = amortized.coords;
-            let mut certified = amortized.certified;
-            for row in 0..n {
-                if certified[row] {
-                    continue;
-                }
-                let (t, cert) =
-                    atlas.certified_encode_row(atom, atom_idx, targets.row(row), amp_col[row])?;
-                if cert.certified() {
-                    coords.row_mut(row).assign(&t);
-                    certified[row] = true;
-                }
+            let (joint, row_converged) = crate::encode::joint_encode_refine_row(
+                &self.atoms,
+                &starts,
+                targets.row(row),
+                amplitudes.row(row),
+                u_row.as_ref().map(|u| u.view()),
+            )?;
+            for atom_idx in 0..k_atoms {
+                coords[atom_idx].row_mut(row).assign(&joint[atom_idx]);
             }
-            results.push(crate::encode::EncodeResult::from_rows(coords, certified));
+            converged[row] = row_converged;
         }
-        Ok(results)
+        Ok(crate::encode::JointEncodeResult::new(coords, converged))
     }
 
     /// #1026 — the fitted per-row assignment masses `a[i,k]` (the activation
     /// amplitudes `z_k` the amortized encode recovers `t` against), as an
-    /// `n × K` matrix. These are the realised positive intensities
-    /// `a_{ik}·exp(s_k)` that [`Self::try_fitted_with_rho`] multiplies into each
-    /// atom's unit-shape decoded row.  The gate `a_{ik}` remains the existence
-    /// posterior/indicator, while the atom log-amplitude `s_k` is the radial
-    /// intensity scale; feeding the product to [`Self::amortized_encode_target`]
-    /// re-encodes the SAME inference the dictionary was fit against.
-    pub fn fitted_assignment_amplitudes(
-        &self,
-        rho: &SaeManifoldRho,
-    ) -> Result<Array2<f64>, String> {
+    /// `n × K` matrix. These are the posterior assignment intensities `a_{ik}`
+    /// that [`Self::try_fitted_with_rho`] multiplies into each atom's decoded row.
+    pub fn fitted_assignment_amplitudes(&self) -> Result<Array2<f64>, String> {
         let n = self.n_obs();
         let k_atoms = self.k_atoms();
         let mut amplitudes = Array2::<f64>::zeros((n, k_atoms));
         for row in 0..n {
-            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            let a = self.assignment.try_assignments_row(row)?;
             for atom_idx in 0..k_atoms {
-                amplitudes[[row, atom_idx]] =
-                    a[atom_idx] * self.atoms[atom_idx].log_amplitude.exp();
+                amplitudes[[row, atom_idx]] = a[atom_idx];
             }
         }
         Ok(amplitudes)
@@ -3797,9 +3996,8 @@ impl SaeManifoldTerm {
     pub fn amortized_encode_fitted(
         &self,
         targets: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-    ) -> Result<Vec<crate::encode::EncodeResult>, String> {
-        let amplitudes = self.fitted_assignment_amplitudes(rho)?;
+    ) -> Result<crate::encode::JointEncodeResult, String> {
+        let amplitudes = self.fitted_assignment_amplitudes()?;
         self.amortized_encode_target(targets, amplitudes.view())
     }
 
@@ -3819,16 +4017,12 @@ impl SaeManifoldTerm {
     ///   curvature, poorly-charted regions) scores high. Minimising this jointly
     ///   with REML steers the fit toward dictionaries that admit a fast,
     ///   faithful amortized encode — the architectural co-adaptation #1154 adds.
-    /// * `uncertified_fraction`: the share of (row, atom) encodes whose
-    ///   Kantorovich certificate failed (`h > ½`), i.e. that fell back to the
-    ///   certified IFT-warm-start Newton. This is the encoder's *certifiable coverage*
-    ///   of the dictionary; co-training rewards dictionaries the cheap encode
-    ///   certifies, not just ones it happens to land.
+    /// * `unconverged_fraction`: the share of rowwise joint shared-residual
+    ///   solves that did not meet the first-order stationarity tolerance.
     ///
-    /// The certificate keeps every accepted amortized coord honest (uncertified
-    /// rows already ride the exact fallback inside `amortized_encode_target`), so
-    /// this metric never silently trusts a wrong encode — it MEASURES how much of
-    /// the dictionary the cheap encoder can faithfully and certifiably invert.
+    /// Shared-residual refinement keeps the reported reconstruction tied to the
+    /// fitted multi-atom objective; the convergence fraction records rows that
+    /// did not reach its first-order tolerance.
     pub fn amortized_encoder_consistency(
         &self,
         targets: ArrayView2<'_, f64>,
@@ -3843,7 +4037,7 @@ impl SaeManifoldTerm {
                 targets.dim()
             ));
         }
-        let amplitudes = self.fitted_assignment_amplitudes(rho)?;
+        let amplitudes = self.fitted_assignment_amplitudes()?;
         let encodes = self.amortized_encode_target(targets, amplitudes.view())?;
         // The EXACT fitted reconstruction the inner solve converged to (pure
         // curved image, rho-keyed) is the supervision target for the amortized
@@ -3853,24 +4047,18 @@ impl SaeManifoldTerm {
         // Build the amortized reconstruction Σ_k z_k · Φ_k(t̂_k) B_k by decoding
         // each atom's amortized coords through that atom's own basis evaluator.
         let mut amortized_recon = Array2::<f64>::zeros((n, p));
-        let mut uncertified = 0usize;
         for atom_idx in 0..k_atoms {
             let atom = &self.atoms[atom_idx];
-            let result = &encodes[atom_idx];
-            // An atom with no basis evaluator cannot decode an amortized
-            // reconstruction; every one of its rows is necessarily uncertified
-            // (the encode flagged them all), so it contributes nothing to the
-            // amortized recon and its full row-count to the uncertified tally.
-            // Count it and skip the decode rather than erroring — the consistency
-            // fold stays a bounded penalty, never a hard abort of the criterion.
-            let Some(evaluator) = atom.basis_evaluator.as_ref() else {
-                uncertified += n;
-                continue;
-            };
-            uncertified += result.encode_uncertified_count;
+            let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
+                format!("amortized_encoder_consistency: atom {atom_idx} has no basis evaluator")
+            })?;
+            let coord_block = &encodes.coords[atom_idx];
             // Decode the amortized coords: Φ_k(t̂) is (n × M_k); B_k is (M_k × p).
-            let (phi, _jac) = evaluator.evaluate(result.coords.view())?;
-            let decoded = phi.dot(&atom.decoder_coefficients); // (n × p)
+            let (phi, _jac) = evaluator.evaluate(coord_block.view())?;
+            // Decode `Φ_k(t̂) · B_k` (n×M · M×p) through the faer GEMM; small
+            // shapes fall back to `ndarray::dot` inside `fast_ab` (reduction
+            // order may differ, acceptable per the crate convention).
+            let decoded = fast_ab(&phi, &atom.decoder_coefficients); // (n × p)
             for row in 0..n {
                 let z = amplitudes[[row, atom_idx]];
                 if z == 0.0 {
@@ -3891,21 +4079,21 @@ impl SaeManifoldTerm {
         }
         let denom = (n.max(1) * p.max(1)) as f64;
         let recon_consistency = sse / denom;
-        let total_encodes = (n * k_atoms).max(1) as f64;
-        let uncertified_fraction = uncertified as f64 / total_encodes;
+        let total_encodes = n.max(1) as f64;
+        let unconverged_fraction = encodes.unconverged_count as f64 / total_encodes;
 
         Ok(AmortizedEncoderConsistency {
             recon_consistency,
-            uncertified_fraction,
-            n_uncertified: uncertified,
-            n_encodes: n * k_atoms,
+            unconverged_fraction,
+            n_unconverged: encodes.unconverged_count,
+            n_encodes: n,
         })
     }
 
     /// #1154 — the co-trained REML criterion: the exact REML criterion at `rho`
     /// PLUS the amortized-encoder consistency penalty, so the outer optimizer
-    /// co-adapts the dictionary + smoothing parameters λ TOWARD a dictionary the
-    /// fast amortized encoder can faithfully and certifiably invert.
+    /// co-adapts the dictionary + smoothing parameters λ toward a dictionary the
+    /// fast initializer and joint refinement can faithfully invert.
     ///
     /// This is Design A of #1154. The inner solve still converges the `(t, β)`
     /// system to stationarity at the engine's current ρ (so the implicit-function
@@ -3915,7 +4103,7 @@ impl SaeManifoldTerm {
     ///
     /// ```text
     ///   J_cotrain(ρ) = REML(ρ)  +  w · ‖x̂_amortized − x̂_exact‖²/(n·p)
-    ///                            +  w_cert · uncertified_fraction
+    ///                            +  w_conv · unconverged_fraction
     /// ```
     ///
     /// folds the post-fit amortized-encode quality into the ranked objective. The
@@ -3978,26 +4166,23 @@ impl SaeManifoldTerm {
         let reml_scale = reml_cost.abs().max(1.0);
         reml_cost
             + COTRAIN_RECON_WEIGHT * reml_scale * consistency.recon_consistency
-            + COTRAIN_CERT_WEIGHT * reml_scale * consistency.uncertified_fraction
+            + COTRAIN_CONVERGENCE_WEIGHT * reml_scale * consistency.unconverged_fraction
     }
 
     /// #1154 item 2 — warm-start the inner latent coordinates from the amortized
-    /// encoder (Design A). Builds the per-chart IFT-Jacobian atlas from the
-    /// CURRENT dictionary, runs the one-mat-vec amortized encode of `target`
-    /// against each atom at the rho-resolved assignment masses, and overwrites
-    /// each atom's stored latent coords with the predicted `t̂` ON THE ROWS THE
-    /// KANTOROVICH CERTIFICATE ACCEPTS. Uncertified rows are left at their
-    /// current coords (the previous-iterate start), so the
-    /// warm-start can only HELP — a row the cheap predictor cannot certify never
-    /// corrupts the seed. The subsequent inner Newton refines from this seed to
+    /// encoder (Design A). Builds per-chart starts from the current dictionary,
+    /// refines all atoms against the shared row residual, and overwrites stored
+    /// latent coordinates only on rows whose joint solve reaches first-order
+    /// stationarity. Unconverged rows are left at their current coordinates, so the
+    /// warm-start can only help. The subsequent inner Newton refines from this seed to
     /// the SAME stationary point (the warm-start changes only the basin entry,
     /// not the root), so the REML λ-gradient stays exactly the implicit-function
     /// path and the criterion is unchanged at convergence — the amortized encoder
     /// only accelerates/co-adapts the inner solve, it never replaces the
     /// stationary point.
     ///
-    /// Returns the number of ROWS actually warm-started — rows that carried a
-    /// certified prediction AND cleared the per-row acceptance guard — for
+    /// Returns the number of rows actually warm-started — rows whose joint solve
+    /// converged and cleared the per-row acceptance guard — for
     /// instrumentation / tests. A first-build dictionary with no usable charts, or
     /// an already-converged one whose seeds are all rejected, simply warm-starts
     /// nothing and returns 0 (the inner state is left byte-for-byte unchanged).
@@ -4011,16 +4196,16 @@ impl SaeManifoldTerm {
         if n == 0 || k_atoms == 0 {
             return Ok(0);
         }
-        let amplitudes = self.fitted_assignment_amplitudes(rho)?;
+        let amplitudes = self.fitted_assignment_amplitudes()?;
         let encodes = self.amortized_encode_target(target, amplitudes.view())?;
         let p = self.output_dim();
         // Per-row reconstruction squared error BEFORE any seed is applied. The
         // amortized encoder is an approximate inverse: on a not-yet-converged
-        // dictionary its certified rows accelerate the inner solve, but against an
+        // dictionary its converged rows accelerate the inner solve, but against an
         // ALREADY-converged (per-row optimal) dictionary a seed can only move a
         // coord off its optimum. Adopting such a seed would corrupt a good inner
         // state — precisely the regression the warm-start contract forbids ("changes
-        // basin entry, not root"). So each certified seed is applied under a per-row
+        // basin entry, not root"). So each converged seed is applied under a per-row
         // acceptance guard: a row keeps the encoder coord only if it does not worsen
         // that row's reconstruction. This makes the warm-start a monotone operation
         // on the reconstruction objective (post-warm per-row SSE ≤ pre-warm), so
@@ -4040,14 +4225,14 @@ impl SaeManifoldTerm {
         let orig_coords: Vec<Array2<f64>> = (0..k_atoms)
             .map(|atom_idx| self.assignment.coords[atom_idx].as_matrix())
             .collect();
-        // Tentatively apply every certified seed, then accept/reject per row.
+        // Tentatively apply every converged joint solution, then accept/reject per row.
         let mut candidate_rows: Vec<bool> = vec![false; n];
         for atom_idx in 0..k_atoms {
             let d = self.atoms[atom_idx].latent_dim;
             if d == 0 {
                 continue;
             }
-            let result = &encodes[atom_idx];
+            let coord_block = &encodes.coords[atom_idx];
             let mut coords = orig_coords[atom_idx].clone();
             if coords.dim() != (n, d) {
                 return Err(format!(
@@ -4056,11 +4241,11 @@ impl SaeManifoldTerm {
                 ));
             }
             for row in 0..n {
-                if !result.certified[row] {
+                if !encodes.converged[row] {
                     continue;
                 }
                 for axis in 0..d {
-                    coords[[row, axis]] = result.coords[[row, axis]];
+                    coords[[row, axis]] = coord_block[[row, axis]];
                 }
                 candidate_rows[row] = true;
             }
@@ -4209,11 +4394,10 @@ impl SaeManifoldTerm {
             // #1557 — fill the per-atom assignment row into reused per-worker
             // scratch via the `_into` twin instead of heap-allocating a fresh
             // `Array1` per row per loss eval. Bit-identical to the allocating
-            // `try_assignments_row_for_rho` (same arithmetic, same order); this
+            // `try_assignments_row` (same arithmetic, same order); this
             // loss reruns every Armijo halving × inner Newton iter × outer ρ
             // eval, so the per-row K-sized allocation was a hot-path churn.
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, assign_buf)?;
+            self.assignment.try_assignments_row_into(row, assign_buf)?;
             let a = &*assign_buf;
             for slot in fitted_row.iter_mut() {
                 *slot = 0.0;
@@ -4297,7 +4481,11 @@ impl SaeManifoldTerm {
             }
             total
         };
-        let assignment_sparsity = assignment_prior_value(&self.assignment, rho);
+        let assignment_sparsity = crate::assignment::assignment_prior_value_weighted(
+            &self.assignment,
+            rho,
+            self.row_loss_weights.as_deref(),
+        );
         let smoothness = penalty_scale * self.decoder_smoothness_value(&rho.lambda_smooth_vec());
         let ard = self.ard_value(rho)?;
         Ok(SaeManifoldLoss {
@@ -4678,14 +4866,12 @@ impl SaeManifoldTerm {
             ));
         }
         let n = self.n_obs();
-        // Horvitz–Thompson row weighting (#977 seam): under the outer-criterion
-        // subsample each row carries an un-normalized inverse-inclusion weight
-        // `wᵢ = N/n_sub`, so the per-row prior energy is `Σᵢ wᵢ·V(tᵢ)` and the
-        // precision log-partition normalizer counts `n_eff = Σᵢ wᵢ ≈ N` effective
-        // rows — the HT estimate of the full-`N` ARD prior. `None`/mean-1 weights
-        // give `w_row = 1`, `n_eff = n`, bit-for-bit the historical energy.
+        // Design-honesty weights change the relative contribution of rows while
+        // preserving total sample mass: `set_row_loss_weights` normalizes them to
+        // mean one. The ARD energy therefore uses the per-row weights, while its
+        // log-partition normalizer remains the observed row count exactly.
         let row_w = self.row_loss_weights.as_deref();
-        let n_eff = row_w.map_or(n as f64, |w| w.iter().sum::<f64>());
+        let n_eff = n as f64;
         let mut acc = 0.0;
         for (atom_idx, coord) in self.assignment.coords.iter().enumerate() {
             let d = coord.latent_dim();
@@ -4893,4348 +5079,13 @@ impl SaeManifoldTerm {
         let tol = SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF * max_eig;
         Ok(evals.iter().filter(|&&v| v > tol).count())
     }
-
-    /// Penalised quasi-Laplace evidence score for the SAE term at a FIXED ρ.
-    ///
-    /// #1421: this is NOT a true normalized-prior REML/evidence objective. The
-    /// assignment priors (softmax entropy, JumpReLU) have NO finite normalizer:
-    /// for softmax the reference-logit chart sends `P(ℓ)→0` as a free logit →±∞
-    /// so `∫ e^{−λP} dℓ = ∞`, and JumpReLU's bounded penalty `0<P<λ` keeps
-    /// `e^{−λP}` bounded below over an unbounded domain, also divergent. There is
-    /// therefore no ρ-independent assignment-prior normalizer that can be dropped
-    /// as a constant. The smoothing-penalty `−½log|λS|_+` term IS a genuine
-    /// (proper-Gaussian) REML normalizer and is kept exactly; the rest is a
-    /// penalized quasi-Laplace score (Laplace curvature term `½log|H|` around the
-    /// inner optimum), which the engine minimizes over ρ.
-    ///
-    /// Runs the inner `(t, β)` arrow-Schur Newton solve to convergence at the
-    /// supplied ρ (with NO in-loop ARD update — ρ is owned by the engine),
-    /// then forms the Laplace/REML cost
-    ///
-    /// ```text
-    /// V(ρ) = ℓ_pen(t̂, β̂; ρ) + ½ log|H(t̂, β̂; ρ)|
-    ///        − ½ · p · (Σ_k rank S_k) · log λ_smooth
-    /// ```
-    ///
-    /// where `ℓ_pen = loss.total()` is the penalised objective at the inner
-    /// optimum and `½ log|H|` is the Laplace normaliser. `H` is the joint
-    /// `(t, β)` Hessian assembled by the arrow-Schur system; its `H_tt` block
-    /// carries `α = exp(log_ard)` on its diagonal, so as α grows `½ log|H|`
-    /// rises while the `−½·n·log α` already inside `loss.ard` falls — their
-    /// balance IS the effective-dof term that the deleted `α = n/‖t‖²` rule
-    /// dropped, which is why the criterion needs no clamp to stay finite on a
-    /// collapsing axis.
-    ///
-    /// The final `−½·p·rank(S)·log λ_smooth` term is the smoothing-penalty
-    /// normaliser `−½ log|λ S|_+` restricted to its ρ-dependent part: `S_k` is
-    /// shared across all `p` decoder output channels (the `⊗ I_p` Kronecker
-    /// structure), so `log|λ S|_+ = p·rank(S)·log λ + p·log|S|_+`, and the
-    /// `½ p·log|S|_+` piece is ρ-independent. The ρ-independent additive
-    /// constants that ARE dropped here (they shift `V` by a constant and do not
-    /// affect the ρ-argmin) are the `2π` Laplace constant and the base
-    /// `½ p·log|S|_+` penalty logdet. #1421: NO assignment-prior normalizer is
-    /// dropped, because none exists (softmax/JumpReLU priors are improper — see
-    /// the doc on this function): the quasi-Laplace score simply omits a
-    /// normalizer that is not a finite constant.
-    ///
-    /// Returns `(V, loss)` so the engine can both rank ρ and surface the inner
-    /// loss breakdown.
-    pub fn reml_criterion(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
-        self.reml_criterion_with_refine_policy(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            true,
-        )
-    }
-
-    pub(crate) fn reml_criterion_with_refine_policy(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-        refine_progress_extension: bool,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
-        self.reml_criterion_with_refine_policy_and_lane(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            refine_progress_extension,
-            None,
-        )
-    }
-
-    /// [`Self::reml_criterion_with_refine_policy`] with the #2080 surrogate lane
-    /// threaded to the streaming `log|S|` evidence term. `lane = None` is the
-    /// bit-identical SLQ path; on the dense (non-streaming) branch the lane is
-    /// unused (the dense evidence has its own factor-cache log-det).
-    pub(crate) fn reml_criterion_with_refine_policy_and_lane(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-        refine_progress_extension: bool,
-        lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
-        let plan = self.streaming_plan().admitted_or_error(
-            self.n_obs(),
-            self.output_dim(),
-            self.k_atoms(),
-        )?;
-        if plan.streaming {
-            // #1225: streaming and dense MUST optimize the SAME mathematical
-            // objective — the full REML criterion `loss.total() + extra_penalty +
-            // ½ log|H| − Occam`. The streaming branch previously returned only
-            // `loss.total() + extra_penalty_energy`, dropping the Laplace
-            // normalizer `½ log|H|` and the Occam term, so large shapes (exactly
-            // where streaming is needed) were ranked by penalized loss rather than
-            // REML — and dense vs streaming disagreed on the objective. Route
-            // through the streaming exact-logdet path, which assembles the same
-            // chunk-by-chunk-bit-identical `½ log|H|_stream` and the same
-            // `−Occam`/extra-penalty terms as the dense `reml_criterion_with_cache`
-            // (different memory strategy, same objective).
-            self.reml_criterion_streaming_exact_with_lane(
-                target,
-                rho,
-                registry,
-                inner_max_iter,
-                learning_rate,
-                ridge_ext_coord,
-                ridge_beta,
-                lane,
-            )
-        } else {
-            let (v, loss, _cache) = self.reml_criterion_with_cache_refine_policy(
-                target,
-                rho,
-                registry,
-                inner_max_iter,
-                learning_rate,
-                ridge_ext_coord,
-                ridge_beta,
-                refine_progress_extension,
-            )?;
-            Ok((v, loss))
-        }
-    }
-
-    /// As [`Self::reml_criterion`], but also returns the converged undamped
-    /// `ArrowFactorCache` so callers (the EFS fixed-point step) can read the
-    /// selected-inverse traces `(H⁻¹)_tt` / `(H⁻¹)_ββ` without re-factoring.
-    /// The cache is the single shared O(K³) Direct factor; both the
-    /// log-determinant criterion and the Fellner-Schall ρ-step consume it.
-    pub fn reml_criterion_with_cache(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
-        self.reml_criterion_with_cache_refine_policy(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            true,
-        )
-    }
-
-    /// [`Self::reml_criterion_with_cache`] priced with the Theorem K WBIC SOFT rank
-    /// charge instead of the hard MP count — the OPT-IN unified running-complexity
-    /// ledger `Σ_k λ_k(N_eff,k)·ln N_eff,k`, `λ_k = ½·rank_soft_k·basis_edf_k`. Only
-    /// changes the value when `rank_charge_evidence` is already on (the soft coefficient
-    /// substitutes for the hard one INSIDE that branch); with the flag off it is
-    /// bit-identical to the historical path. Convenience wrapper that evaluates the
-    /// soft ledger for THIS call only, restoring the persisted `soft_rank_charge` flag
-    /// afterward (use [`Self::set_soft_rank_charge`] to make it stick across a whole
-    /// fit / its clones). Reduces to `reml_criterion_with_cache` away from the MP edge
-    /// (soft→hard) and is strictly smaller for atoms near it (soft<hard) — the finite-n
-    /// Watanabe correction.
-    pub fn reml_criterion_with_cache_soft_charge(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
-        let prev_soft = self.soft_rank_charge;
-        self.soft_rank_charge = true;
-        let out = self.reml_criterion_with_cache(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        );
-        self.soft_rank_charge = prev_soft;
-        out
-    }
-
-    pub(crate) fn reml_criterion_with_cache_refine_policy(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-        refine_progress_extension: bool,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
-        let admission_plan = self.streaming_plan().admitted_or_error(
-            self.n_obs(),
-            self.output_dim(),
-            self.k_atoms(),
-        )?;
-        if !admission_plan.direct_logdet_admitted() {
-            // The cache-returning REML entry is used by the EFS/outer lanes that
-            // need selected-inverse traces in addition to the scalar evidence.
-            // Large SAE fits cannot form the dense `N · q · border_dim`
-            // evidence slab (`q = K(1+d)`, `border_dim = Σ_k M_k · p`), so the
-            // correct implementation is not to reject here and force callers
-            // onto a value-only path.  Route through the streaming evidence
-            // implementation instead: it reuses the converged per-row factor
-            // cache for traces and recomputes the reduced-Schur logdet by
-            // chunks / matrix-free matvecs, keeping peak memory at the admitted
-            // streaming working set rather than the dense n·k·p floor.
-            return self.reml_criterion_streaming_exact_with_cache(
-                target,
-                rho,
-                registry,
-                inner_max_iter,
-                learning_rate,
-                ridge_ext_coord,
-                ridge_beta,
-            );
-        }
-        // 1. Run the inner (t, β) Newton solve to convergence at FIXED ρ.
-        //    `run_joint_fit_arrow_schur` no longer touches ρ.
-        let mut rho_fixed = rho.clone();
-        let mut loss = self.run_joint_fit_arrow_schur(
-            target,
-            &mut rho_fixed,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        )?;
-
-        // 2. Drive the inner (t, β) solve to the KKT/step-converged optimum and
-        //    take one final UNDAMPED factor there to obtain the joint Hessian
-        //    log-determinant. We force ridge = 0 and the dense `Direct` Schur
-        //    mode so `arrow_log_det_from_cache` returns the exact
-        //    `log|H| = Σ_i log|H_tt^(i)| + log|Schur_β|` (it rejects damped
-        //    factors and InexactPCG caches, which have no dense Schur factor).
-        //    This is the same evidence convention the main GAM REML path uses.
-        //    The shared `converge_inner_for_undamped_logdet` driver guarantees
-        //    the per-row `H_tt^(i)` blocks are PD at the converged optimum so
-        //    the undamped (`ridge = 0`) factorization succeeds — the streaming
-        //    log-det path reuses the identical driver so both rank the same
-        //    converged Laplace optimum and stay bit-identical.
-        //
-        //    #2080 COST NOTE — why the dense `log|Schur_β|` is NOT rank-updated
-        //    across outer ρ probes from a cached factor. The tempting identity
-        //    is the matrix-determinant / pencil form: with the smooth penalty
-        //    entering the border block linearly in λ = e^ρ (block-diagonal
-        //    `Σ_k λ_k · (S_k ⊗ I_p)` on the full-`B` layout, `Σ_k λ_k · S̃_k` on
-        //    the framed layout — see `assemble_arrow_schur` /
-        //    `construction_arrow_schur_assembly.rs`), a probe at ρ' would give
-        //        S(ρ') = S(ρ) + Σ_k (e^{ρ'_k} − e^{ρ_k}) · P_k ,
-        //    and `log|S(ρ')|` would follow exactly from the cached generalized
-        //    eigendecomposition of the pencil `(S(ρ), P)`. That identity is an
-        //    EXACT algebraic statement ONLY at a FIXED inner state `(t̂, β̂)`.
-        //    The criterion is defined at the RE-CONVERGED inner optimum of each
-        //    probed ρ (this driver refuses to rank an off-optimum Laplace
-        //    value), and the converged state moves with ρ by the implicit-
-        //    function law `dθ̂/dρ = −H⁻¹ · ∂g/∂ρ`, so every Gauss-Newton block
-        //    of S — `H_ββ(t̂, β̂)` AND the eliminated `Σ_i H_βt H_tt⁻¹ H_tβ`
-        //    downdate — changes DENSELY between probes, not by a low-rank or
-        //    scaled-block term. A pencil update across probes would therefore
-        //    be an approximation, which the exactness doctrine bans from this
-        //    criterion. The one lane whose premise DOES hold — the frozen
-        //    `inner_max_iter == 0` warm-start reuse, where `(t̂, β̂)` is pinned
-        //    by contract — already factors exactly once per evaluation, so
-        //    there is no second factorization for the identity to replace.
-        //    The structural saving that IS exact — factoring the dense border
-        //    Schur once per evaluation (at the stationary iterate) instead of
-        //    once per refine round — lives inside
-        //    `converge_inner_for_undamped_logdet`.
-        let options = ArrowSolveOptions::direct()
-            .with_ill_conditioning_tolerated()
-            .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
-        let cache = self.converge_inner_for_undamped_logdet(
-            target,
-            rho,
-            &mut rho_fixed,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            &mut loss,
-            &options,
-            refine_progress_extension,
-        )?;
-        self.record_evidence_gauge_deflation_count(cache.gauge_deflated_directions)?;
-        loss.evidence_gauge_deflated_directions = cache.gauge_deflated_directions;
-        let log_det = arrow_log_det_from_cache(&cache).ok_or_else(|| {
-            // Distinguish a GENUINE infeasibility — a probed ρ where the joint
-            // Hessian is not PD so the Laplace evidence log-det is undefined —
-            // from a real factorization defect. The cross-row IBP Woodbury
-            // capacitance `C = I_R + D·Uᵀ H₀'⁻¹ U` can have det ≤ 0 at a ρ the
-            // outer optimizer line-searches into (the indefinite basin adjacent
-            // to the PD region); there the log-det legitimately does not exist.
-            // That refusal must be RECOVERABLE (the outer BFGS should get +∞ and
-            // steer back into the PD region), exactly like the "non-PD per-row
-            // H_tt block" refusal — not a fatal `RemlOptimizationFailed` that
-            // aborts the whole fit. See `is_recoverable_value_probe_refusal`.
-            // (The old message claimed "no dense Schur factor", which is false
-            // here — the Schur factor is present; the Woodbury correction is the
-            // non-finite term.)
-            if cache.cross_row_woodbury.is_some() && !cache.cross_row_woodbury_log_det().is_finite()
-            {
-                "SaeManifoldTerm::reml_criterion: cross-row IBP joint Hessian is non-PD at \
-                 this ρ; evidence Laplace log-det undefined (infeasible ρ probe)"
-                    .to_string()
-            } else {
-                "SaeManifoldTerm::reml_criterion: arrow_log_det_from_cache returned None \
-                 (undamped joint Hessian log-det unavailable for the Laplace normaliser)"
-                    .to_string()
-            }
-        })?;
-
-        // 3. Smoothing-penalty Occam term `−½·Σ_k r_k·rank(S_k)·log λ_smooth`
-        //    plus the profiled-frame evidence-dimension correction
-        //    `+½·Σ_k r_k·(p−r_k)·log λ_smooth` (issue #972). On the full-`B` path
-        //    (`r_k == p`, no frames) this is exactly the historical
-        //    `½·p·(Σ rank S_k)·log λ_smooth`, so the small-model criterion is
-        //    unchanged. The single seam is `reml_occam_term`, shared with the
-        //    streaming path so both rank the identical Laplace dimension count.
-        let occam = self.reml_occam_term(rho)?;
-
-        // Decoder-block analytic-penalty energy (#671/#672). The inner solve
-        // descended this energy (it enters `gb`/`hbb`) but it had no native
-        // `loss.*` representative, so the Laplace criterion `v` was scoring a
-        // different objective than the one minimized. Add the converged
-        // decoder-penalty value so the ρ-sweep ranks the same penalized
-        // deviance. Excludes the Psi-tier ARD/assignment penalties already
-        // accounted for in `loss.total()` (see
-        // `analytic_decoder_penalty_value_total`).
-        // Extra analytic-penalty energy (#671/#737). Decoder-block penalties and
-        // coordinate-tier isometry enter the inner solve but have no `loss.*`
-        // representative, so the Laplace criterion must add them explicitly to
-        // rank the same penalized deviance the Newton solve descends.
-        let extra_penalty_energy = match registry {
-            Some(reg) => self
-                .reml_extra_penalty_value_total(reg)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?,
-            None => 0.0,
-        };
-
-        let v = if self.rank_charge_evidence {
-            // #5/(B): replace the COORDINATE-block ½log|H_tt| in the Laplace
-            // complexity with the honest BIC ½·d_eff·log n on each atom's realised
-            // decoder rank. The decoder-scale mispricing (`½log(a²‖B‖²)` scale,
-            // over-charging real atoms + rewarding a²‖B‖²→0) lives ENTIRELY in the
-            // coordinate block (`H_tt ∝ ‖B‖²`); the β/Schur block is
-            // ‖B‖-independent (ρ⁰ coupling) and stays. `d_eff` is rotation-
-            // invariant, so it accepts a real rank-2 circle and neutralises a
-            // vanishing atom — but does NOT distinguish clean-vs-blend (producer's
-            // job).
-            // Noise floor R = residual dispersion φ (per-fit, noise-relative — NOT a
-            // hardcoded/self-relative floor). If it cannot be computed the vanishing-
-            // atom detection silently degrades (R→0 keeps rank_eff≈rank), so surface
-            // it loudly rather than hiding a re-admitted co-collapse.
-            let disp = match self.reconstruction_residual(target, rho).and_then(|resid| {
-                self.reconstruction_dispersion(&loss, &cache, rho, Some(resid.view()))
-            }) {
-                Ok(phi) => phi,
-                Err(e) => {
-                    log::warn!(
-                        "[#5 rank-charge] reconstruction_dispersion failed ({e}); noise floor \
-                         R→MIN_POSITIVE — vanishing-atom detection degraded this ρ-eval"
-                    );
-                    f64::MIN_POSITIVE
-                }
-            };
-            let d_eff = self.per_atom_realised_rank_dof(rho, disp)?;
-            // Occupancy-aware effective sample size N_eff,k = Σ_i a_{ik}², the #2a
-            // per-atom BIC log-scale (same quantity `per_atom_realised_rank_dof` uses
-            // internally for the MP edge; recomputed here — a cheap Σa² — to price the
-            // charge in the same currency).
-            let n_eff = self.per_atom_effective_sample_size();
-            // #5 VETO — categorical Laplace-VALIDITY condition (blend-null null-license
-            // fix, recov matrix 12484591): an atom with rank_eff==0 (⟺ d_eff==0)
-            // reconstructs NOTHING. Its Laplace evidence is not "small" — it is INVALID:
-            // the vanishing decoder makes the β-mode degenerate, and the β-Schur log-det
-            // → −∞ is the approximation BREAKING DOWN, not a real reward (which is why a
-            // zero-‖B‖ atom got "born" on a featureless blend-null residual while the
-            // rank charge only neutralised — charge 0 — its coordinate block). Such an
-            // atom is unbirthable: reject CATEGORICALLY (v → +∞) rather than pricing a
-            // degenerate Laplace term. No tuned constant — a validity condition, not a
-            // penalty. rank_eff is an integer MP count so ==0 is crisp; a real rank-2
-            // circle (rank_eff=2) is untouched. This is #10's "make the degenerate class
-            // unbirthable" at the birth gate. TRAILHEAD: the deeper fix is a floor on the
-            // β-Schur decoder-curvature block (assemble_arrow_schur) so a vanishing β
-            // doesn't drive its Schur log-det → −∞; deferred (touches the shipped Schur
-            // path); the birth-gate veto here is the guard.
-            //
-            // #2b — RLCT justification (why the veto is a VALIDITY condition, not a
-            // heuristic): the null atom (truth B*=0) sits at a singularity of the model
-            // — the product form a²‖B‖² makes the Fisher information degenerate there —
-            // and singular learning theory gives it real log-canonical threshold (RLCT)
-            // λ=½: the leading zeta pole of ∫(a²‖B‖²)^s comes from the amplitude at s=½,
-            // independent of M,p,d. So the null's asymptotic evidence cost is only
-            // ½·ln n per e-fold, and NO Θ(log n) rank charge can separate a null birth
-            // from a real one AT the singular point. The categorical veto (v→+∞ when
-            // rank_eff==0) is therefore the only valid way to keep the degenerate class
-            // unbirthable; a finite penalty could not.
-            if d_eff.iter().any(|&de| de == 0.0) {
-                f64::INFINITY
-            } else {
-                // #2a — occupancy-aware BIC/Laplace scale. The per-atom charge is
-                // ½·d_eff,k·ln(N_eff,k), NOT ½·d_eff,k·ln(n_obs): N_eff,k = Σ_i a_{ik}²
-                // is the Fisher information a GATED atom actually accumulates, so it is
-                // the honest effective sample size for atom k's Laplace volume. Using
-                // the global n_obs over-charges atom k by ½·d_eff,k·ln(n_obs/N_eff,k)
-                // — biased worst against the sparse, selective atoms an SAE exists to
-                // find, and it manufactures a spurious asymmetry in fusion/fission.
-                // AXIOM (inert-row invariance): appending rows on which atom k's gate is
-                // OFF changes neither its likelihood nor its curvature, so it must not
-                // change atom k's charge. ln(N_eff,k) satisfies this (those rows add 0
-                // to Σa²); ln(n_obs) violates it. The ln floor at N_eff,k=1 keeps the
-                // log non-negative for a barely-occupied atom (rank_eff>0 ⇒ N_eff,k>0,
-                // and the d_eff==0 veto above already removes the empty case).
-                //
-                // Theorem K: the per-atom coefficient of ln N_eff,k is the running
-                // complexity λ_k(N_eff,k). By default it is the HARD limit ½·d_eff,k
-                // (every above-edge direction a full regular parameter). Under an opt-in
-                // `soft_rank_charge` flag it is the finite-n WBIC SOFT coefficient
-                // λ_k = ½·rank_soft_k·basis_edf_k, which reduces to ½·d_eff,k away from
-                // the MP edge (μ≫e) and shrinks toward the RLCT near it — the same veto
-                // still fires on the hard rank_eff==0 (an atom the soft count also sends
-                // to λ→0, but the categorical veto is the validity guard, not a small λ).
-                let rank_charge: f64 = if self.soft_rank_charge {
-                    let lambda = self.per_atom_soft_learning_coefficient(rho, disp)?;
-                    lambda
-                        .iter()
-                        .zip(n_eff.iter())
-                        .map(|(&lam, &ne)| lam * ne.max(1.0).ln())
-                        .sum()
-                } else {
-                    d_eff
-                        .iter()
-                        .zip(n_eff.iter())
-                        .map(|(&de, &ne)| 0.5 * de * ne.max(1.0).ln())
-                        .sum()
-                };
-                // htt_half = the coordinate-block part of ½log|H| = Σ_i Σ_j ln diag(L_i)
-                // (= ½·Σ_i log|H_tt^(i)|; `arrow_log_det_from_cache` doubles this into
-                // `log_det`). Subtracting it removes the per-row coordinate log-det.
-                let mut htt_half = 0.0_f64;
-                for row in 0..cache.undamped_factor_count() {
-                    let l = cache.undamped_factor(row);
-                    for i in 0..l.nrows() {
-                        let d = l[[i, i]];
-                        if d > 0.0 {
-                            htt_half += d.ln();
-                        }
-                    }
-                }
-                loss.total() + extra_penalty_energy + (0.5 * log_det - htt_half + rank_charge)
-                    - occam
-            }
-        } else {
-            loss.total() + extra_penalty_energy + 0.5 * log_det - occam
-        };
-        Ok((v, loss, cache))
-    }
-
-    /// The #1037 quotient-dimension invariant: a Laplace normalizer `½log|H|` is
-    /// only comparable across ρ at a COMMON quotient (gauge-deflation) dimension.
-    /// The first observation pins the expected count; a later match is a no-op.
-    ///
-    /// A later observation that DIFFERS is, under the K>1 fit, a LEGITIMATE
-    /// quotient-dimension event — an atom born, reseeded (the #976 collapse
-    /// guards), or rank-reduced moves the number of gauge-flat rows. Because a
-    /// deflated direction is lifted to unit stiffness and contributes the
-    /// ρ-independent `log 1 = 0` to the evidence, re-anchoring the comparison to
-    /// the new dimension is exactly evidence-preserving and keeps every future
-    /// cross-ρ comparison consistent — the principled response, not an abort.
-    ///
-    /// The genuine pathology the guard still catches is a count that NEVER
-    /// STABILIZES: re-anchors are bounded by the per-atom structural-event budget
-    /// (`k·(reseed_budget+1)+1`), and a runaway quotient dimension past that
-    /// bound refuses loudly. This supersedes the prior strict-constant guard and
-    /// its ±1 flicker band (#1117) at root — the band was masking exactly the
-    /// legitimate K>1 dimension changes this re-anchoring now handles.
-    pub(crate) fn record_evidence_gauge_deflation_count(
-        &mut self,
-        count: usize,
-    ) -> Result<(), String> {
-        match self.expected_evidence_gauge_deflated_directions {
-            Some(expected) if expected == count => Ok(()),
-            Some(expected) => {
-                // A change in the gauge-deflation count between two evidence
-                // factorizations is a legitimate quotient-dimension event under
-                // the K>1 fit: an atom can be born, reseeded (the #976 collapse
-                // guards), or rank-reduced across the ρ-walk, and each such event
-                // moves the number of gauge-flat rows. The #1037 invariant is
-                // NOT "the count never changes" — it is "two Laplace normalizers
-                // are only comparable at a COMMON quotient dimension". The
-                // principled response to a legitimate change is therefore to
-                // RE-ANCHOR the comparison to the new dimension (so every future
-                // cross-ρ comparison within the optimization is consistent), not
-                // to abort the fit. This is exactly evidence-preserving: each
-                // gauge-deflated direction is lifted to unit stiffness and
-                // contributes the ρ-independent `log 1 = 0` to `½log|H|`, so the
-                // converged criterion value is identical whether a given row is
-                // counted as deflated or not — only the BOOKKEEPING dimension
-                // must agree across a comparison, and re-anchoring restores that.
-                //
-                // The genuine pathology the guard must still catch is a count
-                // that NEVER STABILIZES — an OSCILLATING quotient dimension that
-                // re-anchors without converging, signalling a truly ill-posed
-                // evidence surface. But the deflation count is NOT a discrete
-                // dictionary-level event count: it is the per-ROW-summed number of
-                // near-null evidence directions across all N rows (#1217). On real
-                // K≥2 activations it is an O(N) quantity that drifts SMOOTHLY and
-                // monotonically as the conditioning improves over the ρ-walk
-                // (e.g. 171→156→…→113 as smoothing increases) — a benign,
-                // evidence-neutral change (each deflated direction contributes the
-                // ρ-independent `log 1 = 0` to `½log|H|`, so re-anchoring never
-                // moves the criterion value). Charging such a monotone drift
-                // against a `k`-sized "structural event" budget was wrong: it
-                // counts threshold crossings of a continuous per-row quantity, not
-                // atom births/reseeds, so the budget tripped on a perfectly healthy
-                // converging K=2 fit (#1217 regression from the #1189/#1190
-                // basin-escape fixes, which shifted which rows sit near the
-                // deflation floor).
-                //
-                // The principled discriminator is DIRECTION REVERSALS: a count
-                // that drifts one way and settles is benign; a count that bounces
-                // up and down without settling is the oscillating-quotient
-                // pathology. We therefore charge the re-anchor budget ONLY on a
-                // reversal of the change direction, and size the budget by the
-                // number of distinct dictionary structural events (births/reseeds)
-                // that can each legitimately flip the drift direction. A monotone
-                // drift of any length re-anchors freely (it is consistently
-                // re-anchored and evidence-neutral); a genuinely oscillating count
-                // exhausts the reversal budget and refuses loudly.
-                let delta_sign: i8 = if count > expected { 1 } else { -1 };
-                let is_reversal = self.evidence_gauge_deflation_last_delta_sign != 0
-                    && delta_sign != self.evidence_gauge_deflation_last_delta_sign;
-                self.evidence_gauge_deflation_last_delta_sign = delta_sign;
-                // A reversal alone is NOT the pathology — a BOUNDED flicker of a
-                // few rows crossing the near-null deflation floor reverses
-                // direction every step yet is the discretization jitter of a
-                // continuous evidence spectrum, fully evidence-neutral (each
-                // deflated direction contributes `log 1 = 0` either way). The
-                // genuine "quotient dimension not stabilizing" pathology is a
-                // WIDE-amplitude oscillation: a substantial FRACTION of the
-                // dimension flipping back and forth. The count is an O(N) per-row
-                // sum, so the discriminator must be the reversal AMPLITUDE
-                // relative to the dimension level, not the bare reversal. Charge
-                // the reversal budget only when a reversal's step exceeds a
-                // relative jitter band; a converged-but-flickering fit (e.g.
-                // 150<->147 on N=200, ~2% of the level) re-anchors freely while a
-                // true runaway (e.g. 9<->2, ~80% of the level) still trips every
-                // reversal and exhausts the budget. This was the second #795 root
-                // cause: the single-planted-circle fit's per-row count flickers
-                // 150<->147 near the deflation floor, so the bare-reversal guard
-                // refused the simplest possible fit — with the isometry gauge ON
-                // *or* OFF — long before the gauge magnitude mattered.
-                let amplitude = expected.abs_diff(count);
-                let level = expected.max(count);
-                let jitter_band = (level / 4).max(2);
-                if is_reversal && amplitude > jitter_band {
-                    self.evidence_gauge_deflation_reanchors += 1;
-                }
-                let reversal_budget = self
-                    .k_atoms()
-                    .saturating_mul(
-                        SAE_ATOM_COLLAPSE_RESEED_BUDGET
-                            + SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET
-                            + 1,
-                    )
-                    .saturating_add(1);
-                if self.evidence_gauge_deflation_reanchors > reversal_budget {
-                    return Err(format!(
-                        "SaeManifoldTerm::reml_criterion: row-gauge evidence deflation count \
-                         oscillated (reversed direction {} times, last {expected}->{count}) within \
-                         one optimization, exceeding the {reversal_budget}-reversal budget for {} \
-                         atoms; the quotient dimension is not stabilizing, refusing to compare \
-                         Laplace normalizers",
-                        self.evidence_gauge_deflation_reanchors,
-                        self.k_atoms()
-                    ));
-                }
-                log::debug!(
-                    "SaeManifoldTerm::reml_criterion: per-row evidence deflation count changed \
-                     {expected}->{count} (a benign per-row conditioning drift across the ρ-walk; \
-                     reversal {}/{reversal_budget}); re-anchoring the Laplace normalizer comparison \
-                     to the new dimension",
-                    self.evidence_gauge_deflation_reanchors
-                );
-                self.expected_evidence_gauge_deflated_directions = Some(count);
-                Ok(())
-            }
-            None => {
-                self.expected_evidence_gauge_deflated_directions = Some(count);
-                Ok(())
-            }
-        }
-    }
-
-    pub(crate) fn is_undamped_evidence_row_non_pd(err: &ArrowSchurError) -> bool {
-        matches!(
-            err,
-            ArrowSchurError::PerRowFactorFailed { reason, .. }
-                if reason.contains("H_tt is non-PD at base ridge")
-                    && reason.contains("evidence mode preserves the genuine Cholesky")
-        )
-    }
-
-    /// Drive the inner `(t, β)` Newton solve to the KKT/step-converged optimum
-    /// and return the final UNDAMPED (`ridge = 0`) joint-Hessian factor cache.
-    ///
-    /// The Laplace normaliser `½log|H|` is only the correct REML criterion at
-    /// the inner optimum `(t̂, β̂)`, so the criterion must refine the inner state
-    /// until either the KKT gradient or the undamped Newton step meets tolerance
-    /// before factoring. Crucially, **at the converged optimum the per-row
-    /// `H_tt^(i)` blocks are PD**, so the undamped (`ridge = 0`) factorization
-    /// succeeds; an off-optimum iterate (e.g. the initial seed, or a state
-    /// stopped after only `inner_max_iter` steps) can have an indefinite /
-    /// rank-deficient per-row block (`p_out = 1` → rank-1 `JᵀJ`, softmax
-    /// assignment-sparsity negative logit curvature) that surfaces
-    /// `PerRowFactorFailed` from the undamped `factor_one_row`. Both the dense
-    /// (`reml_criterion_with_cache`) and the streaming
-    /// (`reml_criterion_streaming_exact`) evidence paths route through this same
-    /// driver, so they converge to the identical inner state and their
-    /// `ridge = 0` log-determinants stay bit-identical (#847).
-    pub(crate) fn converge_inner_for_undamped_logdet(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        rho_fixed: &mut SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-        loss: &mut SaeManifoldLoss,
-        options: &ArrowSolveOptions,
-        refine_progress_extension: bool,
-    ) -> Result<ArrowFactorCache, String> {
-        // `inner_max_iter == 0` is a genuine FREEZE of the inner `(t, β)` state
-        // — a verbatim warm-start reuse, not a convergence request (gam#577/#579,
-        // #850). The convergence/refinement loop below MUST NOT run even one
-        // Newton step in that case (the old `inner_max_iter.max(1)` floor moved
-        // β off the seed), so we factor exactly once at the frozen iterate and
-        // return that undamped cache without invoking the stationarity gate.
-        // The caller has already run `run_joint_fit_arrow_schur(..., 0, ...)`,
-        // which under the `max_iter == 0` freeze (gam#577/#579, #850) runs ONLY
-        // the β-neutral basis refresh and returns the loss without touching β —
-        // it skips the rank-reduction, frame activation, re-seed guards, and the
-        // #1026 decoder-LSQ polish that would otherwise refit β off the seed — so
-        // `self` is at the warm-start β here.
-        if inner_max_iter == 0 {
-            let mut sys = self
-                .assemble_arrow_schur(target, rho, registry)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?;
-            // #1095/#2228 — same decoupling as the stall / gradient-stationary
-            // acceptance paths. This frozen warm-start evidence log-det is read from
-            // the ridge-0 factor below, which is non-PD BY CONSTRUCTION on an
-            // over-parametrized chart (a rank-1 radial null per row). Per-row
-            // spectral deflation only fires when `row_gauge_deflation.is_some()`, and
-            // the decoded-derivative gauge floor (`tangent·tangent > 1e-24`) can
-            // leave it None on exactly the flat axis that carries the null — so
-            // force the evidence system to opt into per-row spectral discovery: the
-            // null is unit-stiffness deflated (`log 1 = 0`, ρ-independent) and the
-            // frozen log-det is finite, instead of refusing a rescuable warm-start
-            // reuse. A full-rank block has no sub-floor eigenvalue and is untouched.
-            if sys.row_gauge_deflation.is_none() {
-                let n_rows = sys.rows.len();
-                sys.set_row_gauge_deflation(ArrowRowGaugeDeflation::new(vec![Vec::new(); n_rows]));
-            }
-            let factored = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, options)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?;
-            // The frozen-state Newton step (factored.0, factored.1) is discarded
-            // — only the undamped factor cache (factored.2) is consumed for the
-            // log-det / selected-inverse traces; β stays at the warm-start seed.
-            return Ok(factored.2);
-        }
-        let mut total_inner_iter = inner_max_iter;
-        let accepted_base_refine_iter = inner_max_iter.max(1).saturating_mul(16).max(64);
-        let value_probe_base_refine_iter = inner_max_iter.max(1).saturating_mul(4).max(16);
-        let base_refine_iter = if refine_progress_extension {
-            accepted_base_refine_iter
-        } else {
-            value_probe_base_refine_iter
-        };
-        let progress_refine_iter = if refine_progress_extension {
-            inner_max_iter.max(1).saturating_mul(64).max(256)
-        } else {
-            base_refine_iter
-        };
-        let mut previous_refine_grad_norm: Option<f64> = None;
-        let mut saw_refine_progress = false;
-        // #1051 — objective-stagnation convergence. On an ill-conditioned
-        // penalised bilinear fit (the euclidean / Duchon decoder × latent
-        // coordinate system on a trivial shape), the inner Newton crawls: each
-        // refine round lowers the penalised objective by a shrinking amount while
-        // the KKT gradient and the undamped step stay above their relative
-        // tolerances (the near-singular Schur amplifies the step in the
-        // weakly-identified decoder direction). The grad-OR-step gate then never
-        // fires and the solve is rejected as "did not converge" — the 1e12
-        // sentinel. A Newton/LM iterate whose objective has stopped decreasing
-        // to within `√εmach` of its scale IS the numerical inner optimum; ranking
-        // the Laplace criterion there is correct. We accept that fixed point
-        // instead of grinding the budget.
-        let entry_loss_total = loss.total();
-        let mut previous_loss_total = entry_loss_total;
-        let mut refine_rounds: usize = 0;
-        // Consecutive stall rounds: counts how many successive refine rounds
-        // ended in a stall AND a failed undamped factor.  Once this reaches
-        // `SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS` the iterate is at
-        // its numerical fixed point and cannot be improved further; returning
-        // `Err` here is the same "did not converge" signal that
-        // `is_recoverable_value_probe_refusal` already handles, so the outer
-        // BFGS treats it as an INFINITY probe and tries a different ρ instead
-        // of looping forever burning the extended progress budget.  Without
-        // this counter the stagnation handler fell through when the undamped
-        // factor failed and the loop kept extending via `saw_refine_progress`
-        // from earlier rounds, accumulating minutes of wasted work (#1094).
-        let mut consecutive_stall_factor_fail: usize = 0;
-        // #1094 — the finite deflated evidence cache to rank at a persistent
-        // objective-stall fixed point. At a rank-deficient K>1 optimum the KKT
-        // gradient parks permanently in the weakly-identified decoder/gauge
-        // directions, so neither the gradient nor the affine-invariant
-        // Newton-decrement stationarity certificate below can ever reach
-        // tolerance even though the penalised objective is at its numerical
-        // floor. When the undamped/deflated factorization nonetheless yields a
-        // FINITE Laplace log-det, we stash that cache here; once the objective
-        // stall persists for the full `STALL_MIN_ROUNDS` the floor itself is the
-        // inner-convergence witness (#1051) and ranking this cache is correct —
-        // instead of refusing to the 1e12 infeasible sentinel at a fit that is
-        // de-facto converged (R²≈0.99).
-        let mut stalled_finite_cache: Option<ArrowFactorCache> = None;
-        loop {
-            let mut sys = self
-                .assemble_arrow_schur(target, rho, registry)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?;
-            // Evidence-only factorization: the Newton step (Δt, Δβ) is discarded
-            // and only the factor cache is consumed — the exact undamped log-det
-            // and the selected-inverse traces. As ρ sweeps to extremes (e.g. a
-            // wide ARD-α sweep), H_tt is genuinely PD but can be ill-conditioned;
-            // the standard Direct guard rejects that to protect Newton-step
-            // accuracy, but the log-det is exact from diag(L) regardless of the
-            // condition number and the traces only need the (PD) factor. So
-            // tolerate the ill-conditioning rejection here (a genuine non-PD pivot
-            // still errors). The cache stays undamped at ridge=0, so
-            // `arrow_log_det_from_cache` remains exact.
-            // The exact KKT stationarity residual is the joint gradient
-            // ‖g‖ = √(Σ_i ‖g_t^(i)‖² + ‖g_β‖²), read straight off the assembled
-            // system. Unlike the Newton step Δ = H⁻¹g, the gradient is
-            // factorisation-independent: it is NOT amplified by an inverse, so a
-            // genuinely stationary but ill-conditioned fit (tiny g, possibly large
-            // Δ in a flat direction) is correctly recognised as converged. The
-            // `with_ill_conditioning_tolerated` Direct factor below documents that
-            // its Δ may be inaccurate in exactly those flat directions, so using Δ
-            // alone as the convergence gate would falsely reject healthy fits.
-            let grad_norm_sq: f64 = sys
-                .rows
-                .iter()
-                .map(|row| row.gt.iter().map(|&v| v * v).sum::<f64>())
-                .sum::<f64>()
-                + sys.gb.iter().map(|&v| v * v).sum::<f64>();
-            let grad_norm = grad_norm_sq.sqrt();
-            let lambda_smooth = rho_fixed.lambda_smooth_vec();
-            let quotient_grad_norm =
-                self.quotient_gradient_norm_from_system(&sys, grad_norm_sq, &lambda_smooth);
-            let iterate_scale = self.inner_iterate_scale();
-            // Scaled KKT-gradient tolerance for stationarity. Convergence is
-            // accepted only on raw or quotient gradient stationarity; the Newton
-            // step can collapse along the chart gauge before the quotient
-            // residual is small, so it never gates convergence (it is only
-            // computed — and logged — at the accepted stationary factorization).
-            let grad_tolerance = SAE_MANIFOLD_INNER_GRAD_REL_TOL * iterate_scale;
-            if !grad_norm_sq.is_finite() {
-                return Err(format!(
-                    "SaeManifoldTerm::reml_criterion: undamped inner KKT residual is non-finite \
-                     at the inner optimum (‖g‖²={grad_norm_sq}); the joint Hessian \
-                     factorisation is degenerate at this ρ"
-                ));
-            }
-            // #2080 criterion-cost restructure — the Laplace normaliser ½log|H|
-            // is the REML criterion ONLY at the inner KKT optimum, so the FULL
-            // undamped Direct factorization (dense border β-Schur assembly
-            // `O(n·q·k²)` plus the `O(k³)` border Cholesky / eigen-floor, with
-            // `k = border_dim = Σ_k M_k·p`) is taken exactly ONCE — at the
-            // stationary iterate whose cache is returned. Historically it was
-            // ALSO taken on every non-stationary refine round and immediately
-            // discarded: the pre-stationarity Newton step Δ = H⁻¹g was never
-            // applied (the refinement below re-enters `run_joint_fit_arrow_schur`
-            // from the same state) and convergence is judged on the
-            // factorisation-independent KKT gradient alone, so the dense border
-            // factor bought nothing at a non-stationary iterate. That discarded
-            // cubic factor was the dominant wide-`p` criterion cost (#2080).
-            //
-            // A non-stationary round needs exactly ONE bit from the
-            // factorization: whether the undamped per-row H_tt blocks are PD —
-            // the infeasible-ρ signal that drives the #2080 probe fast-refusal
-            // and the refine-budget escalation below.
-            // `probe_undamped_evidence_row_factors` surfaces that identical
-            // verdict (same #1038 IBP self-term downdate, same gauge/spectral
-            // deflation policy, same `factor_one_row` error text) at the
-            // per-row-only `O(N·q³)` cost, never forming the border Schur.
-            //
-            // EXACTNESS: the refinement trajectory is unchanged (the same
-            // sequence of `run_joint_fit_arrow_schur` calls runs between the
-            // same assembled systems), the stationary iterate is unchanged, and
-            // the returned cache is the factorization of the same system at
-            // that iterate — identical to what the historical loop returned —
-            // so the criterion VALUE is untouched. Only work whose result was
-            // provably discarded is removed.
-            let gradient_stationary =
-                grad_norm <= grad_tolerance || quotient_grad_norm <= grad_tolerance;
-            if gradient_stationary {
-                // #1095/#2228 — decouple this ACCEPT from undamped-factor success,
-                // the same acceptance-local pattern as the stall path below. A
-                // cleanly-fit over-parametrized chart (d_atom=2 on intrinsic 1-D
-                // data) is gradient-STATIONARY — the tangent is fit and the rank-1
-                // radial null contributes ZERO gradient — so it lands HERE rather
-                // than the objective-stall path, yet its ridge-0 per-row H_tt is
-                // non-PD by construction. Force the acceptance factor to opt into
-                // per-row spectral discovery so the null is unit-stiffness deflated
-                // (`log 1 = 0`, ρ-independent) and the evidence log-det is finite.
-                // This does NOT touch the undamped #2080 probe: the probe runs only
-                // in the non-stationary branch below, which THIS block never reaches
-                // (every arm returns), and a non-stationary iteration never installs
-                // this deflation — so `sys` stays undamped for the probe.
-                if sys.row_gauge_deflation.is_none() {
-                    let n_rows = sys.rows.len();
-                    sys.set_row_gauge_deflation(ArrowRowGaugeDeflation::new(vec![Vec::new(); n_rows]));
-                }
-                let (delta_t, delta_beta, cache): (Array1<f64>, Array1<f64>, ArrowFactorCache) =
-                    match solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, options) {
-                        Ok(factored) => factored,
-                        Err(err) if Self::is_undamped_evidence_row_non_pd(&err) => {
-                            // K>1: the softmax/IBP logit–coordinate Gauss-Newton
-                            // cross-terms (H_zt = J_z^T J_t, assembled row-locally from
-                            // the assignment JVP × basis JVP) can make a per-row H_tt
-                            // indefinite at the TRUE KKT stationary point — when two
-                            // atoms' decoders specialise in opposite directions the
-                            // Schur complement of the logit block goes negative even
-                            // though the priors and the full-joint GN term are PSD.
-                            //
-                            // The undamped evidence factor conditions that block the
-                            // PRINCIPLED way: with per-row spectral discovery now
-                            // force-enabled above (`row_gauge_deflation` installed),
-                            // `factor_spectral_deflated_evidence_row` discovers the
-                            // negative/flat eigen-direction — including the #1095/#2228
-                            // radial null the decoded-derivative gauge floor
-                            // (`tangent·tangent > 1e-24`) would otherwise have excluded
-                            // from the gauge list — and stiffens it to UNIT curvature
-                            // (eigenvalue → +1), a ρ-INDEPENDENT log 1 = 0 evidence
-                            // contribution (the quotient pseudo-determinant convention
-                            // of the #1037 gauge and #1117 data-null deflations).
-                            // Reaching THIS arm therefore no longer means "deflation was
-                            // never enabled" (the old #1095 refusal, now fixed) — it
-                            // means the deflation was ATTEMPTED and genuinely DECLINED
-                            // (a non-finite block or a failed eigendecomposition), so
-                            // the state is broken: surface the hard refusal and let the
-                            // outer BFGS treat this ρ as an INFINITY probe
-                            // (`is_recoverable_value_probe_refusal`). We must NOT
-                            // ridge-damp here: a `+ridge·I` fallback injects a
-                            // ρ-dependent ½·log|I + ridge·H_tt⁻¹| bias into the VALUE
-                            // that the analytic ρ-gradient (built for the undamped
-                            // Laplace log-det) never sees, desyncing the outer
-                            // line-search — the multi-atom non-convergence #1117 removes.
-                            return Err(format!(
-                                "SaeManifoldTerm::reml_criterion: stationary undamped \
-                                 evidence factorization has a non-PD per-row H_tt block \
-                                 that spectral unit-stiffness deflation could not \
-                                 condition (‖g‖={grad_norm:.6e}, tol {grad_tolerance:.6e}); \
-                                 {err}"
-                            ));
-                        }
-                        Err(err) => {
-                            return Err(format!("SaeManifoldTerm::reml_criterion: {err}"));
-                        }
-                    };
-                // Only the factor cache is consumed (the stationary Newton step Δ
-                // is discarded), but the full solve above still computes Δ, so
-                // the historical degenerate-factorisation witnesses stay armed at
-                // the ACCEPTED iterate: a non-finite undamped step, or a failed
-                // quotient-step projection, refuses exactly as before.
-                let step_norm_sq: f64 = delta_t.iter().map(|&v| v * v).sum::<f64>()
-                    + delta_beta.iter().map(|&v| v * v).sum::<f64>();
-                if !step_norm_sq.is_finite() {
-                    return Err(format!(
-                        "SaeManifoldTerm::reml_criterion: undamped inner residual is non-finite at \
-                         the inner optimum (‖Δ‖²={step_norm_sq}, ‖g‖²={grad_norm_sq}); the joint \
-                         Hessian factorisation is degenerate at this ρ"
-                    ));
-                }
-                let quotient_step_norm_sq = self.quotient_newton_step_norm_sq(
-                    delta_t.view(),
-                    delta_beta.view(),
-                    step_norm_sq,
-                    &lambda_smooth,
-                )?;
-                log::debug!(
-                    "SAE evidence factor accepted at KKT stationarity: ‖g‖={grad_norm:.6e} \
-                     ‖Π⊥gauge g‖={quotient_grad_norm:.6e} tol={grad_tolerance:.6e} \
-                     ‖Δ‖={:.6e} ‖Π⊥gauge Δ‖={:.6e} after {total_inner_iter} inner iterations",
-                    step_norm_sq.sqrt(),
-                    quotient_step_norm_sq.sqrt(),
-                );
-                return Ok(cache);
-            }
-            // NON-stationary refine round: per-row-only undamped feasibility
-            // probe in place of the historically-discarded full factorization
-            // (see the #2080 block comment above).
-            match probe_undamped_evidence_row_factors(&sys, options) {
-                Ok(()) => {}
-                Err(err) if Self::is_undamped_evidence_row_non_pd(&err) => {
-                    // #2080 — a non-PD per-row H_tt block means the undamped
-                    // Laplace log-det is UNDEFINED at this ρ: the ρ is
-                    // infeasible. For a PROBE (line-search value / FD /
-                    // seed-validation lane, `refine_progress_extension == false`)
-                    // the caller only needs a typed infeasible verdict so the
-                    // outer search steers back into the PD region — refining the
-                    // inner solve to try to CROSS the indefinite basin is the
-                    // accepted-iterate's job, not a probe's. Grinding the probe
-                    // refine budget (up to `4×inner_max_iter`, and historically
-                    // the accepted `16×/64×` via `reml_criterion_with_cache`) on
-                    // every overshooting line-search / FD probe is exactly the
-                    // wide-`p` outer REML hang (#2080). Return the typed refusal
-                    // after this single diagnostic factor pass;
-                    // `is_recoverable_value_probe_refusal` maps it to the finite
-                    // infeasibility wall.
-                    if !refine_progress_extension {
-                        return Err(format!(
-                            "SaeManifoldTerm::reml_criterion: undamped evidence \
-                             factorization hit a non-PD per-row H_tt block before KKT \
-                             stationarity at an infeasible-ρ probe (‖g‖={grad_norm:.6e}, \
-                             tol {grad_tolerance:.6e}); returning the typed infeasible \
-                             refusal without grinding the probe refinement budget; {err}"
-                        ));
-                    }
-                    let refine_limit = Self::refine_iteration_limit(
-                        total_inner_iter,
-                        base_refine_iter,
-                        progress_refine_iter,
-                        previous_refine_grad_norm,
-                        grad_norm,
-                        saw_refine_progress,
-                    );
-                    if total_inner_iter >= refine_limit {
-                        // #1117/#1118 — pre-stationarity genuinely-indefinite
-                        // non-gauge H_tt under K>1 IBP/softmax row-sharing. The
-                        // logit × coordinate Gauss-Newton cross term H_zt = J_zᵀJ_t
-                        // can drive a shared row's H_tt Schur complement NEGATIVE off
-                        // the gauge orbit; the LM-escalated refinement above cannot
-                        // always cross the indefinite basin into the PD region within
-                        // the descent-extended budget.
-                        //
-                        // The undamped (ridge=0) evidence factor already conditions
-                        // that block the PRINCIPLED way: `factor_spectral_deflated_
-                        // evidence_row` discovers the negative/flat eigen-direction
-                        // and stiffens it to UNIT curvature (eigenvalue → +1), a
-                        // ρ-INDEPENDENT log 1 = 0 evidence contribution — so a
-                        // spectral-deflatable indefinite block factors fine (both
-                        // here and in the stationary factorization above) and
-                        // returns a finite, monotone-comparable value to the outer
-                        // BFGS WITHOUT a ρ-dependent bias. Reaching THIS arm means
-                        // even that spectral deflation declined (a non-finite block
-                        // or a failed eigendecomposition): the iterate is genuinely
-                        // broken, so we surface the hard refusal and let the outer
-                        // BFGS treat this ρ as an INFINITY probe.
-                        //
-                        // We must NOT ridge-damp here: a `+ridge·I` evidence
-                        // fallback injects a ρ-dependent ½·log|I + ridge·H_tt⁻¹|
-                        // bias into the VALUE that the analytic ρ-gradient (built
-                        // for the undamped Laplace log-det) never sees, desyncing
-                        // the outer line-search — the multi-atom non-convergence this
-                        // fix removes. K=1 (and any already-PD or spectral-deflatable
-                        // K>1 row) never reaches this branch.
-                        return Err(format!(
-                            "SaeManifoldTerm::reml_criterion: undamped evidence \
-                             factorization hit a non-PD per-row H_tt block before KKT \
-                             stationarity (‖g‖={grad_norm:.6e}, tol {grad_tolerance:.6e}) \
-                             and the refinement budget was exhausted after \
-                             {total_inner_iter} inner iterations; {err}"
-                        ));
-                    }
-                    let remaining = refine_limit - total_inner_iter;
-                    let refine_iter = inner_max_iter.max(1).min(remaining);
-                    saw_refine_progress |=
-                        Self::refine_round_made_progress(previous_refine_grad_norm, grad_norm);
-                    previous_refine_grad_norm = Some(grad_norm);
-                    *loss = self.run_joint_fit_arrow_schur(
-                        target,
-                        rho_fixed,
-                        registry,
-                        refine_iter,
-                        learning_rate,
-                        ridge_ext_coord,
-                        ridge_beta,
-                    )?;
-                    total_inner_iter += refine_iter;
-                    continue;
-                }
-                Err(err) => {
-                    return Err(format!("SaeManifoldTerm::reml_criterion: {err}"));
-                }
-            }
-            let refine_limit = Self::refine_iteration_limit(
-                total_inner_iter,
-                base_refine_iter,
-                progress_refine_iter,
-                previous_refine_grad_norm,
-                grad_norm,
-                saw_refine_progress,
-            );
-            if total_inner_iter >= refine_limit {
-                // Inner solve did not converge in reml_criterion; the returned
-                // Err below carries the non-convergence diagnostic (gradient /
-                // quotient-gradient norms and the tolerance) to the caller. The
-                // historical quotient-Newton-step figures are no longer printed:
-                // the pre-stationarity Newton step was ALWAYS diagnostic-only
-                // (convergence is judged on the factorisation-independent KKT
-                // gradient), and the #2080 restructure above no longer pays the
-                // full dense factorization that produced it at non-stationary
-                // rounds.
-                return Err(format!(
-                    "SaeManifoldTerm::reml_criterion: inner solve did not converge at fixed ρ; \
-                     neither the KKT gradient ‖g‖={grad_norm:.6e} nor the quotient KKT gradient \
-                     ‖Π⊥gauge g‖={quotient_grad_norm:.6e} met tolerance {grad_tolerance:.6e} \
-                     after {total_inner_iter} inner iterations. Refusing to rank an \
-                     off-optimum Laplace criterion."
-                ));
-            }
-            let remaining = refine_limit - total_inner_iter;
-            let refine_iter = inner_max_iter.max(1).min(remaining);
-            saw_refine_progress |=
-                Self::refine_round_made_progress(previous_refine_grad_norm, grad_norm);
-            previous_refine_grad_norm = Some(grad_norm);
-            *loss = self.run_joint_fit_arrow_schur(
-                target,
-                rho_fixed,
-                registry,
-                refine_iter,
-                learning_rate,
-                ridge_ext_coord,
-                ridge_beta,
-            )?;
-            total_inner_iter += refine_iter;
-            refine_rounds += 1;
-            // #1051 — objective-stagnation fixed point. A whole refine round that
-            // failed to lower the penalised objective by a meaningful FRACTION of
-            // the total since-entry reduction means the Newton/LM iterate is at
-            // its numerical optimum: the remaining KKT residual lives in the
-            // weakly-identified decoder / gauge directions the near-singular Schur
-            // cannot resolve. Ranking the Laplace criterion at this fixed point is
-            // correct (the only further motion is cosmetic flat-valley crawl), so
-            // accept the current cache instead of refining until the budget dies.
-            // Requires a few completed refine rounds (so the fraction baseline is
-            // meaningful) but is NOT gated behind the full refine budget — the
-            // whole point is to terminate the crawl long before that.
-            let new_loss_total = loss.total();
-            // Two stagnation signals, both required: (1) the latest refine round
-            // contributed a negligible FRACTION of the total objective reduction
-            // achieved since entry — the fit has captured essentially all the
-            // achievable improvement and is now crawling cosmetically along the
-            // weakly-identified valley; (2) the absolute relative decrease is
-            // itself tiny. The fraction test is scale- and rate-free (it fires
-            // whether the crawl decays fast or slow), so it recognises the
-            // over-smoothed / rank-deficient fixed point the bare relative floor
-            // misses, while still never firing on a fit that is materially
-            // improving round over round.
-            let total_improvement = (entry_loss_total - new_loss_total).max(0.0);
-            let round_improvement = (previous_loss_total - new_loss_total).max(0.0);
-            let objective_scale = previous_loss_total.abs().max(new_loss_total.abs()) + 1.0;
-            let relative_decrease = round_improvement / objective_scale;
-            let captured_fraction = if total_improvement > 0.0 {
-                round_improvement / total_improvement
-            } else {
-                0.0
-            };
-            let stalled = new_loss_total.is_finite()
-                && relative_decrease.is_finite()
-                && captured_fraction.is_finite()
-                && relative_decrease < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
-                && captured_fraction < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION;
-            previous_loss_total = new_loss_total;
-            if stalled && refine_rounds >= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS {
-                let mut stationary_sys = self
-                    .assemble_arrow_schur(target, rho_fixed, registry)
-                    .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?;
-                // #1095/#2228 — decouple stall ACCEPTANCE from undamped-factor
-                // success. Both stationarity certificates below (the KKT grad-norm
-                // and the #2226 affine Newton-decrement ½λ²) and the returned
-                // evidence log-det are read from the ridge-0 factorization of this
-                // stationary system. On a chart that is over-parametrized for its
-                // intrinsic data dimension — d_atom=2 on an intrinsic 1-D circle,
-                // so every per-row H_tt carries a rank-1 radial null — that
-                // undamped per-row Cholesky is non-PD BY CONSTRUCTION, so without
-                // spectral deflation `solve_arrow_newton_step_with_options` errors,
-                // the whole `if let Ok(..)` is skipped, and a perfectly good fit is
-                // refused to the non-convergence sentinel (#1095: public
-                // sae_manifold_fit K=1 circle → GamError at every N).
-                //
-                // Ensure the stationary EVIDENCE system opts into per-row spectral
-                // discovery (installing an empty-per-row `row_gauge_deflation` is
-                // exactly the #974 low-rank-whiten seam): an intrinsic flat /
-                // indefinite direction is then deflated to UNIT stiffness (log 1 = 0,
-                // ρ-independent — the quotient pseudo-determinant convention the
-                // gauge / #1273 / #974 deflations already use), so the ridge-0
-                // factor is PD-by-deflation, the log-det is finite, and the affine
-                // ½λ² below is measured on the IDENTIFIABLE subspace (the deflated
-                // null direction contributes a bounded step, not a Schur-amplified
-                // blow-up). A full-rank block has no eigenvalue below the spectral
-                // floor and is returned bit-for-bit unchanged, so healthy fits are
-                // untouched — this only makes acceptance REACHABLE on a
-                // rank-deficient chart. The UNDAMPED (non-deflated) per-row verdict
-                // remains the #2080 infeasible-ρ probe upstream
-                // (`probe_undamped_evidence_row_factors` on the loop `sys`), which
-                // this does not touch: it is a probe signal, not an acceptance gate.
-                if stationary_sys.row_gauge_deflation.is_none() {
-                    let n_rows = stationary_sys.rows.len();
-                    stationary_sys
-                        .set_row_gauge_deflation(ArrowRowGaugeDeflation::new(vec![Vec::new(); n_rows]));
-                }
-                if let Ok((stationary_dt, stationary_db, stationary_cache)) =
-                    solve_arrow_newton_step_with_options(&stationary_sys, 0.0, 0.0, options)
-                {
-                    let stationary_grad_norm_sq: f64 = stationary_sys
-                        .rows
-                        .iter()
-                        .map(|row| row.gt.iter().map(|&v| v * v).sum::<f64>())
-                        .sum::<f64>()
-                        + stationary_sys.gb.iter().map(|&v| v * v).sum::<f64>();
-                    let stationary_grad_norm = stationary_grad_norm_sq.sqrt();
-                    let stationary_quotient_grad_norm = self.quotient_gradient_norm_from_system(
-                        &stationary_sys,
-                        stationary_grad_norm_sq,
-                        &lambda_smooth,
-                    );
-                    if stationary_grad_norm <= grad_tolerance
-                        || stationary_quotient_grad_norm <= grad_tolerance
-                    {
-                        return Ok(stationary_cache);
-                    }
-                    // Affine-invariant stationarity certificate (#2226). The raw and
-                    // quotient KKT gradient norms above are measured in the ambient
-                    // Euclidean parameter metric, which lumps the heterogeneous
-                    // logit / coordinate / decoder-coefficient blocks together with
-                    // unit weight. The floor that norm can reach is set by the joint
-                    // Hessian's conditioning and therefore by the float summation
-                    // order, so NEON (arm64) and AVX (x86) plateau at slightly
-                    // different values — a couple of digits apart on this K=1 circle,
-                    // enough that arm64 parks above the absolute iterate-scaled
-                    // tolerance x86 clears and the fixed point is hard-refused
-                    // (issue #2226: `sae_manifold_fit(K=1, atom_topology="circle")`).
-                    //
-                    // The Newton decrement λ² = gᵀH⁻¹g = −gᵀΔ (Δ the exact undamped
-                    // joint Newton step just factored above) is invariant to any
-                    // affine reparametrisation of the iterate, and ½λ² is the
-                    // quadratic model's predicted remaining decrease in the penalised
-                    // objective. `sae_manifold_newton_directional_decrease` returns
-                    // −gᵀΔ = λ² for the descent step Δ. We are already inside the
-                    // objective-stall fixed point (both `relative_decrease` and
-                    // `captured_fraction` fell below their floors above), so no step
-                    // lowers the objective by a meaningful fraction of its scale; the
-                    // model-predicted decrease ½λ² is then likewise below that scale,
-                    // and we accept on that affine-invariant witness. Measuring the
-                    // predicted decrease RELATIVE to the objective scale — the exact
-                    // structure `relative_decrease` (round_improvement / objective_scale)
-                    // uses — keeps this neither looser nor tighter than the stall gate
-                    // that just fired: it can only accept when the model itself
-                    // predicts no further meaningful descent, never a still-descending
-                    // iterate (a large λ² leaves this below and falls through to the
-                    // deterministic refine budget exactly as before).
-                    let newton_decrement_sq = sae_manifold_newton_directional_decrease(
-                        &stationary_sys,
-                        stationary_dt.view(),
-                        stationary_db.view(),
-                    )
-                    .max(0.0);
-                    let predicted_relative_decrease = 0.5 * newton_decrement_sq / objective_scale;
-                    log::debug!(
-                        "SAE inner stall certificate: ‖g‖={stationary_grad_norm:.6e} \
-                         ‖Π⊥gauge g‖={stationary_quotient_grad_norm:.6e} tol={grad_tolerance:.6e} \
-                         λ²={newton_decrement_sq:.6e} ½λ²/scale={predicted_relative_decrease:.6e} \
-                         obj_scale={objective_scale:.6e} accept_tol={SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL:.6e}"
-                    );
-                    if predicted_relative_decrease <= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL {
-                        return Ok(stationary_cache);
-                    }
-                    // A flat objective round is only a convergence shortcut when
-                    // the KKT certificate above is stationary. If not, keep using
-                    // the deterministic refinement budget: either later rounds
-                    // reach stationarity, or the normal `total_inner_iter >=
-                    // refine_limit` branch reports non-convergence without
-                    // ranking an off-optimum Laplace criterion. Returning `Err`
-                    // here was too strong for K=1 circle fits: one weakly
-                    // identified round could abort a still-descending solve and
-                    // poison the outer BFGS line search with a false value-probe
-                    // refusal.
-                    //
-                    // #1094 — but the undamped/deflated evidence factor DID
-                    // succeed this round with a finite Laplace log-det. Stash it:
-                    // at a rank-deficient K>1 fixed point (euclidean K=2 with
-                    // near-zero initial latent coords) the residual KKT gradient
-                    // lives permanently in the weakly-identified decoder/gauge
-                    // directions the near-singular Schur cannot resolve, so no
-                    // stationarity certificate can ever fire — yet the penalised
-                    // objective is genuinely at its numerical floor. If that stall
-                    // persists for the full `STALL_MIN_ROUNDS` (below), the floor
-                    // is the #1051 inner-convergence witness and this finite
-                    // deflated evidence is the value to rank.
-                    if arrow_log_det_from_cache(&stationary_cache).is_some_and(f64::is_finite) {
-                        stalled_finite_cache = Some(stationary_cache);
-                    }
-                }
-                // Persistent objective-stall fixed point (`STALL_MIN_ROUNDS`
-                // consecutive stalled rounds). Two outcomes:
-                //   * The evidence factor produced a finite log-det that no
-                //     stationarity certificate could accept (#1094): the objective
-                //     has held at its numerical floor across every stalled round,
-                //     which IS the inner-convergence certificate, so rank the
-                //     finite deflated Laplace evidence. The unit-stiffness /
-                //     PD-floor conditioning of the rank-deficient directions is a
-                //     bias consistent across every ρ evaluation and so does not
-                //     move the outer optimum, whereas refusing hands the outer BFGS
-                //     a +∞ at a de-facto-converged point and drives the whole fit
-                //     to the 1e12 infeasible sentinel.
-                //   * The undamped factor FAILED at every stall round (a genuinely
-                //     broken / non-finite rank-deficient geometry, no finite
-                //     evidence to rank): surface the hard refusal — the same signal
-                //     `is_recoverable_value_probe_refusal` handles, so the outer
-                //     BFGS treats this ρ as an INFINITY probe and tries another.
-                // Either way the loop terminates here rather than burning the
-                // extended `progress_refine_iter` budget indefinitely.
-                consecutive_stall_factor_fail += 1;
-                if consecutive_stall_factor_fail >= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS {
-                    if let Some(cache) = stalled_finite_cache.take() {
-                        log::debug!(
-                            "SAE inner objective-stall fixed point accepted after \
-                             {consecutive_stall_factor_fail} consecutive stalled rounds: ranking \
-                             the finite deflated Laplace evidence at the rank-deficient optimum \
-                             (‖g‖={grad_norm:.6e}, tol {grad_tolerance:.6e}) instead of the \
-                             infeasible sentinel (#1094)"
-                        );
-                        return Ok(cache);
-                    }
-                    return Err(format!(
-                        "SaeManifoldTerm::reml_criterion: inner solve did not converge at fixed ρ; \
-                         objective stalled for {consecutive_stall_factor_fail} consecutive refine \
-                         rounds (‖g‖={grad_norm:.6e}, tol {grad_tolerance:.6e}) and the undamped \
-                         evidence factorization failed at each stall point — the iterate is at the \
-                         numerical fixed point under rank-deficient geometry (#{consecutive_stall_factor_fail} \
-                         stall-factor-fail rounds; refusing to rank an off-optimum Laplace criterion)"
-                    ));
-                }
-            } else {
-                // The stall streak broke (this round is materially descending or
-                // the fraction baseline is not yet meaningful): drop any stashed
-                // cache so the #1094 accept only ever ranks a cache from an
-                // UNBROKEN run of `STALL_MIN_ROUNDS` stalled rounds at a frozen
-                // iterate, never a stale one from an earlier, since-abandoned stall.
-                consecutive_stall_factor_fail = 0;
-                stalled_finite_cache = None;
-            }
-        }
-    }
-
-    pub(crate) fn refine_iteration_limit(
-        total_inner_iter: usize,
-        base_refine_iter: usize,
-        progress_refine_iter: usize,
-        previous_grad_norm: Option<f64>,
-        grad_norm: f64,
-        saw_refine_progress: bool,
-    ) -> usize {
-        // Flat affine-gauge valleys can keep crawling productively after the
-        // historical base budget. Extend only when the measured KKT residual has
-        // shown a real finite round-to-round drop; true stalls end at the base
-        // work budget (#968/#1029). Value-order probes pass the base budget as
-        // their progress budget, so this branch cannot make probes expensive.
-        if total_inner_iter < base_refine_iter {
-            return base_refine_iter;
-        }
-        let making_progress =
-            saw_refine_progress || Self::refine_round_made_progress(previous_grad_norm, grad_norm);
-        if making_progress && grad_norm.is_finite() {
-            progress_refine_iter
-        } else {
-            base_refine_iter
-        }
-    }
-
-    pub(crate) fn refine_round_made_progress(
-        previous_grad_norm: Option<f64>,
-        grad_norm: f64,
-    ) -> bool {
-        previous_grad_norm
-            .is_some_and(|prev| prev.is_finite() && grad_norm.is_finite() && grad_norm < prev)
-    }
-
-    pub(crate) fn outer_gradient_arrow_solver<'a>(
-        &'a self,
-        cache: &'a ArrowFactorCache,
-        penalized_gram_scale: &[f64],
-    ) -> Result<DeflatedArrowSolver<'a>, OuterGradientError> {
-        let Err(conditioning_err) = Self::outer_gradient_conditioning_error(cache) else {
-            return Ok(DeflatedArrowSolver::plain(cache));
-        };
-        let Some(max_pivot) = arrow_factor_max_pivot(cache) else {
-            return Err(conditioning_err);
-        };
-        if !(max_pivot.is_finite() && max_pivot > 0.0) {
-            return Err(conditioning_err);
-        }
-
-        // The conditioning gate has already flagged a near-singular joint Hessian
-        // (`conditioning_err`). Below we attempt to attribute that flatness to the
-        // closed-form gauge orbit (chart step gauges) plus the penalty-aware
-        // decoder-null directions and deflate it. When NO such deflatable
-        // direction can be recovered, the flat subspace is genuinely
-        // non-identifiable -- a degenerate direction OUTSIDE the gauge orbit -- a
-        // diagnosis distinct from the raw pivot-ratio conditioning trip. Both
-        // classes are #1273 FD-eligible, but surfacing the gauge-degenerate case
-        // as its own [`OuterGradientError::NonIdentifiable`] keeps the diagnostic
-        // distinction the FD-eligibility contract is built around.
-        let non_identifiable_err = OuterGradientError::NonIdentifiable {
-            reason: format!(
-                "near-singular joint Hessian with no deflatable gauge/decoder-null \
-                 direction (max pivot {max_pivot:.3e})"
-            ),
-        };
-
-        let full_len = cache.delta_t_len() + cache.k;
-        let mut raw_gauges = Vec::new();
-        for gauge in self
-            .dense_step_gauge_vectors()
-            .map_err(OuterGradientError::internal)?
-        {
-            if gauge.len() != full_len {
-                continue;
-            }
-            let norm_sq = gauge.iter().map(|v| v * v).sum::<f64>();
-            if !(norm_sq.is_finite() && norm_sq > 1.0e-24) {
-                continue;
-            }
-            raw_gauges.push(gauge);
-        }
-        // #1051/#1273: admit the penalty-aware decoder-β null directions as
-        // additional deflation candidates. A rank-deficient decoder design
-        // (e.g. a euclidean-1D line in a p=2 ambient: decoder column rank 1 of
-        // 3) puts a genuine near-null direction of the joint Hessian in the β
-        // block, OUTSIDE the closed-form chart gauge orbit. #1273: probing the
-        // RAW unit-β basis `e_j` produced an INCOMPLETE candidate set — the
-        // true flat direction is the penalised null of `G_k + λ_smooth·S_k`,
-        // not an axis-aligned coordinate, so the outer gate rejected trial ρ
-        // with a pivot ratio (5.3e-16 < 1e-12) that the inner gate (which
-        // already uses `decoder_beta_null_directions(λ_smooth)`) accepts. Use
-        // the SAME penalty-aware null directions here, evaluated at the smooth
-        // scale the Schur factor used, so the outer and inner gates agree.
-        // These full (n·q + beta_dim)-length vectors drop into the same
-        // Gram-Schmidt + Rayleigh + Faddeev-Popov path below; the Rayleigh
-        // floor still keeps only genuinely flat (sub-floor) directions, so a
-        // well-conditioned decoder is unaffected.
-        for dir in self
-            .decoder_beta_null_directions(penalized_gram_scale)
-            .map_err(OuterGradientError::internal)?
-        {
-            if dir.len() == full_len {
-                raw_gauges.push(dir);
-            }
-        }
-        // #1051/#1273: also admit the decoder COLUMN-SPAN null (an unrealised
-        // ambient output channel of a rank-deficient decoder), which the
-        // channel-free basis-null above structurally cannot represent. The
-        // rank-1-decoder-line geometry (e.g. a 1-D euclidean line in p=2
-        // ambient: decoder column rank 1 of 2) puts the joint Hessian's
-        // sub-floor pivot entirely in one output channel; without this
-        // candidate the outer gate had nothing to deflate it with and rejected
-        // the trial ρ. The Rayleigh floor below still prunes any candidate that
-        // is not genuinely flat against the cached Hessian.
-        for dir in self
-            .decoder_channel_null_directions()
-            .map_err(OuterGradientError::internal)?
-        {
-            if dir.len() == full_len {
-                raw_gauges.push(dir);
-            }
-        }
-        if raw_gauges.is_empty() {
-            return Err(non_identifiable_err);
-        }
-
-        let mut gauge_span: Vec<Array1<f64>> = Vec::new();
-        for mut gauge in raw_gauges {
-            for basis in &gauge_span {
-                let coeff = gauge.dot(basis);
-                for i in 0..gauge.len() {
-                    gauge[i] -= coeff * basis[i];
-                }
-            }
-            let norm_sq = gauge.iter().map(|v| v * v).sum::<f64>();
-            if !(norm_sq.is_finite() && norm_sq > 1.0e-24) {
-                continue;
-            }
-            let inv_norm = norm_sq.sqrt().recip();
-            for value in gauge.iter_mut() {
-                *value *= inv_norm;
-            }
-            gauge_span.push(gauge);
-        }
-        if gauge_span.is_empty() {
-            return Err(non_identifiable_err);
-        }
-
-        let span_rank = gauge_span.len();
-        let mut h_span = Array2::<f64>::zeros((span_rank, span_rank));
-        for col in 0..span_rank {
-            let h_gauge = match apply_cached_arrow_hessian(
-                cache,
-                gauge_span[col].slice(s![..cache.delta_t_len()]),
-                gauge_span[col].slice(s![cache.delta_t_len()..]),
-            ) {
-                Ok(value) => value,
-                // #1451: a shape/dimension mismatch or non-finite intermediate
-                // from the Hessian apply is an internal-invariant defect and MUST
-                // propagate; only a genuine numeric failure on a finite,
-                // correctly-shaped input keeps the FD-eligible conditioning class.
-                Err(err) => {
-                    return Err(OuterGradientError::classify_arrow_solver_error(
-                        &err,
-                        conditioning_err.clone(),
-                    ));
-                }
-            };
-            let h_flat = flatten_arrow_parts(h_gauge.t.view(), h_gauge.beta.view());
-            for row in 0..span_rank {
-                h_span[[row, col]] = gauge_span[row].dot(&h_flat);
-            }
-        }
-        for row in 0..span_rank {
-            for col in 0..row {
-                let sym = 0.5 * (h_span[[row, col]] + h_span[[col, row]]);
-                h_span[[row, col]] = sym;
-                h_span[[col, row]] = sym;
-            }
-        }
-        // #1451: a non-finite entry in the projected gauge Hessian is an
-        // internal-invariant defect (a NaN/Inf intermediate leaked into the
-        // span), not a conditioning failure — it MUST propagate rather than be
-        // masked behind an FD descent. Guard finiteness BEFORE the eigh so only a
-        // genuine decomposition failure on a finite, correctly-shaped matrix keeps
-        // the FD-eligible conditioning class.
-        if !h_span.iter().all(|v| v.is_finite()) {
-            return Err(OuterGradientError::internal(format!(
-                "outer_gradient_arrow_solver: non-finite entry in projected gauge \
-                 Hessian (h_span is {span_rank}x{span_rank})"
-            )));
-        }
-        let (evals, evecs) = h_span
-            .eigh(Side::Lower)
-            .map_err(|_| conditioning_err.clone())?;
-        let strict_gauge_floor = SAE_OUTER_GRADIENT_GAUGE_RAYLEIGH_FACTOR * max_pivot;
-        let mut orthonormal: Vec<Array1<f64>> = Vec::new();
-        for eig_idx in 0..evals.len() {
-            let rayleigh = evals[eig_idx];
-            if !(rayleigh.is_finite() && rayleigh <= strict_gauge_floor) {
-                continue;
-            }
-            let mut direction = Array1::<f64>::zeros(full_len);
-            for basis_idx in 0..span_rank {
-                let coeff = evecs[[basis_idx, eig_idx]];
-                for row in 0..full_len {
-                    direction[row] += coeff * gauge_span[basis_idx][row];
-                }
-            }
-            let norm_sq = direction.iter().map(|v| v * v).sum::<f64>();
-            if !(norm_sq.is_finite() && norm_sq > 1.0e-24) {
-                continue;
-            }
-            let inv_norm = norm_sq.sqrt().recip();
-            for value in direction.iter_mut() {
-                *value *= inv_norm;
-            }
-            orthonormal.push(direction);
-        }
-        if orthonormal.is_empty() {
-            // #1273/#1440: the conditioning gate has ALREADY certified a
-            // near-singular joint Hessian (`conditioning_err`), so a genuine flat
-            // direction exists inside the assembled gauge/decoder-null span even
-            // when no projected-Hessian eigenvector cleared the strict or the
-            // `fallback_gauge_floor` Rayleigh band. Rather than declining
-            // (which historically routed the outer step to a finite-difference
-            // descent direction — the FD instrument #1440 removes), deflate the
-            // SMALLEST-Rayleigh eigenvector of the projected gauge Hessian
-            // UNCONDITIONALLY. That eigenvector is the least-curvature member of
-            // the validated gauge span (a Faddeev-Popov gauge candidate), so the
-            // Tikhonov stiffness `max_pivot` in `from_orthonormal_gauges` bounds
-            // its contribution at the Hessian scale and the components orthogonal
-            // to it are byte-for-byte the plain analytic inverse solve. This keeps
-            // the descent direction fully ANALYTIC (a projected/damped gradient),
-            // never a differenced value path.
-            let mut best_idx = None;
-            let mut best_rayleigh = f64::INFINITY;
-            for eig_idx in 0..evals.len() {
-                let rayleigh = evals[eig_idx];
-                if rayleigh.is_finite() && rayleigh < best_rayleigh {
-                    best_idx = Some(eig_idx);
-                    best_rayleigh = rayleigh;
-                }
-            }
-            if let Some(eig_idx) = best_idx {
-                let mut direction = Array1::<f64>::zeros(full_len);
-                for basis_idx in 0..span_rank {
-                    let coeff = evecs[[basis_idx, eig_idx]];
-                    for row in 0..full_len {
-                        direction[row] += coeff * gauge_span[basis_idx][row];
-                    }
-                }
-                let norm_sq = direction.iter().map(|v| v * v).sum::<f64>();
-                if norm_sq.is_finite() && norm_sq > 1.0e-24 {
-                    let inv_norm = norm_sq.sqrt().recip();
-                    for value in direction.iter_mut() {
-                        *value *= inv_norm;
-                    }
-                    orthonormal.push(direction);
-                }
-            }
-        }
-        if orthonormal.is_empty() {
-            return Err(non_identifiable_err);
-        }
-
-        // Quotient-geometry gauge fixing: add stiffness only along the closed-form
-        // gauge orbit (Faddeev-Popov style). Components orthogonal to that orbit
-        // are identical to the original inverse solve, while gauge components are
-        // bounded at the Hessian scale `max_pivot`.
-        // #1451: a shape/length mismatch or non-finite stiffness/intermediate in
-        // the deflated-solver assembly is an internal-invariant defect and MUST
-        // propagate; only a genuine near-singular gauge Woodbury/back-solve keeps
-        // the FD-eligible conditioning class.
-        DeflatedArrowSolver::from_orthonormal_gauges(cache, orthonormal, max_pivot)
-            .map_err(|err| OuterGradientError::classify_arrow_solver_error(&err, conditioning_err))
-    }
-
-    pub(crate) fn outer_gradient_conditioning_error(
-        cache: &ArrowFactorCache,
-    ) -> Result<(), OuterGradientError> {
-        let pivot = arrow_factor_min_pivot(cache);
-        let Some(min_pivot) = pivot.min_pivot else {
-            return Err(OuterGradientError::IllConditioned {
-                reason: "joint Hessian numerically singular (no cached Cholesky pivots)"
-                    .to_string(),
-            });
-        };
-        let Some(max_pivot) = arrow_factor_max_pivot(cache) else {
-            return Err(OuterGradientError::IllConditioned {
-                reason: "joint Hessian numerically singular (no cached Cholesky pivot scale)"
-                    .to_string(),
-            });
-        };
-        let ratio = min_pivot / max_pivot;
-        if min_pivot.is_finite()
-            && max_pivot.is_finite()
-            && max_pivot > 0.0
-            && ratio.is_finite()
-            && ratio >= SAE_OUTER_GRADIENT_PIVOT_RATIO_FLOOR
-        {
-            return Ok(());
-        }
-        Err(OuterGradientError::IllConditioned {
-            reason: format!(
-                "joint Hessian numerically singular (min/max pivot ratio {ratio:.3e} < floor {floor:.3e}; min pivot {min_pivot:.3e}, max pivot {max_pivot:.3e})",
-                floor = SAE_OUTER_GRADIENT_PIVOT_RATIO_FLOOR,
-            ),
-        })
-    }
-
-    /// Smoothing-penalty Occam normalizer `−½ Σ_k r_k·rank(S_k)·log λ_smooth`
-    /// (issue #972; #1556 per-atom λ).
-    ///
-    /// This is the `log λ`-dependent part of the penalty log-determinant
-    /// `−½ log|λ_k S_k|_+` summed over the `r_k` penalized decoder channels: the
-    /// `S_k` roughness penalty acts on `r_k` coordinate channels (`r_k == p` on
-    /// the full-`B` path, the smaller frame rank when a Grassmann frame is
-    /// active), each contributing `rank(S_k)` penalized directions, so the
-    /// `λ_k`-normalizer is `½ r_k·rank(S_k)·log λ_k`.
-    ///
-    /// The profiled frame ORIENTATION `U_k` is NOT penalized by `λ_k` — the
-    /// isotropic `⊗ I_{r_k}` penalty is invariant to rotating the frame, so the
-    /// `r_k(p−r_k)` Grassmann directions are flat directions of the penalty and
-    /// their Laplace curvature comes from the DATA fit, carrying NO `log λ_k`
-    /// dependence. The historical `−½ r_k(p−r_k)·log λ_k` "frame evidence
-    /// dimension" term therefore attached a `log λ_k` factor to a
-    /// λ-INDEPENDENT geometric dimension (e.g. `p=896, r=1, rank S=1`:
-    /// `0.5·(1−895)=−447`, i.e. `+447·log λ` pushed into the smoothing selection
-    /// from an unpenalized orientation) and is dropped. On the full-`B` path
-    /// `r_k == p` so `frame_dim = r_k(p−r_k) = 0` and this is bit-for-bit
-    /// unchanged; only frame-active fits change, toward the correct normalizer.
-    /// A genuine frame-orientation evidence correction, if wanted, is a SEPARATE
-    /// (λ-independent) Laplace term built from the actual frame Hessian.
-    pub(crate) fn reml_occam_term(&self, rho: &SaeManifoldRho) -> Result<f64, String> {
-        let mut acc = 0.0_f64;
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let rank_s = Self::symmetric_rank(&atom.smooth_penalty)?;
-            // Penalized decoder dimension: `r_k` coordinate channels carry the
-            // `S_k` roughness penalty (full-`B` path ⇒ `r_k == p`).
-            let penalized_channel_dim = atom.border_frame_rank() * rank_s;
-            // The SAME clamped log-strength the penalty/Hessian channels
-            // exponentiate: past the ±700 band λ_eff is constant, so the
-            // normalizer must be too — a raw coordinate would let the criterion
-            // drift linearly while the model it scores is frozen. (The outer
-            // walk is bounded at |ρ| ≤ 30, so the band is unreachable in
-            // production; this keeps the two conventions identical anyway.)
-            let log_lambda =
-                SaeManifoldRho::clamped_log_strength(rho.log_lambda_smooth[atom_idx]);
-            acc += 0.5 * (penalized_channel_dim as f64) * log_lambda;
-        }
-        // `V = … − occam`, so the net occam SUBTRACTS the penalty normalizer.
-        Ok(acc)
-    }
-
-    /// Per-atom derivative `∂(occam)/∂log λ_smooth[k]` (#1556): atom `k`'s entry
-    /// is `½·r_k·rank(S_k)` inside the ±700 clamp band and `0` outside it
-    /// (where [`Self::reml_occam_term`] reads the clamped, constant
-    /// log-strength), matching the per-atom Occam term exactly. The
-    /// unpenalized-frame `frame_dim` term carries no `log λ` dependence and is
-    /// absent from both. Returns one entry per atom in atom order.
-    pub(crate) fn reml_occam_log_lambda_smooth_derivative(
-        &self,
-        rho: &SaeManifoldRho,
-    ) -> Result<Vec<f64>, String> {
-        let mut out = Vec::with_capacity(self.atoms.len());
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let rank_s = Self::symmetric_rank(&atom.smooth_penalty)?;
-            let penalized_channel_dim = atom.border_frame_rank() * rank_s;
-            let raw = rho.log_lambda_smooth[atom_idx];
-            let inside_band = SaeManifoldRho::clamped_log_strength(raw) == raw;
-            out.push(if inside_band {
-                0.5 * (penalized_channel_dim as f64)
-            } else {
-                0.0
-            });
-        }
-        Ok(out)
-    }
-
-    /// Streaming criterion that RETURNS the converged arrow-factor cache — the
-    /// per-row factored Hessian (matrix-free, feasible at massive K; the dense
-    /// `border_dim²` Schur is NEVER formed here), so the EFS hyperparameter lane
-    /// can take its matrix-free ARD / smoothness traces off this cache in the
-    /// streaming regime instead of hard-erroring on the dense evidence path. The
-    /// log-determinant is the chunked matrix-free `streaming_exact_arrow_log_det`.
-    /// Convenience over [`Self::reml_criterion_streaming_exact_with_cache_and_lane`]
-    /// with no #2080 surrogate lane (bit-identical SLQ evidence).
-    pub fn reml_criterion_streaming_exact_with_cache(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
-        self.reml_criterion_streaming_exact_with_cache_and_lane(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            None,
-        )
-    }
-
-    /// [`Self::reml_criterion_streaming_exact_with_cache`] with the #2080 surrogate
-    /// lane threaded to the streaming `log|S|` term (`None` = bit-identical SLQ).
-    pub fn reml_criterion_streaming_exact_with_cache_and_lane(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-        lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
-        let mut rho_fixed = rho.clone();
-        let mut loss = self.run_joint_fit_arrow_schur(
-            target,
-            &mut rho_fixed,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        )?;
-        // Drive the inner (t, β) state to the SAME KKT/step-converged optimum the
-        // dense `reml_criterion_with_cache` reaches before factoring. At that
-        // optimum the per-row `H_tt^(i)` blocks are PD, so the undamped
-        // (`ridge_t = 0`) streaming factorization in `streaming_exact_arrow_log_det`
-        // succeeds — without this, a state stopped after only `inner_max_iter`
-        // steps can leave a rank-deficient / indefinite row block (`p_out = 1` →
-        // rank-1 `JᵀJ`, softmax negative-logit curvature) that surfaces
-        // `PerRowFactorFailed` at base ridge 0. Sharing the driver also keeps the
-        // streaming and dense log-determinants bit-identical (#847).
-        let options = ArrowSolveOptions::direct()
-            .with_ill_conditioning_tolerated()
-            .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
-        // The converged arrow-factor cache is the per-row factored Hessian
-        // (matrix-free, feasible at massive K — the dense border_dim² Schur is
-        // never materialised here); it is RETURNED so the EFS lane can take its
-        // matrix-free ARD/smoothness traces off it. The log-determinant itself is
-        // recomputed chunk-by-chunk in `streaming_exact_arrow_log_det` to bound
-        // peak memory (bit-identical to the dense path, #847).
-        let converged_cache = self.converge_inner_for_undamped_logdet(
-            target,
-            rho,
-            &mut rho_fixed,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            &mut loss,
-            &options,
-            true,
-        )?;
-        // #9: request the per-atom Grams + N_eff + log_det_tt in the SAME log-det
-        // pass ONLY when the rank charge is on (else zero overhead, historical path).
-        let mut rank_inputs = if self.rank_charge_evidence {
-            Some(StreamingRankInputs::default())
-        } else {
-            None
-        };
-        let log_det = self.streaming_exact_arrow_log_det_with_lane(
-            target,
-            rho,
-            registry,
-            rank_inputs.as_mut(),
-            lane,
-        )?;
-        let occam = self.reml_occam_term(rho)?;
-        // Extra analytic-penalty energy (#671/#737), matching the full-batch
-        // `reml_criterion_with_cache` path so streaming and dense criteria rank
-        // the identical penalized objective.
-        let extra_penalty_energy = match registry {
-            Some(reg) => self
-                .reml_extra_penalty_value_total(reg)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion_streaming_exact: {err}"))?,
-            None => 0.0,
-        };
-        let v = if let Some(ri) = rank_inputs {
-            // #9/#5 streaming rank charge: replace the coordinate-block ½log|H_tt|
-            // (= log_det_tt/2, exposed by the log-det pass) with Σ ½·d_eff·log n on
-            // each atom's realised decoder rank, priced through the SAME
-            // `rank_dof_from_grams` MP hard count as the dense path off the
-            // chunk-accumulated Grams. The β/Schur block (the ‖B‖-independent part
-            // of log_det) is untouched — bit-identical dense↔streaming by design.
-            let disp = match self.reconstruction_residual(target, rho).and_then(|resid| {
-                self.reconstruction_dispersion(&loss, &converged_cache, rho, Some(resid.view()))
-            }) {
-                Ok(phi) => phi,
-                Err(e) => {
-                    log::warn!(
-                        "[#9 rank-charge] reconstruction_dispersion failed ({e}); noise floor \
-                         R→MIN_POSITIVE — vanishing-atom detection degraded this ρ-eval"
-                    );
-                    f64::MIN_POSITIVE
-                }
-            };
-            let d_eff = self.rank_dof_from_grams(&ri.grams, &ri.n_eff, rho, disp)?;
-            // #5 VETO (streaming): categorical Laplace-validity condition — a
-            // rank_eff==0 (d_eff==0) atom reconstructs nothing, so its evidence is
-            // INVALID (degenerate β-mode / β-Schur log-det → −∞), not payable. Reject
-            // categorically (v → +∞). Same guard as the dense path; see the dense
-            // reml_criterion for the full rationale + β-Schur-floor trailhead.
-            if d_eff.iter().any(|&de| de == 0.0) {
-                f64::INFINITY
-            } else {
-                // #2a occupancy-aware scale (see the dense `reml_criterion` for the full
-                // rationale + inert-row axiom + RLCT veto justification): charge atom k
-                // ½·d_eff,k·ln(N_eff,k), N_eff,k = Σ_i a_{ik}² (here `ri.n_eff`, the same
-                // effective sample size chunk-accumulated for the MP edge), NOT the
-                // global n_obs. Bit-identical to the dense path by design — including the
-                // Theorem K soft ledger: under the `soft_rank_charge` flag the coefficient of
-                // ln N_eff,k is the WBIC soft λ_k off the SAME `ri.grams`/`ri.n_eff` the
-                // dense path derives from `self`, so dense↔streaming stay identical.
-                let rank_charge: f64 = if self.soft_rank_charge {
-                    let lambda =
-                        self.soft_learning_coefficient_from_grams(&ri.grams, &ri.n_eff, rho, disp)?;
-                    lambda
-                        .iter()
-                        .zip(ri.n_eff.iter())
-                        .map(|(&lam, &ne)| lam * ne.max(1.0).ln())
-                        .sum()
-                } else {
-                    d_eff
-                        .iter()
-                        .zip(ri.n_eff.iter())
-                        .map(|(&de, &ne)| 0.5 * de * ne.max(1.0).ln())
-                        .sum()
-                };
-                let htt_half = 0.5 * ri.log_det_tt;
-                loss.total() + extra_penalty_energy + (0.5 * log_det - htt_half + rank_charge)
-                    - occam
-            }
-        } else {
-            loss.total() + extra_penalty_energy + 0.5 * log_det - occam
-        };
-        Ok((v, loss, converged_cache))
-    }
-
-    /// Value-only streaming criterion — the cache-returning
-    /// [`Self::reml_criterion_streaming_exact_with_cache`] with the cache dropped.
-    pub fn reml_criterion_streaming_exact(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
-        self.reml_criterion_streaming_exact_with_lane(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            None,
-        )
-    }
-
-    /// [`Self::reml_criterion_streaming_exact`] with the #2080 surrogate lane
-    /// threaded to the streaming `log|S|` term (`None` = bit-identical SLQ).
-    pub fn reml_criterion_streaming_exact_with_lane(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-        lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
-        let (cost, loss, _cache) = self.reml_criterion_streaming_exact_with_cache_and_lane(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            lane,
-        )?;
-        Ok((cost, loss))
-    }
-
-    /// Value-only streaming reduced-Schur evidence log-det via the historical SLQ
-    /// lane — convenience over [`Self::streaming_exact_arrow_log_det_with_lane`]
-    /// with `lane = None` (bit-identical to the pre-#2080 SLQ path).
-    pub fn streaming_exact_arrow_log_det(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        rank_inputs: Option<&mut StreamingRankInputs>,
-    ) -> Result<f64, String> {
-        self.streaming_exact_arrow_log_det_with_lane(target, rho, registry, rank_inputs, None)
-    }
-
-    /// Streaming reduced-Schur evidence `log|H| = Σ log|H_tt| + log|S|` with the
-    /// #2080 surrogate lane threaded to the `log|S|` term. `lane = None` runs the
-    /// bit-identical SLQ path; `lane = Some(state)` builds-or-reuses the frozen
-    /// derived-rank rational surrogate (matrix-free, desync-safe) instead.
-    pub fn streaming_exact_arrow_log_det_with_lane(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        mut rank_inputs: Option<&mut StreamingRankInputs>,
-        lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<f64, String> {
-        if target.dim() != (self.n_obs(), self.output_dim()) {
-            return Err(format!(
-                "SaeManifoldTerm::streaming_exact_arrow_log_det: target must be ({}, {}); got {:?}",
-                self.n_obs(),
-                self.output_dim(),
-                target.dim()
-            ));
-        }
-        // #9: when the rank charge is on, accumulate the per-atom Grams + effective
-        // sample sizes chunk-additively alongside the log-det (single pass), and
-        // hand back the coordinate-block `log_det_tt` (= 2·htt_half). Zero cost /
-        // untouched when `None`.
-        if let Some(ri) = rank_inputs.as_deref_mut() {
-            ri.grams = self.empty_decoder_gram_accumulator();
-            ri.n_eff = vec![0.0; self.k_atoms()];
-            ri.log_det_tt = 0.0;
-        }
-        let plan = self.streaming_plan().admitted_or_error(
-            self.n_obs(),
-            self.output_dim(),
-            self.k_atoms(),
-        )?;
-        if plan.estimated_dense_schur_bytes > plan.in_core_budget_bytes {
-            // #988 memory-matrix-free evidence route. The dense k×k reduced Schur
-            // (≈8 GB at the K=32k manifold border) does NOT fit the in-core
-            // budget, so estimate log|S| via Stochastic Lanczos Quadrature on the
-            // matrix-free `schur_matvec` apply (`gam_solve::arrow_schur::
-            // matrix_free_arrow_evidence_log_det`) instead of assembling +
-            // Cholesky-factoring the dense Schur. Peak memory is the per-row block
-            // storage the inner PCG already holds, not the extra O(k²) dense S.
-            //
-            // Valid for the NON-IBP (softmax / JumpReLU) evidence, whose exact
-            // log-det is `log_det_tt + log_det_schur` with NO cross-row Woodbury
-            // correction. The IBP cross-row term additionally needs
-            // `log det(I_R + D Uᵀ H₀'⁻¹ U)`, which has no matrix-free route yet, so
-            // it keeps refusing (loudly, pointing at the dense resident path).
-            if ibp_assignment_third_channels(&self.assignment, rho, false)?.is_some() {
-                return Err(format!(
-                    "SaeManifoldTerm::streaming_exact_arrow_log_det: predicted dense reduced Schur \
-                     {} bytes exceeds budget {} bytes and the exact cross-row IBP Woodbury evidence \
-                     has no matrix-free log-det route yet; route IBP-active large-K fits through the \
-                     dense resident ArrowFactorCache::arrow_log_det",
-                    plan.estimated_dense_schur_bytes, plan.in_core_budget_bytes
-                ));
-            }
-            let n_total = self.n_obs();
-            let options = ArrowSolveOptions::direct()
-                .with_ill_conditioning_tolerated()
-                .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
-            // Assemble the WHOLE system once (a single "chunk" over all rows) so the
-            // matrix-free reduced-Schur apply `v ↦ S·v` can iterate every row; the
-            // per-row block storage is exactly what the inner solve already holds.
-            let full_logits = self.assignment.logits.slice(s![0..n_total, ..]).to_owned();
-            let full_coords: Vec<Array2<f64>> = self
-                .assignment
-                .coords
-                .iter()
-                .map(|coord| coord.as_matrix().slice(s![0..n_total, ..]).to_owned())
-                .collect();
-            let mut full_chunk =
-                self.materialize_chunk(full_logits, full_coords, self.chunk_frozen_logits(0, n_total))?;
-            if let Some(w) = self.row_loss_weights.as_deref() {
-                full_chunk.row_loss_weights = Some(w[0..n_total].to_vec());
-            }
-            if let Some(ri) = rank_inputs.as_deref_mut() {
-                full_chunk.accumulate_decoder_gram(&mut ri.grams);
-                let asg = full_chunk.assignment.assignments();
-                for k in 0..ri.n_eff.len() {
-                    let support = SupportMeasure::from_assignment_matrix(asg.view(), k)
-                        .expect("streaming full-rank chunk assignment shape must match atoms");
-                    ri.n_eff[k] += support.fisher_n();
-                }
-            }
-            // Full penalty (`penalty_scale = 1.0`): one chunk carries the whole
-            // objective, matching the summed per-chunk `(end-start)/n_total` scale.
-            let sys = full_chunk
-                .assemble_arrow_schur_scaled(target, rho, registry, 1.0)
-                .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
-            // #2080: the reduced-Schur `log|S|` term. `lane = None` runs the
-            // bit-identical SLQ estimate; `lane = Some(state)` swaps in the frozen
-            // derived-rank rational surrogate (matrix-free, value+ρ-gradient one
-            // functional). `log_det_tt` (the Σ log|H_tt| coordinate block) is exact
-            // on the shared factorization either way.
-            let (log_det_tt, log_det_schur) = matrix_free_arrow_evidence_log_det_surrogate(
-                &sys,
-                0.0,
-                0.0,
-                &options,
-                SCHUR_SLQ_LOGDET_PROBES,
-                SCHUR_SLQ_LOGDET_LANCZOS_STEPS,
-                SCHUR_SLQ_LOGDET_SEED,
-                lane,
-            )
-            .map_err(|err| {
-                format!(
-                    "SaeManifoldTerm::streaming_exact_arrow_log_det: matrix-free evidence log-det: {err:?}"
-                )
-            })?;
-            if !log_det_schur.is_finite() {
-                return Err(format!(
-                    "SaeManifoldTerm::streaming_exact_arrow_log_det: matrix-free reduced-Schur \
-                     log|S| non-finite ({log_det_schur})"
-                ));
-            }
-            if let Some(ri) = rank_inputs.as_deref_mut() {
-                ri.log_det_tt = log_det_tt;
-            }
-            return Ok(log_det_tt + log_det_schur);
-        }
-        let n_total = self.n_obs();
-        let chunk_size = plan.chunk_size.min(n_total.max(1));
-        // #972 / #977 T1: the reduced β-Schur is over the FACTORED border when
-        // frames are active (each chunk inherits the frames via
-        // `materialize_chunk`, so every `chunk_schur` is `border_dim²`), matching
-        // the dense path's factored log-det. Full-`B` ⇒ `border_dim == beta_dim`.
-        let border_dim = if self.frames_active() {
-            self.factored_border_dim()
-        } else {
-            self.beta_dim()
-        };
-        let mut schur_acc = Array2::<f64>::zeros((border_dim, border_dim));
-        let mut log_det_tt = 0.0_f64;
-        // #1038 cross-row IBP Woodbury accumulators. `M = Uᵀ H₀'⁻¹ U` is
-        // chunk-additive in `M0 = Σ Uᵢᵀ Aᵢ⁻¹ Uᵢ` and `W = Σ Bᵢᵀ Aᵢ⁻¹ Uᵢ`
-        // (`A = H₀'` block-diagonal, `U` row-supported), closed against the
-        // GLOBAL reduced Schur `S = schur_acc` after the loop. `None` for every
-        // non-IBP (softmax / JumpReLU) term, where the streaming log-det is
-        // exactly the bare `log_det_tt + log_det_schur` as before.
-        let mut wood_m0: Option<Array2<f64>> = None;
-        let mut wood_w: Option<Array2<f64>> = None;
-        let mut wood_d: Option<Array1<f64>> = None;
-        let options = ArrowSolveOptions::direct()
-            .with_ill_conditioning_tolerated()
-            .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
-        let mut start = 0usize;
-        while start < n_total {
-            let end = (start + chunk_size).min(n_total);
-            let penalty_scale = (end - start) as f64 / n_total as f64;
-            let chunk_logits = self.assignment.logits.slice(s![start..end, ..]).to_owned();
-            let chunk_coords: Vec<Array2<f64>> = self
-                .assignment
-                .coords
-                .iter()
-                .map(|coord| coord.as_matrix().slice(s![start..end, ..]).to_owned())
-                .collect();
-            let mut chunk = self.materialize_chunk(
-                chunk_logits,
-                chunk_coords,
-                self.chunk_frozen_logits(start, end),
-            )?;
-            // #1117 — rank deficiency is removed at the basis layer at fit entry
-            // (`reduce_atoms_to_data_supported_rank`), so each chunk inherits the
-            // already-reduced full-rank atoms via `materialize_chunk`; there are
-            // no global deflation projectors to propagate.
-            // #991: chunk terms inherit the row's design honesty weight slice
-            // (global mean-1 normalization preserved — NOT re-normalized per
-            // chunk — so the per-chunk sums reconstruct the global weighted
-            // objective exactly).
-            if let Some(w) = self.row_loss_weights.as_deref() {
-                chunk.row_loss_weights = Some(w[start..end].to_vec());
-            }
-            if let Some(ri) = rank_inputs.as_deref_mut() {
-                chunk.accumulate_decoder_gram(&mut ri.grams);
-                let asg = chunk.assignment.assignments();
-                for k in 0..ri.n_eff.len() {
-                    let support = SupportMeasure::from_assignment_matrix(asg.view(), k)
-                        .expect("streaming chunk assignment shape must match atoms");
-                    ri.n_eff[k] += support.fisher_n();
-                }
-            }
-            let z_chunk = target.slice(s![start..end, ..]);
-            let sys = chunk
-                .assemble_arrow_schur_scaled(z_chunk, rho, registry, penalty_scale)
-                .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
-            let mut streaming = StreamingArrowSchur::from_system(&sys, sys.rows.len().max(1));
-            let (chunk_log_det_tt, chunk_schur, chunk_wood) = streaming
-                .reduced_schur_log_det_tt_woodbury(0.0, 0.0, &options)
-                .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
-            log_det_tt += chunk_log_det_tt;
-            for row in 0..border_dim {
-                for col in 0..border_dim {
-                    schur_acc[[row, col]] += chunk_schur[[row, col]];
-                }
-            }
-            if chunk_wood.is_some() && chunk_size < n_total {
-                // The cross-row IBP empirical mass `M_k = Σ_i z_ik` couples ALL
-                // rows, so the per-row `H₀'` diagonal (`score_derivative_k(M_k)`)
-                // and the column coefficient `d_k = w·s'_k(M_k)` are only exact
-                // when every row is assembled together — a SINGLE chunk. Under a
-                // genuine multi-chunk pass each chunk would see a partial mass and
-                // the Woodbury (and the bare per-row log-det) would be inexact, so
-                // refuse loudly and route to the dense resident path rather than
-                // return a silently-wrong evidence. The streaming log-det only
-                // runs when the dense reduced Schur fits budget, so the single-
-                // chunk regime is the common case; this guards the rest.
-                return Err(
-                    "SaeManifoldTerm::streaming_exact_arrow_log_det: exact cross-row IBP \
-                     Woodbury evidence requires a single-chunk pass (the empirical mass \
-                     M_k = Σ_i z_ik couples all rows); this shape needs >1 chunk. Route \
-                     IBP-active large-n fits through the dense resident \
-                     ArrowFactorCache::arrow_log_det."
-                        .to_string(),
-                );
-            }
-            if let Some(cw) = chunk_wood {
-                wood_m0 = Some(match wood_m0.take() {
-                    Some(mut acc) => {
-                        acc += &cw.m0;
-                        acc
-                    }
-                    None => cw.m0,
-                });
-                wood_w = Some(match wood_w.take() {
-                    Some(mut acc) => {
-                        acc += &cw.w;
-                        acc
-                    }
-                    None => cw.w,
-                });
-                // `D = diag(d_k)` is per-atom; identical across chunks for a
-                // single-chunk evidence pass (the regime the streaming log-det
-                // runs in — the dense reduced Schur must fit budget here), where
-                // it equals the global mass-derived `cross_row_d`.
-                wood_d = Some(cw.d);
-            }
-            start = end;
-        }
-        let log_det_schur = StreamingArrowSchur::reduced_schur_log_det(&schur_acc, &options)
-            .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
-        let mut total = log_det_tt + log_det_schur;
-        // #1038/#1225: close the exact cross-row IBP Woodbury correction
-        // `log det(I_R + D Uᵀ H₀'⁻¹ U)` so the streaming evidence equals the
-        // dense `arrow_log_det_from_cache` (which adds the SAME term). Without
-        // it the streaming criterion would silently drop the entire cross-row
-        // coupling and disagree with the dense path by exactly `log|C|`.
-        if let (Some(m0), Some(w), Some(d)) = (wood_m0, wood_w, wood_d) {
-            let correction =
-                streaming_cross_row_woodbury_log_det(&schur_acc, &m0, &w, &d, options.schur_pd_floor)
-                .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?
-                .ok_or_else(|| {
-                    "SaeManifoldTerm::reml_criterion: cross-row IBP joint Hessian is non-PD at \
-                     this ρ; evidence Laplace log-det undefined (infeasible ρ probe)"
-                        .to_string()
-                })?;
-            total += correction;
-        }
-        if let Some(ri) = rank_inputs.as_deref_mut() {
-            ri.log_det_tt = log_det_tt;
-        }
-        Ok(total)
-    }
-
-    /// Per-atom decoder-smoothness penalty quadratic form (#1556): entry `k` is
-    /// the λ-free `<B_k, ½(S_k+S_kᵀ)·B_k> = Σ_oc B_k[:,oc]ᵀ S_k B_k[:,oc]`, the
-    /// per-atom denominator of atom `k`'s λ_smooth Fellner-Schall update. The sum
-    /// over atoms is `βᵀ(⊕_k S_k ⊗ I_p)β`, the un-scaled total penalty energy.
-    /// `S_k` is symmetrised defensively (as the assembler does); the per-atom
-    /// `½(S+Sᵀ)·B_k` GEMMs ride the multi-GPU batched smoothness GEMM with an
-    /// exact per-atom CPU fallback.
-    pub(crate) fn decoder_smoothness_quadratic_form_per_atom(&self) -> Vec<f64> {
-        let sb_inputs: Vec<(ArrayView2<'_, f64>, ArrayView2<'_, f64>)> = self
-            .atoms
-            .iter()
-            .map(|atom| (atom.smooth_penalty.view(), atom.decoder_coefficients.view()))
-            .collect();
-        let sb_all = batched_smooth_sb(&sb_inputs, true);
-        let mut per_atom = vec![0.0_f64; self.atoms.len()];
-        for (atom_idx, (atom, sb)) in self.atoms.iter().zip(sb_all.iter()).enumerate() {
-            per_atom[atom_idx] = (&atom.decoder_coefficients * sb).sum();
-        }
-        per_atom
-    }
-
-    /// Per-atom effective penalized dof of the decoder smoothness penalty
-    /// (#1556): entry `k` is `tr(S_β⁻¹ · M_k)` with `M_k = (λ_smooth[k]·S_k) ⊗ I`
-    /// and `S_β⁻¹ = (H⁻¹)_ββ` the Schur-complement inverse, each atom scaled by
-    /// its OWN `lambda_smooth[atom_idx]`. Built on
-    /// [`ArrowFactorCache::schur_inverse_apply`]: column `(k,μ,oc)` of `M_k` is
-    /// `λ_k·S_k[:,μ] ⊗ e_oc` (sparse), so we apply `S_β⁻¹` to that K-vector and
-    /// read back `result[col]`. The total edf is the sum of the returned vector
-    /// (a uniform/broadcast λ reproduces the historical global trace).
-    ///
-    /// At `K ≥ SMOOTHNESS_DOF_HUTCHINSON_MIN_ATOMS` this delegates to the
-    /// matrix-free Hutchinson estimator (the exact `K·M·p`-solve trace is
-    /// infeasible at that scale); below it the exact column solve is used
-    /// unchanged.
-    pub(crate) fn decoder_smoothness_effective_dof_per_atom(
-        &self,
-        cache: &ArrowFactorCache,
-        lambda_smooth: &[f64],
-    ) -> Result<Vec<f64>, ArrowSchurError> {
-        let p = self.output_dim();
-        let frames_active = self.frames_active();
-        let (offsets, out_dim): (Vec<usize>, Box<dyn Fn(usize) -> usize>) = if frames_active {
-            let ranks: Vec<usize> = self.atoms.iter().map(|a| a.border_frame_rank()).collect();
-            (
-                self.factored_beta_offsets(),
-                Box::new(move |k: usize| ranks[k]),
-            )
-        } else {
-            (self.beta_offsets(), Box::new(move |_k: usize| p))
-        };
-        let k = cache.k;
-        if self.atoms.len() >= Self::SMOOTHNESS_DOF_HUTCHINSON_MIN_ATOMS {
-            // Massive-K: `Σ_k M_k·r_k` exact solves is infeasible — estimate every
-            // atom's trace matrix-free with one `S_β⁻¹` solve per Hutchinson probe.
-            return self
-                .decoder_smoothness_effective_dof_per_atom_hutchinson(
-                    k,
-                    &offsets,
-                    out_dim.as_ref(),
-                    lambda_smooth,
-                    Self::SMOOTHNESS_DOF_HUTCHINSON_PROBES,
-                    Self::SMOOTHNESS_DOF_HUTCHINSON_SEED,
-                    |rhs| {
-                        cache
-                            .schur_inverse_apply(rhs)
-                            .map_err(|e| format!("schur_inverse_apply: {e:?}"))
-                    },
-                )
-                .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason });
-        }
-        let mut per_atom = vec![0.0_f64; self.atoms.len()];
-        let mut m_col = Array1::<f64>::zeros(k);
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let s = &atom.smooth_penalty;
-            let m = atom.basis_size();
-            let off = offsets[atom_idx];
-            let r = out_dim(atom_idx);
-            let lambda = lambda_smooth[atom_idx];
-            let mut trace = 0.0_f64;
-            for mu in 0..m {
-                for oc in 0..r {
-                    let col = off + mu * r + oc;
-                    m_col.fill(0.0);
-                    for nu in 0..m {
-                        let s_nu_mu = 0.5 * (s[[nu, mu]] + s[[mu, nu]]);
-                        m_col[off + nu * r + oc] = lambda * s_nu_mu;
-                    }
-                    let z = cache.schur_inverse_apply(m_col.view())?;
-                    trace += z[col];
-                }
-            }
-            per_atom[atom_idx] = trace;
-        }
-        Ok(per_atom)
-    }
-
-    /// Per-atom effective penalized dof via the deflated solver (#1556): entry
-    /// `k` is `tr((H⁻¹)_ββ · M_k)` for `M_k = (λ_smooth[k]·S_k) ⊗ I`, each atom
-    /// scaled by its OWN `lambda_smooth[atom_idx]`. The total is the sum.
-    pub(crate) fn decoder_smoothness_effective_dof_with_solver_per_atom(
-        &self,
-        cache: &ArrowFactorCache,
-        solver: &DeflatedArrowSolver<'_>,
-        lambda_smooth: &[f64],
-    ) -> Result<Vec<f64>, String> {
-        let p = self.output_dim();
-        // #972 / #977 T1: the cache's β block is the FACTORED border when frames
-        // are active (`cache.k == factored_border_dim`), so the smoothness edf
-        // trace `tr((H⁻¹)_ββ · M)` is taken over the same factored layout, with
-        // `M = ⊕_k (λ_k S_k) ⊗ I_{r_k}` at the factored offsets (the `U_kᵀU_k = I`
-        // collapse means the per-coordinate-channel penalty is `λ_k S_k`, exactly
-        // as in the full-`B` `⊗ I_p` case but with `r_k` channels). On the
-        // full-`B` path `frames_active` is false: `out_dim_k = p`, the offsets
-        // are `beta_offsets`, and this is bit-for-bit the historical trace.
-        let frames_active = self.frames_active();
-        let (offsets, out_dim): (Vec<usize>, Box<dyn Fn(usize) -> usize>) = if frames_active {
-            let ranks: Vec<usize> = self.atoms.iter().map(|a| a.border_frame_rank()).collect();
-            (
-                self.factored_beta_offsets(),
-                Box::new(move |k: usize| ranks[k]),
-            )
-        } else {
-            (self.beta_offsets(), Box::new(move |_k: usize| p))
-        };
-        let k = cache.k;
-        // The t-RHS is identically zero for every β-only smoothness solve; build
-        // it once instead of re-zeroing a delta_t_len()-sized buffer per column.
-        let zero_t = Array1::<f64>::zeros(cache.delta_t_len());
-        if self.atoms.len() >= Self::SMOOTHNESS_DOF_HUTCHINSON_MIN_ATOMS {
-            // Massive-K matrix-free path: one deflated `(H⁻¹)_ββ` solve per
-            // Hutchinson probe estimates ALL per-atom traces, replacing the
-            // `Σ_k M_k·r_k` deflated solves that form the `O(K³·M·p)` wall.
-            return self.decoder_smoothness_effective_dof_per_atom_hutchinson(
-                k,
-                &offsets,
-                out_dim.as_ref(),
-                lambda_smooth,
-                Self::SMOOTHNESS_DOF_HUTCHINSON_PROBES,
-                Self::SMOOTHNESS_DOF_HUTCHINSON_SEED,
-                |rhs| Ok(solver.solve(zero_t.view(), rhs)?.beta),
-            );
-        }
-        let mut per_atom = vec![0.0_f64; self.atoms.len()];
-        let mut m_col = Array1::<f64>::zeros(k);
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let s = &atom.smooth_penalty;
-            let m = atom.basis_size();
-            let off = offsets[atom_idx];
-            let r = out_dim(atom_idx);
-            let lambda = lambda_smooth[atom_idx];
-            let mut trace = 0.0_f64;
-            for mu in 0..m {
-                for oc in 0..r {
-                    let col = off + mu * r + oc;
-                    // M[:,col] = λ_k · S_k[:,mu] ⊗ e_oc (nonzero at off+ν·r+oc).
-                    m_col.fill(0.0);
-                    for nu in 0..m {
-                        let s_nu_mu = 0.5 * (s[[nu, mu]] + s[[mu, nu]]);
-                        m_col[off + nu * r + oc] = lambda * s_nu_mu;
-                    }
-                    let z = solver.solve(zero_t.view(), m_col.view())?.beta;
-                    trace += z[col];
-                }
-            }
-            per_atom[atom_idx] = trace;
-        }
-        Ok(per_atom)
-    }
-
-    pub(crate) fn assignment_log_strength_hessian_trace(
-        &self,
-        rho: &SaeManifoldRho,
-        cache: &ArrowFactorCache,
-        solver: &DeflatedArrowSolver<'_>,
-    ) -> Result<f64, String> {
-        let k_atoms = self.k_atoms();
-        // #1038 softmax: `H` carries the DENSE entropy block, and since the
-        // entropy curvature scales linearly with `λ_sparse = exp(ρ)`,
-        // `∂H/∂ρ = H_entropy` (the full dense per-row block, not just its
-        // diagonal). The trace `½ tr(H⁻¹ ∂H/∂ρ)` must therefore contract the
-        // dense `∂H/∂ρ` against the per-row selected-inverse BLOCK, mirroring the
-        // dense `log|H|` and θ-adjoint — a diagonal-only contraction would
-        // desync the ρ-gradient from the criterion. The assembled majorizer
-        // `D = diag(Σ_j|H_kj|)` is itself DIAGONAL (#1419), so the contraction
-        // reduces to `½ Σ_slot (H⁻¹)_{slot,slot}·D_atom`. On the dense `None`
-        // layout the logit slot equals the atom position; on the compact
-        // softmax top-`k` layout (#1408/#1409) the slots are the row's active
-        // atoms — the SAME `D_atom` (full-`K` abs-row-sum) the assembly wrote.
-        if let AssignmentMode::Softmax {
-            temperature,
-            sparsity,
-        } = self.assignment.mode
-        {
-            if k_atoms <= 1 {
-                return Ok(0.0);
-            }
-            let inv_tau = 1.0 / temperature;
-            let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
-            let penalty = gam_terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
-                k_atoms,
-                temperature,
-            );
-            // Softmax uses the reduced K−1 free-logit chart on the dense layout
-            // (last reference logit fixed); the compact layout carries one slot
-            // per active atom. The diagonal selected inverse gives each slot's
-            // (H⁻¹)_{slot,slot}.
-            let assignment_dim = self.assignment.assignment_coord_dim();
-            // Kept-subspace inverse diagonal: the deflated inverse assigns
-            // `1/λ̃ = 1` to each per-row UNIT-stiffness direction `vᵢ`, so a raw
-            // diagonal `D` contraction would spuriously add `½ Σ_i vᵢᵀ D vᵢ` (a
-            // ρ-independent direction must add 0). `latent_inverse_diagonal_kept`
-            // removes that per-row deflated diagonal centrally.
-            let inv_diag = solver
-                .latent_inverse_diagonal_kept()
-                .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
-            let mut trace = 0.0_f64;
-            for row in 0..self.n_obs() {
-                let row_base = cache.row_offsets[row];
-                // ∂(scale·D)/∂ρ = scale·D (linear in λ_sparse = eᵖ) — the SAME
-                // operator the assembly and θ-adjoint differentiate.
-                match self.last_row_layout {
-                    Some(ref layout) => {
-                        // #1410: the compact adjoint reads `D_kk` only for this
-                        // row's `≤ top_k` active atoms, so compute those entries
-                        // directly from the softmax row `a` via the active-only
-                        // Gershgorin helper — no full-`K` `row_logits` copy and no
-                        // full-`K` `d` vector. `a` itself is the irreducible `O(K)`
-                        // softmax normalisation, computed once per row and shared
-                        // across the row's active slots.
-                        let a = crate::assignment::softmax_row(
-                            self.assignment.logits.row(row),
-                            temperature,
-                        );
-                        let a = a.as_slice().expect("softmax row must be contiguous");
-                        let m = softmax_majorizer_log_mean(a);
-                        // #Bug1: only FREE-logit atoms carry a compact logit slot; the
-                        // softmax reference atom (last active) has none — matching the
-                        // dense branch which sums only the K−1 free logit slots.
-                        for (j, &atom) in layout.logit_atoms[row].iter().enumerate() {
-                            let d_atom =
-                                active_softmax_gershgorin_majorizer_entry(a, atom, m, scale);
-                            trace += inv_diag[row_base + j] * d_atom;
-                        }
-                    }
-                    None => {
-                        // Dense layout genuinely contracts every free logit slot's
-                        // `D_kk`, so the full-`K` `d` is intrinsic here; keep the
-                        // single-source dense majorizer call.
-                        let row_logits: Vec<f64> = (0..k_atoms)
-                            .map(|k| self.assignment.logits[[row, k]])
-                            .collect();
-                        let d = penalty.psd_majorizer_abs_row_sums(&row_logits, scale);
-                        let q = cache.row_dims[row];
-                        let logit_dim = assignment_dim.min(q);
-                        for atom in 0..logit_dim {
-                            trace += inv_diag[row_base + atom] * d[atom];
-                        }
-                    }
-                }
-            }
-            return Ok(0.5 * trace);
-        }
-        let mut hdiag = assignment_prior_log_strength_hdiag(&self.assignment, rho)?;
-        if hdiag.is_empty() {
-            return Ok(0.0);
-        }
-        // RAW selected-inverse diagonal: the per-row diagonal contraction uses the
-        // DEFLATED inverse; the full kept-subspace + β-Schur/rotation deflation
-        // correction `tr(inv_vv·(D − DΦ[D]))` is subtracted per row afterwards
-        // (`deflation_block_correction`), exactly as the data trace does. The
-        // cross-row off-diagonal pass below contracts only DISTINCT rows `i ≠ j`,
-        // off any single-row `vᵢ`'s support, so it needs no deflation correction.
-        let inv_diag = solver
-            .latent_inverse_diagonal()
-            .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
-        let assignment_dim = self.assignment.assignment_coord_dim();
-        let total_t = cache.delta_t_len();
-        // #932 FRONT C: row-local Takahashi selected inverse on the plain arrow
-        // for the per-row deflation correction below (the diagonal trace already
-        // uses the cheap `latent_inverse_diagonal`); gauge / cross-row Woodbury
-        // fall back to the per-row full-system `solve` loop.
-        let fast_selected = solver.plain_selected_inverse_available();
-        let selected_beta_inv = if fast_selected && cache.k > 0 {
-            solver
-                .beta_inv()
-                .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?
-        } else {
-            Array2::<f64>::zeros((0, 0))
-        };
-        // #1416 cross-row IBP source: the per-row block that the deflation
-        // factorizes is the NO-SELF base `H₀'` — the rank-one self curvature
-        // `d_k·J_ik²` is DOWNDATED from each logit diagonal and re-applied through
-        // the Woodbury carrier. The full-`H` diagonal contraction below still uses
-        // the full `hdiag` (which carries that self term), but the per-row
-        // DEFLATION correction must use `(∂H₀'/∂ρ)_tt`, i.e. `hdiag` MINUS the
-        // downdated self term — otherwise the Daleckii–Krein correction
-        // mis-attributes the (un-deflated) Woodbury self curvature's derivative to
-        // the deflated subspace. For non-IBP modes there is no Woodbury source and
-        // the self term is `0` (the deflated block IS the full block).
-        // #1416 (compact-layout completion): the IBP cross-row Woodbury source is
-        // installed for BOTH the dense and the compact (#1420 top-`k`) layouts (see
-        // `set_ibp_cross_row_source`, which emits `(g_base + pos, atom, z'_ik)` for
-        // the active set under a compact layout), so the deflated base `H₀'` is the
-        // no-self block in BOTH layouts. The self-curvature downdate below must
-        // therefore run regardless of layout — gating it to the dense path (the
-        // pre-fix bug) left the compact deflation correction differentiating the
-        // un-downdated full block. For non-IBP modes `ibp_assignment_third_channels`
-        // returns `None`, there is no Woodbury source, and `self_curv` is
-        // identically 0 (the deflated block IS the full block).
-        // RAW channels: the `w·s·c` diagonal split needs the un-clamped `w·s'`, so
-        // build raw and apply the gam#2144 majorization here.
-        let mut cross_channels = ibp_assignment_third_channels(&self.assignment, rho, false)?;
-        let learnable_alpha = matches!(
-            self.assignment.mode,
-            AssignmentMode::IBPMap {
-                learnable_alpha: true,
-                ..
-            }
-        );
-        // gam#2144/#1038: the assembled `H` carries the PSD-majorized IBP
-        // curvature UNCONDITIONALLY (`ibp_psd_majorized_hdiag` + clamped Woodbury
-        // `d` — the same doctrine as softmax's #1419 Gershgorin). Differentiate the
-        // SAME operator: overwrite the per-slot diagonal with its majorizer and
-        // clamp the rank-one coefficient (`cross_row_d`, and its learnable-α
-        // derivative) to `max(·,0)`. `self_curv`, the diagonal trace, and the
-        // cross-row off-diagonal pass all read these, so the whole ρ-trace stays on
-        // the majorized operator the evidence log-det factors.
-        if let Some(ch) = cross_channels.as_mut() {
-            for row in 0..self.n_obs() {
-                for atom in 0..k_atoms {
-                    let slot = row * k_atoms + atom;
-                    hdiag[slot] = super::construction_arrow_schur_assembly::ibp_psd_majorized_hdiag(
-                        ch, row, k_atoms, atom, hdiag[slot],
-                    );
-                }
-            }
-            for k in 0..k_atoms {
-                if ch.cross_row_d[k] < 0.0 {
-                    ch.cross_row_d[k] = 0.0;
-                    ch.cross_row_d_logalpha[k] = 0.0;
-                }
-            }
-        }
-        let self_curv = |row: usize, atom: usize| -> f64 {
-            let Some(ch) = cross_channels.as_ref() else {
-                return 0.0;
-            };
-            let d_k = if learnable_alpha {
-                ch.cross_row_d_logalpha[atom]
-            } else {
-                ch.cross_row_d[atom]
-            };
-            let j = ch.z_jac[row * k_atoms + atom];
-            d_k * j * j
-        };
-        let mut trace = 0.0_f64;
-        // Hoisted RHS scratch for the gauge/Woodbury per-row solve fallback:
-        // single-entry set/clear instead of a per-column total_t-sized zeroing.
-        let mut rhs_t_scratch = Array1::<f64>::zeros(total_t);
-        let rhs_beta_zero = Array1::<f64>::zeros(cache.k);
-        for row in 0..self.n_obs() {
-            let row_base = cache.row_offsets[row];
-            let assignment_base = row * k_atoms;
-            let q = cache.row_dims[row];
-            // Per-row diagonal `(∂H₀'/∂ρ)_tt` for the deflation correction: the
-            // assignment prior curves only the logit/assignment slots (coordinate
-            // slots are 0 — ARD handles those), MINUS the downdated cross-row self
-            // curvature. The full-`H` trace contraction keeps the full `hdiag`.
-            let mut d_diag = Array1::<f64>::zeros(q);
-            match self.last_row_layout {
-                Some(ref layout) => {
-                    for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                        let d_slot = hdiag[assignment_base + atom];
-                        trace += inv_diag[row_base + pos] * d_slot;
-                        if pos < q {
-                            d_diag[pos] = d_slot - self_curv(row, atom);
-                        }
-                    }
-                }
-                None => {
-                    for free_idx in 0..assignment_dim {
-                        let d_slot = hdiag[assignment_base + free_idx];
-                        trace += inv_diag[row_base + free_idx] * d_slot;
-                        if free_idx < q {
-                            d_diag[free_idx] = d_slot - self_curv(row, free_idx);
-                        }
-                    }
-                }
-            }
-            let dirs = cache
-                .deflated_row_directions
-                .get(row)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
-            if !dirs.is_empty() {
-                let inv_vv = if fast_selected {
-                    let (inv_vv, _inv_vbeta) = solver
-                        .selected_inverse_row_blocks(row, &selected_beta_inv)
-                        .map_err(|err| {
-                            format!(
-                                "assignment_log_strength_hessian_trace: selected inverse: {err}"
-                            )
-                        })?;
-                    inv_vv
-                } else {
-                    let mut inv_vv = Array2::<f64>::zeros((q, q));
-                    for col in 0..q {
-                        rhs_t_scratch[row_base + col] = 1.0;
-                        let solved = solver
-                            .solve(rhs_t_scratch.view(), rhs_beta_zero.view())
-                            .map_err(|err| {
-                                format!(
-                                    "assignment_log_strength_hessian_trace: selected inverse: {err}"
-                                )
-                            })?;
-                        rhs_t_scratch[row_base + col] = 0.0;
-                        for r in 0..q {
-                            inv_vv[[r, col]] = solved.t[row_base + r];
-                        }
-                    }
-                    inv_vv
-                };
-                let mut d_mat = Array2::<f64>::zeros((q, q));
-                for s in 0..q {
-                    d_mat[[s, s]] = d_diag[s];
-                }
-                let spectrum = cache
-                    .deflation_row_spectra
-                    .get(row)
-                    .and_then(Option::as_ref);
-                trace -= Self::deflation_block_correction(&inv_vv, &d_mat, dirs, spectrum);
-            }
-        }
-        // #1416: the IBP prior Hessian is `H_p = d·J Jᵀ + diag(s, c)`, where the
-        // rank-one `d·J Jᵀ` couples EVERY row pair `(i, j)` in a column `k`
-        // through the shared empirical mass `M_k`. The assembled `H` carries the
-        // full `H_full = H₀' + U D Uᵀ` (Woodbury, `set_ibp_cross_row_source`), and
-        // for fixed alpha the entire IBP prior scales with `λ = eᵖ`, so
-        // `∂H_p/∂ρ = H_p`. The diagonal loop above already captures the `i = j`
-        // self terms (the `d·J_ik²` summand lives in `hdiag`); this pass adds the
-        // omitted off-diagonal `½·d_k·Σ_{i≠j}(H⁻¹)_{ik,jk}·J_ik·J_jk`. Only IBP
-        // has the cross-row rank-one source; for other diagonal modes
-        // `ibp_assignment_third_channels` returns `None` and the trace stays the
-        // pure diagonal contraction.
-        //
-        // #1416 (compact completion): this pass is LAYOUT-AGNOSTIC. Under the dense
-        // layout atom `k`'s logit slot is local position `k`
-        // (`row_offsets[i] + k`); under the compact (#1420 top-`k`) layout only the
-        // row's active atoms carry coordinates and atom `k` lives at local position
-        // `pos` of `active_atoms[row]` (`row_offsets[i] + pos`). The Woodbury source
-        // and the θ-adjoint already use this active-slot mapping, so gating the
-        // cross-row pass to the dense layout (the pre-fix bug) dropped the
-        // off-diagonal term from `∂log|H|/∂ρ` whenever the budget/`top_k` engaged
-        // the compact layout. We build per-column active sites `(row, t_index)` once
-        // — exactly the θ-adjoint `col_sites` construction — then contract the
-        // off-diagonal `i ≠ j` remainder with one solve per active site.
-        if let Some(channels) = cross_channels.as_ref() {
-            let n = self.n_obs();
-            let total_t = cache.delta_t_len();
-            // This trace is ½ ∂log|H|/∂ρ. For FIXED-α IBP the whole prior
-            // scales with λ=eᵖ so ∂H_p/∂ρ = H_p and the rank-one coefficient
-            // is the VALUE `cross_row_d[k] = w·s'_k`. For LEARNABLE-α this trace
-            // is ½ ∂log|H|/∂logα, and the rank-one block's logα-derivative is
-            // `∂d_k/∂logα = w·∂s'_k/∂logα` (`cross_row_d_logalpha[k]`) — the same
-            // α-derivative the DIAGONAL channel (`hessian_diag_log_alpha_derivative`)
-            // already uses. Using the value `s'_k` here (the pre-fix bug) made the
-            // off-diagonal inconsistent with the diagonal and the α-gradient wrong.
-            // (`learnable_alpha` is the same flag the self-curvature downdate uses.)
-            // Per-column active sites `(row, global t-index)`. Layout-agnostic.
-            let mut col_sites: Vec<Vec<(usize, usize)>> = vec![Vec::new(); k_atoms];
-            match self.last_row_layout {
-                Some(ref layout) => {
-                    for row in 0..n {
-                        let base = cache.row_offsets[row];
-                        for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                            col_sites[atom].push((row, base + pos));
-                        }
-                    }
-                }
-                None => {
-                    for row in 0..n {
-                        let base = cache.row_offsets[row];
-                        for k in 0..k_atoms {
-                            col_sites[k].push((row, base + k));
-                        }
-                    }
-                }
-            }
-            let mut cross = 0.0_f64;
-            // Hoisted RHS scratch: each active site sets exactly one t-slot, so
-            // set-then-clear that single entry rather than allocating and zeroing
-            // a total_t-sized vector per (column, site).
-            let mut rhs_t_scratch = Array1::<f64>::zeros(total_t);
-            let rhs_beta_zero = Array1::<f64>::zeros(cache.k);
-            for k in 0..k_atoms {
-                let d_k = if learnable_alpha {
-                    channels.cross_row_d_logalpha[k]
-                } else {
-                    channels.cross_row_d[k]
-                };
-                if d_k == 0.0 || col_sites[k].len() < 2 {
-                    continue;
-                }
-                for &(i, t_i) in &col_sites[k] {
-                    let j_ik = channels.z_jac[i * k_atoms + k];
-                    if j_ik == 0.0 {
-                        continue;
-                    }
-                    // (H⁻¹) column at row `i`'s active logit-`k` slot.
-                    rhs_t_scratch[t_i] = 1.0;
-                    let solved = solver
-                        .solve(rhs_t_scratch.view(), rhs_beta_zero.view())
-                        .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
-                    rhs_t_scratch[t_i] = 0.0;
-                    for &(j, t_j) in &col_sites[k] {
-                        if j == i {
-                            continue;
-                        }
-                        let j_jk = channels.z_jac[j * k_atoms + k];
-                        if j_jk == 0.0 {
-                            continue;
-                        }
-                        cross += d_k * solved.t[t_j] * j_ik * j_jk;
-                    }
-                }
-            }
-            trace += cross;
-        }
-        Ok(0.5 * trace)
-    }
-
-    pub(crate) fn learnable_ibp_forward_alpha_data_derivative(
-        &self,
-        rho: &SaeManifoldRho,
-        target: ArrayView2<'_, f64>,
-    ) -> Result<f64, String> {
-        let AssignmentMode::IBPMap {
-            temperature: _,
-            learnable_alpha: true,
-            ..
-        } = self.assignment.mode
-        else {
-            return Ok(0.0);
-        };
-        let alpha = self
-            .assignment
-            .resolved_ibp_alpha(rho)
-            .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
-        let k_atoms = self.k_atoms();
-        let prior = ordered_geometric_shrinkage_prior(k_atoms, alpha);
-        let mut dprior = Array1::<f64>::zeros(k_atoms);
-        for k in 0..k_atoms {
-            // dπ_k/dρ for π_k = (α/(α+1))^(k+1) (#614 consistent stick-breaking
-            // prior mean): dπ_k/dα = π_k·(k+1)/(α(α+1)), and with α = α₀·exp(ρ)
-            // the log-α chain factor α cancels the 1/α ⇒ dπ_k/dρ = π_k·(k+1)/(α+1).
-            dprior[k] = prior[k] * (k + 1) as f64 / (alpha + 1.0);
-        }
-        let n = self.n_obs();
-        let p = self.output_dim();
-        let row_loss_w = self.row_loss_weights.as_deref();
-        let whitens = self
-            .row_metric
-            .as_ref()
-            .is_some_and(|metric| metric.whitens_likelihood());
-        let mut decoded = vec![0.0_f64; p];
-        let mut fitted = Array1::<f64>::zeros(p);
-        let mut f_rho = Array1::<f64>::zeros(p);
-        let mut residual = Array1::<f64>::zeros(p);
-        // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
-        let mut assignments = vec![0.0_f64; k_atoms];
-        let mut total = 0.0_f64;
-        for row in 0..n {
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, &mut assignments)?;
-            fitted.fill(0.0);
-            f_rho.fill(0.0);
-            for k in 0..k_atoms {
-                self.atoms[k].fill_decoded_row(row, &mut decoded);
-                // Ungated (#1026 background-tier) atoms have a force-fixed unit
-                // gate (`has_ungated` override), so their mass `a_k ≡ 1` is
-                // α-INDEPENDENT (∂a_k/∂logα = 0). The π_k(α) chain below applies
-                // ONLY to gated atoms, whose mass is `a_k = σ(ℓ/τ)·π_k(α)`. (NB:
-                // frozen routing is NOT ungated — there the gate is a fixed σ(ℓ/τ)
-                // but `a_k` still varies with α through `π_k`, so it must NOT be
-                // skipped.)
-                let da_rho = if self.assignment.ungated.get(k).copied().unwrap_or(false) {
-                    0.0
-                } else {
-                    (assignments[k] / prior[k]) * dprior[k]
-                };
-                for out_col in 0..p {
-                    fitted[out_col] += assignments[k] * decoded[out_col];
-                    f_rho[out_col] += da_rho * decoded[out_col];
-                }
-            }
-            for out_col in 0..p {
-                residual[out_col] = fitted[out_col] - target[[row, out_col]];
-            }
-            let residual_metric = match self.row_metric.as_ref() {
-                Some(metric) if whitens => metric.apply_metric_row(row, residual.view()),
-                _ => residual.to_vec(),
-            };
-            let row_weight = row_loss_w.map_or(1.0, |w| w[row]);
-            let mut row_dot = 0.0_f64;
-            for out_col in 0..p {
-                row_dot += residual_metric[out_col] * f_rho[out_col];
-            }
-            total += row_weight * row_dot;
-        }
-        Ok(total)
-    }
-
-    /// Per-row spectral-deflation correction `tr((H⁻¹)_tt · (D − DΦ[D]))` for one
-    /// evidence ρ-component, to be SUBTRACTED from the raw-derivative trace
-    /// `tr((H⁻¹)_tt · D)` the trace otherwise accumulates.
-    ///
-    /// The criterion VALUE re-deflates each per-row `H_tt` at every ρ, so the
-    /// correct evidence gradient contracts `(H⁻¹)_tt` against the deflation-map
-    /// derivative `DΦ[D]`, not the raw `D = (∂H_raw/∂ρ)_tt`. By Daleckii–Krein,
-    /// in the row's RAW eigenbasis `U`,
-    ///   `DΦ[D] = U (F ∘ (Uᵀ D U)) Uᵀ`,  `F_{ml} = (λ̃ₘ − λ̃ₗ)/(λₘ − λₗ)`
-    /// (raw `λ` in the denominator, conditioned `λ̃` in the numerator; the
-    /// diagonal / degenerate entry is `f'(λₘ) = 1` for an unclamped kept
-    /// direction and `0` otherwise). Hence `D − DΦ[D] = U ((1−F) ∘ (Uᵀ D U)) Uᵀ`,
-    /// whose kept×kept block is `0`, deflated×deflated block is the full `M`, and
-    /// kept(m)×deflated(i) block carries the ROTATION coefficient
-    /// `(1−λᵢ)/(λₘ−λᵢ)`. Contracting against the FULL deflated selected-inverse
-    /// t-block `inv_vv` (which carries the β-Schur back-substitution) captures
-    /// both the within-row kept-subspace term and the deferred β-Schur/rotation
-    /// coupling in one pass, matching the re-deflating fixed-state FD oracle.
-    ///
-    /// `spectrum = Some` (spectral deflation): exact Daleckii–Krein. `None` with a
-    /// non-empty `dirs` (gauge-only deflation, ρ-independent structural null):
-    /// fall back to the within-row kept-subspace term `Σᵢ vᵢᵀ D vᵢ`.
-    /// `inv_vv` is assumed symmetric (selected inverse of a symmetric PD system).
-    // #1610 — `pub(crate)` so the ARD/latent-block helpers moved into
-    // `construction_ard.rs` (pure code move to stay under the 10k-line ban gate)
-    // can still call this from the sibling module.
-    pub(crate) fn deflation_block_correction(
-        inv_vv: &Array2<f64>,
-        d_mat: &Array2<f64>,
-        dirs: &[Array1<f64>],
-        spectrum: Option<&RowDeflationSpectrum>,
-    ) -> f64 {
-        let q = inv_vv.nrows();
-        let Some(spec) = spectrum else {
-            // Gauge-only deflation: ρ-independent structural null → within-row term.
-            let mut acc = 0.0_f64;
-            for v in dirs {
-                for a in 0..q {
-                    let va = if a < v.len() { v[a] } else { 0.0 };
-                    if va == 0.0 {
-                        continue;
-                    }
-                    for b in 0..q {
-                        let vb = if b < v.len() { v[b] } else { 0.0 };
-                        acc += va * vb * d_mat[[a, b]];
-                    }
-                }
-            }
-            return acc;
-        };
-        let u = &spec.evecs;
-        if u.nrows() != q || u.ncols() != q {
-            return 0.0;
-        }
-        let raw = &spec.raw_evals;
-        let cond = &spec.cond_evals;
-        // M = Uᵀ D U, W = Uᵀ inv_vv U (both q×q, symmetric).
-        let m = u.t().dot(d_mat).dot(u);
-        let w = u.t().dot(inv_vv).dot(u);
-        // correction = Σ_{m,l} W[m,l]·M[m,l]·(1 − F[m,l]).
-        let mut acc = 0.0_f64;
-        let eigen_scale = raw
-            .iter()
-            .chain(cond.iter())
-            .copied()
-            .fold(0.0_f64, |scale, value| scale.max(value.abs()));
-        let gap_threshold = eigen_gap_threshold(eigen_scale, raw.len());
-        for a in 0..q {
-            for b in 0..q {
-                let denom = raw[a] - raw[b];
-                let f1 = if denom.abs() > gap_threshold {
-                    (cond[a] - cond[b]) / denom
-                } else if cond[a] == raw[a] {
-                    1.0
-                } else {
-                    0.0
-                };
-                acc += w[[a, b]] * m[[a, b]] * (1.0 - f1);
-            }
-        }
-        acc
-    }
-
-    /// #1417: exact `½ tr(H⁻¹ ∂H_data/∂logα)` for LEARNABLE IBP alpha.
-    ///
-    /// The forward assignment is `a_ik = σ(ℓ_ik/τ)·π_k(α)` with the #614
-    /// consistent stick-breaking mean `π_k(α) = (α/(α+1))^(k+1)`, so
-    /// `∂logπ_k/∂logα = (k+1)/(α+1)`. EVERY data-Jacobian column for atom `k` —
-    /// the logit-JVP row (carries one `π_k`), the coordinate rows (carry one
-    /// `a_k`), and the β-leg (`a_k·φ`) — carries exactly ONE `a_k`/`π_k` factor
-    /// (`σ(ℓ/τ)` is α-independent). Hence each Jacobian column scales as
-    /// `∂J_·k/∂logα = ((k+1)/(α+1))·J_·k`, and the data Hessian block for the
-    /// atom pair `(k_a, k_b)` scales as
-    ///   ∂H_data[a,b]/∂logα = (((k_a+1) + (k_b+1))/(α+1))·H_data[a,b].
-    /// Therefore the exact data-block contribution to the α-logdet trace is
-    ///   ½ tr(H⁻¹ ∂H_data/∂logα)
-    ///     = ½/(α+1) · Σ_{a,b} ((k_a+1) + (k_b+1))·(H⁻¹)_{ba}·H_data[a,b],
-    /// over the full joint `(t, β)` index set. `H_data[a,b]` is the data-fit
-    /// Gauss-Newton block built from the SAME `row_jets_for_logdet` first-jets the
-    /// θ-adjoint uses (`H_tt = ⟨J_a,J_b⟩`, `H_tβ = ⟨J_a,J_β⟩`, `H_ββ = ⟨J_β,J_β'⟩`),
-    /// and `(H⁻¹)` is contracted through the same per-row selected-inverse blocks.
-    /// This closes the learnable-α gradient: combined with the prior-Hessian
-    /// trace (`assignment_log_strength_hessian_trace`) the full
-    /// `½ tr(H⁻¹ ∂H/∂logα)` is now assembled. For FIXED alpha (and non-IBP modes)
-    /// this is identically zero.
-    pub(crate) fn learnable_ibp_data_logdet_alpha_trace(
-        &self,
-        rho: &SaeManifoldRho,
-        cache: &ArrowFactorCache,
-        solver: &DeflatedArrowSolver<'_>,
-    ) -> Result<f64, String> {
-        let AssignmentMode::IBPMap {
-            learnable_alpha: true,
-            ..
-        } = self.assignment.mode
-        else {
-            return Ok(0.0);
-        };
-        let alpha = self
-            .assignment
-            .resolved_ibp_alpha(rho)
-            .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
-        let inv_alpha1 = 1.0 / (alpha + 1.0);
-        let n = self.n_obs();
-        let total_t = cache.delta_t_len();
-        let second_jets = self.atom_second_jets()?;
-        let border = self.border_channels_for_cache(cache)?;
-
-        // β-tier selected inverse `(H⁻¹)_ββ` (shared across rows). #932 FRONT C:
-        // on the plain bordered arrow this is the cached dense `S⁻¹` formed once
-        // (no `K` full-system solves); when a gauge / #1038 cross-row Woodbury is
-        // active the row-local Takahashi blocks are NOT valid, so we fall back to
-        // the per-β-coordinate `solve` loop (bit-identical, just O(n) per call).
-        let fast_selected = solver.plain_selected_inverse_available();
-        let beta_inv = if cache.k == 0 {
-            Array2::<f64>::zeros((0, 0))
-        } else if fast_selected {
-            solver.beta_inv().map_err(|err| {
-                format!("learnable_ibp_data_logdet_alpha_trace: beta inverse: {err}")
-            })?
-        } else {
-            let mut beta_inv = Array2::<f64>::zeros((cache.k, cache.k));
-            let rhs_t = Array1::<f64>::zeros(total_t);
-            let mut rhs_beta = Array1::<f64>::zeros(cache.k);
-            for col in 0..cache.k {
-                rhs_beta[col] = 1.0;
-                let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
-                    format!("learnable_ibp_data_logdet_alpha_trace: beta inverse: {err}")
-                })?;
-                rhs_beta[col] = 0.0;
-                for r in 0..cache.k {
-                    beta_inv[[r, col]] = solved.beta[r];
-                }
-            }
-            beta_inv
-        };
-        // Atom index of each β border channel (the `k_b` weight for the β leg).
-        let border_atom: Vec<usize> = border.iter().map(|c| c.atom).collect();
-
-        let mut trace = 0.0_f64;
-        // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
-        let mut assignments = Array1::<f64>::zeros(self.k_atoms());
-        // #932 SIMD: jets are built in aligned 4-row SIMD batches through a
-        // bounded (≤4-row) look-ahead window; unaligned / non-softmax / remainder
-        // rows fall back to the scalar per-row path (bit-identical either way).
-        let mut jet_window: std::collections::VecDeque<SaeRowJets> =
-            std::collections::VecDeque::new();
-        let mut jet_window_next = 0usize;
-        // Hoisted RHS scratch for the gauge/Woodbury per-row solve fallback.
-        let mut rhs_t_scratch = Array1::<f64>::zeros(total_t);
-        let rhs_beta_zero = Array1::<f64>::zeros(cache.k);
-        for row in 0..n {
-            let q = cache.row_dims[row];
-            let base = cache.row_offsets[row];
-            let a_scratch = assignments.as_slice_mut().expect("contiguous scratch");
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, a_scratch)?;
-            if jet_window.is_empty() {
-                jet_window_next = self.refill_jet_window(
-                    rho,
-                    jet_window_next,
-                    cache,
-                    &second_jets,
-                    &border,
-                    &mut jet_window,
-                )?;
-            }
-            let mut jets = jet_window
-                .pop_front()
-                .expect("jet window must be non-empty");
-            if self.whiten_logdet_row_jets() {
-                self.apply_whiten_to_logdet_row_jets(row, &mut jets)?;
-            }
-            // Atom index (k-weight) of each local t-var.
-            let var_atom: Vec<usize> = jets
-                .vars
-                .iter()
-                .map(|v| match *v {
-                    SaeLocalRowVar::Logit { atom } => atom,
-                    SaeLocalRowVar::Coord { atom, .. } => atom,
-                })
-                .collect();
-
-            // Per-row selected inverse blocks `(H⁻¹)_tt` (q×q) and `(H⁻¹)_tβ`.
-            // #932 FRONT C: row-local Takahashi (O(q·(q+K))) on the plain arrow;
-            // per-row full-system `solve` loop (O(n·q)) under gauge / cross-row
-            // Woodbury where the row-local blocks are not valid.
-            let (inv_vv, inv_vbeta) = if fast_selected {
-                solver
-                    .selected_inverse_row_blocks(row, &beta_inv)
-                    .map_err(|err| {
-                        format!("learnable_ibp_data_logdet_alpha_trace: selected inverse: {err}")
-                    })?
-            } else {
-                let mut inv_vv = Array2::<f64>::zeros((q, q));
-                let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
-                for col in 0..q {
-                    rhs_t_scratch[base + col] = 1.0;
-                    let solved = solver
-                        .solve(rhs_t_scratch.view(), rhs_beta_zero.view())
-                        .map_err(|err| {
-                            format!(
-                                "learnable_ibp_data_logdet_alpha_trace: selected inverse: {err}"
-                            )
-                        })?;
-                    rhs_t_scratch[base + col] = 0.0;
-                    for r in 0..q {
-                        inv_vv[[r, col]] = solved.t[base + r];
-                    }
-                    for b in 0..cache.k {
-                        inv_vbeta[[col, b]] = solved.beta[b];
-                    }
-                }
-                (inv_vv, inv_vbeta)
-            };
-
-            // #1026 — UNGATED (background-tier) atoms have a force-fixed unit gate,
-            // so their mass `a_k ≡ 1` is α-INDEPENDENT: every data-Jacobian column
-            // for an ungated atom carries `a_k = 1`, NOT `π_k(α)`, so its α-exponent
-            // is `e_k = 0`, not `k+1`. Gated atoms keep `e_k = k+1`. (The prior trace
-            // handles ungated separately by zeroing the fixed-logit `z_jac`.)
-            let kfac = |atom: usize| -> f64 {
-                if self.assignment.ungated.get(atom).copied().unwrap_or(false) {
-                    0.0
-                } else {
-                    (atom + 1) as f64
-                }
-            };
-            // t–t block: Σ_{a,b} (e_a + e_b)·(H⁻¹)_{ba}·⟨J_a, J_b⟩, where the
-            // per-atom log-prior exponent is e_k = k+1 for the #614 consistent
-            // stick-breaking mean π_k = (α/(α+1))^(k+1) (dlogπ_k/dlogα = (k+1)·inv_alpha1).
-            for a in 0..q {
-                for b in 0..q {
-                    let h_ab = sae_dot(&jets.first[a], &jets.first[b]);
-                    if h_ab == 0.0 {
-                        continue;
-                    }
-                    let kw = kfac(var_atom[a]) + kfac(var_atom[b]);
-                    trace += kw * inv_vv[[b, a]] * h_ab;
-                }
-            }
-            // Deflation correction (kept-subspace restriction + β-Schur/rotation).
-            // `inv_vv` is the DEFLATED selected inverse, so the t–t contraction
-            // above contracts the RAW derivative `D` where the re-deflating
-            // criterion uses the deflation-map derivative `DΦ[D]`. Subtract the
-            // exact over-count `tr(inv_vv·(D − DΦ[D]))` via the Daleckii–Krein
-            // helper, with `D_{ab} = kw_ab·⟨J_a, J_b⟩` the SAME t–t operator the
-            // trace contracts. The t–β/β–β blocks are not deflated, so only the
-            // t–t contraction is corrected.
-            let dirs = cache
-                .deflated_row_directions
-                .get(row)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
-            if !dirs.is_empty() {
-                let mut d_mat = Array2::<f64>::zeros((q, q));
-                for a in 0..q {
-                    for b in 0..q {
-                        let h_ab = sae_dot(&jets.first[a], &jets.first[b]);
-                        if h_ab == 0.0 {
-                            continue;
-                        }
-                        d_mat[[a, b]] = (kfac(var_atom[a]) + kfac(var_atom[b])) * h_ab;
-                    }
-                }
-                let spectrum = cache
-                    .deflation_row_spectra
-                    .get(row)
-                    .and_then(Option::as_ref);
-                trace -= Self::deflation_block_correction(&inv_vv, &d_mat, dirs, spectrum);
-            }
-            // t–β and β–t blocks: appear symmetrically, contract once with the
-            // factor 2 (H, H⁻¹ symmetric; `(H⁻¹)_βt = (H⁻¹)_tβᵀ`).
-            for a in 0..q {
-                for (beta_pos, channel) in border.iter().enumerate() {
-                    let h_ab = sae_dot(&jets.first[a], &jets.beta[beta_pos]);
-                    if h_ab == 0.0 {
-                        continue;
-                    }
-                    let kw = kfac(var_atom[a]) + kfac(border_atom[beta_pos]);
-                    trace += 2.0 * kw * inv_vbeta[[a, channel.index]] * h_ab;
-                }
-            }
-            // β–β block: Σ_{β,β'} (k_β + k_β')·(H⁻¹)_{β'β}·⟨J_β, J_β'⟩.
-            for (beta_i, channel_i) in border.iter().enumerate() {
-                for (beta_j, channel_j) in border.iter().enumerate() {
-                    let h_ab = sae_dot(&jets.beta[beta_i], &jets.beta[beta_j]);
-                    if h_ab == 0.0 {
-                        continue;
-                    }
-                    let kw = kfac(border_atom[beta_i]) + kfac(border_atom[beta_j]);
-                    trace += kw * beta_inv[[channel_i.index, channel_j.index]] * h_ab;
-                }
-            }
-        }
-        Ok(0.5 * inv_alpha1 * trace)
-    }
-
-    pub(crate) fn add_learnable_ibp_forward_alpha_data_rhs(
-        &self,
-        rho: &SaeManifoldRho,
-        target: ArrayView2<'_, f64>,
-        cache: &ArrowFactorCache,
-        t: &mut Array1<f64>,
-        beta: &mut Array1<f64>,
-    ) -> Result<(), String> {
-        let AssignmentMode::IBPMap {
-            temperature,
-            learnable_alpha: true,
-            ..
-        } = self.assignment.mode
-        else {
-            return Ok(());
-        };
-        let alpha = self
-            .assignment
-            .resolved_ibp_alpha(rho)
-            .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
-        let k_atoms = self.k_atoms();
-        let p = self.output_dim();
-        let prior = ordered_geometric_shrinkage_prior(k_atoms, alpha);
-        let mut dprior = Array1::<f64>::zeros(k_atoms);
-        for k in 0..k_atoms {
-            // dπ_k/dρ for π_k = (α/(α+1))^(k+1) (#614 consistent stick-breaking
-            // prior mean): dπ_k/dα = π_k·(k+1)/(α(α+1)), and with α = α₀·exp(ρ)
-            // the log-α chain factor α cancels the 1/α ⇒ dπ_k/dρ = π_k·(k+1)/(α+1).
-            dprior[k] = prior[k] * (k + 1) as f64 / (alpha + 1.0);
-        }
-        let inv_tau = 1.0 / temperature;
-        let row_loss_w = self.row_loss_weights.as_deref();
-        let whitens = self
-            .row_metric
-            .as_ref()
-            .is_some_and(|metric| metric.whitens_likelihood());
-        let border = self.border_channels_for_cache(cache)?;
-        let mut decoded_rows = vec![vec![0.0_f64; p]; k_atoms];
-        let mut decoded_deriv = vec![0.0_f64; p];
-        let mut fitted = Array1::<f64>::zeros(p);
-        let mut f_rho = Array1::<f64>::zeros(p);
-        let mut residual = Array1::<f64>::zeros(p);
-        // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
-        let mut assignments = vec![0.0_f64; k_atoms];
-        for row in 0..self.n_obs() {
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, &mut assignments)?;
-            fitted.fill(0.0);
-            f_rho.fill(0.0);
-            for k in 0..k_atoms {
-                self.atoms[k].fill_decoded_row(row, &mut decoded_rows[k]);
-                // Ungated (#1026 background-tier) atoms have a force-fixed unit
-                // gate (`has_ungated` override), so their mass `a_k ≡ 1` is
-                // α-INDEPENDENT (∂a_k/∂logα = 0). The π_k(α) chain below applies
-                // ONLY to gated atoms, whose mass is `a_k = σ(ℓ/τ)·π_k(α)`. (NB:
-                // frozen routing is NOT ungated — there the gate is a fixed σ(ℓ/τ)
-                // but `a_k` still varies with α through `π_k`, so it must NOT be
-                // skipped.)
-                let da_rho = if self.assignment.ungated.get(k).copied().unwrap_or(false) {
-                    0.0
-                } else {
-                    (assignments[k] / prior[k]) * dprior[k]
-                };
-                for out_col in 0..p {
-                    fitted[out_col] += assignments[k] * decoded_rows[k][out_col];
-                    f_rho[out_col] += da_rho * decoded_rows[k][out_col];
-                }
-            }
-            for out_col in 0..p {
-                residual[out_col] = fitted[out_col] - target[[row, out_col]];
-            }
-            let residual_metric = match self.row_metric.as_ref() {
-                Some(metric) if whitens => metric.apply_metric_row(row, residual.view()),
-                _ => residual.to_vec(),
-            };
-            let f_metric = match self.row_metric.as_ref() {
-                Some(metric) if whitens => metric.apply_metric_row(row, f_rho.view()),
-                _ => f_rho.to_vec(),
-            };
-            let row_weight = row_loss_w.map_or(1.0, |w| w[row]);
-            let row_vars = self.row_vars_for_cache_row(row, cache)?;
-            let row_base = cache.row_offsets[row];
-            for (pos, var) in row_vars.iter().enumerate() {
-                let mut contribution = 0.0_f64;
-                match *var {
-                    SaeLocalRowVar::Logit { atom } => {
-                        // #Bug4: a FIXED logit (ungated atom, or every atom under
-                        // frozen routing) is not a free Newton parameter — its
-                        // assembled gradient/Hessian slots are zeroed — so the
-                        // log-α × logit data mixed derivative on that slot must be
-                        // zero too. Skip it (leave `contribution == 0`).
-                        if self.assignment.logit_is_fixed(atom) {
-                            continue;
-                        }
-                        let sigma = assignments[atom] / prior[atom];
-                        let sigma_jac = sigma * (1.0 - sigma) * inv_tau;
-                        let da_dl = sigma_jac * prior[atom];
-                        let d_da_rho_dl = sigma_jac * dprior[atom];
-                        for out_col in 0..p {
-                            contribution += da_dl * decoded_rows[atom][out_col] * f_metric[out_col];
-                            contribution += d_da_rho_dl
-                                * decoded_rows[atom][out_col]
-                                * residual_metric[out_col];
-                        }
-                    }
-                    SaeLocalRowVar::Coord { atom, axis } => {
-                        let sigma = assignments[atom] / prior[atom];
-                        let da_rho = sigma * dprior[atom];
-                        self.atoms[atom].fill_decoded_derivative_row(row, axis, &mut decoded_deriv);
-                        for out_col in 0..p {
-                            contribution +=
-                                assignments[atom] * decoded_deriv[out_col] * f_metric[out_col];
-                            contribution +=
-                                da_rho * decoded_deriv[out_col] * residual_metric[out_col];
-                        }
-                    }
-                }
-                t[row_base + pos] += row_weight * contribution;
-            }
-            for channel in &border {
-                let phi = self.atoms[channel.atom].basis_values[[row, channel.basis_col]];
-                let sigma = assignments[channel.atom] / prior[channel.atom];
-                let da_rho = sigma * dprior[channel.atom];
-                let mut contribution = 0.0_f64;
-                for out_col in 0..p {
-                    let output = channel.output[out_col];
-                    contribution += assignments[channel.atom] * phi * output * f_metric[out_col];
-                    contribution += da_rho * phi * output * residual_metric[out_col];
-                }
-                beta[channel.index] += row_weight * contribution;
-            }
-        }
-        Ok(())
-    }
-
-    pub(crate) fn border_channels_for_cache(
-        &self,
-        cache: &ArrowFactorCache,
-    ) -> Result<Vec<SaeBorderChannel>, String> {
-        let p = self.output_dim();
-        let frames_active = self.last_frames_active && cache.k == self.factored_border_dim();
-        let offsets = if frames_active {
-            self.factored_beta_offsets()
-        } else {
-            self.beta_offsets()
-        };
-        let mut channels = Vec::with_capacity(cache.k);
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let m = atom.basis_size();
-            let frame = if frames_active {
-                self.frame_output_matrix(atom_idx)
-            } else {
-                Array2::<f64>::eye(p)
-            };
-            let r = frame.ncols();
-            for basis_col in 0..m {
-                for channel in 0..r {
-                    let mut output = vec![0.0_f64; p];
-                    for out_col in 0..p {
-                        output[out_col] = frame[[out_col, channel]];
-                    }
-                    channels.push(SaeBorderChannel {
-                        atom: atom_idx,
-                        basis_col,
-                        index: offsets[atom_idx] + basis_col * r + channel,
-                        output,
-                    });
-                }
-            }
-        }
-        if channels.len() != cache.k {
-            return Err(format!(
-                "border channel layout has {} entries but cache border has {}",
-                channels.len(),
-                cache.k
-            ));
-        }
-        Ok(channels)
-    }
-
-    pub(crate) fn row_vars_for_cache_row(
-        &self,
-        row: usize,
-        cache: &ArrowFactorCache,
-    ) -> Result<Vec<SaeLocalRowVar>, String> {
-        let q_row = cache.row_dims[row];
-        let mut vars: Vec<Option<SaeLocalRowVar>> = vec![None; q_row];
-        match self.last_row_layout {
-            Some(ref layout) => {
-                // #Bug1: logit vars go on the leading free-logit slots; the softmax
-                // reference atom takes a coord block but no logit slot.
-                for (j, &atom) in layout.logit_atoms[row].iter().enumerate() {
-                    vars[j] = Some(SaeLocalRowVar::Logit { atom });
-                }
-                for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                    let start = layout.coord_starts[row][pos];
-                    let d = self.assignment.coords[atom].latent_dim();
-                    for axis in 0..d {
-                        vars[start + axis] = Some(SaeLocalRowVar::Coord { atom, axis });
-                    }
-                }
-            }
-            None => {
-                let assignment_dim = self.assignment.assignment_coord_dim();
-                let coord_offsets = self.assignment.coord_offsets();
-                for atom in 0..assignment_dim {
-                    vars[atom] = Some(SaeLocalRowVar::Logit { atom });
-                }
-                for atom in 0..self.k_atoms() {
-                    let start = coord_offsets[atom];
-                    let d = self.assignment.coords[atom].latent_dim();
-                    for axis in 0..d {
-                        vars[start + axis] = Some(SaeLocalRowVar::Coord { atom, axis });
-                    }
-                }
-            }
-        }
-        vars.into_iter()
-            .enumerate()
-            .map(|(idx, v)| {
-                v.ok_or_else(|| {
-                    format!("row_vars_for_cache_row: row {row} position {idx} was not mapped")
-                })
-            })
-            .collect()
-    }
-
-    pub(crate) fn atom_second_jets(&self) -> Result<Vec<Array4<f64>>, String> {
-        let mut out = Vec::with_capacity(self.k_atoms());
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let coords = self.assignment.coords[atom_idx].as_matrix();
-            let jet = if let Some(second) = atom.basis_second_jet.as_ref() {
-                second.second_jet(coords.view())?
-            } else {
-                let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
-                    format!(
-                        "logdet_theta_adjoint: atom '{}' has no basis evaluator for second jets",
-                        atom.name
-                    )
-                })?;
-                evaluator
-                    .second_jet_dyn(coords.view())
-                    .ok_or_else(|| {
-                        format!(
-                            "logdet_theta_adjoint: atom '{}' basis does not expose analytic second jets",
-                            atom.name
-                        )
-                    })??
-            };
-            let expected = (
-                atom.n_obs(),
-                atom.basis_size(),
-                atom.latent_dim,
-                atom.latent_dim,
-            );
-            if jet.dim() != expected {
-                return Err(format!(
-                    "logdet_theta_adjoint: atom '{}' second jet shape {:?}, expected {:?}",
-                    atom.name,
-                    jet.dim(),
-                    expected
-                ));
-            }
-            out.push(jet);
-        }
-        Ok(out)
-    }
-
-    // [#780 line-count gate] The per-row jet / reconstruction-channel cluster
-    // (`reconstruction_row_program_for_logdet`, the const-generic
-    // reconstruction / β-border channel fills and their dynamic dispatchers,
-    // `row_jets_for_logdet`, `row_jets_for_logdet_batch4`, `batch4_assemble`,
-    // and `refill_jet_window`) lives in the sibling
-    // `construction_row_jet_logdet_channels.rs` file, inlined via `include!`
-    // below at module scope as a second `impl SaeManifoldTerm` block. Splitting
-    // it out keeps this tracked file under the 10k limit; `include!` preserves
-    // the identical module scope and private-field access.
-
-    pub(crate) fn assignment_prior_hdiag_derivative_entry(
-        &self,
-        rho: &SaeManifoldRho,
-        row: usize,
-        diag_atom: usize,
-        wrt: SaeLocalRowVar,
-        ibp_channels: Option<&IbpHessianDiagThirdChannels>,
-    ) -> f64 {
-        let SaeLocalRowVar::Logit { atom: wrt_atom } = wrt else {
-            return 0.0;
-        };
-        // #Bug4: a FIXED logit (ungated atom, or every atom under frozen routing)
-        // has its assembled `htt` diagonal entry ZEROED (see
-        // `assignment_prior_grad_hdiag`), so the θ-adjoint third derivative of that
-        // zeroed entry must also be zero. Mirror the IBP channel zeroing in
-        // `ibp_assignment_third_channels`. The ThresholdGate/IBP branches below are
-        // both diagonal (`diag_atom == wrt_atom`), so masking on `wrt_atom` suffices.
-        if self.assignment.logit_is_fixed(wrt_atom) {
-            return 0.0;
-        }
-        match self.assignment.mode {
-            AssignmentMode::Softmax { .. } => {
-                // #1038: the softmax entropy Hessian is now stored DENSE in
-                // `block.htt` and its full θ-derivative `∂H_{k,j}/∂z_w` (diagonal
-                // AND off-diagonal) is added inline in `logdet_theta_adjoint` from
-                // the shared `row_dense_hessian_logit_derivative`. Returning the
-                // diagonal contribution here too would double-count, so this
-                // primitive is silent for softmax — the dense path is the single
-                // source for value, logdet, and adjoint.
-                0.0
-            }
-            AssignmentMode::ThresholdGate {
-                temperature,
-                threshold,
-            } => {
-                if diag_atom != wrt_atom {
-                    return 0.0;
-                }
-                let logit = self.assignment.logits[[row, diag_atom]];
-                if !crate::assignment::jumprelu_in_optimization_band(logit, threshold, temperature)
-                {
-                    return 0.0;
-                }
-                let inv_tau = 1.0 / temperature;
-                let activation = gam_linalg::utils::stable_logistic((logit - threshold) * inv_tau);
-                let slope = activation * (1.0 - activation);
-                // #1415: P(ℓ)=λσ((ℓ−θ)/τ); P''(ℓ)=(λ/τ²)s(1−2a) so the third
-                // derivative is P'''(ℓ)=(λ/τ³)·s·(1−6a+6a²), because
-                // d/dℓ[s(1−2a)] = (1/τ)s[(1−2a)²−2s] = (1/τ)s(1−6a+6a²).
-                rho.lambda_sparse()
-                    * slope
-                    * (1.0 - 6.0 * activation + 6.0 * activation * activation)
-                    * inv_tau
-                    * inv_tau
-                    * inv_tau
-            }
-            AssignmentMode::IBPMap { .. } => {
-                // The assembled `htt` diagonal consumes
-                // `IBPAssignmentPenalty::hessian_diag`, whose logit derivative
-                // splits into a row-local direct-`z` channel and a global
-                // empirical-`M_k` channel (π_k couples every row in column k).
-                // This same-row primitive returns only the LOCAL direct-`z`
-                // channel — and only on the matching logit (`diag_atom == w`),
-                // since H_ik depends on no other row's z explicitly. The global
-                // M_k channel is accumulated column-wise in
-                // `logdet_theta_adjoint` (it needs the per-row selected-inverse
-                // diagonals), so adding it here would double-count.
-                if diag_atom != wrt_atom {
-                    return 0.0;
-                }
-                match ibp_channels {
-                    Some(ch) => ch.local_logit_third[row * ch.k_max + diag_atom],
-                    None => 0.0,
-                }
-            }
-            // Unreachable in practice: every TopK logit is `logit_is_fixed`, so
-            // the mask above already returned 0.0 (no prior, no free logits).
-            AssignmentMode::TopK { .. } => 0.0,
-        }
-    }
-
-    pub(crate) fn ard_majorized_hessian_derivative(
-        &self,
-        rho: &SaeManifoldRho,
-        row: usize,
-        atom: usize,
-        axis: usize,
-    ) -> f64 {
-        if rho.log_ard[atom].is_empty() {
-            return 0.0;
-        }
-        let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom][axis]);
-        let periods = self.assignment.coords[atom].effective_axis_periods();
-        let t = self.assignment.coords[atom].row(row)[axis];
-        let prior = ArdAxisPrior::eval(alpha, t, periods[axis]);
-        if prior.hess <= 0.0 {
-            return 0.0;
-        }
-        match periods[axis] {
-            None => 0.0,
-            Some(period) => {
-                let kappa = std::f64::consts::TAU / period;
-                // HT row weighting: the assembled majorizer whose t-derivative this
-                // feeds into the ½log|H| θ-adjoint is `w_row·max(V'',0)` (full
-                // `w_row`, added directly to `htt` — NOT via the √w jet seam), so on
-                // the positive branch its coordinate derivative is
-                // `w_row·d/dt[α cos κt] = w_row·(−ακ sin κt)`. The data-fit `dH/dθ`
-                // terms sharing this diagonal already carry full `w` (each is a
-                // product of two √w-scaled jets, so √w·√w = w), so the correct single
-                // factor for this prior term is likewise full `w_row`. `None`
-                // weights ⇒ w_row = 1, bit-for-bit the historical derivative.
-                let w_row = self
-                    .row_loss_weights
-                    .as_deref()
-                    .map_or(1.0, |w| w[row]);
-                -w_row * alpha * kappa * (kappa * t).sin()
-            }
-        }
-    }
-
-    pub fn outer_rho_gradient_ift_rhs(
-        &self,
-        rho: &SaeManifoldRho,
-        target: ArrayView2<'_, f64>,
-        j: usize,
-        cache: &ArrowFactorCache,
-    ) -> Result<SaeArrowVector, String> {
-        let n_params = rho.to_flat().len();
-        if j >= n_params {
-            return Err(format!(
-                "outer_rho_gradient_ift_rhs: coordinate {j} outside rho dim {n_params}"
-            ));
-        }
-        let mut t = Array1::<f64>::zeros(cache.delta_t_len());
-        let mut beta = Array1::<f64>::zeros(cache.k);
-        if j == 0 {
-            let assignment_grad =
-                assignment_prior_log_strength_target_mixed(&self.assignment, rho)?;
-            let k_atoms = self.k_atoms();
-            let assignment_dim = self.assignment.assignment_coord_dim();
-            for row in 0..self.n_obs() {
-                let base = cache.row_offsets[row];
-                let assignment_base = row * k_atoms;
-                match self.last_row_layout {
-                    Some(ref layout) => {
-                        // #Bug1: assignment log-strength gradient lands on FREE logit
-                        // slots only; softmax's reference atom has none (matching the
-                        // dense `0..assignment_dim` = K−1 branch).
-                        for (slot, &atom) in layout.logit_atoms[row].iter().enumerate() {
-                            t[base + slot] = assignment_grad[assignment_base + atom];
-                        }
-                    }
-                    None => {
-                        for free_idx in 0..assignment_dim {
-                            t[base + free_idx] = assignment_grad[assignment_base + free_idx];
-                        }
-                    }
-                }
-            }
-            self.add_learnable_ibp_forward_alpha_data_rhs(rho, target, cache, &mut t, &mut beta)?;
-        } else if (1..=rho.log_lambda_smooth.len()).contains(&j) {
-            // #1556: coordinate `j ∈ 1..=K` is the per-atom smoothness strength
-            // `log λ_smooth[j-1]`. `∂(penalty)/∂log λ_k = λ_k·S_k C_k` touches ONLY
-            // atom `k = j-1`'s decoder block; every other atom's RHS is zero.
-            let target_atom = j - 1;
-            let lambda = rho.lambda_smooth_for(target_atom);
-            let frames_active = self.last_frames_active && cache.k == self.factored_border_dim();
-            let offsets = if frames_active {
-                self.factored_beta_offsets()
-            } else {
-                self.beta_offsets()
-            };
-            let atom = &self.atoms[target_atom];
-            let m = atom.basis_size();
-            let coeffs = if frames_active {
-                match &atom.decoder_frame {
-                    Some(frame) => frame.project_decoder(atom.decoder_coefficients.view())?,
-                    None => atom.decoder_coefficients.clone(),
-                }
-            } else {
-                atom.decoder_coefficients.clone()
-            };
-            let r = coeffs.ncols();
-            let off = offsets[target_atom];
-            for mu in 0..m {
-                for channel in 0..r {
-                    let mut acc = 0.0_f64;
-                    for nu in 0..m {
-                        let s_sym =
-                            0.5 * (atom.smooth_penalty[[mu, nu]] + atom.smooth_penalty[[nu, mu]]);
-                        acc += s_sym * coeffs[[nu, channel]];
-                    }
-                    beta[off + mu * r + channel] = lambda * acc;
-                }
-            }
-        } else {
-            // ARD coordinate `j`. `ard_flat_index` maps `(atom, axis)` onto the
-            // flat coordinate for both parameterizations; a shared axis is owned
-            // by SEVERAL atoms, and the RHS for that one outer coordinate is the
-            // SUM of each owning atom's `∂g/∂log α_{atom,axis}` block (chain rule
-            // through the broadcast). Those blocks land in disjoint per-atom row
-            // slots of `t`, so accumulate every matching atom rather than
-            // returning on the first. In `PerAtom` mode exactly one `(atom, axis)`
-            // matches, reproducing the historical single-atom RHS.
-            for atom in 0..rho.log_ard.len() {
-                for axis in 0..rho.log_ard[atom].len() {
-                    if rho.ard_flat_index(atom, axis) != j {
-                        continue;
-                    }
-                    let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom][axis]);
-                    let periods = self.assignment.coords[atom].effective_axis_periods();
-                    let row_w = self.row_loss_weights.as_deref();
-                    for row in 0..self.n_obs() {
-                        let row_t = self.assignment.coords[atom].row(row);
-                        let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
-                        let Some(pos) = sae_coord_penalty_offset(
-                            self.last_row_layout.as_ref(),
-                            self.assignment.coord_offsets()[atom] + axis,
-                            row,
-                            atom,
-                        ) else {
-                            continue;
-                        };
-                        // HT row weighting: this RHS is `∂g/∂log α` of the inner-MAP
-                        // stationarity gradient `g`, and the assembly writes that
-                        // gradient as `w_row·V'` (full `w_row`, `construction_arrow_schur_assembly.rs`
-                        // gt seam). The IFT operator `H` it feeds carries full `w_row`
-                        // on this coordinate diagonal (`w·(D_data + prior'')`), so the
-                        // RHS must carry the SAME full `w_row` to stay consistent — `V`
-                        // is linear in α so `∂(w·V')/∂log α = w·V'`. `None` ⇒ w_row = 1,
-                        // bit-for-bit the historical RHS.
-                        let w_row = row_w.map_or(1.0, |w| w[row]);
-                        t[cache.row_offsets[row] + pos] += w_row * prior.grad;
-                    }
-                }
-            }
-        }
-        Ok(SaeArrowVector { t, beta })
-    }
-
-    fn whiten_logdet_metric_vec(
-        metric: &gam_problem::RowMetric,
-        row: usize,
-        p: usize,
-        values: &mut Vec<f64>,
-    ) -> Result<(), String> {
-        if values.len() != p {
-            return Err(format!(
-                "logdet_theta_adjoint: row jet channel length {} != output dim {p}",
-                values.len()
-            ));
-        }
-        let rank = metric.metric_rank();
-        let mut whitened = vec![0.0_f64; rank];
-        for rank_col in 0..rank {
-            let mut acc = 0.0_f64;
-            for out_col in 0..p {
-                acc += metric.factor_entry(row, out_col, rank_col) * values[out_col];
-            }
-            whitened[rank_col] = acc;
-        }
-        *values = whitened;
-        Ok(())
-    }
-
-    /// Whiten every log-det row-jet channel by the row metric factor
-    /// (`values ← Uᵀ values`), matching the assembly's whitened likelihood
-    /// Hessian. Applies at any rank (full-rank ⇒ `rank == p`, length preserved;
-    /// low-rank ⇒ `rank < p`, channels shrink to the whitened dim). Gated by
-    /// [`whiten_logdet_row_jets`] at the call sites.
-    fn apply_whiten_to_logdet_row_jets(
-        &self,
-        row: usize,
-        jets: &mut SaeRowJets,
-    ) -> Result<(), String> {
-        let metric = self
-            .row_metric
-            .as_ref()
-            .ok_or_else(|| "logdet_theta_adjoint: whitening metric absent".to_string())?;
-        let p = self.output_dim();
-        for first in jets.first.iter_mut() {
-            Self::whiten_logdet_metric_vec(metric, row, p, first)?;
-        }
-        for second_row in jets.second.iter_mut() {
-            for second in second_row.iter_mut() {
-                Self::whiten_logdet_metric_vec(metric, row, p, second)?;
-            }
-        }
-        for beta in jets.beta.iter_mut() {
-            Self::whiten_logdet_metric_vec(metric, row, p, beta)?;
-        }
-        for beta_deriv_row in jets.beta_deriv.iter_mut() {
-            for beta_deriv in beta_deriv_row.iter_mut() {
-                Self::whiten_logdet_metric_vec(metric, row, p, beta_deriv)?;
-            }
-        }
-        for beta_l_deriv_row in jets.beta_l_deriv.iter_mut() {
-            for beta_l_deriv in beta_l_deriv_row.iter_mut() {
-                Self::whiten_logdet_metric_vec(metric, row, p, beta_l_deriv)?;
-            }
-        }
-        Ok(())
-    }
-
-    pub(crate) fn softmax_data_weight_product_logit_factor(
-        assignments: &[f64],
-        atom_a: usize,
-        atom_b: usize,
-        atom_w: usize,
-        inv_tau: f64,
-    ) -> f64 {
-        let a_w = assignments[atom_w];
-        let left = if atom_w == atom_a { 1.0 } else { 0.0 } - a_w;
-        let right = if atom_w == atom_b { 1.0 } else { 0.0 } - a_w;
-        (left + right) * inv_tau
-    }
-
-    pub(crate) fn logdet_theta_adjoint(
-        &self,
-        rho: &SaeManifoldRho,
-        cache: &ArrowFactorCache,
-        solver: &DeflatedArrowSolver<'_>,
-    ) -> Result<SaeArrowVector, String> {
-        // Γ_a = tr(H⁻¹ ∂H/∂θ_a) over the inner variables θ (#1006). `H` here is
-        // the SAME object the evidence factor builds — Gauss-Newton data
-        // curvature plus the prior majorizers / `hessian_diag` diagonals the
-        // Newton/Schur Cholesky factorizes — so each block's θ-derivative channel
-        // is differentiated on the criterion's own branch (no value/gradient
-        // desync). The IBP-MAP assignment prior is the one block whose
-        // `hessian_diag` couples every row in a column through the plug-in
-        // empirical mass `M_k = Σ_i z_ik`; its logit derivative therefore has a
-        // row-local channel (handled inline via
-        // `assignment_prior_hdiag_derivative_entry`) and a cross-row channel
-        // (accumulated column-wise after the row loop, below).
-        if cache.arrow_log_det().is_none() {
-            return Err(
-                "logdet_theta_adjoint: cache lacks an authoritative joint-Hessian log-det \
-                 for the selected-inverse operator"
-                    .to_string(),
-            );
-        }
-        let n = self.n_obs();
-        let total_t = cache.delta_t_len();
-        let mut gamma_t = Array1::<f64>::zeros(total_t);
-        let mut gamma_beta = Array1::<f64>::zeros(cache.k);
-        let second_jets = self.atom_second_jets()?;
-        let border = self.border_channels_for_cache(cache)?;
-        // #932 FRONT C: plain-arrow `(H⁻¹)_ββ = S⁻¹` formed once from the cached
-        // Schur factor; gauge / #1038 cross-row Woodbury fall back to the per-β
-        // `solve` loop where the row-local Takahashi blocks are not valid.
-        let fast_selected = solver.plain_selected_inverse_available();
-        let beta_inv = if cache.k == 0 {
-            Array2::<f64>::zeros((0, 0))
-        } else if fast_selected {
-            solver
-                .beta_inv()
-                .map_err(|err| format!("logdet_theta_adjoint: beta selected inverse: {err}"))?
-        } else {
-            let mut beta_inv = Array2::<f64>::zeros((cache.k, cache.k));
-            let rhs_t = Array1::<f64>::zeros(total_t);
-            let mut rhs_beta = Array1::<f64>::zeros(cache.k);
-            for col in 0..cache.k {
-                rhs_beta[col] = 1.0;
-                let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
-                    format!("logdet_theta_adjoint: beta selected inverse solve: {err}")
-                })?;
-                rhs_beta[col] = 0.0;
-                for row in 0..cache.k {
-                    beta_inv[[row, col]] = solved.beta[row];
-                }
-            }
-            beta_inv
-        };
-        // IBP `hessian_diag` logit third-derivative channels (#1006). The full
-        // IBP Hessian also has per-column cross-row rank-one terms
-        // `H_(i,k),(j,k) = d_k·J_ik·J_jk`; these ARE carried in `H` via the #1038
-        // Woodbury source (`IbpCrossRowSource`, construction.rs:4710-4752), the
-        // ρ-trace differentiates them (#1416,
-        // `assignment_log_strength_hessian_trace`), AND this θ-adjoint now
-        // differentiates them exactly too: the empirical-`M_k` channel below
-        // contracts the shared-mass coupling of the DIAGONAL curvature, and the
-        // cross-row Woodbury pass (further below, using `cross_row_dd` and
-        // `logit_curvature`) contracts the `∂/∂ℓ_w (d_k·J_ik·J_jk)` rank-one
-        // derivative — so value, logdet, ρ-trace, and θ-adjoint all differentiate
-        // the one operator `H = H₀ + Σ_k d_k u_k u_kᵀ`.
-        // gam#2144/#1038: the assembly PSD-majorizes the IBP curvature
-        // UNCONDITIONALLY, so the θ-adjoint differentiates the MAJORIZED channels
-        // (clamped `cross_row_d`, gated `cross_row_dd`/`m_channel`/
-        // `local_logit_third`) — the exact derivative of the operator the evidence
-        // log-det factors, on every IBP path. Anything else desyncs the outer-REML
-        // gradient from the evidence (#2087).
-        // gam#2144: whitening of the row jets tracks `whitens_likelihood()` at ANY
-        // rank (the assembly whitens `JᵀU UᵀJ` for full- and low-rank alike) and is
-        // independent of the PSD majorization.
-        let whiten_row_jets = self.whiten_logdet_row_jets();
-        let ibp_channels = ibp_assignment_third_channels(&self.assignment, rho, true)?;
-        let k_atoms = self.k_atoms();
-        // #1038 softmax entropy: the dense per-row entropy Hessian written into
-        // `block.htt` has off-diagonal logit terms whose θ-derivative the adjoint
-        // must contract too (not just the diagonal). Build the SAME penalty +
-        // `scale = λ/τ²` the assembly uses so value/logdet/adjoint differentiate
-        // one operator. `None` for non-softmax modes (their diagonal/cross-row
-        // channels are handled by `assignment_prior_hdiag_derivative_entry` and
-        // the IBP column pass).
-        let softmax_dense_adjoint: Option<(
-            gam_terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty,
-            f64,
-        )> = match self.assignment.mode {
-            AssignmentMode::Softmax {
-                temperature,
-                sparsity,
-            } if k_atoms > 1 => {
-                let inv_tau = 1.0 / temperature;
-                let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
-                Some((
-                    gam_terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
-                        k_atoms,
-                        temperature,
-                    ),
-                    scale,
-                ))
-            }
-            _ => None,
-        };
-        // Per active logit site: row, atom, global t-index, raw selected-inverse
-        // diagonal. The raw diagonal drives the empirical-M contraction and the
-        // cross-row Woodbury self-subtraction. The cached unit-diagonal
-        // Daleckii-Krein weight lets the later empirical-M pass correct only the
-        // no-self row-base derivative, leaving the Woodbury self derivative raw.
-        #[derive(Clone, Copy)]
-        struct IbpLogitSite {
-            row: usize,
-            atom: usize,
-            t_index: usize,
-            raw_diag: f64,
-            no_self_diag_deflation_weight: f64,
-        }
-        let mut ibp_logit_sites: Vec<IbpLogitSite> = Vec::new();
-
-        // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
-        let mut assignments = Array1::<f64>::zeros(self.k_atoms());
-        // #932 SIMD: jets are built in aligned 4-row SIMD batches through a
-        // bounded (≤4-row) look-ahead window; unaligned / non-softmax / remainder
-        // rows fall back to the scalar per-row path (bit-identical either way).
-        let mut jet_window: std::collections::VecDeque<SaeRowJets> =
-            std::collections::VecDeque::new();
-        let mut jet_window_next = 0usize;
-        // Hoisted RHS scratch for the gauge/Woodbury per-row solve fallback.
-        let mut rhs_t_scratch = Array1::<f64>::zeros(total_t);
-        let rhs_beta_zero = Array1::<f64>::zeros(cache.k);
-        for row in 0..n {
-            let q = cache.row_dims[row];
-            let base = cache.row_offsets[row];
-            let a_scratch = assignments.as_slice_mut().expect("contiguous scratch");
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, a_scratch)?;
-            if jet_window.is_empty() {
-                jet_window_next = self.refill_jet_window(
-                    rho,
-                    jet_window_next,
-                    cache,
-                    &second_jets,
-                    &border,
-                    &mut jet_window,
-                )?;
-            }
-            let mut jets = jet_window
-                .pop_front()
-                .expect("jet window must be non-empty");
-            if whiten_row_jets {
-                self.apply_whiten_to_logdet_row_jets(row, &mut jets)?;
-            }
-
-            // #932 FRONT C: row-local Takahashi on the plain arrow; per-row
-            // full-system `solve` loop under gauge / cross-row Woodbury.
-            let (inv_vv, inv_vbeta) = if fast_selected {
-                solver
-                    .selected_inverse_row_blocks(row, &beta_inv)
-                    .map_err(|err| format!("logdet_theta_adjoint: selected inverse: {err}"))?
-            } else {
-                let mut inv_vv = Array2::<f64>::zeros((q, q));
-                let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
-                for col in 0..q {
-                    rhs_t_scratch[base + col] = 1.0;
-                    let solved = solver
-                        .solve(rhs_t_scratch.view(), rhs_beta_zero.view())
-                        .map_err(|err| {
-                            format!("logdet_theta_adjoint: selected inverse solve: {err}")
-                        })?;
-                    rhs_t_scratch[base + col] = 0.0;
-                    for r in 0..q {
-                        inv_vv[[r, col]] = solved.t[base + r];
-                    }
-                    for b in 0..cache.k {
-                        inv_vbeta[[col, b]] = solved.beta[b];
-                    }
-                }
-                (inv_vv, inv_vbeta)
-            };
-
-            // Per-row UNIT-stiffness deflated directions: the selected inverse
-            // `inv_vv` is the DEFLATED inverse (it assigns `1/λ̃ = 1` to each
-            // `vᵢ`), so every `inv_vv`-weighted t–t contraction of `∂H/∂θ_w`
-            // below spuriously contracts the RAW derivative where the re-deflating
-            // criterion uses the deflation-map derivative `DΦ`. The kept-subspace Γ
-            // subtracts `tr(inv_vv·(D − DΦ[D]))` over the t–t block via the same
-            // Daleckii–Krein helper the ρ-traces use (the t–β / β–β blocks are not
-            // deflated). IBP cross-row Woodbury caches factor the no-self base, so
-            // the correction matrix below removes the local self derivative before
-            // applying `DΦ`; the full self/off-row rank-one derivative stays in the
-            // ordinary raw contractions.
-            let defl_dirs = cache
-                .deflated_row_directions
-                .get(row)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
-            let defl_spectrum = cache
-                .deflation_row_spectra
-                .get(row)
-                .and_then(Option::as_ref);
-
-            // Record each active logit's column, global t-index, and raw
-            // selected-inverse diagonal for the IBP cross-row passes. Also cache
-            // the per-slot Daleckii-Krein weight for a unit diagonal derivative:
-            // the empirical-M `m_channel` later splits into a no-self row-base
-            // derivative plus a rank-one self derivative, and only the no-self
-            // piece belongs under the row deflation map.
-            if ibp_channels.is_some() {
-                for (pos, var) in jets.vars.iter().enumerate() {
-                    if let SaeLocalRowVar::Logit { atom } = *var {
-                        let raw_diag = inv_vv[[pos, pos]];
-                        let no_self_diag_deflation_weight = if defl_dirs.is_empty() {
-                            0.0
-                        } else {
-                            let mut unit_diag = Array2::<f64>::zeros((q, q));
-                            unit_diag[[pos, pos]] = 1.0;
-                            Self::deflation_block_correction(
-                                &inv_vv,
-                                &unit_diag,
-                                defl_dirs,
-                                defl_spectrum,
-                            )
-                        };
-                        ibp_logit_sites.push(IbpLogitSite {
-                            row,
-                            atom,
-                            t_index: base + pos,
-                            raw_diag,
-                            no_self_diag_deflation_weight,
-                        });
-                    }
-                }
-            }
-
-            // #1419: when `w` is a logit and the assignment is softmax, the per-row
-            // Gershgorin majorizer `D = diag(Σ_j|H_kj|)` is what the assembly wrote
-            // into `htt` (the genuine Loewner majorizer that replaces the indefinite
-            // exact entropy Hessian). Its full θ-derivative `∂D_{k,k}/∂z_w` (diagonal;
-            // `∂D_kk/∂z_w = Σ_j sign(H_kj)·∂H_kj/∂z_w`) is the SAME operator the
-            // assembly and logdet now differentiate, so value and adjoint stay on ONE
-            // exact branch. Compute it once per logit `w` and add it at every logit
-            // pair `(a,b)` below. The diagonal softmax case is therefore handled here,
-            // NOT in `assignment_prior_hdiag_derivative_entry` (which returns 0 for
-            // softmax to avoid double-counting).
-            // #1410: the softmax majorizer θ-derivative `∂D_kk/∂z_w` is DIAGONAL
-            // (`D` is diagonal), and the compact adjoint reads it only for this
-            // row's `≤ top_k` active atoms. Compute the needed diagonal entry
-            // directly from the softmax row `a` (= `assignments`, in hand) via
-            // `active_softmax_majorizer_logit_derivative_entry`, instead of the old
-            // per-(row, logit) full `K×K` `row_psd_majorizer_logit_derivative`
-            // allocation. `m = Σ_j a_j l_j` is shared across all `(w, k)` pairs of
-            // the row, so compute it once. `inv_tau` carries the softmax `∂a/∂z`
-            // convention.
-            let softmax_adjoint_row: Option<(&[f64], f64, f64, f64)> =
-                match (softmax_dense_adjoint.as_ref(), self.assignment.mode) {
-                    (Some((_penalty, scale)), AssignmentMode::Softmax { temperature, .. }) => {
-                        let a = assignments
-                            .as_slice()
-                            .expect("softmax assignments row must be contiguous");
-                        let m = softmax_majorizer_log_mean(a);
-                        Some((a, m, *scale, 1.0 / temperature))
-                    }
-                    _ => None,
-                };
-            for w in 0..q {
-                let mut gamma = 0.0_f64;
-                // The active logit `w` differentiates against; `None` unless this
-                // slot is a softmax logit on the softmax path.
-                let softmax_d_dw: Option<(&[f64], f64, f64, f64, usize)> =
-                    match (softmax_adjoint_row, jets.vars[w]) {
-                        (Some((a, m, scale, inv_tau)), SaeLocalRowVar::Logit { atom: atom_w }) => {
-                            Some((a, m, scale, inv_tau, atom_w))
-                        }
-                        _ => None,
-                    };
-                let mut deflated_base_dh_mat = Array2::<f64>::zeros((q, q));
-                for a in 0..q {
-                    for b in 0..q {
-                        let mut dh = match (softmax_d_dw, jets.vars[a], jets.vars[b]) {
-                            (
-                                Some((a_soft, _m, _scale, inv_tau, atom_w)),
-                                SaeLocalRowVar::Coord { atom: atom_a, .. },
-                                SaeLocalRowVar::Coord { atom: atom_b, .. },
-                            ) => {
-                                let h_ab = sae_dot(&jets.first[a], &jets.first[b]);
-                                h_ab
-                                    * Self::softmax_data_weight_product_logit_factor(
-                                        a_soft, atom_a, atom_b, atom_w, inv_tau,
-                                    )
-                            }
-                            _ => {
-                                sae_dot(&jets.second[a][w], &jets.first[b])
-                                    + sae_dot(&jets.first[a], &jets.second[b][w])
-                            }
-                        };
-                        // `∂D/∂z_w` is diagonal, so it contributes only when the two
-                        // logit slots are the SAME atom (`atom_a == atom_b`).
-                        if let (
-                            Some((a_soft, m, scale, inv_tau, _atom_w)),
-                            SaeLocalRowVar::Logit { atom: atom_a },
-                            SaeLocalRowVar::Logit { atom: atom_b },
-                        ) = (softmax_d_dw, jets.vars[a], jets.vars[b])
-                        {
-                            if atom_a == atom_b {
-                                dh += active_softmax_majorizer_logit_derivative_entry(
-                                    a_soft, atom_a, _atom_w, m, scale, inv_tau,
-                                );
-                            }
-                        }
-                        if a == b {
-                            dh += match jets.vars[a] {
-                                SaeLocalRowVar::Logit { atom } => self
-                                    .assignment_prior_hdiag_derivative_entry(
-                                        rho,
-                                        row,
-                                        atom,
-                                        jets.vars[w],
-                                        ibp_channels.as_ref(),
-                                    ),
-                                SaeLocalRowVar::Coord { atom, axis } if a == w => {
-                                    self.ard_majorized_hessian_derivative(rho, row, atom, axis)
-                                }
-                                _ => 0.0,
-                            };
-                        }
-                        let mut deflated_base_dh = dh;
-                        // #2144: the row factor that spectral deflation conditions is
-                        // the IBP no-self base `H0'`, because
-                        // `solve_arrow_newton_step_with_options` downdates the
-                        // row-local `d_k J_ik^2` self curvature before factoring and
-                        // re-adds the full rank-one column through Woodbury. The trace
-                        // above still contracts the derivative of the full diagonal
-                        // against the full selected inverse; only the Daleckii-Krein
-                        // deflation-map correction must see the derivative of the
-                        // actually deflated row block. Therefore remove just the
-                        // direct-local derivative of the downdated IBP self term from
-                        // the matrix passed to `deflation_block_correction`. The
-                        // empirical-M and off-row Woodbury channels remain in their
-                        // existing passes.
-                        if let (
-                            Some(channels),
-                            SaeLocalRowVar::Logit { atom: diag_atom },
-                            SaeLocalRowVar::Logit { atom: wrt_atom },
-                        ) = (ibp_channels.as_ref(), jets.vars[a], jets.vars[w])
-                        {
-                            if a == b && diag_atom == wrt_atom {
-                                let idx = row * k_atoms + diag_atom;
-                                deflated_base_dh -= 2.0
-                                    * channels.cross_row_d[diag_atom]
-                                    * channels.z_jac[idx]
-                                    * channels.logit_curvature[idx];
-                            }
-                        }
-                        deflated_base_dh_mat[[a, b]] = deflated_base_dh;
-                        gamma += inv_vv[[b, a]] * dh;
-                    }
-                }
-                if !defl_dirs.is_empty() {
-                    // The row factor/log-det operator is the spectrally
-                    // conditioned `Φ(H_tt)`, while the local theta channels above
-                    // assemble the raw row derivative `D`. Subtract
-                    // `tr(inv_vv · (D - DΦ[D]))` for every deflated row, including
-                    // the low-rank IBP majorizer path, so the theta adjoint
-                    // differentiates the same operator as `arrow_log_det`,
-                    // `apply_cached_arrow_hessian`, and the selected inverse.
-                    gamma -= Self::deflation_block_correction(
-                        &inv_vv,
-                        &deflated_base_dh_mat,
-                        defl_dirs,
-                        defl_spectrum,
-                    );
-                }
-                for a in 0..q {
-                    for (beta_pos, channel) in border.iter().enumerate() {
-                        let dh = sae_dot(&jets.second[a][w], &jets.beta[beta_pos])
-                            + sae_dot(&jets.first[a], &jets.beta_deriv[w][beta_pos]);
-                        gamma += 2.0 * inv_vbeta[[a, channel.index]] * dh;
-                    }
-                }
-                for (beta_i, channel_i) in border.iter().enumerate() {
-                    for (beta_j, channel_j) in border.iter().enumerate() {
-                        let dh = sae_dot(&jets.beta_deriv[w][beta_i], &jets.beta[beta_j])
-                            + sae_dot(&jets.beta[beta_i], &jets.beta_deriv[w][beta_j]);
-                        gamma += beta_inv[[channel_i.index, channel_j.index]] * dh;
-                    }
-                }
-                gamma_t[base + w] = gamma;
-            }
-
-            for (w_beta_pos, w_channel) in border.iter().enumerate() {
-                let mut gamma = 0.0_f64;
-                let mut dh_mat = Array2::<f64>::zeros((q, q));
-                for a in 0..q {
-                    for b in 0..q {
-                        let dh = sae_dot(&jets.beta_l_deriv[a][w_beta_pos], &jets.first[b])
-                            + sae_dot(&jets.first[a], &jets.beta_l_deriv[b][w_beta_pos]);
-                        dh_mat[[a, b]] = dh;
-                        gamma += inv_vv[[b, a]] * dh;
-                    }
-                }
-                if !defl_dirs.is_empty() {
-                    gamma -= Self::deflation_block_correction(
-                        &inv_vv,
-                        &dh_mat,
-                        defl_dirs,
-                        defl_spectrum,
-                    );
-                }
-                for a in 0..q {
-                    for (beta_pos, channel) in border.iter().enumerate() {
-                        let dh = sae_dot(&jets.beta_l_deriv[a][w_beta_pos], &jets.beta[beta_pos]);
-                        gamma += 2.0 * inv_vbeta[[a, channel.index]] * dh;
-                    }
-                }
-                gamma_beta[w_channel.index] += gamma;
-            }
-        }
-
-        // IBP cross-row empirical-`M_k` channel of Γ (#1006). The assembled
-        // diagonal H_ik consumes `hessian_diag`, whose dependence on the column
-        // mass M_k = Σ_i z_ik couples every row in a column. Differentiating
-        // tr(H⁻¹ ∂H/∂ℓ_wk) on that shared branch:
-        //   Γ_wk += [ Σ_i (H⁻¹)_ik,ik · ∂_M H_ik ] · J_wk = C_k · J_wk,
-        // where ∂_M H_ik = `m_channel[i*K+k]` and J_wk = `z_jac[w*K+k]`. The
-        // row-local direct-`z` channel was already added inline above; this pass
-        // owns the empirical-mass branch. The no-self part of `m_channel` is a
-        // derivative of the deflated row base `H₀'`, so it receives the same
-        // Daleckii-Krein `DΦ` correction as the row-local channel; the rank-one
-        // self part stays raw and is paired with the off-row Woodbury derivative.
-        if let Some(channels) = ibp_channels.as_ref() {
-            let mut col_coeff = vec![0.0_f64; k_atoms];
-            for site in &ibp_logit_sites {
-                let idx = site.row * k_atoms + site.atom;
-                let j = channels.z_jac[idx];
-                let self_mass = channels.cross_row_dd[site.atom] * j * j;
-                let no_self_mass = channels.m_channel[idx] - self_mass;
-                col_coeff[site.atom] += site.raw_diag * channels.m_channel[idx]
-                    - site.no_self_diag_deflation_weight * no_self_mass;
-            }
-            for site in &ibp_logit_sites {
-                let idx = site.row * k_atoms + site.atom;
-                gamma_t[site.t_index] += col_coeff[site.atom] * channels.z_jac[idx];
-            }
-
-            // #1416 / #1641: the EXACT cross-row Woodbury derivative of Γ. The
-            // assembled `H` carries the per-column rank-one block
-            // `W_k = d_k·u_k u_kᵀ` with `u_k` the J-weighted column indicator
-            // (`u_k[slot(i,k)] = J_ik`) and `d_k = w·s'_k` (`cross_row_d[k]`). Both
-            // `d_k` (through `M_k`) and the `u_k` entries (through `ℓ_ik`) depend on
-            // the logits, so
-            //   ∂W_k/∂ℓ_wk = dd_k·J_wk·u_k u_kᵀ
-            //               + d_k·c_wk·(e_w u_kᵀ + u_k e_wᵀ),
-            // where `dd_k = ∂d_k/∂M_k = w·s''_k` (`cross_row_dd[k]`),
-            // `c_wk = ∂J_wk/∂ℓ_wk` (`logit_curvature`), and `e_w` is the unit
-            // vector at row `w`'s logit-`k` slot.
-            //
-            // The θ-adjoint contracts the FULL trace `Γ_wk = tr(H⁻¹ ∂H/∂ℓ_wk)`
-            // (NOT the `½ tr` the ρ-trace uses — `fixed_state_logdet` differentiates
-            // the full `log|H|`, and the per-row blocks above contract `inv_vv·dh`
-            // with no ½). Critically, the `i=j` self curvature `w·s'_k·J_ik²` of the
-            // rank-one block lives on the assembled `htt` DIAGONAL `H_ik`, so its
-            // derivative is ALREADY differentiated by the row-local
-            // `local_logit_third` channel (direct-z, `i=w`) and the `m_channel`
-            // column pass (via `M_k`) above. This Woodbury pass must therefore add
-            // ONLY the off-diagonal `i≠j` remainder — otherwise the self term is
-            // double-counted (the #1641 defect: the pre-fix pass summed the full
-            // `u_k u_kᵀ` including `i=j`, AND carried the ρ-trace ½, AND dropped the
-            // factor 2 on the symmetric `e_w u_kᵀ + u_k e_wᵀ` term). Excluding `i=j`
-            // is also why this pass needs no deflation correction: it contracts only
-            // DISTINCT rows, off any single-row `vᵢ`'s support (matching the
-            // #1416 ρ-trace cross-row pass).
-            //
-            // Contracting `tr(H⁻¹ ∂W_k/∂ℓ_wk)` over `i≠j` only:
-            //   Γ_wk += dd_k·J_wk·( u_kᵀ H⁻¹ u_k − Σ_i P_ii·J_ik² )       (term A)
-            //         + 2·d_k·c_wk·( (H⁻¹ u_k)_{slot(w,k)} − P_ww·J_wk )  (term B),
-            // where `P_ii = (H⁻¹)_{slot(i,k),slot(i,k)}` is the selected-inverse
-            // diagonal recorded in `ibp_logit_sites`. The subtracted self pieces are
-            // exactly the `i=j` terms the diagonal channels own. Both `u_kᵀ H⁻¹ u_k`
-            // and `(H⁻¹ u_k)` come from ONE solve per column, `x_k = H⁻¹ u_k` — so
-            // the adjoint differentiates the SAME `H = H₀ + Σ_k W_k` the
-            // value/logdet use, closing the one-operator contract on the rank-one
-            // block too.
-            //
-            // Group the column sites once (the layout is mode-agnostic: dense or
-            // compact, `ibp_logit_sites` already carries each active logit's
-            // global t-index AND its selected-inverse diagonal `G_ii`), then per
-            // column build `u_k`, solve, and distribute the OFF-DIAGONAL remainder.
-            //
-            // #1416 FIX: the diagonal (`i = w`) parts of term A and term B are
-            // ALREADY supplied — `diag(term A) = dd_k·J_w·Σ_i G_ii·J_i²` by the
-            // `m_channel` column pass above (whose `m_channel = w·(s''·J² + s'·c)`
-            // carries the `s''·J²` self piece), and `diag(term B) = 2·d_k·c_w·G_ww·J_w`
-            // by the inline `local_logit_third` self channel (whose
-            // `s'·2J·∂_z J` piece is exactly that). So this pass must add ONLY the
-            // cross-row off-diagonal remainder; double-counting the diagonal here
-            // (the pre-fix `0.5·dd·J·uᵀGu + d·c·x_w` form, which is neither the
-            // full nor the off-diagonal value) desynced the θ-adjoint from the FD
-            // of `log|H|`. The exact `tr(H⁻¹ ∂W_k/∂ℓ_wk)` is
-            //   Γ_wk += dd_k·J_wk·(uᵀ G u − Σ_i G_ii·J_ik²)   (term A, off-diagonal)
-            //         + 2·d_k·c_wk·((G u)_w − G_ww·J_wk)        (term B, off-diagonal),
-            // with `uᵀGu = Σ_i J_ik·(Gu)_i`, `(Gu) = x_k = H⁻¹ u_k` from one solve,
-            // and `G_ii` the per-site selected-inverse diagonal.
-            let total_t = cache.delta_t_len();
-            // The Woodbury pass reconstructs the off-diagonal `(H⁻¹)_ij` from the
-            // deflated solve `x_k = H⁻¹ u_k` and subtracts the `i=j` self term; the
-            // self term must use the RAW deflated diagonal (matching `x_k`), NOT the
-            // Daleckii–Krein-corrected diagonal the `M_k` pass uses.
-            let mut col_sites: Vec<Vec<(usize, usize, f64)>> = vec![Vec::new(); k_atoms];
-            for site in &ibp_logit_sites {
-                col_sites[site.atom].push((site.row, site.t_index, site.raw_diag));
-            }
-            // Hoisted RHS scratch: fill only this column's active slots, solve,
-            // then clear exactly those slots — no per-column total_t zeroing.
-            let mut rhs_t_scratch = Array1::<f64>::zeros(total_t);
-            let rhs_beta_zero = Array1::<f64>::zeros(cache.k);
-            for atom in 0..k_atoms {
-                let d_k = channels.cross_row_d[atom];
-                let dd_k = channels.cross_row_dd[atom];
-                if col_sites[atom].is_empty() || (d_k == 0.0 && dd_k == 0.0) {
-                    continue;
-                }
-                // u_k as a full t-RHS: J at each active logit-k slot.
-                for &(row, t_index, _g) in &col_sites[atom] {
-                    rhs_t_scratch[t_index] = channels.z_jac[row * k_atoms + atom];
-                }
-                let x_k = solver
-                    .solve(rhs_t_scratch.view(), rhs_beta_zero.view())
-                    .map_err(|err| {
-                        format!("logdet_theta_adjoint: IBP cross-row Woodbury solve: {err}")
-                    })?;
-                // Clear this column's active slots for the next atom's RHS.
-                for &(_row, t_index, _g) in &col_sites[atom] {
-                    rhs_t_scratch[t_index] = 0.0;
-                }
-                // (JᵀH⁻¹J)_k = u_kᵀ x_k, and the diagonal `Σ_i G_ii·J_ik²` that the
-                // `m_channel` pass already counted (subtract it from term A so this
-                // pass holds only the off-diagonal `i ≠ j` remainder).
-                let mut jt_hinv_j = 0.0_f64;
-                let mut diag_jt_g_j = 0.0_f64;
-                for &(row, t_index, g_ii) in &col_sites[atom] {
-                    let j = channels.z_jac[row * k_atoms + atom];
-                    jt_hinv_j += j * x_k.t[t_index];
-                    diag_jt_g_j += g_ii * j * j;
-                }
-                let off_diag_a = jt_hinv_j - diag_jt_g_j;
-                for &(row, t_index, g_ii) in &col_sites[atom] {
-                    let j_wk = channels.z_jac[row * k_atoms + atom];
-                    let c_wk = channels.logit_curvature[row * k_atoms + atom];
-                    // term A (off-diagonal) + term B (off-diagonal); the inline /
-                    // `m_channel` passes already added the diagonal parts.
-                    let off_diag_b = x_k.t[t_index] - g_ii * j_wk;
-                    gamma_t[t_index] += dd_k * j_wk * off_diag_a + 2.0 * d_k * c_wk * off_diag_b;
-                }
-            }
-        }
-
-        Ok(SaeArrowVector {
-            t: gamma_t,
-            beta: gamma_beta,
-        })
-    }
-
-    /// Public analytic outer-ρ gradient at a converged inner state, constructing
-    /// the deflated arrow solver from the supplied cache. Use this seam from
-    /// integration tests and external consumers that have a converged
-    /// `(loss, cache)` from [`Self::reml_criterion_with_cache`] but no access to
-    /// the crate-private `DeflatedArrowSolver`.
-    pub fn analytic_outer_rho_gradient_at_converged(
-        &self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        loss: &SaeManifoldLoss,
-        cache: &ArrowFactorCache,
-    ) -> Result<SaeOuterRhoGradientComponents, String> {
-        let solver = self.outer_gradient_arrow_solver(cache, &rho.lambda_smooth_vec())?;
-        self.analytic_outer_rho_gradient_components(target, rho, loss, cache, &solver)
-            .map_err(|e| e.to_string())
-    }
-
-    /// Compose the SAE LAML criterion as a sum of atoms (#931 SAE pilot).
-    ///
-    /// This is the single seam that establishes value↔gradient coherence for
-    /// the SAE objective: it runs the inner solve once via
-    /// [`Self::reml_criterion_with_cache`], reads the value decomposition
-    /// (`loss.total() + extra_penalty_energy`, `log|H|`, `occam`) and the
-    /// matching gradient channels (`SaeOuterRhoGradientComponents`) from the
-    /// SAME converged cache, and hands them to [`SaeCriterion::assemble`]. The
-    /// returned criterion's [`SaeCriterion::value`] and
-    /// [`SaeCriterion::gradient`] are then projections of one factorization —
-    /// the outer optimizer can no longer evaluate a value path and a gradient
-    /// path that disagree (the #752/#748/#901 desync class). The
-    /// implicit-stationarity envelope correction (#1006's Γ term) is its own
-    /// named atom, so the channel the desync class keeps dropping is visible
-    /// rather than a silent zero.
-    pub fn criterion_as_atoms(
-        &mut self,
-        target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
-        registry: Option<&AnalyticPenaltyRegistry>,
-        inner_max_iter: usize,
-        learning_rate: f64,
-        ridge_ext_coord: f64,
-        ridge_beta: f64,
-    ) -> Result<SaeCriterion, String> {
-        let (_v, loss, cache) = self.reml_criterion_with_cache(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        )?;
-        let log_det = arrow_log_det_from_cache(&cache).ok_or_else(|| {
-            "criterion_as_atoms: arrow_log_det_from_cache returned None".to_string()
-        })?;
-        let occam = self.reml_occam_term(rho)?;
-        let extra_penalty_energy = match registry {
-            Some(reg) => self
-                .reml_extra_penalty_value_total(reg)
-                .map_err(|err| format!("SaeManifoldTerm::criterion_as_atoms: {err}"))?,
-            None => 0.0,
-        };
-        let data_fit_priors_value = loss.total() + extra_penalty_energy;
-
-        let solver = self.outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec())?;
-        let components =
-            self.analytic_outer_rho_gradient_components(target, rho, &loss, &cache, &solver)?;
-        Ok(SaeCriterion::assemble(
-            data_fit_priors_value,
-            log_det,
-            occam,
-            components.explicit,
-            components.logdet_trace,
-            components.occam,
-            components.third_order_correction,
-        ))
-    }
-
-    // [#780 line-count gate] reconstruction_dispersion + assemble_shape_uncertainty
-    // + complete_born_atom_shape_bands + shape_uncertainty_without_decoder_covariance
-    // (the contiguous trailing methods of this impl block) were split into the
-    // sibling construction_reconstruction.rs (declared in mod.rs); callers reach
-    // them bare via use super::*.
 }
+
+// [#780 line-count gate] The quasi-Laplace evidence criterion (`reml_criterion*`)
+// and the evidence-pricing machinery around it live in the sibling
+// `construction_reml_evidence.rs` as a second `impl SaeManifoldTerm` block,
+// inlined here so it keeps the SAME module scope and private-field access.
+include!("construction_reml_evidence.rs");
 
 // [#780 line-count gate] Per-row jet / reconstruction-channel assembly for the
 // streaming-exact arrow log-det lives in a sibling file as a second
@@ -9265,3 +5116,18 @@ include!("construction_smoothness_dof.rs");
 // `include!` (the sanctioned cohesive-module decomposition — see build.rs
 // file_stem_is_exempt_test_module). Keeps this tracked file under the 10k limit.
 include!("construction_tests.rs");
+
+/// Solve-invariant operands of `selected_inverse_row_blocks_or_solve` (#932
+/// FRONT C): everything fixed across the per-row sweep of one
+/// trace/adjoint pass — the deflated solver, the factor cache, the dense
+/// `(H⁻¹)_ββ`, the Takahashi-vs-solve route flag, the shared zero β-RHS, and
+/// the error-context prefix — bundled so each per-row call carries only the
+/// row coordinates and the reusable scratch buffer.
+pub(crate) struct SelectedInverseRowSolve<'a> {
+    pub(crate) solver: &'a DeflatedArrowSolver<'a>,
+    pub(crate) cache: &'a ArrowFactorCache,
+    pub(crate) beta_inv: &'a Array2<f64>,
+    pub(crate) fast_selected: bool,
+    pub(crate) rhs_beta_zero: ArrayView1<'a, f64>,
+    pub(crate) context: &'a str,
+}

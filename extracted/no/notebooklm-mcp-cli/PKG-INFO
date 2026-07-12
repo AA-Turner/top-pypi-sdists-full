@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebooklm-mcp-cli
-Version: 0.8.5
+Version: 0.8.6
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/notebooklm-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/notebooklm-mcp-cli
@@ -37,11 +37,21 @@ Description-Content-Type: text/markdown
 [![Total downloads](https://static.pepy.tech/badge/notebooklm-mcp-cli)](https://pepy.tech/projects/notebooklm-mcp-cli)
 [![Python](https://img.shields.io/pypi/pyversions/notebooklm-mcp-cli)](https://pypi.org/project/notebooklm-mcp-cli/)
 [![License](https://img.shields.io/pypi/l/notebooklm-mcp-cli)](https://github.com/jacob-bd/notebooklm-mcp-cli/blob/main/LICENSE)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jacobbd)
 
 **Programmatic access to Google NotebookLM** — via command-line interface (CLI) or Model Context Protocol (MCP) server.
 
 > **Note:** Tested with Pro/free and Google AI Ultra ($249/mo) tier accounts. May work with NotebookLM Enterprise accounts but has not been tested.
+
+<p align="center">
+  <i>If this saved you from clicking through the NotebookLM UI by hand, consider a coffee.<br>
+  If it's now doing that work through your AI agent's API bill, maybe two.</i> ☕
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/jacobbd">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee at buymeacoffee.com" height="40">
+  </a>
+</p>
 
 📺 **Watch the Demos**
 

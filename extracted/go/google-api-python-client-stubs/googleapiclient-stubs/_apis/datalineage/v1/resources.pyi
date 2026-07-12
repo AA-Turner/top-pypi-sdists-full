@@ -28,7 +28,7 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogLineageConfigmanagementV1Config = ...,
+                    body: GoogleCloudDatacatalogLineageConfigmanagementV1Config,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudDatacatalogLineageConfigmanagementV1ConfigHttpRequest
@@ -53,7 +53,7 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogLineageConfigmanagementV1Config = ...,
+                    body: GoogleCloudDatacatalogLineageConfigmanagementV1Config,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudDatacatalogLineageConfigmanagementV1ConfigHttpRequest
@@ -78,7 +78,7 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogLineageConfigmanagementV1Config = ...,
+                    body: GoogleCloudDatacatalogLineageConfigmanagementV1Config,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudDatacatalogLineageConfigmanagementV1ConfigHttpRequest
@@ -90,7 +90,7 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleLongrunningCancelOperationRequest = ...,
+                    body: GoogleLongrunningCancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def delete(
@@ -103,10 +103,10 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -125,15 +125,15 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudDatacatalogLineageV1LineageEvent = ...,
-                            requestId: str = ...,
+                            body: GoogleCloudDatacatalogLineageV1LineageEvent,
+                            requestId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudDatacatalogLineageV1LineageEventHttpRequest: ...
                         def delete(
                             self,
                             *,
                             name: str,
-                            allowMissing: bool = ...,
+                            allowMissing: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleProtobufEmptyHttpRequest: ...
                         def get(
@@ -143,8 +143,8 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudDatacatalogLineageV1ListLineageEventsResponseHttpRequest: ...
                         def list_next(
@@ -160,15 +160,15 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudDatacatalogLineageV1Run = ...,
-                        requestId: str = ...,
+                        body: GoogleCloudDatacatalogLineageV1Run,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogLineageV1RunHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        allowMissing: bool = ...,
+                        allowMissing: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
@@ -178,8 +178,8 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogLineageV1ListRunsResponseHttpRequest: ...
                     def list_next(
@@ -194,9 +194,9 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudDatacatalogLineageV1Run = ...,
-                        allowMissing: bool = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudDatacatalogLineageV1Run,
+                        allowMissing: bool | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudDatacatalogLineageV1RunHttpRequest: ...
                     def lineageEvents(self) -> LineageEventsResource: ...
@@ -205,12 +205,16 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudDatacatalogLineageV1Process = ...,
-                    requestId: str = ...,
+                    body: GoogleCloudDatacatalogLineageV1Process,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogLineageV1ProcessHttpRequest: ...
                 def delete(
-                    self, *, name: str, allowMissing: bool = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    allowMissing: bool | None = ...,
+                    **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -219,8 +223,8 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudDatacatalogLineageV1ListProcessesResponseHttpRequest
@@ -237,10 +241,10 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudDatacatalogLineageV1Process = ...,
-                    allowMissing: bool = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudDatacatalogLineageV1Process,
+                    allowMissing: bool | None = ...,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudDatacatalogLineageV1ProcessHttpRequest: ...
                 def runs(self) -> RunsResource: ...
@@ -249,7 +253,7 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudDatacatalogLineageV1BatchSearchLinkProcessesRequest = ...,
+                body: GoogleCloudDatacatalogLineageV1BatchSearchLinkProcessesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudDatacatalogLineageV1BatchSearchLinkProcessesResponseHttpRequest: ...
             def batchSearchLinkProcesses_next(
@@ -264,15 +268,15 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: dict[str, typing.Any] = ...,
-                requestId: str = ...,
+                body: dict[str, typing.Any],
+                requestId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudDatacatalogLineageV1ProcessOpenLineageRunEventResponseHttpRequest: ...
             def searchLineageStreaming(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudDatacatalogLineageV1SearchLineageStreamingRequest = ...,
+                body: GoogleCloudDatacatalogLineageV1SearchLineageStreamingRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudDatacatalogLineageV1SearchLineageStreamingResponseHttpRequest
@@ -281,7 +285,7 @@ class DatalineageResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudDatacatalogLineageV1SearchLinksRequest = ...,
+                body: GoogleCloudDatacatalogLineageV1SearchLinksRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudDatacatalogLineageV1SearchLinksResponseHttpRequest: ...
             def searchLinks_next(

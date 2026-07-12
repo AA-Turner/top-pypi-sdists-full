@@ -20,12 +20,6 @@ use crate::languages::version::{Error, try_into_u64_slice};
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) struct DotnetVersion(semver::Version);
 
-impl Default for DotnetVersion {
-    fn default() -> Self {
-        Self(semver::Version::new(0, 0, 0))
-    }
-}
-
 impl Deref for DotnetVersion {
     type Target = semver::Version;
 
@@ -230,8 +224,6 @@ impl DotnetRequest {
 mod tests {
     use std::path::PathBuf;
 
-    use rustc_hash::FxHashSet;
-
     use super::*;
     use crate::config::Language;
     use crate::languages::version::LanguageRequest;
@@ -389,7 +381,7 @@ mod tests {
     fn test_satisfied_by() -> anyhow::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let mut install_info =
-            InstallInfo::new(Language::Dotnet, FxHashSet::default(), temp_dir.path())?;
+            InstallInfo::create(Language::Dotnet, None, Vec::new(), temp_dir.path())?;
         install_info
             .with_language_version(semver::Version::new(8, 0, 100))
             .with_toolchain(PathBuf::from("/usr/share/dotnet/dotnet"));

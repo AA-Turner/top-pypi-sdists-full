@@ -120,6 +120,7 @@ if TYPE_CHECKING:
     from bernstein.core.agency_loader import AgencyAgent
     from bernstein.core.agents.warm_pool import PoolSlot, WarmPool
     from bernstein.core.bulletin import BulletinBoard
+    from bernstein.core.config.platform_compat import ProcessReapReceipt
     from bernstein.core.git_ops import MergeResult
     from bernstein.core.knowledge.task_graph import TaskGraph
     from bernstein.core.mcp_manager import MCPManager
@@ -196,6 +197,56 @@ def _list_subdirs_cached(path: Path) -> list[str]:
 
 
 logger = logging.getLogger(__name__)
+
+
+def emit_process_reap_receipt(
+    workdir: Path,
+    session_id: str,
+    receipt: ProcessReapReceipt | None,
+    *,
+    reason: str,
+    actor: str = "spawner",
+) -> None:
+    """Mirror a process-tree reap receipt into the audit chain (#2367).
+
+    Best-effort by design: audit mirroring must never mask the kill itself
+    (mirrors ``_emit_routing_failover_receipt``).  ``None`` receipts (from
+    adapters that could not report a reap) are skipped silently.
+
+    Args:
+        workdir: Project root containing ``.sdd/audit``.
+        session_id: Agent session whose process tree was reaped.
+        receipt: The reap receipt returned by the adapter kill path.
+        reason: Why the reap ran (e.g. ``"kill_requested"``).
+        actor: Recorded actor for the audit event.
+    """
+    if receipt is None:
+        return
+    try:
+        from bernstein.core.security.audit_chain import (
+            AuditChainStore,
+            record_process_reap_receipt,
+        )
+
+        chain = AuditChainStore(workdir / ".sdd" / "audit")
+        record_process_reap_receipt(
+            chain=chain,
+            session_id=session_id,
+            pgid=receipt.pgid,
+            os_name=receipt.os_name,
+            method=receipt.method,
+            delivered=receipt.delivered,
+            escalated=receipt.escalated,
+            grace_seconds=receipt.grace_seconds,
+            reason=reason,
+            actor=actor,
+        )
+    except Exception as exc:  # audit must never block the reap path
+        logger.warning(
+            "Could not emit process.reap_receipt audit event for session %s: %s",
+            session_id,
+            type(exc).__name__,
+        )
 
 
 def _sanitise_for_log(value: str) -> str:
@@ -3285,6 +3336,24 @@ class AgentSpawner:
                         "Fix: run 'bernstein stop' then restart, or delete .sdd/worktrees/ manually"
                     ) from exc
 
+        # Install the in-process verification-gate policy for this session so a
+        # gate-capable adapter (Claude Code) can refuse a failing completion or
+        # an out-of-scope write in-session (#2360). Fail-open: installing the
+        # policy must never block a spawn, and the authoritative scheduler-side
+        # gate runs regardless. The task's owned_files become the write
+        # allowlist and its required evidence_producers the completion check.
+        with suppress(Exception):
+            from bernstein.core.security.hook_gate import policy_from_task_fields, write_policy
+
+            gate_owned: list[str] = []
+            gate_producers: list[dict[str, Any]] = []
+            for gate_task in tasks:
+                gate_owned.extend(getattr(gate_task, "owned_files", []) or [])
+                gate_producers.extend(getattr(gate_task, "evidence_producers", []) or [])
+            gate_policy = policy_from_task_fields(session_id, owned_files=gate_owned, evidence_producers=gate_producers)
+            if gate_policy.is_active:
+                write_policy(spawn_cwd, session_id, gate_policy)
+
         # Build per-task MCP config: auto-detected servers merged with base config
         effective_mcp = self._mcp_config
         if self._mcp_registry is not None:
@@ -4809,7 +4878,13 @@ class AgentSpawner:
                 session.exit_code = exit_code_val
             self._in_process.cleanup(session.id)
         elif session.pid is not None:
-            self._adapter.kill(session.pid)
+            receipt = self._adapter.kill(session.pid)
+            emit_process_reap_receipt(
+                self._workdir,
+                session.id,
+                receipt,
+                reason="kill_requested",
+            )
         self._transition_to_dead(session, "kill requested", "local process kill requested by orchestrator")
 
     def _transition_to_dead(self, session: AgentSession, reason: str, detail: str) -> None:

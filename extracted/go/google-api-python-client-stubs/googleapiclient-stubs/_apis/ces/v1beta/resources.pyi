@@ -25,16 +25,16 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Agent = ...,
-                        agentId: str = ...,
+                        body: Agent,
+                        agentId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> AgentHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def get(
@@ -44,10 +44,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListAgentsResponseHttpRequest: ...
                     def list_next(
@@ -59,8 +59,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Agent = ...,
-                        updateMask: str = ...,
+                        body: Agent,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> AgentHttpRequest: ...
 
@@ -73,10 +73,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListChangelogsResponseHttpRequest: ...
                     def list_next(
@@ -91,7 +91,7 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: BatchDeleteConversationsRequest = ...,
+                        body: BatchDeleteConversationsRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -104,14 +104,15 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                             "SIMULATOR",
                             "EVAL",
                             "AGENT_TOOL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def generateEvaluation(
                         self,
                         *,
                         conversation: str,
-                        body: GenerateEvaluationRequest = ...,
+                        body: GenerateEvaluationRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -124,23 +125,25 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                             "SIMULATOR",
                             "EVAL",
                             "AGENT_TOOL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ConversationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         source: typing_extensions.Literal[
                             "SOURCE_UNSPECIFIED",
                             "LIVE",
                             "SIMULATOR",
                             "EVAL",
                             "AGENT_TOOL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         sources: typing_extensions.Literal[
                             "SOURCE_UNSPECIFIED",
                             "LIVE",
@@ -156,7 +159,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                                 "EVAL",
                                 "AGENT_TOOL",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListConversationsResponseHttpRequest: ...
                     def list_next(
@@ -171,12 +175,12 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Deployment = ...,
-                        deploymentId: str = ...,
+                        body: Deployment,
+                        deploymentId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> DeploymentHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -185,9 +189,9 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDeploymentsResponseHttpRequest: ...
                     def list_next(
@@ -199,8 +203,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Deployment = ...,
-                        updateMask: str = ...,
+                        body: Deployment,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> DeploymentHttpRequest: ...
 
@@ -210,12 +214,12 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: EvaluationDataset = ...,
-                        evaluationDatasetId: str = ...,
+                        body: EvaluationDataset,
+                        evaluationDatasetId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> EvaluationDatasetHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -224,10 +228,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListEvaluationDatasetsResponseHttpRequest: ...
                     def list_next(
@@ -239,8 +243,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: EvaluationDataset = ...,
-                        updateMask: str = ...,
+                        body: EvaluationDataset,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> EvaluationDatasetHttpRequest: ...
 
@@ -252,12 +256,12 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: EvaluationExpectation = ...,
-                        evaluationExpectationId: str = ...,
+                        body: EvaluationExpectation,
+                        evaluationExpectationId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> EvaluationExpectationHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -266,10 +270,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListEvaluationExpectationsResponseHttpRequest: ...
                     def list_next(
@@ -281,8 +285,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: EvaluationExpectation = ...,
-                        updateMask: str = ...,
+                        body: EvaluationExpectation,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> EvaluationExpectationHttpRequest: ...
 
@@ -295,7 +299,7 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ExportEvaluationRunsRequest = ...,
+                        body: ExportEvaluationRunsRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -305,10 +309,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListEvaluationRunsResponseHttpRequest: ...
                     def list_next(
@@ -328,7 +332,7 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: ExportEvaluationResultsRequest = ...,
+                            body: ExportEvaluationResultsRequest,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def get(
@@ -338,10 +342,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListEvaluationResultsResponseHttpRequest: ...
                         def list_next(
@@ -354,23 +358,23 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Evaluation = ...,
-                        evaluationId: str = ...,
+                        body: Evaluation,
+                        evaluationId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> EvaluationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def export(
                         self,
                         *,
                         parent: str,
-                        body: ExportEvaluationsRequest = ...,
+                        body: ExportEvaluationsRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -380,13 +384,13 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        evaluationFilter: str = ...,
-                        evaluationRunFilter: str = ...,
-                        filter: str = ...,
-                        lastTenResults: bool = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        evaluationFilter: str | None = ...,
+                        evaluationRunFilter: str | None = ...,
+                        filter: str | None = ...,
+                        lastTenResults: bool | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListEvaluationsResponseHttpRequest: ...
                     def list_next(
@@ -398,15 +402,15 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Evaluation = ...,
-                        updateMask: str = ...,
+                        body: Evaluation,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> EvaluationHttpRequest: ...
                     def uploadEvaluationAudio(
                         self,
                         *,
                         name: str,
-                        body: UploadEvaluationAudioRequest = ...,
+                        body: UploadEvaluationAudioRequest,
                         **kwargs: typing.Any,
                     ) -> UploadEvaluationAudioResponseHttpRequest: ...
                     def results(self) -> ResultsResource: ...
@@ -417,12 +421,12 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Example = ...,
-                        exampleId: str = ...,
+                        body: Example,
+                        exampleId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ExampleHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -431,10 +435,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListExamplesResponseHttpRequest: ...
                     def list_next(
@@ -446,8 +450,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Example = ...,
-                        updateMask: str = ...,
+                        body: Example,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ExampleHttpRequest: ...
 
@@ -457,16 +461,16 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Guardrail = ...,
-                        guardrailId: str = ...,
+                        body: Guardrail,
+                        guardrailId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GuardrailHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def get(
@@ -476,10 +480,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListGuardrailsResponseHttpRequest: ...
                     def list_next(
@@ -491,8 +495,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Guardrail = ...,
-                        updateMask: str = ...,
+                        body: Guardrail,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GuardrailHttpRequest: ...
 
@@ -502,7 +506,7 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         tenant: str,
-                        body: LfA2aV1SendMessageRequest = ...,
+                        body: LfA2aV1SendMessageRequest,
                         **kwargs: typing.Any,
                     ) -> LfA2aV1SendMessageResponseHttpRequest: ...
 
@@ -514,12 +518,12 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ScheduledEvaluationRun = ...,
-                        scheduledEvaluationRunId: str = ...,
+                        body: ScheduledEvaluationRun,
+                        scheduledEvaluationRunId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ScheduledEvaluationRunHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -528,10 +532,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListScheduledEvaluationRunsResponseHttpRequest: ...
                     def list_next(
@@ -543,8 +547,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ScheduledEvaluationRun = ...,
-                        updateMask: str = ...,
+                        body: ScheduledEvaluationRun,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ScheduledEvaluationRunHttpRequest: ...
 
@@ -554,21 +558,21 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GenerateChatTokenRequest = ...,
+                        body: GenerateChatTokenRequest,
                         **kwargs: typing.Any,
                     ) -> GenerateChatTokenResponseHttpRequest: ...
                     def runSession(
                         self,
                         *,
                         session: str,
-                        body: RunSessionRequest = ...,
+                        body: RunSessionRequest,
                         **kwargs: typing.Any,
                     ) -> RunSessionResponseHttpRequest: ...
                     def streamRunSession(
                         self,
                         *,
                         session: str,
-                        body: RunSessionRequest = ...,
+                        body: RunSessionRequest,
                         **kwargs: typing.Any,
                     ) -> RunSessionResponseHttpRequest: ...
 
@@ -578,16 +582,16 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Tool = ...,
-                        toolId: str = ...,
+                        body: Tool,
+                        toolId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ToolHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def get(
@@ -597,10 +601,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListToolsResponseHttpRequest: ...
                     def list_next(
@@ -612,8 +616,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Tool = ...,
-                        updateMask: str = ...,
+                        body: Tool,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ToolHttpRequest: ...
 
@@ -623,16 +627,16 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Toolset = ...,
-                        toolsetId: str = ...,
+                        body: Toolset,
+                        toolsetId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ToolsetHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def get(
@@ -642,10 +646,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListToolsetsResponseHttpRequest: ...
                     def list_next(
@@ -657,15 +661,15 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Toolset = ...,
-                        updateMask: str = ...,
+                        body: Toolset,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ToolsetHttpRequest: ...
                     def retrieveTools(
                         self,
                         *,
                         toolset: str,
-                        body: RetrieveToolsRequest = ...,
+                        body: RetrieveToolsRequest,
                         **kwargs: typing.Any,
                     ) -> RetrieveToolsResponseHttpRequest: ...
 
@@ -675,12 +679,12 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: AppVersion = ...,
-                        appVersionId: str = ...,
+                        body: AppVersion,
+                        appVersionId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> AppVersionHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -689,10 +693,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListAppVersionsResponseHttpRequest: ...
                     def list_next(
@@ -704,7 +708,7 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: RestoreAppVersionRequest = ...,
+                        body: RestoreAppVersionRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -712,57 +716,45 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: App = ...,
-                    appId: str = ...,
+                    body: App,
+                    appId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def executeTool(
-                    self,
-                    *,
-                    parent: str,
-                    body: ExecuteToolRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: ExecuteToolRequest, **kwargs: typing.Any
                 ) -> ExecuteToolResponseHttpRequest: ...
                 def exportApp(
-                    self,
-                    *,
-                    name: str,
-                    body: ExportAppRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: ExportAppRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def generateAppResource(
                     self,
                     *,
                     parent: str,
-                    body: GenerateAppResourceRequest = ...,
+                    body: GenerateAppResourceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(self, *, name: str, **kwargs: typing.Any) -> AppHttpRequest: ...
                 def importApp(
-                    self,
-                    *,
-                    parent: str,
-                    body: ImportAppRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: ImportAppRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def importEvaluations(
                     self,
                     *,
                     parent: str,
-                    body: ImportEvaluationsRequest = ...,
+                    body: ImportEvaluationsRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAppsResponseHttpRequest: ...
                 def list_next(
@@ -774,29 +766,25 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: App = ...,
-                    updateMask: str = ...,
+                    body: App,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> AppHttpRequest: ...
                 def retrieveToolSchema(
                     self,
                     *,
                     parent: str,
-                    body: RetrieveToolSchemaRequest = ...,
+                    body: RetrieveToolSchemaRequest,
                     **kwargs: typing.Any,
                 ) -> RetrieveToolSchemaResponseHttpRequest: ...
                 def runEvaluation(
-                    self,
-                    *,
-                    app: str,
-                    body: RunEvaluationRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, app: str, body: RunEvaluationRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def testPersonaVoice(
                     self,
                     *,
                     app: str,
-                    body: TestPersonaVoiceRequest = ...,
+                    body: TestPersonaVoiceRequest,
                     **kwargs: typing.Any,
                 ) -> TestPersonaVoiceResponseHttpRequest: ...
                 def agents(self) -> AgentsResource: ...
@@ -824,7 +812,7 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -837,10 +825,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -859,10 +847,10 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
@@ -874,8 +862,8 @@ class CustomerEngagementSuiteResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: SecuritySettings = ...,
-                updateMask: str = ...,
+                body: SecuritySettings,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SecuritySettingsHttpRequest: ...
             def apps(self) -> AppsResource: ...

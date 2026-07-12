@@ -248,11 +248,10 @@ class ManifoldSAEConfig:
     sparsity: SparsityConfig = field(default_factory=SparsityConfig)
     decoder: DecoderConfig = field(default_factory=DecoderConfig)
     reml: RemlConfig = field(default_factory=RemlConfig)
-    # Default to the direct linear encoder used by the closed-form/Rust SAE
-    # family. A positive value is an explicit opt-in to an extra nonlinear
-    # PyTorch-only mixer, which can reconstruct well while hiding feature
-    # presence from per-atom amplitudes in routing diagnostics.
-    encoder_hidden: int = 0
+    # A nonlinear encoder is required for periodic charts: a single affine map
+    # followed by the chart projection cannot represent global angular phase.
+    # The direct linear encoder remains available explicitly with zero width.
+    encoder_hidden: int = 16
     init_scale: float = 0.05
     dtype: Any = field(default=None)
     # ``K`` is constructor sugar for ``n_atoms`` (the spelling the docs and the
@@ -365,15 +364,17 @@ class ManifoldSAEConfig:
     def closed_form_assignment(self) -> str:
         """Map the torch sparsity kind to the closed-form ``assignment`` token.
 
-        The closed-form path accepts ``ibp_map``, ``softmax``, and ``jumprelu``.
+        The closed-form path accepts the canonical ``ibp_map`` and
+        ``threshold_gate`` assignment tokens. This adapter's torch-native
+        ``jumprelu`` sparsity kind maps explicitly to ``threshold_gate``.
 
         ``softmax_topk`` has **no** faithful closed-form assignment and is
         rejected rather than coerced. It is neither ``softmax`` (a competitive
         simplex whose mass always sums to one and can never deselect every atom)
-        nor ``jumprelu`` (a bounded thresholded-logistic gate that carries *no*
+        nor ``threshold_gate`` (a bounded thresholded-logistic gate that carries *no*
         magnitude): the torch ``softmax_topk`` gate is an *independent*
         non-negative softplus-magnitude activation with a hard top-k selection
-        that should honor ``target_k``. Silently mapping it to ``jumprelu`` would
+        that should honor ``target_k``. Silently mapping it to ``threshold_gate`` would
         make ``.fit()`` optimize a fundamentally different family than the torch
         gate trains. So we refuse here; the user must change the sparsity kind or
         use the gradient (torch) training path. The remaining kinds correspond
@@ -384,14 +385,14 @@ class ManifoldSAEConfig:
             raise NotImplementedError(
                 "closed-form .fit() has no assignment matching 'softmax_topk' "
                 "semantics: it is neither the competitive 'softmax' simplex nor "
-                "the magnitude-free 'jumprelu' thresholded gate. Use the "
+                "the magnitude-free 'threshold_gate'. Use the "
                 "gradient (torch) training path for softmax_topk, or set "
                 "sparsity.kind to 'jumprelu'/'ibp_gumbel' for the closed-form "
                 ".fit() lane."
             )
         return {
             "ibp_gumbel": "ibp_map",
-            "jumprelu": "jumprelu",
+            "jumprelu": "threshold_gate",
         }[kind]
 
 
@@ -518,43 +519,92 @@ class _BasisWithJetFn(torch.autograd.Function):
         return grad_t, None, None
 
 
-class _PositionAlignmentPenaltyFn(torch.autograd.Function):
-    """Period-1 coordinate alignment penalty through Rust.
-
-    Forward returns the scalar mean squared circular (period-1) distance
-    between the tape-connected encoder positions and the detached solved
-    positions. The Rust core
-    (``gam_sae::chart_coordinate_solve::position_alignment_penalty``) also
-    returns ``∂value/∂encoder`` (``2·wrap(e − s)/M`` per entry), which is cached
-    for backward — no wrap/mean math lives in Python. ``solved`` is a tape
-    constant, so it receives no gradient.
-    """
-
-    @staticmethod
-    def forward(
-        ctx: Any, encoder: torch.Tensor, solved: torch.Tensor
-    ) -> torch.Tensor:
-        n = int(encoder.shape[0])
-        value, grad_np = rust_module().sae_position_alignment_penalty(
-            to_numpy_f64(encoder.reshape(n, -1)),
-            to_numpy_f64(solved.reshape(n, -1)),
+def _residual_em_input_shape(
+    x: torch.Tensor, per_atom_recon: torch.Tensor
+) -> tuple[int, int, int]:
+    """Validate the residual-EM bridge metadata before either FFI path."""
+    if x.layout != torch.strided or per_atom_recon.layout != torch.strided:
+        raise TypeError("residual-EM scoring requires dense strided tensors")
+    if x.dim() != 2:
+        raise ValueError(f"residual-EM x must have shape (N, D), got {tuple(x.shape)}")
+    if per_atom_recon.dim() != 3:
+        raise ValueError(
+            "residual-EM per_atom_recon must have shape (N, F, D), got "
+            f"{tuple(per_atom_recon.shape)}"
         )
-        ctx.save_for_backward(from_numpy_like(grad_np, encoder).reshape(encoder.shape))
-        return torch.as_tensor(
-            value, dtype=encoder.dtype, device=encoder.device
+    n, atoms, dim = (int(size) for size in per_atom_recon.shape)
+    if tuple(x.shape) != (n, dim):
+        raise ValueError(
+            f"residual-EM x has shape {tuple(x.shape)} but per_atom_recon has "
+            f"shape {(n, atoms, dim)}"
         )
+    if atoms == 0 or dim == 0:
+        raise ValueError(
+            f"residual-EM atoms and feature dimension must be positive, got {(n, atoms, dim)}"
+        )
+    if x.device != per_atom_recon.device:
+        raise ValueError(
+            f"residual-EM tensors must share one device, got {x.device} and "
+            f"{per_atom_recon.device}"
+        )
+    if x.dtype != per_atom_recon.dtype:
+        raise TypeError(
+            f"residual-EM tensors must share one dtype, got {x.dtype} and "
+            f"{per_atom_recon.dtype}"
+        )
+    if x.device.type == "cuda":
+        # Validate through the exact dtype-to-kernel map used by the raw FFI
+        # call. Unsupported CUDA tensors must fail here; they never enter the
+        # CPU NumPy oracle path and never rely on a later branch condition for
+        # refusal.
+        _residual_em_cuda_dtype_name(x.dtype)
+    return n, atoms, dim
 
-    @staticmethod
-    def backward(
-        ctx: Any, *grad_outputs: torch.Tensor
-    ) -> tuple[torch.Tensor, None]:
-        (grad_output,) = grad_outputs
-        (grad_enc,) = ctx.saved_tensors
-        return grad_output * grad_enc, None
+
+def _residual_em_cuda_dtype_name(dtype: torch.dtype) -> str:
+    if dtype == torch.float32:
+        return "float32"
+    if dtype == torch.float64:
+        return "float64"
+    raise TypeError(
+        "residual-EM CUDA scoring supports exactly torch.float32 and "
+        f"torch.float64, got {dtype}"
+    )
+
+
+def _validate_residual_em_cuda_buffer(
+    tensor: torch.Tensor,
+    name: str,
+    *,
+    ordinal: int,
+    dtype: torch.dtype,
+    shape: tuple[int, ...],
+) -> None:
+    """Enforce the raw-pointer ownership contract immediately before FFI."""
+    if not tensor.is_cuda:
+        raise ValueError(f"residual-EM CUDA buffer {name} is on {tensor.device}")
+    if tensor.device.index is None or int(tensor.device.index) != ordinal:
+        raise ValueError(
+            f"residual-EM CUDA buffer {name} has device {tensor.device}; "
+            f"expected cuda:{ordinal}"
+        )
+    if tensor.dtype != dtype:
+        raise TypeError(
+            f"residual-EM CUDA buffer {name} has dtype {tensor.dtype}; expected {dtype}"
+        )
+    if tuple(tensor.shape) != shape:
+        raise ValueError(
+            f"residual-EM CUDA buffer {name} has shape {tuple(tensor.shape)}; "
+            f"expected {shape}"
+        )
+    if tensor.layout != torch.strided or not tensor.is_contiguous():
+        raise ValueError(f"residual-EM CUDA buffer {name} must be contiguous")
+    if tensor.numel() != 0 and tensor.data_ptr() == 0:
+        raise ValueError(f"residual-EM CUDA buffer {name} has a null device pointer")
 
 
 class _ResidualEmScoreFn(torch.autograd.Function):
-    """Residual-EM routing scores through Rust (issue #1282).
+    """Residual-EM routing scores through Rust (issues #1282, #1017, #2233).
 
     Forward calls ``sae_residual_em_score`` → the single-sourced criterion kernel
     ``gam::terms::sae::criterion_atoms::residual_em_score``: for every
@@ -564,7 +614,10 @@ class _ResidualEmScoreFn(torch.autograd.Function):
     selects the ``target_k == 1`` non-negative code vs. the ``target_k > 1``
     signed one.
 
-    Backward calls ``sae_residual_em_score_vjp`` → the paired analytic VJP
+    CUDA forward and backward call raw-pointer device kernels that write into
+    torch-owned buffers in place. CPU tensors keep using
+    ``sae_residual_em_score`` and ``sae_residual_em_score_vjp`` as the parity
+    oracle. The paired analytic VJP
     ``residual_em_score_vjp``: both outputs carry reconstruction gradient into the
     decoder (``code`` is the routed magnitude, ``relative_residual`` feeds the
     soft EM responsibilities), so this keeps the autograd tape continuous around
@@ -580,15 +633,72 @@ class _ResidualEmScoreFn(torch.autograd.Function):
         per_atom_recon: torch.Tensor,
         nonneg: bool,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        n, f = int(per_atom_recon.shape[0]), int(per_atom_recon.shape[1])
+        n, f, d = _residual_em_input_shape(x, per_atom_recon)
+        if x.device.type == "cuda":
+            ordinal_value = x.device.index
+            if ordinal_value is None:
+                raise ValueError(
+                    "residual-EM CUDA tensor has no concrete device ordinal"
+                )
+            ordinal = int(ordinal_value)
+            dtype_name = _residual_em_cuda_dtype_name(x.dtype)
+            # A non-contiguous view is normalized with a device-to-device copy;
+            # there is still no CUDA→host transfer. Every raw pointer below is
+            # checked after normalization and immediately before entering FFI.
+            x_cuda = x.detach().contiguous()
+            recon_cuda = per_atom_recon.detach().contiguous()
+            code = torch.empty((n, f), dtype=x.dtype, device=x.device)
+            relres = torch.empty((n, f), dtype=x.dtype, device=x.device)
+            _validate_residual_em_cuda_buffer(
+                x_cuda, "x", ordinal=ordinal, dtype=x.dtype, shape=(n, d)
+            )
+            _validate_residual_em_cuda_buffer(
+                recon_cuda,
+                "per_atom_recon",
+                ordinal=ordinal,
+                dtype=x.dtype,
+                shape=(n, f, d),
+            )
+            _validate_residual_em_cuda_buffer(
+                code, "code", ordinal=ordinal, dtype=x.dtype, shape=(n, f)
+            )
+            _validate_residual_em_cuda_buffer(
+                relres,
+                "relative_residual",
+                ordinal=ordinal,
+                dtype=x.dtype,
+                shape=(n, f),
+            )
+            torch.cuda.synchronize(x.device)
+            rust_module().sae_residual_em_score_cuda(
+                ordinal,
+                dtype_name,
+                (
+                    x_cuda.data_ptr(),
+                    recon_cuda.data_ptr(),
+                    code.data_ptr(),
+                    relres.data_ptr(),
+                ),
+                (n, f, d),
+                bool(nonneg),
+            )
+            ctx.save_for_backward(x_cuda, recon_cuda)
+            ctx.cuda_lane = True
+            ctx.cuda_ordinal = ordinal
+            ctx.cuda_dtype_name = dtype_name
+            ctx.nonneg = bool(nonneg)
+            ctx.nfd = (n, f, d)
+            return code, relres
+
         code_np, relres_np = rust_module().sae_residual_em_score(
             to_numpy_f64(x),
             to_numpy_f64(per_atom_recon),
             bool(nonneg),
         )
         ctx.save_for_backward(x, per_atom_recon)
+        ctx.cuda_lane = False
         ctx.nonneg = bool(nonneg)
-        ctx.nf = (n, f)
+        ctx.nfd = (n, f, d)
         return (
             from_numpy_like(code_np, per_atom_recon),
             from_numpy_like(relres_np, per_atom_recon),
@@ -598,11 +708,65 @@ class _ResidualEmScoreFn(torch.autograd.Function):
     def backward(ctx: Any, *grad_outputs: torch.Tensor) -> tuple[Any, ...]:
         g_code, g_relres = grad_outputs
         x, per_atom_recon = ctx.saved_tensors
-        n, f = ctx.nf
+        n, f, d = ctx.nfd
         if g_code is None:
-            g_code = torch.zeros((n, f), dtype=x.dtype, device=x.device)
+            g_code = torch.zeros((n, f), dtype=per_atom_recon.dtype, device=x.device)
         if g_relres is None:
-            g_relres = torch.zeros((n, f), dtype=x.dtype, device=x.device)
+            g_relres = torch.zeros((n, f), dtype=per_atom_recon.dtype, device=x.device)
+        if ctx.cuda_lane:
+            ordinal = int(ctx.cuda_ordinal)
+            dtype = per_atom_recon.dtype
+            if (
+                g_code.device != per_atom_recon.device
+                or g_relres.device != per_atom_recon.device
+            ):
+                raise ValueError(
+                    "residual-EM CUDA cotangents must share the forward device"
+                )
+            if g_code.dtype != dtype or g_relres.dtype != dtype:
+                raise TypeError(
+                    "residual-EM CUDA cotangents must share the forward dtype"
+                )
+            if tuple(g_code.shape) != (n, f) or tuple(g_relres.shape) != (n, f):
+                raise ValueError(
+                    "residual-EM CUDA cotangents must both have shape "
+                    f"{(n, f)}, got {tuple(g_code.shape)} and {tuple(g_relres.shape)}"
+                )
+            g_code_cuda = g_code.detach().contiguous()
+            g_relres_cuda = g_relres.detach().contiguous()
+            grad_recon = torch.empty_like(
+                per_atom_recon, memory_format=torch.contiguous_format
+            )
+            for tensor, name, shape in (
+                (x, "x", (n, d)),
+                (per_atom_recon, "per_atom_recon", (n, f, d)),
+                (g_code_cuda, "g_code", (n, f)),
+                (g_relres_cuda, "g_relative_residual", (n, f)),
+                (grad_recon, "grad_per_atom_recon", (n, f, d)),
+            ):
+                _validate_residual_em_cuda_buffer(
+                    tensor,
+                    name,
+                    ordinal=ordinal,
+                    dtype=dtype,
+                    shape=shape,
+                )
+            torch.cuda.synchronize(per_atom_recon.device)
+            rust_module().sae_residual_em_score_vjp_cuda(
+                ordinal,
+                ctx.cuda_dtype_name,
+                (
+                    x.data_ptr(),
+                    per_atom_recon.data_ptr(),
+                    g_code_cuda.data_ptr(),
+                    g_relres_cuda.data_ptr(),
+                    grad_recon.data_ptr(),
+                ),
+                (n, f, d),
+                bool(ctx.nonneg),
+            )
+            return None, grad_recon, None
+
         grad_recon_np = rust_module().sae_residual_em_score_vjp(
             to_numpy_f64(x),
             to_numpy_f64(per_atom_recon),
@@ -918,7 +1082,7 @@ class _SparsityLayer(nn.Module):
             # Route through the Rust IBP-MAP value+grad kernel so the torch
             # forward applies the stick-breaking prior π_k and temperature
             # scaling that the closed-form fit uses (single source of truth).
-            assignments = ibp_map(logits, tau, self._init_alpha)
+            assignments = ibp_map(logits, tau)
             return assignments, logits
         if self.kind == "softmax_topk":
             return self._topk_gate(logits), logits
@@ -1373,6 +1537,12 @@ class _SparsityLayer(nn.Module):
         routing falls back to the instantaneous residual). Only updated while
         training; in eval the accumulator is read but not advanced. Returns the
         current accumulator, or ``None`` if there is no history for this batch.
+
+        This method owns only the stateful orchestration (lazy sizing, reset on
+        a row-count change, the training-only guard); the EMA recurrence itself
+        (``beta·prev + (1−beta)·signal``) is the Rust source of truth
+        (``gam::geometry::sae_routing::assign_ema_update`` via
+        ``sae_assign_ema_update``), so no blend arithmetic lives in Python.
         """
         if signal is None or not self.training:
             # No update; return the accumulator only if it matches this batch.
@@ -1385,8 +1555,10 @@ class _SparsityLayer(nn.Module):
         if ema is None or ema.shape != sig.shape:
             self._assign_ema = sig.clone()
             return self._assign_ema
-        beta = self._assign_ema_beta
-        self._assign_ema = beta * ema + (1.0 - beta) * sig
+        blended = rust_module().sae_assign_ema_update(
+            to_numpy_f64(ema), to_numpy_f64(sig), float(self._assign_ema_beta)
+        )
+        self._assign_ema = from_numpy_like(blended, sig)
         return self._assign_ema
 
     @staticmethod
@@ -1650,84 +1822,6 @@ class ManifoldSAE(nn.Module):
             "a_init": np.ascontiguousarray(a_init, dtype=np.float64),
         }
 
-    @torch.no_grad()
-    def _solve_chart_coordinates(
-        self,
-        x: torch.Tensor,
-        *,
-        prev_positions: torch.Tensor | None = None,
-        gate_weights: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        """E-step coordinate solve through the Rust FFI (no math in Python).
-
-        For every ``(row, atom)`` pair the Rust kernel
-        (``sae_solve_chart_coordinates`` →
-        ``gam_sae::chart_coordinate_solve``) projects the target onto the atom's
-        CURRENT decoded periodic curve, amplitude profiled out, over a grid of
-        ``8·K`` points, and returns the argmax coordinate. The returned
-        coordinates are detached E-step CONSTANTS: the decoder gradient flows
-        through the later ``basis_with_jet`` evaluation at these coordinates, and
-        the encoder position head is kept learning through
-        :meth:`position_alignment_penalty`.
-
-        ``prev_positions`` / ``gate_weights`` are the previous sweep's ``(N, F)``
-        coordinates / gate weights; when supplied the kernel targets the
-        leave-one-out residual ``x − Σ_{g≠f} gate_g · m_g(t_g)`` (second sweep).
-
-        Returns solved coordinates ``(N, F, 1)`` in ``[0, 1)``.
-        """
-        n = int(x.shape[0])
-        F = int(self.cfg.n_atoms)
-        K = int(self.cfg.n_basis_per_atom)
-        # Periodic basis width the circle forward path uses (see ``_basis_rust``):
-        # n_harm = max(1, (K-1)//2), width m = 2·n_harm + 1. The padded tail row
-        # (when K is even) is multiplied by a zero curve column downstream, so it
-        # is excluded from the projection here to keep the width contract.
-        n_harm = max(1, (K - 1) // 2)
-        m = 2 * n_harm + 1
-        dec = to_numpy_f64(self.decoder_blocks)[:, :m, :]
-        x_np = to_numpy_f64(x)
-        prev_np = (
-            None
-            if prev_positions is None
-            else to_numpy_f64(prev_positions.reshape(n, F))
-        )
-        gate_np = (
-            None if gate_weights is None else to_numpy_f64(gate_weights.reshape(n, F))
-        )
-        solved = rust_module().sae_solve_chart_coordinates(
-            np.ascontiguousarray(x_np, dtype=np.float64),
-            np.ascontiguousarray(dec, dtype=np.float64),
-            int(n_harm),
-            prev_np,
-            gate_np,
-        )
-        solved_t = from_numpy_like(solved, x)
-        return solved_t.reshape(n, F, 1)
-
-    def position_alignment_penalty(self) -> torch.Tensor:
-        """Mean squared circular (period-1) distance between the encoder-predicted
-        and E-step-solved coordinates of the last forward.
-
-        Under the E-step coordinate path the reconstruction is built at solved
-        coordinates that are tape constants, so the encoder position head gets no
-        reconstruction gradient. This penalty pulls the encoder toward the
-        coordinates the projection solve found, keeping the position head
-        learning. The subtraction, period-1 wrap, and mean live in the Rust core
-        (:class:`_PositionAlignmentPenaltyFn` →
-        ``gam_sae::chart_coordinate_solve::position_alignment_penalty``); this
-        wrapper only routes the stashed tensors through that autograd bridge.
-        Returns a zero scalar when the last forward did not run the E-step
-        (non-circle / non-``softmax_topk`` lane, or before any forward).
-        """
-        enc = getattr(self, "_last_encoder_positions", None)
-        solved = getattr(self, "_last_solved_positions", None)
-        if enc is None or solved is None:
-            return torch.zeros(
-                (), dtype=self.cfg.dtype, device=self.decoder_blocks.device
-            )
-        return _PositionAlignmentPenaltyFn.apply(enc, solved)
-
     def forward(self, x: torch.Tensor) -> ManifoldSAEOutput:
         if not isinstance(x, torch.Tensor):
             raise TypeError("ManifoldSAE forward expects a torch.Tensor")
@@ -1745,80 +1839,19 @@ class ManifoldSAE(nn.Module):
             return self._forward_from_closed_form(x)
         raw_positions, amp_logits = self._encode(x)
         raw_with_anchor = raw_positions + self.atom_raw_anchor.unsqueeze(0)
-        encoder_positions = _project_to_manifold(
+        positions = _project_to_manifold(
             raw_with_anchor, self.cfg.atom_manifold, self.cfg.intrinsic_rank
         )
 
         # Issue #1282: break expert collapse with an early *committed* assignment
         # window (see ``reconstruction_topk_gate``). Track the training step here
         # so the gate knows whether it is inside the commitment window; only
-        # advance while training. Computed once and shared across E-step sweeps.
+        # advance while training.
         step = None
         if self.cfg.sparsity.kind == "softmax_topk" and self.training:
             step = int(self._train_steps.item())
             self._train_steps += 1
 
-        # DEFAULT coordinate path for the circle (rank-1) softmax_topk lane: the
-        # Rust E-step coordinate solver. Positions are solved by projecting each
-        # row onto the atom's current decoded curve rather than gradient-learned
-        # through the near-zero basis jet (the measured plateau root cause). The
-        # solved coordinates are tape CONSTANTS; the decoder gradient still flows
-        # through the basis evaluation at them, and the encoder position head
-        # keeps learning through ``position_alignment_penalty``.
-        use_estep = (
-            self.cfg.sparsity.kind == "softmax_topk"
-            and int(self.cfg.intrinsic_rank) == 1
-            and not getattr(self, "_disable_estep", False)
-        )
-        if use_estep:
-            # Sweep 1: plain target x.
-            coords1 = self._solve_chart_coordinates(x)
-            curves1 = _eval_basis_on_manifold(
-                coords1, self.cfg, self._forward_centers
-            )
-            per_atom_recon1 = torch.einsum(
-                "nfk,fkd->nfd", curves1, self.decoder_blocks
-            )
-            # Single gate evaluation (one commitment-state advance): the routing
-            # gate on the sweep-1 reconstruction, reused for the final x_hat.
-            z = self.sparsity.reconstruction_topk_gate(x, per_atom_recon1, step=step)
-            # Sweep 2: leave-one-out residual target using sweep-1 positions and
-            # the (detached) gate weights.
-            positions = self._solve_chart_coordinates(
-                x, prev_positions=coords1, gate_weights=z.detach()
-            )
-            curves = _eval_basis_on_manifold(
-                positions, self.cfg, self._forward_centers
-            )
-            per_atom_recon = torch.einsum(
-                "nfk,fkd->nfd", curves, self.decoder_blocks
-            )
-            gate_pre = amp_logits
-            assignments = z
-            raw_magnitudes = self.sparsity._topk_activation(amp_logits)
-            # Stash for the encoder alignment penalty: tape-connected encoder
-            # positions vs the detached solved coordinates.
-            self._last_encoder_positions = encoder_positions
-            self._last_solved_positions = positions.detach()
-            reml_score = torch.tensor(
-                float("nan"), dtype=x.dtype, device=x.device
-            )
-            lambdas = torch.exp(self.log_lambda).to(dtype=x.dtype, device=x.device)
-            x_hat = (z.unsqueeze(-1) * per_atom_recon).sum(dim=1)
-            return ManifoldSAEOutput(
-                z=z,
-                x_hat=x_hat,
-                positions=positions,
-                amplitudes=z.abs(),
-                curves=curves,
-                gate=gate_pre,
-                assignments=assignments,
-                reml_score=reml_score,
-                lambdas=lambdas,
-                raw_magnitudes=raw_magnitudes,
-            )
-
-        positions = encoder_positions
         curves = _eval_basis_on_manifold(
             positions,
             self.cfg,
@@ -1834,8 +1867,6 @@ class ManifoldSAE(nn.Module):
             # Honest pre-mask magnitude: the independent non-negative activation
             # the top-k selection masks, strictly positive even for dropped atoms.
             raw_magnitudes = self.sparsity._topk_activation(amp_logits)
-            self._last_encoder_positions = None
-            self._last_solved_positions = None
         else:
             # IBP-Gumbel / JumpReLU: the code IS the Rust-computed bounded gate,
             # exactly the family the closed-form fit solves — magnitude lives in
@@ -2015,10 +2046,9 @@ class ManifoldSAE(nn.Module):
                 "decoder.monotonicity_weight=0."
             )
         # The JumpReLU hard-gate threshold is part of the assignment objective:
-        # forward it on the jumprelu-assignment path (kind 'jumprelu' or, via
-        # closed_form_assignment(), 'softmax_topk'). For other assignments the
-        # threshold is meaningless and is not forwarded.
-        if cfg.closed_form_assignment() == "jumprelu":
+        # forward it on the canonical threshold-gate assignment path. For other
+        # assignments the threshold is meaningless and is not forwarded.
+        if cfg.closed_form_assignment() == "threshold_gate":
             kwargs["jumprelu_threshold"] = float(cfg.sparsity.jumprelu_threshold)
         kwargs.update(self._closed_form_initializers(x))
         fit = _closed_form_sae_manifold_fit(

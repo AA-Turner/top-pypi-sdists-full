@@ -6,35 +6,41 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://pawchive.st/"""
+"""Extractors for https://pawchive.pw/"""
 
 from .common import Extractor, Message
 from .. import text, util
 import itertools
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?pawchive\.st"
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?pawchive\.(?:pw|st)"
 USER_PATTERN = BASE_PATTERN + r"/([^/?#]+)/user/([^/?#]+)"
-HASH_PATTERN = r"/[0-9a-f]{2}/[0-9a-f]{2}/([0-9a-f]{64})"
 
 
 class PawchiveExtractor(Extractor):
     """Base class for pawchive extractors"""
     category = "pawchive"
-    root = "https://pawchive.st"
-    root_dl = "https://file.pawchive.st"
+    root = "https://pawchive.pw"
+    root_dl = "https://file.pawchive.pw"
     directory_fmt = ("{category}", "{service}", "{user}")
     filename_fmt = "{id}_{title[:180]}_{num:>02}_{filename[:180]}.{extension}"
     archive_fmt = "{service}_{user}_{id}_{num}"
-    cookies_domain = ".pawchive.st"
+    cookies_domain = ".pawchive.pw"
 
     def _init(self):
+        if domain := self.config("domain"):
+            self.root = (text.root_from_url(self.url) if domain == "auto" else
+                         text.ensure_http_scheme(domain))
+            lhs, sep, rhs = self.root.partition("://")
+            self.root_dl = f"{lhs}{sep}file.{rhs}"
+            self.cookies_domain = "." + rhs
+
         self.api = PawchiveAPI(self)
         self._find_inline = text.re(
-            r'src="(?:https?://(?:pawchive\.st))?(/inline/[^"]+'
+            r'src="(?:https?://(?:pawchive\.(?:pw|st)))?(/inline/[^"]+'
             r'|/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.[^"]+)').findall
 
     def items(self):
-        find_hash = text.re(HASH_PATTERN).match
+        find_hash = text.re(r"/[0-9a-f]{2}/[0-9a-f]{2}/([0-9a-f]{64})").match
         generators = self._build_file_generators(self.config("files"))
         archives = True if self.config("archives") else False
         archives_type = dict if self.config("archives-format") in {
@@ -210,7 +216,7 @@ class PawchiveUserExtractor(PawchiveExtractor):
     """Extractor for all posts from a pawchive user listing"""
     subcategory = "user"
     pattern = USER_PATTERN + r"/?(?:\?([^#]+))?(?:$|\?|#)"
-    example = "https://pawchive.st/SERVICE/user/12345"
+    example = "https://pawchive.pw/SERVICE/user/12345"
 
     def __init__(self, match):
         self.subcategory = match[1]
@@ -229,7 +235,7 @@ class PawchivePostExtractor(PawchiveExtractor):
     """Extractor for a single pawchive post"""
     subcategory = "post"
     pattern = USER_PATTERN + r"/post/([^/?#]+)"
-    example = "https://pawchive.st/SERVICE/user/12345/post/12345"
+    example = "https://pawchive.pw/SERVICE/user/12345/post/12345"
 
     def __init__(self, match):
         self.subcategory = match[1]
@@ -244,7 +250,7 @@ class PawchivePostsExtractor(PawchiveExtractor):
     """Extractor for pawchive post listings"""
     subcategory = "posts"
     pattern = BASE_PATTERN + r"/posts(?:/?\?([^#]+))?"
-    example = "https://pawchive.st/posts"
+    example = "https://pawchive.pw/posts"
 
     def posts(self):
         params = text.parse_query(self.groups[0])
@@ -256,7 +262,7 @@ class PawchiveFavoriteExtractor(PawchiveExtractor):
     """Extractor for pawchive favorites"""
     subcategory = "favorite"
     pattern = BASE_PATTERN + r"/(?:account/)?favorites(?:/?\?([^#]+))?"
-    example = "https://pawchive.st/favorites"
+    example = "https://pawchive.pw/favorites"
 
     def items(self):
         self.login()
@@ -319,7 +325,7 @@ class PawchiveArtistsExtractor(PawchiveExtractor):
     """Extractor for pawchive artists"""
     subcategory = "artists"
     pattern = BASE_PATTERN + r"/artists(?:\?([^#]+))?"
-    example = "https://pawchive.st/artists"
+    example = "https://pawchive.pw/artists"
 
     def items(self):
         users = self.api.creators()
@@ -349,7 +355,7 @@ class PawchiveArtistsExtractor(PawchiveExtractor):
 class PawchiveAPI():
     """Interface for the Pawchive API
 
-    https://pawchive.st/api/swagger_schema
+    https://pawchive.pw/api/swagger_schema
     """
 
     def __init__(self, extractor):

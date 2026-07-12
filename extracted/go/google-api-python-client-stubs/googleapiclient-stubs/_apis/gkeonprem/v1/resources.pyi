@@ -28,10 +28,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -44,46 +44,48 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BareMetalAdminCluster = ...,
-                    allowPreflightFailure: bool = ...,
-                    bareMetalAdminClusterId: str = ...,
-                    validateOnly: bool = ...,
+                    body: BareMetalAdminCluster,
+                    allowPreflightFailure: bool | None = ...,
+                    bareMetalAdminClusterId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enroll(
                     self,
                     *,
                     parent: str,
-                    body: EnrollBareMetalAdminClusterRequest = ...,
+                    body: EnrollBareMetalAdminClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
+                    allowMissing: bool | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> BareMetalAdminClusterHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    allowMissing: bool = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    allowMissing: bool | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBareMetalAdminClustersResponseHttpRequest: ...
                 def list_next(
@@ -95,40 +97,40 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BareMetalAdminCluster = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: BareMetalAdminCluster,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def queryVersionConfig(
                     self,
                     *,
                     parent: str,
-                    upgradeConfig_clusterName: str = ...,
+                    upgradeConfig_clusterName: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> QueryBareMetalAdminVersionConfigResponseHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def unenroll(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    ignoreErrors: bool = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    ignoreErrors: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -146,10 +148,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -162,26 +164,26 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: BareMetalNodePool = ...,
-                        bareMetalNodePoolId: str = ...,
-                        validateOnly: bool = ...,
+                        body: BareMetalNodePool,
+                        bareMetalNodePoolId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        allowMissing: bool = ...,
-                        etag: str = ...,
-                        ignoreErrors: bool = ...,
-                        validateOnly: bool = ...,
+                        allowMissing: bool | None = ...,
+                        etag: str | None = ...,
+                        ignoreErrors: bool | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def enroll(
                         self,
                         *,
                         parent: str,
-                        body: EnrollBareMetalNodePoolRequest = ...,
+                        body: EnrollBareMetalNodePoolRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -190,25 +192,27 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         name: str,
                         view: typing_extensions.Literal[
                             "NODE_POOL_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> BareMetalNodePoolHttpRequest: ...
                     def getIamPolicy(
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "NODE_POOL_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListBareMetalNodePoolsResponseHttpRequest: ...
                     def list_next(
@@ -220,33 +224,33 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: BareMetalNodePool = ...,
-                        allowMissing: bool = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: BareMetalNodePool,
+                        allowMissing: bool | None = ...,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
                     def unenroll(
                         self,
                         *,
                         name: str,
-                        allowMissing: bool = ...,
-                        etag: str = ...,
-                        validateOnly: bool = ...,
+                        allowMissing: bool | None = ...,
+                        etag: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -260,10 +264,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -276,58 +280,60 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BareMetalCluster = ...,
-                    allowPreflightFailure: bool = ...,
-                    bareMetalClusterId: str = ...,
-                    validateOnly: bool = ...,
+                    body: BareMetalCluster,
+                    allowPreflightFailure: bool | None = ...,
+                    bareMetalClusterId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    force: bool = ...,
-                    ignoreErrors: bool = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    ignoreErrors: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enroll(
                     self,
                     *,
                     parent: str,
-                    body: EnrollBareMetalClusterRequest = ...,
+                    body: EnrollBareMetalClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
+                    allowMissing: bool | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> BareMetalClusterHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    allowMissing: bool = ...,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    allowMissing: bool | None = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBareMetalClustersResponseHttpRequest: ...
                 def list_next(
@@ -339,43 +345,43 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BareMetalCluster = ...,
-                    allowMissing: bool = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: BareMetalCluster,
+                    allowMissing: bool | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def queryVersionConfig(
                     self,
                     *,
                     parent: str,
-                    createConfig_adminClusterMembership: str = ...,
-                    createConfig_adminClusterName: str = ...,
-                    upgradeConfig_clusterName: str = ...,
+                    createConfig_adminClusterMembership: str | None = ...,
+                    createConfig_adminClusterName: str | None = ...,
+                    upgradeConfig_clusterName: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> QueryBareMetalVersionConfigResponseHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def unenroll(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    force: bool = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def bareMetalNodePools(self) -> BareMetalNodePoolsResource: ...
@@ -387,7 +393,7 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -400,10 +406,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -423,10 +429,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -439,47 +445,49 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: VmwareAdminCluster = ...,
-                    allowPreflightFailure: bool = ...,
-                    skipValidations: str | _list[str] = ...,
-                    validateOnly: bool = ...,
-                    vmwareAdminClusterId: str = ...,
+                    body: VmwareAdminCluster,
+                    allowPreflightFailure: bool | None = ...,
+                    skipValidations: str | _list[str] | None = ...,
+                    validateOnly: bool | None = ...,
+                    vmwareAdminClusterId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enroll(
                     self,
                     *,
                     parent: str,
-                    body: EnrollVmwareAdminClusterRequest = ...,
+                    body: EnrollVmwareAdminClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
+                    allowMissing: bool | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> VmwareAdminClusterHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    allowMissing: bool = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    allowMissing: bool | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListVmwareAdminClustersResponseHttpRequest: ...
                 def list_next(
@@ -491,34 +499,34 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: VmwareAdminCluster = ...,
-                    skipValidations: str | _list[str] = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: VmwareAdminCluster,
+                    skipValidations: str | _list[str] | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def unenroll(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    ignoreErrors: bool = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    ignoreErrors: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -534,10 +542,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -557,10 +565,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -573,26 +581,26 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: VmwareNodePool = ...,
-                        validateOnly: bool = ...,
-                        vmwareNodePoolId: str = ...,
+                        body: VmwareNodePool,
+                        validateOnly: bool | None = ...,
+                        vmwareNodePoolId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        allowMissing: bool = ...,
-                        etag: str = ...,
-                        ignoreErrors: bool = ...,
-                        validateOnly: bool = ...,
+                        allowMissing: bool | None = ...,
+                        etag: str | None = ...,
+                        ignoreErrors: bool | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def enroll(
                         self,
                         *,
                         parent: str,
-                        body: EnrollVmwareNodePoolRequest = ...,
+                        body: EnrollVmwareNodePoolRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -601,25 +609,27 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         name: str,
                         view: typing_extensions.Literal[
                             "NODE_POOL_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> VmwareNodePoolHttpRequest: ...
                     def getIamPolicy(
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "NODE_POOL_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListVmwareNodePoolsResponseHttpRequest: ...
                     def list_next(
@@ -631,32 +641,32 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: VmwareNodePool = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: VmwareNodePool,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
                     def unenroll(
                         self,
                         *,
                         name: str,
-                        allowMissing: bool = ...,
-                        etag: str = ...,
-                        validateOnly: bool = ...,
+                        allowMissing: bool | None = ...,
+                        etag: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -665,59 +675,61 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: VmwareCluster = ...,
-                    allowPreflightFailure: bool = ...,
-                    skipValidations: str | _list[str] = ...,
-                    validateOnly: bool = ...,
-                    vmwareClusterId: str = ...,
+                    body: VmwareCluster,
+                    allowPreflightFailure: bool | None = ...,
+                    skipValidations: str | _list[str] | None = ...,
+                    validateOnly: bool | None = ...,
+                    vmwareClusterId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    force: bool = ...,
-                    ignoreErrors: bool = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    ignoreErrors: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enroll(
                     self,
                     *,
                     parent: str,
-                    body: EnrollVmwareClusterRequest = ...,
+                    body: EnrollVmwareClusterRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
+                    allowMissing: bool | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> VmwareClusterHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    allowMissing: bool = ...,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    allowMissing: bool | None = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "CLUSTER_VIEW_UNSPECIFIED", "BASIC", "FULL"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListVmwareClustersResponseHttpRequest: ...
                 def list_next(
@@ -729,43 +741,43 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: VmwareCluster = ...,
-                    skipValidations: str | _list[str] = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: VmwareCluster,
+                    skipValidations: str | _list[str] | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def queryVersionConfig(
                     self,
                     *,
                     parent: str,
-                    createConfig_adminClusterMembership: str = ...,
-                    createConfig_adminClusterName: str = ...,
-                    upgradeConfig_clusterName: str = ...,
+                    createConfig_adminClusterMembership: str | None = ...,
+                    createConfig_adminClusterName: str | None = ...,
+                    upgradeConfig_clusterName: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> QueryVmwareVersionConfigResponseHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def unenroll(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    force: bool = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -778,10 +790,10 @@ class GKEOnPremResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

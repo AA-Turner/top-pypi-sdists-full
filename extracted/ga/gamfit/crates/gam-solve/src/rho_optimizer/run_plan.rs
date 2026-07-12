@@ -5,6 +5,36 @@ pub(crate) const EXPENSIVE_PREWARM_RHO_DIM: usize = 4;
 pub(crate) const MULTI_SEED_PREWARM_BUDGET: usize = 8;
 pub(crate) const SINGLE_EXPENSIVE_PREWARM_BUDGET: usize = 16;
 
+/// Require a continuation arrival to certify the literal outer seed itself.
+///
+/// Only a state whose rho is bit-identical to the bounded literal seed and
+/// whose real-objective value is finite may authorize the outer solver to
+/// start.
+pub(crate) fn reactive_arrival_postcondition(
+    state: &crate::estimate::reml::continuation::ContinuationState,
+    literal_seed: &Array1<f64>,
+) -> Result<(), String> {
+    let at_literal_seed = state.last_rho.len() == literal_seed.len()
+        && state
+            .last_rho
+            .iter()
+            .zip(literal_seed.iter())
+            .all(|(actual, expected)| actual.to_bits() == expected.to_bits());
+    if !at_literal_seed {
+        return Err(format!(
+            "reactive domain entry refused: continuation reported arrival at rho {:?}, not the literal seed {:?}",
+            state.last_rho, literal_seed
+        ));
+    }
+    if !state.last_eval.cost.is_finite() {
+        return Err(format!(
+            "reactive domain entry refused: continuation arrival at the literal seed retained non-finite evidence {}",
+            state.last_eval.cost
+        ));
+    }
+    Ok(())
+}
+
 /// Coefficient dimension at which the per-step inner solve cost begins to grow
 /// steeply (the empirical #979 "centers≈8→10" cliff). For a custom-family
 /// marginal-slope fit `p_coefficients` ≈ Σ over both formulas of the basis
@@ -57,7 +87,8 @@ impl<'a> FinalizeInnerCapGuard<'a> {
 
 impl Drop for FinalizeInnerCapGuard<'_> {
     fn drop(&mut self) {
-        self.cap.store(self.prev_cap, std::sync::atomic::Ordering::Relaxed);
+        self.cap
+            .store(self.prev_cap, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -159,6 +190,51 @@ pub(crate) fn continuation_prewarm_step_budget(
     cost_scaled_prewarm_budget(base_budget, p_coefficients)
 }
 
+/// A multistart candidate that has cleared the analytic outer certificate.
+///
+/// Keeping the winner slot typed this way prevents a solver status bit from
+/// participating in ranking.  Raw solver iterates and exhausted checkpoints
+/// remain `OuterResult`s, but only this private wrapper can enter `best`.
+struct CertifiedOuterCandidate(OuterResult);
+
+impl CertifiedOuterCandidate {
+    fn from_solver_claim(
+        obj: &mut dyn OuterObjective,
+        config: &OuterConfig,
+        context: &str,
+        mut candidate: OuterResult,
+    ) -> Result<Self, (OuterResult, EstimationError)> {
+        match certify_outer_optimality(obj, config, context, &mut candidate) {
+            Ok(certificate) => {
+                candidate.criterion_certificate = Some(certificate);
+                Ok(Self(candidate))
+            }
+            Err(error) => {
+                candidate.converged = false;
+                Err((candidate, error))
+            }
+        }
+    }
+
+    fn result(&self) -> &OuterResult {
+        &self.0
+    }
+
+    fn into_result(self) -> OuterResult {
+        self.0
+    }
+}
+
+fn retain_best_outer_checkpoint(slot: &mut Option<OuterResult>, candidate: OuterResult) {
+    let improves = candidate.final_value.is_finite()
+        && slot.as_ref().is_none_or(|checkpoint| {
+            !checkpoint.final_value.is_finite() || candidate.final_value < checkpoint.final_value
+        });
+    if improves {
+        *slot = Some(candidate);
+    }
+}
+
 /// Execute a single plan attempt (seed generation → solver loop → best result).
 pub(crate) fn run_outer_with_plan(
     obj: &mut dyn OuterObjective,
@@ -166,7 +242,7 @@ pub(crate) fn run_outer_with_plan(
     context: &str,
     cap: &OuterCapability,
     the_plan: &OuterPlan,
-) -> Result<OuterResult, EstimationError> {
+) -> Result<PlanRunOutcome, EstimationError> {
     let mut seeds = {
         let generated = crate::seeding::generate_rho_candidates(
             cap.n_params,
@@ -191,9 +267,7 @@ pub(crate) fn run_outer_with_plan(
     }
 
     let (lower, upper) = outer_bounds_template(config, cap.n_params);
-    crate::estimate::reml::outer_eval::record_current_outer_rho_upper_bounds_for_ift(
-        &upper,
-    );
+    crate::estimate::reml::outer_eval::record_current_outer_rho_upper_bounds_for_ift(&upper);
     let bounds_template = (lower, upper);
     let mut projected_seeds = Vec::with_capacity(seeds.len());
     for seed in seeds {
@@ -245,25 +319,13 @@ pub(crate) fn run_outer_with_plan(
         );
     }
 
-    let mut best: Option<OuterResult> = None;
-    // Object 1 — ContinuationPath. Every SAE-manifold joint fit ENTERS through
-    // the continuation path at a heavy-smoothing regime. When the objective
-    // declares this requirement the seed cascade's structural-failure handling
-    // flips from REJECT (which can empty the candidate set and fall through to
-    // the fatal `format_no_seeds_passed`) to DEMOTE-WITH-REASON: a "cold"
-    // structural diagnosis becomes a heavier-regime RE-ENTRY of the same seed,
-    // recorded on the path, never a disqualification. Objectives that do not
-    // require continuation entry keep `None` and the legacy reject/early-exit
-    // contract is unchanged.
-    let mut continuation_path: Option<crate::continuation_path::ContinuationPath> = obj
-        .requires_continuation_path_entry()
-        .then(crate::continuation_path::ContinuationPath::heavy_entry);
-    // Demotion ledger: every structural defect that would historically have
-    // rejected a seed (or short-circuited the cascade) is instead recorded
-    // here with its reason and the regime it was demoted to, so the
-    // `SearchLedger` / startup stats surface a heavier-regime re-entry rather
-    // than a vanished candidate. Non-fatal by construction.
-    let mut path_demotions: Vec<PathDemotionRecord> = Vec::new();
+    let mut best: Option<CertifiedOuterCandidate> = None;
+    let mut best_checkpoint: Option<OuterResult> = None;
+    // A reactive domain-entry path is created inside a seed attempt only after
+    // that objective's exact seed cost is non-finite. Already-feasible seeds
+    // therefore stay on the zero-heavy-entry path.
+    let reactive_domain_scalar_contract = obj.reactive_domain_scalar_contract()?;
+    let reactive_domain_entry_available = reactive_domain_scalar_contract.is_some();
     // Accumulate every per-seed rejection with its 0-based seed index and the
     // phase that rejected it (validation vs solver run). When all seeds fail
     // systematically (bad analytic gradient, rank-deficient penalty, etc.) the
@@ -274,9 +336,6 @@ pub(crate) fn run_outer_with_plan(
     // the more-penalized basin in the non-Gaussian multi-start keep-best.
     let rho_dim = layout.rho_dim();
     let mut started_seeds = 0usize;
-    let expensive_seed_limit =
-        expensive_unsuccessful_seed_limit(the_plan.solver, config.seed_config.risk_profile);
-    let mut unsuccessful_expensive_seeds = 0usize;
     let continuation_prewarm_budget =
         continuation_prewarm_step_budget(config, cap, seeds.len(), seed_budget);
     if config.warm_start_cache_hit {
@@ -284,8 +343,7 @@ pub(crate) fn run_outer_with_plan(
             "[OUTER] {context}: continuation pre-warm skipped: warm-start cache hit \
              (seed already near-optimal); proceeding straight to BFGS/Newton certificate"
         );
-    } else if continuation_prewarm_budget < crate::estimate::reml::continuation::PATH_BUDGET
-    {
+    } else if continuation_prewarm_budget < crate::estimate::reml::continuation::PATH_BUDGET {
         let p_coefficients = config
             .rho_uncertainty_problem_size
             .p_coefficients
@@ -301,21 +359,6 @@ pub(crate) fn run_outer_with_plan(
         );
     }
     let mut continuation_prewarm_suppressed_after: Option<String> = None;
-    // Tracks whether the loop broke out early due to
-    // `expensive_unsuccessful_seed_limit` so the aggregate error can
-    // distinguish "all generated seeds tried" from "stopped early".
-    let mut stopped_early_due_to_limit = false;
-    // Tracks whether the loop stopped starting NEW seeds because the outer
-    // wall-clock deadline (gam#979) passed. Each seed attempt runs a
-    // continuation pre-warm plus one or more joint-Newton inner solves that
-    // can each take minutes on the non-convergent monotonicity-pinned survival
-    // marginal-slope baseline; the deadline is checked at inner-cycle
-    // boundaries, but nothing stopped the OUTER loop from opening yet another
-    // expensive seed once the budget was already spent, so the fit overran its
-    // budget several-fold (observed: 632s against a 300s budget). Consulting
-    // the deadline here caps the wall clock at "current seed finishes, no new
-    // seed starts" and returns the best-so-far iterate in bounded time.
-    let mut stopped_early_due_to_wall_clock = false;
     // Structured mirror of `rejection_reasons` used for honest seed
     // accounting + structural early-exit. Populated lazily at the top of
     // each iteration from any reasons accumulated during the previous
@@ -365,23 +408,9 @@ pub(crate) fn run_outer_with_plan(
         if started_seeds == seed_budget {
             break;
         }
-        // Stop opening new (expensive) seeds once the outer wall-clock deadline
-        // has passed (gam#979). The inner joint-Newton solves honour the same
-        // deadline at their cycle boundaries, but a fresh seed's continuation
-        // pre-warm can run for minutes before the first cycle check fires, so
-        // without this guard the outer loop kept launching seed after seed well
-        // past budget. Breaking here returns the best-so-far iterate accumulated
-        // in `best` (or the aggregated no-seed error) in bounded time.
-        if crate::rho_optimizer::outer_wall_clock_deadline_exceeded() {
-            log::warn!(
-                "[OUTER] {context}: outer wall-clock deadline reached before seed {seed_idx}; \
-                 stopping the seed cascade with {started_seeds} started seed(s) and \
-                 skipping the remaining {} candidate(s)",
-                seeds.len().saturating_sub(seed_idx),
-            );
-            stopped_early_due_to_wall_clock = true;
-            break;
-        }
+        // Domain entry is a property of this literal seed. A loop-local path
+        // cannot leak its state or regime into another candidate.
+        let mut continuation_path: Option<crate::continuation_path::ContinuationPath> = None;
         // Lazy structured classification: convert any new entries in
         // `rejection_reasons` into `SeedRejection`s and probe whether
         // the seed cascade has slipped into a uniform structural
@@ -395,71 +424,26 @@ pub(crate) fn run_outer_with_plan(
             if let Some(key) =
                 uniform_structural_key(&seed_rejections, STRUCTURAL_EARLY_EXIT_MIN_COUNT)
             {
-                if let Some(path) = continuation_path.as_mut() {
-                    // Continuation-entry objective: a uniform structural
-                    // diagnosis is NOT a reason to skip the remaining seeds
-                    // (that would empty the candidate set and fall through to
-                    // the fatal "no seeds passed"). The seed cascade is only an
-                    // *optimization* over warm-starts, never a feasibility
-                    // gate — so we DEMOTE the cascade to a heavier path regime
-                    // and keep evaluating. The heavier-smoothing entry gives
-                    // the joint solver a feasible basin the cold seed could not
-                    // reach. Record the demotion with its reason; never fatal.
-                    let reason = format!(
-                        "uniform structural diagnosis={} carrying-block={} after {} consistent \
-                         rejection(s)",
-                        key.0.as_str(),
-                        key.1.as_deref().unwrap_or("<unknown>"),
-                        seed_rejections.len(),
-                    );
-                    let regime = path.demote_with_reason(
-                        crate::continuation_path::PathDemotionReason::UniformStructural,
-                    );
-                    log::warn!(
-                        "[OUTER] {context}: continuation-entry objective demoted to heavier path \
-                         regime {regime:?} instead of structural early-exit ({reason}); \
-                         re-entering remaining seed(s) at the heavier regime"
-                    );
-                    path_demotions.push(PathDemotionRecord {
-                        seed_idx,
-                        regime,
-                        reason,
-                    });
-                    // Reset the structured mirror's structural signal so the
-                    // heavier-regime re-entries are judged on their own merits
-                    // and a single later defect does not immediately re-fire
-                    // the demotion at the same level.
-                    seed_rejections.clear();
-                    last_classified_reason_idx = rejection_reasons.len();
-                } else {
-                    log::warn!(
-                        "[OUTER] {context}: structural early-exit after {} uniform structural \
-                         rejections (diagnosis={}, carrying-block={}); skipping remaining {} seed(s)",
-                        seed_rejections.len(),
-                        key.0.as_str(),
-                        key.1.as_deref().unwrap_or("<unknown>"),
-                        seeds.len().saturating_sub(seed_idx),
-                    );
-                    structural_early_exit_key = Some(key);
-                    break;
-                }
+                log::warn!(
+                    "[OUTER] {context}: structural early-exit after {} uniform structural \
+                     rejections (diagnosis={}, carrying-block={}); skipping remaining {} seed(s)",
+                    seed_rejections.len(),
+                    key.0.as_str(),
+                    key.1.as_deref().unwrap_or("<unknown>"),
+                    seeds.len().saturating_sub(seed_idx),
+                );
+                structural_early_exit_key = Some(key);
+                break;
             }
         }
-        // Generic cross-seed structural bail (#1036): only for objectives that
-        // do NOT enter through the continuation path. Continuation-entry
-        // objectives demote to a heavier regime on any uniform structural
-        // signal (handled above) and must never empty their candidate set on a
-        // failure signature, so they opt out of the generic bail entirely.
-        if structural_early_exit_key.is_none()
-            && generic_structural_bail.is_none()
-            && continuation_path.is_none()
-        {
-            if let Some((sig, run_len)) =
-                crate::startup_stats::consecutive_generic_signature(
-                    &seed_rejections,
-                    GENERIC_STRUCTURAL_BAIL_MIN_RUN,
-                )
-            {
+        // Generic cross-seed structural bail (#1036). Reactive domain entry is
+        // only a repair for an undefined literal seed value; it does not turn
+        // later, repeated structural solver failures into path re-entry.
+        if structural_early_exit_key.is_none() && generic_structural_bail.is_none() {
+            if let Some((sig, run_len)) = crate::startup_stats::consecutive_generic_signature(
+                &seed_rejections,
+                GENERIC_STRUCTURAL_BAIL_MIN_RUN,
+            ) {
                 let first_seed = seed_rejections[seed_rejections.len() - run_len].seed_idx;
                 let last_seed = seed_rejections[seed_rejections.len() - 1].seed_idx;
                 let label = crate::startup_stats::generic_signature_label(&sig);
@@ -516,8 +500,8 @@ pub(crate) fn run_outer_with_plan(
             // pristine cold state. Rejecting the seed here instead emptied the
             // candidate set for objectives WITHOUT a continuation path (#1095:
             // a periodic K=1 circle whose walk "buys nothing" and refuses on a
-            // small-N pivot bifurcation — `requires_continuation_path_entry` is
-            // false for periodic K=1, so every one of its seeds was rejected
+            // small-N pivot bifurcation — periodic K=1 does not advertise
+            // reactive domain entry, so every one of its seeds was rejected
             // before any solver started). Reset to the baseline so the cascade
             // opens each seed from its own cold default, exactly as a hard
             // anchor-construction error already does above.
@@ -530,10 +514,70 @@ pub(crate) fn run_outer_with_plan(
         if let Some(seed_cost) = obj.accept_seed_without_outer_iterations(seed)? {
             started_seeds += 1;
             let candidate = OuterResult::new(seed.clone(), seed_cost, 0, true, *the_plan);
-            if candidate_improves_best(&candidate, best.as_ref()) {
-                best = Some(candidate);
+            match CertifiedOuterCandidate::from_solver_claim(obj, config, context, candidate) {
+                Ok(candidate) => {
+                    if candidate_improves_best(
+                        candidate.result(),
+                        best.as_ref().map(CertifiedOuterCandidate::result),
+                    ) {
+                        best = Some(candidate);
+                    }
+                    break;
+                }
+                Err((checkpoint, error)) => {
+                    log::warn!(
+                        "[OUTER] {context}: zero-iteration seed {seed_idx} claimed acceptance but \
+                         failed analytic certification: {error}"
+                    );
+                    retain_best_outer_checkpoint(&mut best_checkpoint, checkpoint);
+                    rejection_reasons.push((seed_idx, "certificate", error.to_string()));
+                    continue 'seed_attempts;
+                }
             }
-            break;
+        }
+        // Typed, reactive domain entry. The literal seed is always evaluated
+        // first on the real objective. A finite value keeps the converged probe
+        // handoff and pays no continuation work. Only an undefined criterion
+        // activates the certified heavy-smoothing path; a hard evaluation error
+        // remains a seed refusal and is never converted into a pseudo-value.
+        let mut reactive_domain_entry_requested = false;
+        if reactive_domain_entry_available {
+            match obj.eval_cost(seed) {
+                Ok(cost) if cost.is_finite() => {
+                    log::debug!(
+                        "[OUTER] {context}: exact seed {seed_idx} is inside the objective domain; \
+                         reactive continuation entry not needed"
+                    );
+                }
+                Ok(_) => {
+                    log::info!(
+                        "[OUTER] {context}: exact seed {seed_idx} has undefined criterion; \
+                         entering through certified heavy-smoothing continuation"
+                    );
+                    // The failed cold probe may have left objective-owned trial
+                    // state. Re-enter from the pristine baseline; successful
+                    // path evaluations establish a fresh exact-seed handoff.
+                    obj.reset();
+                    continuation_path = Some(
+                        crate::continuation_path::ContinuationPath::heavy_entry_for_rho(
+                            seed.clone(),
+                            bounds_template.1.clone(),
+                            reactive_domain_scalar_contract
+                                .clone()
+                                .expect("reactive scalar contract checked above"),
+                        )?,
+                    );
+                    reactive_domain_entry_requested = true;
+                }
+                Err(err) => {
+                    let msg = format!(
+                        "reactive domain-entry seed probe failed before continuation: {err}"
+                    );
+                    log::warn!("[OUTER] {context}: rejecting seed {seed_idx}: {msg}");
+                    rejection_reasons.push((seed_idx, "domain-entry", msg));
+                    continue 'seed_attempts;
+                }
+            }
         }
         // Magic-by-default continuation pre-warm. On hard fits this
         // walks ρ from an oversmoothing ρ₀ down to `seed`, leaving the
@@ -548,178 +592,160 @@ pub(crate) fn run_outer_with_plan(
         // The pre-warm is a warm-start for gradient-bearing PIRLS-inner
         // REML objectives: it walks ρ via `eval_with_order(_, ValueAndGradient)`
         // and carries the converged inner β forward through each step's
-        // `inner_beta_hint`. A continuation-entry objective (SAE-manifold joint
-        // fit) MUST enter every seed through the heavy-smoothing
-        // ContinuationPath walk, so it opts into the priming pass even though it
-        // does not advertise the generic `allow_continuation_prewarm`
-        // warm-start. For a continuation-entry objective a refused walk is
-        // DEMOTED to a heavier regime below, not treated as a feasibility gate.
+        // `inner_beta_hint`. A reactive-domain objective enters the explicit
+        // path only after the exact real-objective probe above returned a
+        // non-finite criterion; already-finite seeds never allocate or drive it.
         let enter_via_continuation_path =
             obj.allow_continuation_prewarm() || continuation_path.is_some();
-        // Continuation-entry objective (SAE-manifold joint fit): DRIVE the
-        // coupled `ContinuationPath` homotopy explicitly. This is the missing
-        // half of Object 1 — the descent walk. Rather than a single ρ-only
-        // `prime_outer_seed` pre-screen, we step the path waypoint by waypoint:
-        // each `step` runs the ρ-anneal spine for that waypoint and advances
-        // the τ / isometry legs in lockstep, so all three knobs arrive at the
-        // real objective together (the one-monotone-walk invariant). The
-        // converged inner β of each accepted descent leg warm-starts the next,
-        // and the warm iterate at `Arrived` is handed to the normal solver at
-        // ρ*. Re-entry / breach / underflow are non-fatal floor behaviors,
-        // each consumed below — never a rejection.
+        // Reactive domain entry (SAE-manifold dense K>=2 joint fit): DRIVE the
+        // coupled `ContinuationPath` homotopy explicitly. Each step installs
+        // the objective-owned scalar state and evaluates its matching log-ρ
+        // waypoint exactly once inside a full-state transaction. The committed
+        // term/rho/loss and beta hint warm the next waypoint; arrival hands the
+        // exact target state to the normal solver. A failed attempted waypoint refines the step from the last
+        // successful state; representability exhaustion becomes a typed domain
+        // refusal rather than a false arrival.
         //
-        // The walk runs for EVERY continuation-entry objective regardless of the
-        // primary solver class: the only objective that sets
-        // `requires_continuation_path_entry` is the SAE-manifold joint fit,
-        // whose `eval` / `seed_inner_state` / inner arrow-Schur ARE reachable.
-        // The heavy-smoothing walk warms the cold inner solve first, or the cold
-        // `eval_cost` hits a non-PD inner block (the K≥2 routing-collapse failure
-        // Object 1 exists to prevent).
+        // The heavy-smoothing walk warms the cold inner solve after the literal
+        // `eval_cost` demonstrated that its Laplace evidence is undefined (the
+        // K>=2 routing-collapse failure Object 1 exists to repair).
+        let mut continuation_arrived = continuation_path.is_none();
+        let mut continuation_arrival_refusal: Option<String> = None;
         if continuation_path.is_some() {
             {
-                // Rebuild the path per-seed against the OBJECTIVE's real ρ
-                // dimension and legal box. The seed-loop-scoped `heavy_entry`
-                // placeholder is dimension-1 (built before any seed is in hand);
-                // the spine call inside `step` requires the ρ target to match
-                // the objective's ρ dim, so we re-enter the heavy-smoothing
-                // regime coupled to this seed's ρ\* and bounds. Re-entry resets
-                // the path to a fresh `s = 1` for every seed, which is correct:
-                // each seed is its own descent from the contraction regime.
-                let path = continuation_path.insert(
-                    crate::continuation_path::ContinuationPath::heavy_entry_for_rho(
-                        seed.clone(),
-                        bounds_template.1.clone(),
-                    ),
-                );
+                let path = continuation_path
+                    .as_mut()
+                    .expect("reactive continuation path checked above");
                 let walk_start = std::time::Instant::now();
-                // β carried warm across legs. Empty = cold entry (#969:
-                // warm-invariance funnels cold and warm to the same s=1
-                // contraction fixed point).
-                let mut warm_beta: Array1<f64> = Array1::zeros(0);
+                // Only the first path call is cold. After it commits, the path
+                // and objective own the complete accepted state transactionally.
+                let cold_entry_beta: Array1<f64> = Array1::zeros(0);
                 let mut legs_descended = 0usize;
-                let mut arrived = false;
-                // Bound the walk: CONTINUATION_WAYPOINTS clean descents plus a
-                // re-entry allowance (every re-entry is progress toward the
-                // contraction floor, reachable in finitely many back-offs).
-                // Each `step` runs the ρ-anneal spine, which is itself an inner
-                // homotopy, so the budget stays bounded — but it must tolerate
-                // the expected near-cliff floor bounces: at the one-waypoint
-                // `REENTRY_BACKOFF` each bounce costs ~2 legs, and the shared
-                // `CONTINUATION_WALK_BUDGET` (2× waypoints) absorbs ~half-a-
-                // walk's worth of bounces before cutoff. The spine warm-starts
-                // from the previous leg's β, so post-entry legs are cheap. The
-                // loop only ever exits on `Arrived` or this budget — there is
-                // no rejection exit.
-                let walk_budget = crate::continuation_path::CONTINUATION_WALK_BUDGET;
-                for _ in 0..walk_budget {
-                    if path.arrived() {
-                        arrived = true;
-                        break;
-                    }
-                    match path.step(obj, &warm_beta) {
-                        crate::continuation_path::ContinuationStep::Descended {
-                            s,
-                            state,
-                        } => {
-                            // Warm-start the next leg from this leg's converged
-                            // inner β. `NoSlot` is fine (the objective simply
-                            // starts the next spine pass cold); a genuine
-                            // dimension error resets to a clean baseline and the
-                            // walk re-enters heavier on the next iteration.
-                            warm_beta = state.last_beta.clone();
-                            if let Err(err) = obj.seed_inner_state(&warm_beta) {
-                                log::warn!(
-                                    "[OUTER] {context}: continuation descent seed {seed_idx} \
-                                     warm-start at s={s:.4} unusable ({err}); proceeding cold"
-                                );
-                                warm_beta = Array1::zeros(0);
-                                obj.reset();
+                // The path controls its own progress from solver evidence. It
+                // can only report arrival after a successful exact-target leg;
+                // inability to refine a failed leg is returned as a typed
+                // refusal, so this loop needs no unrelated iteration ceiling.
+                loop {
+                    let step = match path.step(obj, &cold_entry_beta) {
+                        Ok(step) => step,
+                        Err(err) => {
+                            continuation_arrival_refusal = Some(format!(
+                                "reactive domain entry refused before exact-target arrival: {err}"
+                            ));
+                            break;
+                        }
+                    };
+                    match step {
+                        crate::continuation_path::ContinuationStep::Entered { state } => {
+                            if !state.last_eval.cost.is_finite() {
+                                continuation_arrival_refusal = Some(format!(
+                                    "reactive domain entry committed a non-finite entry-waypoint cost {}",
+                                    state.last_eval.cost
+                                ));
+                                break;
+                            }
+                            legs_descended += 1;
+                        }
+                        crate::continuation_path::ContinuationStep::Descended { s, state } => {
+                            if !state.last_eval.cost.is_finite() {
+                                continuation_arrival_refusal = Some(format!(
+                                    "reactive domain entry committed a non-finite waypoint cost {} at s={s}",
+                                    state.last_eval.cost
+                                ));
+                                break;
+                            }
+                            if !(s.is_finite() && s > 0.0) {
+                                continuation_arrival_refusal = Some(format!(
+                                    "reactive domain entry reported an invalid descended waypoint s={s}"
+                                ));
+                                break;
                             }
                             legs_descended += 1;
                         }
                         crate::continuation_path::ContinuationStep::Arrived { state } => {
-                            // The path reached ρ* / τ_min / tight isometry along
-                            // the coupled walk. Install the warm iterate so the
-                            // normal solver below starts from the contraction's
-                            // image at the real objective, not cold.
-                            warm_beta = state.last_beta.clone();
-                            if let Err(err) = obj.seed_inner_state(&warm_beta) {
-                                log::warn!(
-                                    "[OUTER] {context}: continuation arrival seed {seed_idx} \
-                                     warm-start unusable ({err}); solver starts cold at ρ*"
-                                );
-                                obj.reset();
-                            }
+                            // Leave the objective in the path-warmed state.
+                            // The exact-value verification below owns the
+                            // full-state handoff; replacing it with a copied
+                            // coefficient-only seed here would discard it.
                             legs_descended += 1;
-                            arrived = true;
+                            let scalar_at_target = path.current_scalar_targets().bitwise_eq(
+                                reactive_domain_scalar_contract
+                                    .as_ref()
+                                    .expect("reactive scalar contract checked above")
+                                    .target(),
+                            );
+                            if !scalar_at_target {
+                                continuation_arrival_refusal = Some(
+                                    "reactive domain entry reported arrival away from the literal scalar target"
+                                        .to_string(),
+                                );
+                            } else {
+                                match reactive_arrival_postcondition(&state, seed) {
+                                    Ok(()) => continuation_arrived = true,
+                                    Err(reason) => continuation_arrival_refusal = Some(reason),
+                                }
+                            }
                             break;
                         }
-                        crate::continuation_path::ContinuationStep::Reentered {
-                            s,
-                            reason,
-                        } => {
-                            use crate::continuation_path::ReentryReason;
-                            // The homotopy FLOOR: never reject. Each reason is a
-                            // re-entry into a heavier regime (the path already
-                            // raised `s`); we consume its payload for diagnostics
-                            // and continue descending from the heavier regime.
-                            match reason {
-                                ReentryReason::SpineStruggled(failure) => {
-                                    log::info!(
-                                        "[OUTER] {context}: continuation seed {seed_idx} spine \
-                                         struggled at s={s:.4} ({}); re-entered heavier regime {:?}",
-                                        failure.message(),
-                                        path.enter_regime(),
-                                    );
-                                }
-                                ReentryReason::StepUnderflow => {
-                                    // The descent step underflowed: demote with a
-                                    // recorded reason so the ledger surfaces the
-                                    // heavier-regime re-entry, then keep
-                                    // descending from the pinned floor.
-                                    let regime = path.demote_with_reason(
-                                        crate::continuation_path::PathDemotionReason::PrewarmStructural,
-                                    );
-                                    path_demotions.push(PathDemotionRecord {
-                                        seed_idx,
-                                        regime,
-                                        reason: format!(
-                                            "continuation step underflow at s={s:.4}; pinned to \
-                                             the homotopy floor and re-descending"
-                                        ),
-                                    });
-                                }
-                                ReentryReason::MassFloorBreached(breach) => {
-                                    // Active-mass collapse toward the uniform
-                                    // saddle: reset to the pristine seeded
-                                    // baseline (the scaffold) so the assignment
-                                    // re-diffuses, and record the breach with its
-                                    // observed mass / floor in the demotion
-                                    // ledger. Never fatal.
-                                    obj.reset();
-                                    warm_beta = Array1::zeros(0);
-                                    let regime = path.enter_regime();
-                                    path_demotions.push(PathDemotionRecord {
-                                        seed_idx,
-                                        regime,
-                                        reason: format!(
-                                            "active-mass breach (observed mean {:.4} < floor \
-                                             {:.4}); re-seeded from scaffold, re-entered heavier \
-                                             regime",
-                                            breach.observed_mean_mass, breach.floor,
-                                        ),
-                                    });
-                                }
-                            }
+                        crate::continuation_path::ContinuationStep::Refined { s, reason } => {
+                            use crate::continuation_path::RefinementReason;
+                            // The accepted waypoint remains unchanged while the
+                            // next attempted distance is refined. Consume the
+                            // reason for diagnostics, then continue.
+                            let RefinementReason::WaypointStruggled(failure) = reason;
+                            log::info!(
+                                "[OUTER] {context}: continuation seed {seed_idx} coupled \
+                                 waypoint struggled below accepted s={s:.4} ({}); refining the \
+                                 next attempted distance",
+                                failure.message(),
+                            );
                         }
                     }
                 }
                 log::info!(
                     "[OUTER] {context}: continuation-path walk seed {seed_idx} legs={legs_descended} \
-                     arrived={arrived} reseeds={} elapsed={:.3}s",
-                    path.reseed_count(),
+                     arrived={continuation_arrived} accepted_s={:.4} elapsed={:.3}s",
+                    path.s(),
                     walk_start.elapsed().as_secs_f64(),
                 );
+            }
+        }
+        if reactive_domain_entry_requested {
+            if !continuation_arrived {
+                let msg = continuation_arrival_refusal.take().unwrap_or_else(|| {
+                    "reactive domain entry refused before a solved exact-target waypoint"
+                        .to_string()
+                });
+                log::warn!("[OUTER] {context}: rejecting seed {seed_idx}: {msg}");
+                rejection_reasons.push((seed_idx, "domain-entry", msg));
+                continue 'seed_attempts;
+            }
+            // Independently re-evaluate the literal target and require a finite
+            // exact criterion before any optimizer can start.
+            match obj.eval_cost(seed) {
+                Ok(cost) if cost.is_finite() => {
+                    log::info!(
+                        "[OUTER] {context}: reactive continuation seed {seed_idx} arrived with \
+                         finite exact criterion {cost:.6e}"
+                    );
+                }
+                Ok(_) => {
+                    let msg = "reactive domain entry refused: exact seed criterion remained \
+                               non-finite after certified continuation arrival"
+                        .to_string();
+                    log::warn!("[OUTER] {context}: rejecting seed {seed_idx}: {msg}");
+                    rejection_reasons.push((seed_idx, "domain-entry", msg));
+                    continue 'seed_attempts;
+                }
+                Err(err) => {
+                    let msg = format!(
+                        "reactive domain entry refused: exact seed verification failed after \
+                         certified continuation arrival: {err}"
+                    );
+                    log::warn!("[OUTER] {context}: rejecting seed {seed_idx}: {msg}");
+                    rejection_reasons.push((seed_idx, "domain-entry", msg));
+                    continue 'seed_attempts;
+                }
             }
         }
         if continuation_path.is_none()
@@ -757,10 +783,10 @@ pub(crate) fn run_outer_with_plan(
                         // The pre-warm surfaced a structural defect of the seed's
                         // joint design (rank/alias deficiency or a genuine
                         // active-set KKT bug). This block runs only for
-                        // NON-continuation-entry objectives (continuation-entry
-                        // objectives drive the explicit `ContinuationPath` walk
-                        // above, where a structural refusal is a heavier-regime
-                        // demotion, never a rejection). Legacy contract: a cold solve
+                        // Objectives without an active reactive-domain path.
+                        // An active path was already driven and exact-verified
+                        // above, so it cannot enter this generic pre-warm block.
+                        // Legacy contract: a cold solve
                         // at the seed ρ* would hit the same defect, so disqualify the
                         // seed and route the failure through the same structural
                         // accounting any other pre-validation rejection takes.
@@ -854,18 +880,18 @@ pub(crate) fn run_outer_with_plan(
 
                 let cheap_materializable_operator = matches!(
                     seed_eval.hessian,
-                    HessianResult::Operator(ref op)
-                        if op.materialization_capability().is_available()
+                    HessianValue::Operator(ref op)
+                        if op.materialization().is_available()
                             && op.dim() <= OUTER_HVP_MATERIALIZE_MAX_DIM
                 );
                 if cheap_materializable_operator {
                     // The operator's own work model says probing every column
                     // is cheap; convert the seed Hessian to dense in-place.
                     // Subsequent bridge evaluations apply the same predicate.
-                    if let HessianResult::Operator(op) = &seed_eval.hessian {
+                    if let HessianValue::Operator(op) = &seed_eval.hessian {
                         match op.materialize_dense() {
                             Ok(dense) => {
-                                seed_eval.hessian = HessianResult::Analytic(dense);
+                                seed_eval.hessian = HessianValue::Dense(dense);
                             }
                             Err(message) => {
                                 let err = EstimationError::RemlOptimizationFailed(format!(
@@ -880,7 +906,7 @@ pub(crate) fn run_outer_with_plan(
                         }
                     }
                 }
-                if matches!(seed_eval.hessian, HessianResult::Operator(_)) {
+                if matches!(seed_eval.hessian, HessianValue::Operator(_)) {
                     log::debug!(
                         "[OUTER] {context}: analytic Hessian provided as Hv operator; \
                         routing to opt::MatrixFreeTrustRegion (Steihaug-Toint CG)"
@@ -904,7 +930,7 @@ pub(crate) fn run_outer_with_plan(
                     let initial_op_sample = OperatorSample {
                         value: seed_eval.cost,
                         gradient: seed_eval.gradient.clone(),
-                        hessian: hessian_result_to_value(seed_eval.hessian.clone()),
+                        hessian: seed_eval.hessian.clone(),
                     };
 
                     let bridge_obj = OuterOperatorBridge {
@@ -1018,6 +1044,39 @@ pub(crate) fn run_outer_with_plan(
                                 solution_into_outer_result(report.solution, false, *the_plan);
                             result.operator_stop_reason =
                                 Some(OperatorTrustRegionStopReason::RejectFloor);
+                            result.operator_trust_radius = final_radius;
+                            Ok(result)
+                        }
+                        // opt 0.5.13 native cost-stall exits: `CostStallConverged`
+                        // means the cost flatlined AND the bound-projected
+                        // gradient at the best iterate cleared the outer
+                        // tolerance — a KKT-stationary success, same verdict as
+                        // `Converged`. `CostStallFloor` is the flat-valley floor
+                        // with residual non-stationarity: halt is correct but
+                        // NOT a success; map it to `CostStallFlatValley` so the
+                        // retry orchestrator (run.rs) skips the wasted replay
+                        // and the shipped-β gradient reconciliation
+                        // (estimate/optimizer.rs) can still upgrade a
+                        // score-relative near-stationary floor.
+                        OptimizationStatus::CostStallConverged => {
+                            let mut result =
+                                solution_into_outer_result(report.solution, true, *the_plan);
+                            result.operator_stop_reason =
+                                Some(OperatorTrustRegionStopReason::Converged);
+                            result.operator_trust_radius = final_radius;
+                            Ok(result)
+                        }
+                        OptimizationStatus::CostStallFloor => {
+                            log::warn!(
+                                "[OUTER warning] {context}: matrix-free TR stopped on a cost stall \
+                                 with non-stationary projected gradient at final_value={:.6e} |g|={:.3e}",
+                                report.solution.final_value,
+                                report.solution.final_gradient_norm.unwrap_or(f64::NAN),
+                            );
+                            let mut result =
+                                solution_into_outer_result(report.solution, false, *the_plan);
+                            result.operator_stop_reason =
+                                Some(OperatorTrustRegionStopReason::CostStallFlatValley);
                             result.operator_trust_radius = final_radius;
                             Ok(result)
                         }
@@ -1217,7 +1276,9 @@ pub(crate) fn run_outer_with_plan(
                                         *the_plan,
                                     ))
                                 }
-                                _ => Ok(solution_into_outer_result(*last_solution, false, *the_plan)),
+                                _ => {
+                                    Ok(solution_into_outer_result(*last_solution, false, *the_plan))
+                                }
                             }
                         }
                         Err(ArcError::ObjectiveFailed { message })
@@ -1242,11 +1303,23 @@ pub(crate) fn run_outer_with_plan(
                                         exit.converged,
                                         *the_plan,
                                     );
-                                    if !exit.converged {
-                                        result.operator_stop_reason = Some(
-                                            OperatorTrustRegionStopReason::CostStallFlatValley,
-                                        );
-                                    }
+                                    // #2241 — carry the guard's measured probe-
+                                    // noise-floor bound so the final analytic
+                                    // certificate honors the same flat band the
+                                    // guard certified in the loop.
+                                    result.flat_noise_grad_bound = exit.noise_grad_bound;
+                                    // Preserve HOW ARC stopped even when the
+                                    // guard already certified the stalled score
+                                    // surface. The mandatory final analytic
+                                    // certificate uses this provenance to apply
+                                    // the same derived score-relative flat-valley
+                                    // bound as the guard. Dropping the marker on
+                                    // `exit.converged=true` made the final pass
+                                    // silently revert to the much tighter raw
+                                    // solver bound and reject the identical
+                                    // point (#1689: |g|=.042 on |V|≈982).
+                                    result.operator_stop_reason =
+                                        Some(OperatorTrustRegionStopReason::CostStallFlatValley);
                                     Ok(result)
                                 }
                                 None => Err(EstimationError::RemlOptimizationFailed(format!(
@@ -1331,11 +1404,12 @@ pub(crate) fn run_outer_with_plan(
                     let device_input = crate::gpu::reml_outer::RemlOuterGpuInput {
                         seed_rho: seed.clone(),
                         bounds: bounds_dev,
-                        gradient_tolerance: grad_tol_dev.abs,
+                        gradient_tolerance: grad_tol_dev,
                         max_iterations: config.max_iter,
                         axis_step_caps: axis_caps_dev,
                         admission,
                         seed_objective: seed_eval_dev.cost,
+                        seed_gradient: seed_eval_dev.gradient.clone(),
                     };
                     // The per-step evaluator routes the on-device
                     // (cost, gradient) assembly through the same
@@ -1356,10 +1430,7 @@ pub(crate) fn run_outer_with_plan(
                                 gradient: eval.gradient,
                             })
                         };
-                        crate::gpu::reml_outer::run_reml_outer_on_device(
-                            device_input,
-                            evaluator,
-                        )
+                        crate::gpu::reml_outer::run_reml_outer_on_device(device_input, evaluator)
                     };
                     // `seed_slot` is the per-seed index assigned above; it is
                     // consumed only by the host-BFGS logging summary, which
@@ -1603,9 +1674,7 @@ pub(crate) fn run_outer_with_plan(
                                     && h.ncols() == layout.n_params
                                     && h.iter().all(|v| v.is_finite())
                             })
-                            .and_then(|h| {
-                                gam_linalg::utils::invert_spd_with_ridge(h, 1.0e-8).ok()
-                            })
+                            .and_then(|h| gam_linalg::utils::invert_spd_with_ridge(h, 1.0e-8).ok())
                             .filter(|h_inv| h_inv.iter().all(|v| v.is_finite()));
                         if let Some(h_inv) = dense_metric {
                             log::info!(
@@ -1619,8 +1688,7 @@ pub(crate) fn run_outer_with_plan(
                         }
                     }
                     if !installed_initial_metric {
-                        let g0_norm =
-                            seed_eval.gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
+                        let g0_norm = seed_eval.gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
                         if g0_norm.is_finite() && g0_norm > 0.0 {
                             let scale = (1.0 / g0_norm).clamp(1.0e-3, 1.0e3);
                             optimizer = optimizer.with_initial_metric(InitialMetric::Scalar(scale));
@@ -1741,6 +1809,11 @@ pub(crate) fn run_outer_with_plan(
                                         exit.converged,
                                         *the_plan,
                                     );
+                                    // #2241 — carry the guard's measured probe-
+                                    // noise-floor bound so the final analytic
+                                    // certificate honors the same flat band the
+                                    // guard certified in the loop.
+                                    result.flat_noise_grad_bound = exit.noise_grad_bound;
                                     if !exit.converged {
                                         result.operator_stop_reason = Some(
                                             OperatorTrustRegionStopReason::CostStallFlatValley,
@@ -1855,7 +1928,6 @@ pub(crate) fn run_outer_with_plan(
         let seed_elapsed = t_seed_start.elapsed().as_secs_f64();
         match result {
             Ok(candidate) => {
-                let candidate_converged = candidate.converged;
                 log::debug!(
                     "[outer-timing] seed {}/{} ({:?}): {:.3}s  cost={:.6e}  converged={}",
                     seed_slot,
@@ -1865,6 +1937,28 @@ pub(crate) fn run_outer_with_plan(
                     candidate.final_value,
                     candidate.converged,
                 );
+                if !candidate.converged {
+                    retain_best_outer_checkpoint(&mut best_checkpoint, candidate);
+                    // An exhausted iterate is resumable work, not a fit
+                    // candidate. Continue the declared multistart budget in
+                    // search of a stationary seed; it may never populate or
+                    // short-circuit the certified winner slot.
+                    continue 'seed_attempts;
+                }
+                let candidate = match CertifiedOuterCandidate::from_solver_claim(
+                    obj, config, context, candidate,
+                ) {
+                    Ok(candidate) => candidate,
+                    Err((checkpoint, error)) => {
+                        log::warn!(
+                            "[OUTER] {context}: seed {seed_idx} solver convergence claim failed \
+                             analytic certification: {error}; retaining only a resume checkpoint"
+                        );
+                        retain_best_outer_checkpoint(&mut best_checkpoint, checkpoint);
+                        rejection_reasons.push((seed_idx, "certificate", error.to_string()));
+                        continue 'seed_attempts;
+                    }
+                };
                 // #1373: for GLM/survival models the seed screening deliberately
                 // places the most-flexible (low-lambda) seed at slot 0 and the
                 // heaviest interior (high-lambda) seed at slot 1 so the budget-2
@@ -1879,9 +1973,16 @@ pub(crate) fn run_outer_with_plan(
                     .risk_profile
                     .uses_parsimonious_keep_best();
                 let candidate_improved = if parsimonious_keep_best {
-                    candidate_improves_best_parsimonious(&candidate, best.as_ref(), rho_dim)
+                    candidate_improves_best_parsimonious(
+                        candidate.result(),
+                        best.as_ref().map(CertifiedOuterCandidate::result),
+                        rho_dim,
+                    )
                 } else {
-                    candidate_improves_best(&candidate, best.as_ref())
+                    candidate_improves_best(
+                        candidate.result(),
+                        best.as_ref().map(CertifiedOuterCandidate::result),
+                    )
                 };
                 if candidate_improved {
                     best = Some(candidate);
@@ -1913,69 +2014,12 @@ pub(crate) fn run_outer_with_plan(
                     && started_seeds < seed_budget
                     && !best
                         .as_ref()
-                        .is_some_and(|b| parsimony_second_seed_is_redundant(b, rho_dim));
-                if best.as_ref().is_some_and(|b| b.converged)
+                        .is_some_and(|b| parsimony_second_seed_is_redundant(b.result(), rho_dim));
+                if best.is_some()
                     && !quality_compare_remaining_gaussian_seeds
                     && !non_gaussian_await_parsimony_seed
                 {
                     break;
-                }
-                // Separable-fit multi-start guard (#1082). On a near-separable
-                // fit (the penguin-species multinomial) the unpenalized MLE is
-                // unbounded, so NO seed certifies outer convergence: every seed's
-                // projected gradient plateaus above tolerance on the λ→0 ridge,
-                // and the cost-stall guard publishes a feasible-but-`converged =
-                // false` best. The converged-break above therefore never fires,
-                // and the existing `expensive_seed_limit` only counts seeds that
-                // FAIL outright (Err / non-finite cost). So the optimizer pays a
-                // SECOND expensive seed which lands in a deeper-separation ρ whose
-                // inner joint-Newton crawls (~70s/eval), spending hundreds of
-                // wall-clock seconds to "refine" a feasible fit it provably cannot
-                // beat — the penguin 360s timeout.
-                //
-                // Once an expensive seed has produced a FEASIBLE (finite-cost)
-                // best, stop: paying another expensive seed to chase a stationary
-                // point that does not exist (the separating MLE is at λ = 0) is
-                // the budget waste #1082 is about. This is gated on the
-                // expensive-solver risk profiles (`expensive_seed_limit.is_some()`
-                // — ARC GeneralizedLinear/Survival; the cheap-EFS and Gaussian
-                // quality-compare paths are untouched) and only triggers AFTER a
-                // feasible result exists, so a seed that fails to produce any
-                // usable fit still falls through to the next seed exactly as
-                // before. The published best is the converged-or-best-feasible
-                // iterate either way, so accuracy is unchanged; only the wasted
-                // second expensive crawl is removed.
-                if should_stop_expensive_multistart_after_best(
-                    best.as_ref(),
-                    expensive_seed_limit,
-                    quality_compare_remaining_gaussian_seeds,
-                ) {
-                    log::info!(
-                        "[OUTER] {context}: stopping expensive multi-start: a feasible \
-                         NON-stationary best is in hand (value={:.6e}); the projected gradient \
-                         plateaued without certifying (the near-separable λ→0 ridge), so further \
-                         expensive {:?} seeds cannot reach a stationary point and only burn \
-                         wall-clock",
-                        best.as_ref().map(|b| b.final_value).unwrap_or(f64::NAN),
-                        the_plan.solver,
-                    );
-                    stopped_early_due_to_limit = true;
-                    break;
-                }
-                if !candidate_converged && matches!(expensive_seed_limit, Some(limit) if limit > 0)
-                {
-                    unsuccessful_expensive_seeds += 1;
-                    if let Some(limit) = expensive_seed_limit
-                        && unsuccessful_expensive_seeds >= limit
-                    {
-                        log::info!(
-                            "[OUTER] {context}: stopping expensive multi-start after {} non-converged {:?} seed(s)",
-                            unsuccessful_expensive_seeds,
-                            the_plan.solver,
-                        );
-                        stopped_early_due_to_limit = true;
-                        break;
-                    }
                 }
             }
             Err(e) => {
@@ -1991,23 +2035,12 @@ pub(crate) fn run_outer_with_plan(
                     e,
                 );
                 rejection_reasons.push((seed_idx, "solver", e.to_string()));
-                if let Some(limit) = expensive_seed_limit {
-                    unsuccessful_expensive_seeds += 1;
-                    if unsuccessful_expensive_seeds >= limit {
-                        log::info!(
-                            "[OUTER] {context}: stopping expensive multi-start after {} failed {:?} seed(s)",
-                            unsuccessful_expensive_seeds,
-                            the_plan.solver,
-                        );
-                        stopped_early_due_to_limit = true;
-                        break;
-                    }
-                }
             }
         }
     }
 
-    if let Some(result) = best {
+    if let Some(certified) = best {
+        let result = certified.into_result();
         // The finalize evaluation re-installs the selected outer result by
         // re-running the inner P-IRLS at θ̂. During the outer search the ARC /
         // BFGS bridge schedule throttles `RemlState::outer_inner_cap` down to a
@@ -2037,7 +2070,11 @@ pub(crate) fn run_outer_with_plan(
         let finalize_outcome = obj.finalize_outer_result(&result.rho, the_plan);
         drop(finalize_cap_guard);
         finalize_outcome?;
-        return Ok(result);
+        return Ok(PlanRunOutcome::Converged(result));
+    }
+
+    if let Some(checkpoint) = best_checkpoint {
+        return Ok(PlanRunOutcome::Exhausted(checkpoint));
     }
 
     Err({
@@ -2075,7 +2112,7 @@ pub(crate) fn run_outer_with_plan(
         let structural = structural_early_exit_key
             .clone()
             .or_else(|| uniform_structural_key(&seed_rejections, 1));
-        let mut early_exit_note = if structural_early_exit_key.is_some() {
+        let early_exit_note = if structural_early_exit_key.is_some() {
             "early-exit triggered: every observed seed reported the same structural rejection"
                 .to_string()
         } else if let Some((sig, first_seed, last_seed)) = generic_structural_bail.as_ref() {
@@ -2085,45 +2122,9 @@ pub(crate) fn run_outer_with_plan(
                 "structural: {label} on seeds {first_seed}..{last_seed}; \
                  remaining {skipped} seeds skipped"
             )
-        } else if stopped_early_due_to_wall_clock {
-            format!(
-                "stopped early: outer wall-clock deadline reached after {started_seeds} started \
-                 {:?} seed(s) (gam#979 bounded budget); best-so-far iterate returned",
-                the_plan.solver
-            )
-        } else if stopped_early_due_to_limit {
-            format!(
-                "stopped early after {unsuccessful_expensive_seeds} consecutive non-converged \
-                 {:?} seed(s) (expensive_unsuccessful_seed_limit)",
-                the_plan.solver
-            )
         } else {
             String::new()
         };
-        // Surface the ContinuationPath demotion ledger: for a continuation-entry
-        // objective, structural defects DEMOTED the cascade to heavier path
-        // regimes instead of rejecting seeds, so the final diagnosis must show
-        // the heavier-regime re-entries (with their reasons) rather than imply
-        // the candidate set was emptied by a structural early-exit.
-        if !path_demotions.is_empty() {
-            if !early_exit_note.is_empty() {
-                early_exit_note.push_str("; ");
-            }
-            let final_regime = continuation_path
-                .as_ref()
-                .map(|path| format!("{:?}", path.enter_regime()))
-                .unwrap_or_else(|| "<none>".to_string());
-            early_exit_note.push_str(&format!(
-                "continuation-path: {} structural defect(s) DEMOTED to heavier regime(s) \
-                 (never rejected); final regime={final_regime}; reasons: [{}]",
-                path_demotions.len(),
-                path_demotions
-                    .iter()
-                    .map(|d| format!("seed {} -> {:?}: {}", d.seed_idx, d.regime, d.reason))
-                    .collect::<Vec<_>>()
-                    .join("; "),
-            ));
-        }
         if started_seeds == 0 {
             EstimationError::RemlOptimizationFailed(format_no_seeds_passed(
                 context,

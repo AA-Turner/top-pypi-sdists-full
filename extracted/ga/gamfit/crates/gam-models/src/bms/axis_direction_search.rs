@@ -1482,18 +1482,16 @@ impl BernoulliMarginalSlopeFamily {
             &self.policy,
         )?;
         let psi_map_ij = if block_i == block_j {
-            Some(
-                gam_custom_family::resolve_custom_family_x_psi_psi_map(
-                    deriv_i,
-                    deriv_j,
-                    local_j,
-                    n,
-                    p_psi_i,
-                    0..n,
-                    label_i,
-                    &self.policy,
-                )?,
-            )
+            Some(gam_custom_family::resolve_custom_family_x_psi_psi_map(
+                deriv_i,
+                deriv_j,
+                local_j,
+                n,
+                p_psi_i,
+                0..n,
+                label_i,
+                &self.policy,
+            )?)
         } else {
             None
         };
@@ -1789,8 +1787,7 @@ impl BernoulliMarginalSlopeFamily {
         alpha_psi: &[f64],
         cache: &BernoulliMarginalSlopeExactEvalCache,
         options: &BlockwiseFitOptions,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderContracted>, String>
-    {
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderContracted>, String> {
         use gam_problem::DriftDerivResult;
         let slices = &cache.slices;
         let primary = &cache.primary;
@@ -2194,7 +2191,7 @@ impl BernoulliMarginalSlopeFamily {
             .map(|acc| DriftDerivResult::Operator(Arc::new(acc.into_operator(slices))))
             .collect();
         Ok(Some(
-            crate::custom_family::ExactNewtonJointPsiSecondOrderContracted {
+            gam_problem::ExactNewtonJointPsiSecondOrderContracted {
                 objective,
                 score,
                 hessian,

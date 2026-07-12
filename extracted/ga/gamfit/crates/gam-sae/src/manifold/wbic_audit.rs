@@ -127,7 +127,13 @@ impl ReconSpectrum {
         let tempered_edge = self.edge * self.n_eff.max(std::f64::consts::E).ln();
         self.mu
             .iter()
-            .map(|&m| if tempered_edge > 0.0 { m / (m + tempered_edge) } else { 1.0 })
+            .map(|&m| {
+                if tempered_edge > 0.0 {
+                    m / (m + tempered_edge)
+                } else {
+                    1.0
+                }
+            })
             .sum()
     }
 
@@ -221,24 +227,23 @@ pub fn recon_spectrum(
     // basis_edf = tr(G(G+λS)⁻¹), the same ridge trace the production core computes.
     let mut mmat = gram.clone();
     if let Some(pen) = smooth_penalty {
-        if pen.dim() == (m, m) {
-            for i in 0..m {
-                for j in 0..m {
-                    mmat[[i, j]] += lam_smooth * pen[[i, j]];
-                }
+        if pen.dim() != (m, m) {
+            return Err(format!(
+                "recon_spectrum: smooth penalty shape {:?} does not match Gram shape ({m}, {m})",
+                pen.dim()
+            ));
+        }
+        for i in 0..m {
+            for j in 0..m {
+                mmat[[i, j]] += lam_smooth * pen[[i, j]];
             }
         }
     }
-    for i in 0..m {
-        mmat[[i, i]] += 1.0e-12;
-    }
-    let basis_edf = match mmat.cholesky(Side::Lower) {
-        Ok(factor) => {
-            let x = factor.solve_mat(gram);
-            (0..m).map(|i| x[[i, i]]).sum::<f64>().clamp(0.0, m as f64)
-        }
-        Err(_) => m as f64,
-    };
+    let factor = mmat.cholesky(Side::Lower).map_err(|error| {
+        format!("recon_spectrum: G + lambda*S is not positive definite: {error}")
+    })?;
+    let x = factor.solve_mat(gram);
+    let basis_edf = (0..m).map(|i| x[[i, i]]).sum::<f64>().clamp(0.0, m as f64);
     Ok(ReconSpectrum {
         mu,
         edge,
@@ -353,12 +358,7 @@ pub fn direction_learning_coefficient(mu: f64, edge: f64, n_eff: f64) -> f64 {
 /// returns the SAME number as the sigmoid up to the prior-shift term, which this
 /// includes so the test sees the full expectation. `log n_eff` uses the same
 /// `n_eff` floored at `e` as production `rank_soft`.
-pub fn sampled_direction_learning_coefficient(
-    mu: f64,
-    edge: f64,
-    n_eff: f64,
-    r_floor: f64,
-) -> f64 {
+pub fn sampled_direction_learning_coefficient(mu: f64, edge: f64, n_eff: f64, r_floor: f64) -> f64 {
     let ln_neff = n_eff.max(std::f64::consts::E).ln();
     if !(ln_neff > 0.0) || !(r_floor > 0.0) || !(n_eff > 0.0) {
         return 0.0;
@@ -533,13 +533,7 @@ mod tests {
         }
         let decoder = reg.cholesky(Side::Lower).unwrap().solve_mat(&cross);
         let d_prod = super::super::construction::realised_rank_charge_dof(
-            &gram,
-            &decoder,
-            n as f64,
-            p as f64,
-            r_floor,
-            0.0,
-            None,
+            &gram, &decoder, n as f64, p as f64, r_floor, 0.0, None,
         )
         .unwrap();
         let d_audit = spec.rank_hard() * spec.basis_edf;
@@ -628,9 +622,8 @@ mod tests {
         // membership basis (rank-3, all far above edge).
         {
             let mut s = 0x2222_u64;
-            let phi = Array2::<f64>::from_shape_fn((n, 3), |(i, c)| {
-                if i % 3 == c { 1.0 } else { 0.0 }
-            });
+            let phi =
+                Array2::<f64>::from_shape_fn((n, 3), |(i, c)| if i % 3 == c { 1.0 } else { 0.0 });
             let centers = [[3.0, 0.0], [0.0, 3.0], [-3.0, -3.0]];
             let mut data = Array2::<f64>::zeros((n, p));
             for i in 0..n {
@@ -691,7 +684,11 @@ mod tests {
             }
             let w = vec![1.0_f64; n];
             let spec = spectrum_from_fit(data.view(), &w, &phi, 0.15 * 0.15, 0.0, None).unwrap();
-            rows.push(AuditRow::from_spectrum("circle near-edge (singular)", &spec, n));
+            rows.push(AuditRow::from_spectrum(
+                "circle near-edge (singular)",
+                &spec,
+                n,
+            ));
         }
 
         // (5) DISK — a filled 2-disk (radius uniform, not a shell): reconstruction
@@ -868,7 +865,10 @@ mod tests {
         // FALSIFY THE OLD SCALE: under ½·d_eff·ln(n_obs) the same append would have
         // inflated the charge (rank_hard>0, n_obs grows N→N+M), so the two scales are
         // genuinely different and this test would fail on the pre-#2a code.
-        assert!(spec_after.rank_hard() > 0.0, "fixture must have a real above-edge atom");
+        assert!(
+            spec_after.rank_hard() > 0.0,
+            "fixture must have a real above-edge atom"
+        );
         let old_before = 0.5 * spec_before.rank_hard() * spec_before.basis_edf * (n as f64).ln();
         let old_after = 0.5 * spec_after.rank_hard() * spec_after.basis_edf * (n_aug as f64).ln();
         assert!(
@@ -914,7 +914,7 @@ mod tests {
     /// and (b) sit STRICTLY BELOW the hard charge near the edge — a filled disk whose
     /// directions pile just above the edge, where the hard count prices each as a full
     /// unit but the tempered count discounts them. This is the finite-n Watanabe
-    /// correction the opt-in `reml_criterion_with_cache_soft_charge` engages.
+    /// correction reported by this audit-only module.
     #[test]
     fn soft_ledger_reduces_to_hard_away_from_edge_and_undercuts_near_it() {
         let n = 1200usize;

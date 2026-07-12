@@ -18,11 +18,11 @@ class IdeahubResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleSearchIdeahubV1alphaListIdeasResponseHttpRequest: ...
         def list_next(
@@ -41,7 +41,7 @@ class IdeahubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleSearchIdeahubV1alphaIdeaActivity = ...,
+                    body: GoogleSearchIdeahubV1alphaIdeaActivity,
                     **kwargs: typing.Any,
                 ) -> GoogleSearchIdeahubV1alphaIdeaActivityHttpRequest: ...
 
@@ -51,8 +51,8 @@ class IdeahubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleSearchIdeahubV1alphaIdeaState = ...,
-                    updateMask: str = ...,
+                    body: GoogleSearchIdeahubV1alphaIdeaState,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleSearchIdeahubV1alphaIdeaStateHttpRequest: ...
 
@@ -62,10 +62,10 @@ class IdeahubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleSearchIdeahubV1alphaListIdeasResponseHttpRequest: ...
                 def list_next(
@@ -80,8 +80,8 @@ class IdeahubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleSearchIdeahubV1alphaListAvailableLocalesResponseHttpRequest
@@ -101,8 +101,8 @@ class IdeahubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleSearchIdeahubV1alphaTopicState = ...,
-                    updateMask: str = ...,
+                    body: GoogleSearchIdeahubV1alphaTopicState,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleSearchIdeahubV1alphaTopicStateHttpRequest: ...
 

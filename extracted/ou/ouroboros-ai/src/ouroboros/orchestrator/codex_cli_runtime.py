@@ -8,6 +8,9 @@ from collections.abc import AsyncIterator, Mapping
 import contextlib
 from dataclasses import replace
 from datetime import UTC, datetime
+import hashlib
+import json
+import math
 import os
 from pathlib import Path
 import re
@@ -61,6 +64,58 @@ log = get_logger(__name__)
 _TOP_LEVEL_EVENT_MESSAGE_TYPES: dict[str, str] = {
     "error": "assistant",
 }
+
+# Token-usage keys Codex's ``turn.completed`` event may carry. Kept in sync by
+# convention with the adapter's ``_USAGE_TOKEN_KEYS`` (a tiny duplicated helper,
+# not a shared module, per the token-attribution seam design).
+_USAGE_TOKEN_KEYS: tuple[str, ...] = (
+    "input_tokens",
+    "output_tokens",
+    "cached_input_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "total_tokens",
+)
+
+
+def _normalized_usage(obj: object) -> dict[str, int | float] | None:
+    """Extract a plain dict of finite numeric token counts from a usage payload.
+
+    Reads only the known token keys (:data:`_USAGE_TOKEN_KEYS`) from either a
+    ``Mapping`` or an attribute-bearing object. If any present known key is not a
+    finite, non-negative ``int``/``float`` (bools rejected), the entire payload is
+    rejected. Silently retaining only the valid half of a partially corrupted
+    usage object can undercount spend and create a false frugality proof. Returns
+    ``None`` when the payload is malformed or carries no known counters. Never
+    raises.
+    """
+    if obj is None:
+        return None
+    missing = object()
+    result: dict[str, int | float] = {}
+    for key in _USAGE_TOKEN_KEYS:
+        if isinstance(obj, Mapping):
+            if key not in obj:
+                continue
+            value = obj.get(key)
+        else:
+            try:
+                value = getattr(obj, key, missing)
+            except Exception:
+                return None
+            if value is missing:
+                continue
+        if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        try:
+            number = float(value)
+        except (OverflowError, TypeError, ValueError):
+            return None
+        if not math.isfinite(number) or number < 0:
+            return None
+        result[key] = value
+    return result or None
+
 
 _INTERVIEW_SESSION_METADATA_KEY = "ouroboros_interview_session_id"
 
@@ -132,6 +187,31 @@ class CodexCliRuntime:
             logger=log,
             log_namespace=self._log_namespace,
         )
+        # Freeze the role-default model/profile once per runtime. Without this,
+        # every ``codex exec`` call re-reads mutable profile config, so a long
+        # run (or its resume) can silently switch models while the persisted
+        # execution identity still describes the earlier resolution.
+        if self._runtime_backend == "codex":
+            (
+                self._resolved_fallback_model,
+                self._resolved_fallback_profile,
+            ) = self._resolve_runtime_codex_config_uncached(None)
+            # Freeze both layers that can retarget a Codex command without
+            # changing its visible --profile name: Ouroboros role/profile
+            # resolution and Codex's own global/profile TOML files. The values
+            # are hashes only; secrets or provider configuration never enter
+            # events. Resume compares the hashes, and command construction
+            # checks them again before consulting any role-dependent fallback.
+            self._profile_resolution_fingerprint = self._fingerprint_profile_resolution_config()
+            self._codex_config_fingerprint = self._fingerprint_codex_config_files()
+        else:
+            # Subclasses reuse the process/session machinery but implement
+            # their own model/config semantics. Do not make their construction
+            # depend on an unrelated Codex agent_runtime profile.
+            self._resolved_fallback_model = None
+            self._resolved_fallback_profile = None
+            self._profile_resolution_fingerprint = None
+            self._codex_config_fingerprint = None
         self._builtin_mcp_handlers: dict[str, Any] | None = None
         if startup_output_timeout_seconds is not None:
             self._startup_output_timeout_seconds = (
@@ -181,6 +261,12 @@ class CodexCliRuntime:
             # level outside this set is silently dropped, so declare the vocabulary
             # to keep enforced/advised classification truthful.
             enforceable_reasoning_efforts=_CODEX_REASONING_EFFORT_LEVELS,
+            # Model-tier override IS enforced natively: ``codex exec`` accepts a
+            # per-invocation ``--model`` (see _build_command), so a per-call model
+            # the orchestrator routes is honored, not merely advised. (The router's
+            # provider map is anthropic-only today, so codex is not yet routed —
+            # but the plumbing is truthful and ready.)
+            model_override_support=ParamSupport.NATIVE,
             # Codex can self-parallelize inside a session, but ``codex mcp-server``
             # exposes only ``codex`` / ``codex-reply`` — its native multi-agent
             # team tools are not reachable by an external driver. So ouroboros can
@@ -252,6 +338,230 @@ class CodexCliRuntime:
             return None
         return candidate
 
+    @staticmethod
+    def _hash_json_payload(payload: object) -> str:
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _fingerprint_profile_resolution_config(self) -> str:
+        """Hash only Ouroboros profile fields that can alter a Codex command."""
+        from ouroboros.providers import profiles as profile_module
+
+        try:
+            config = profile_module.load_config()
+        except Exception as exc:
+            # Role resolution also falls back when config loading fails. Keep
+            # that state stable without persisting path-rich error messages.
+            return self._hash_json_payload({"version": 1, "load_error": type(exc).__name__})
+
+        profiles: dict[str, object] = {}
+        for name, profile in sorted(config.llm_profiles.items()):
+            codex_providers = {
+                key: {
+                    "model": provider.model,
+                    "profile": provider.profile,
+                }
+                for key, provider in sorted(profile.providers.items())
+                if key.strip().lower() in {"codex", "codex_cli"}
+            }
+            profiles[name] = {
+                "model": profile.model,
+                "providers": codex_providers,
+            }
+
+        return self._hash_json_payload(
+            {
+                "version": 1,
+                "llm_profiles": profiles,
+                "llm_role_profiles": dict(sorted(config.llm_role_profiles.items())),
+            }
+        )
+
+    @staticmethod
+    def _codex_home() -> Path:
+        configured = os.environ.get("CODEX_HOME")
+        return Path(configured).expanduser() if configured else Path.home() / ".codex"
+
+    def _fingerprint_codex_config_files(self) -> str:
+        """Hash global Codex config and every profile-v2 TOML by name/content."""
+        codex_home = self._codex_home()
+        candidates: dict[str, Path] = {"config.toml": codex_home / "config.toml"}
+        try:
+            for path in codex_home.glob("*.config.toml"):
+                candidates[path.name] = path
+        except OSError as exc:
+            raise RuntimeError("Cannot inspect Codex profile configuration") from exc
+
+        digest = hashlib.sha256()
+        digest.update(b"ouroboros-codex-config-v1\0")
+        # CODEX_HOME also owns the session database used by ``codex exec
+        # resume``. Identical profile files under a different home must not
+        # authorize reconnecting a persisted thread id in another store.
+        digest.update(str(codex_home.resolve(strict=False)).encode("utf-8"))
+        digest.update(b"\0")
+        for name, path in sorted(candidates.items()):
+            digest.update(name.encode("utf-8", errors="surrogateescape"))
+            digest.update(b"\0")
+            try:
+                stat_result = path.lstat()
+            except FileNotFoundError:
+                digest.update(b"missing\0")
+                continue
+            except OSError as exc:
+                raise RuntimeError("Cannot inspect Codex profile configuration") from exc
+
+            if path.is_symlink():
+                try:
+                    digest.update(b"symlink\0")
+                    digest.update(os.readlink(path).encode("utf-8", errors="surrogateescape"))
+                    digest.update(b"\0")
+                except OSError as exc:
+                    raise RuntimeError("Cannot inspect Codex profile configuration") from exc
+            if not path.is_file():
+                digest.update(f"non-file:{stat_result.st_mode}\0".encode("ascii"))
+                continue
+            try:
+                with path.open("rb") as config_file:
+                    while chunk := config_file.read(64 * 1024):
+                        digest.update(chunk)
+            except OSError as exc:
+                raise RuntimeError("Cannot read Codex profile configuration") from exc
+            digest.update(b"\0")
+        return digest.hexdigest()
+
+    def _assert_codex_config_files_unchanged(self) -> None:
+        if self._runtime_backend != "codex":
+            return
+        if self._fingerprint_codex_config_files() != self._codex_config_fingerprint:
+            raise RuntimeError(
+                "Codex configuration changed after runtime initialization; "
+                "start a new execution session"
+            )
+
+    def _assert_profile_resolution_config_unchanged(self) -> None:
+        if self._runtime_backend != "codex":
+            return
+        if self._fingerprint_profile_resolution_config() != self._profile_resolution_fingerprint:
+            raise RuntimeError(
+                "Ouroboros Codex profile routing changed after runtime initialization; "
+                "start a new execution session"
+            )
+
+    def execution_identity_contract(self) -> dict[str, Any]:
+        """Return the resolved Codex execution identity used across resumes.
+
+        ``_model`` alone is not a complete model pin for Codex.  When it is
+        absent, ``codex exec`` may select both its model and provider through a
+        provider-neutral runtime profile, a Codex-native ``--profile``, or the
+        role-based completion profile.  Persist the command-relevant resolved
+        fallback so a config/profile change cannot silently retarget a resumed
+        session while the generic constructor-model check still sees ``None``.
+        """
+
+        constructor_model = self._normalize_model(self._model)
+        normalized_llm_backend = (
+            self._llm_backend.strip()
+            if isinstance(self._llm_backend, str) and self._llm_backend.strip()
+            else None
+        )
+
+        # Gemini, Goose, Grok, and Copilot reuse Codex's subprocess/session
+        # machinery but override command construction. They do not consume the
+        # Codex runtime/profile fallback below, so inheriting that state as
+        # proof of their effective model would authorize resumes using an
+        # unrelated ~/.codex profile. Record only inputs their commands really
+        # consume; an unpinned model remains explicitly unobserved and the
+        # runner fails closed unless native per-call routing enforces it.
+        if self._runtime_backend != "codex":
+            return {
+                "kind": f"{self._runtime_handle_backend}_v1",
+                "fallback_model": constructor_model,
+                "effective_model_observed": constructor_model is not None,
+                "llm_backend": normalized_llm_backend,
+            }
+
+        fallback_model = constructor_model
+        fallback_profile = self._codex_profile
+
+        if constructor_model is None:
+            runtime_model = self._resolved_fallback_model
+            runtime_profile = self._resolved_fallback_profile
+            if runtime_profile and not fallback_profile:
+                fallback_profile = runtime_profile
+            else:
+                fallback_model = self._normalize_model(runtime_model)
+
+        return {
+            "kind": "codex_cli_v1",
+            "runtime_profile": self._runtime_profile.strip()
+            if isinstance(self._runtime_profile, str) and self._runtime_profile.strip()
+            else None,
+            "codex_profile": self._codex_profile.strip()
+            if isinstance(self._codex_profile, str) and self._codex_profile.strip()
+            else None,
+            "fallback_model": fallback_model,
+            "fallback_profile": fallback_profile.strip()
+            if isinstance(fallback_profile, str) and fallback_profile.strip()
+            else None,
+            # A profile name is not a model observation. Current Codex profiles
+            # may contain only reasoning-effort settings and inherit their model
+            # from mutable global config/defaults. Only a concrete --model value
+            # can authorize a routing-disabled resume.
+            "effective_model_observed": fallback_model is not None,
+            "llm_backend": normalized_llm_backend,
+            "profile_resolution_fingerprint": self._profile_resolution_fingerprint,
+            "codex_config_fingerprint": self._codex_config_fingerprint,
+            "resume_handle_selector": self.resume_handle_execution_identity_contract(None),
+        }
+
+    def resume_handle_execution_identity_contract(
+        self,
+        runtime_handle: RuntimeHandle | None,
+    ) -> dict[str, Any]:
+        """Return command-selection state admitted for a root Codex resume handle."""
+        if self._runtime_backend != "codex":
+            return {
+                "kind": self._runtime_handle_backend,
+                "selectors": {},
+            }
+
+        normalized_kind = (
+            (runtime_handle.kind if runtime_handle is not None else "agent_runtime")
+            .strip()
+            .lower()
+            .replace("-", "_")
+        ) or "agent_runtime"
+        metadata = runtime_handle.metadata if runtime_handle is not None else {}
+        selectors: dict[str, str] = {}
+        for key in (
+            *_RUNTIME_PROFILE_METADATA_KEYS,
+            *_RUNTIME_CODEX_PROFILE_METADATA_KEYS,
+            "llm_role",
+            "agent_runtime_role",
+            "session_role",
+        ):
+            if key not in metadata:
+                continue
+            value = metadata.get(key)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"Invalid Codex resume selector metadata: {key}")
+            selectors[key] = value.strip()
+        return {
+            "backend": (
+                runtime_handle.backend
+                if runtime_handle is not None
+                else self._runtime_handle_backend
+            ),
+            "kind": normalized_kind,
+            "selectors": selectors,
+        }
+
     def _runtime_profile_from_metadata(self, runtime_handle: RuntimeHandle | None) -> str | None:
         """Return an explicit provider-neutral profile from runtime metadata."""
         metadata = runtime_handle.metadata if runtime_handle is not None else {}
@@ -293,11 +603,11 @@ class CodexCliRuntime:
 
         return _RUNTIME_PROFILE_ROLE_PREFIX
 
-    def _resolve_runtime_codex_config(
+    def _resolve_runtime_codex_config_uncached(
         self,
         runtime_handle: RuntimeHandle | None,
     ) -> tuple[str | None, str | None]:
-        """Resolve model/profile settings for an agent-runtime task."""
+        """Resolve model/profile settings directly from mutable config."""
         native_profile = self._codex_profile_from_metadata(runtime_handle)
         if native_profile:
             return None, native_profile
@@ -309,6 +619,31 @@ class CodexCliRuntime:
             backend="codex",
         )
         return resolved.config.model, resolved.backend_profile
+
+    def _resolve_runtime_codex_config(
+        self,
+        runtime_handle: RuntimeHandle | None,
+    ) -> tuple[str | None, str | None]:
+        """Return frozen defaults unless the handle selects an explicit role/profile."""
+        if runtime_handle is None:
+            return self._resolved_fallback_model, self._resolved_fallback_profile
+
+        metadata = runtime_handle.metadata
+        has_explicit_selection = any(
+            isinstance(metadata.get(key), str) and bool(metadata[key].strip())
+            for key in (
+                *_RUNTIME_PROFILE_METADATA_KEYS,
+                *_RUNTIME_CODEX_PROFILE_METADATA_KEYS,
+                "llm_role",
+                "agent_runtime_role",
+                "session_role",
+            )
+        )
+        normalized_kind = (runtime_handle.kind or "").strip().lower().replace("-", "_")
+        if not has_explicit_selection and normalized_kind in {"", _RUNTIME_PROFILE_ROLE_PREFIX}:
+            return self._resolved_fallback_model, self._resolved_fallback_profile
+        self._assert_profile_resolution_config_unchanged()
+        return self._resolve_runtime_codex_config_uncached(runtime_handle)
 
     def _build_runtime_handle(
         self,
@@ -843,8 +1178,10 @@ class CodexCliRuntime:
         prompt: str | None = None,
         runtime_handle: RuntimeHandle | None = None,
         reasoning_effort: str | None = None,
+        model: str | None = None,
     ) -> list[str]:
         """Build the CLI command args.  Prompt is fed via stdin separately."""
+        self._assert_codex_config_files_unchanged()
         command = [self._cli_path, "exec"]
 
         # Codex accepts one active --profile. The backend runtime profile is
@@ -873,7 +1210,11 @@ class CodexCliRuntime:
         if reasoning_effort and reasoning_effort in _CODEX_REASONING_EFFORT_LEVELS:
             command.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
 
-        normalized_model = self._normalize_model(self._model)
+        # Per-call model-tier override (RFC #1405 sibling) wins over the
+        # constructor pin; ``model is None`` falls back to ``self._model`` so
+        # existing call sites are byte-identical. Only when neither yields a model
+        # do we consult the runtime profile below (unchanged fallback order).
+        normalized_model = self._normalize_model(model or self._model)
         if normalized_model:
             command.extend(["--model", normalized_model])
         else:
@@ -1479,6 +1820,14 @@ class CodexCliRuntime:
                         tool_input={"file_path": file_path},
                         content=f"Calling tool: Edit: {file_path}",
                         handle=current_handle,
+                        # This branch is reached only for Codex's
+                        # ``item.completed`` file_change event. Preserve that
+                        # source completion status so evidence validation does
+                        # not mistake it for an unconfirmed Edit dispatch.
+                        extra_data={
+                            "subtype": "success",
+                            "runtime_event_type": "tool.completed",
+                        },
                     )
                     for file_path in file_paths
                 ]
@@ -1541,7 +1890,44 @@ class CodexCliRuntime:
             ]
 
         if event_type == "turn.completed":
-            return []  # benign lifecycle event; no action needed
+            # Codex's ``turn.completed`` carries a ``usage`` object (input_tokens
+            # / cached_input_tokens / output_tokens). Surface it as a non-final
+            # system message so a later executor can attribute per-AC token spend.
+            # With empty content and subtype "turn.completed" this projects to a
+            # benign, non-terminal system message (see runtime_message_projection:
+            # the completed-status branch keys on runtime_event_type, not on this
+            # subtype). Without usage it stays a dropped lifecycle event.
+            raw_usage = event.get("usage")
+            usage = _normalized_usage(raw_usage)
+            if usage is None:
+                # Preserve malformed telemetry as an explicit veto instead of
+                # erasing it. A later valid usage message in the same leaf must
+                # not be harvested on its own after an earlier corrupt counter
+                # was silently dropped, which would undercount spend.
+                has_usage_payload = "usage" in event
+                recognized_counter_present = isinstance(raw_usage, Mapping) and any(
+                    key in raw_usage for key in _USAGE_TOKEN_KEYS
+                )
+                if has_usage_payload and (
+                    not isinstance(raw_usage, Mapping) or recognized_counter_present
+                ):
+                    return [
+                        AgentMessage(
+                            type="system",
+                            content="",
+                            data={"subtype": "turn.completed", "usage_invalid": True},
+                            resume_handle=current_handle,
+                        )
+                    ]
+                return []
+            return [
+                AgentMessage(
+                    type="system",
+                    content="",
+                    data={"subtype": "turn.completed", "usage": usage},
+                    resume_handle=current_handle,
+                )
+            ]
 
         if event_type in _TOP_LEVEL_EVENT_MESSAGE_TYPES:
             content = self._extract_text(event)
@@ -1591,6 +1977,7 @@ class CodexCliRuntime:
         resume_handle: RuntimeHandle | None = None,
         resume_session_id: str | None = None,
         reasoning_effort: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Execute a task via Codex CLI and stream normalized messages."""
         async for msg in self._execute_task_impl(
@@ -1600,6 +1987,7 @@ class CodexCliRuntime:
             resume_handle=resume_handle,
             resume_session_id=resume_session_id,
             reasoning_effort=reasoning_effort,
+            model=model,
             _resume_depth=0,
         ):
             yield msg
@@ -1612,6 +2000,7 @@ class CodexCliRuntime:
         resume_handle: RuntimeHandle | None = None,
         resume_session_id: str | None = None,
         reasoning_effort: str | None = None,
+        model: str | None = None,
         _resume_depth: int = 0,
     ) -> AsyncIterator[AgentMessage]:
         """Internal implementation with resume-depth tracking."""
@@ -1661,6 +2050,12 @@ class CodexCliRuntime:
             # that enforce it, so a None level is correctly dropped here.
             if reasoning_effort is not None:
                 build_kwargs["reasoning_effort"] = reasoning_effort
+            # Same guard as reasoning_effort: only advised CLI subclasses override
+            # ``_build_command`` and may not accept a ``model`` kwarg, so a None
+            # override (the orchestrator's default for runtimes that do not enforce
+            # it) is dropped here rather than forwarded. Codex-native enforces it.
+            if model is not None:
+                build_kwargs["model"] = model
             command = self._build_command(**build_kwargs)
         except Exception as e:
             yield AgentMessage(
@@ -1938,6 +2333,7 @@ class CodexCliRuntime:
                     system_prompt=system_prompt,
                     resume_handle=recovery_handle,
                     reasoning_effort=reasoning_effort,
+                    model=model,
                     _resume_depth=_resume_depth + 1,
                 ):
                     yield message

@@ -16,9 +16,11 @@ from typing import Any, Mapping, Sequence
 
 from ._binding import rust_module
 
-DEFAULT_SURVIVAL_PEOPLE_CHUNK = 50_000
-DEFAULT_SURVIVAL_TIME_GRID_CHUNK = 64
-DENSE_SURVIVAL_AUTO_CHUNK_CELLS = 1_000_000
+(
+    DEFAULT_SURVIVAL_PEOPLE_CHUNK,
+    DEFAULT_SURVIVAL_TIME_GRID_CHUNK,
+    DENSE_SURVIVAL_AUTO_CHUNK_CELLS,
+) = (int(value) for value in rust_module().survival_chunk_defaults())
 
 _SURVIVAL_MODEL_CLASSES = frozenset(
     {
@@ -164,35 +166,7 @@ class SurvivalPrediction:
         return rust_module().survival_parameters_matrix(self.parameters)
 
     def _should_auto_chunk_dense(self, n_rows: int, n_times: int) -> bool:
-        return int(n_rows) * int(n_times) > DENSE_SURVIVAL_AUTO_CHUNK_CELLS
-
-    def _collect_chunks(self, chunks: Any, *, n_rows: int, n_times: int) -> Any:
-        return rust_module().survival_collect_chunks(
-            n_rows,
-            n_times,
-            [
-                (
-                    int(row_slice.start),
-                    int(row_slice.stop),
-                    int(time_slice.start),
-                    int(time_slice.stop),
-                    block,
-                )
-                for row_slice, time_slice, block in chunks
-            ],
-        )
-
-    def _hazard_from_cumulative(
-        self,
-        times_arr: Any,
-        cumulative: Any,
-        *,
-        previous_cumulative: Any | None = None,
-        previous_time: float = 0.0,
-    ) -> Any:
-        return rust_module().hazard_from_cumulative(
-            times_arr, cumulative, previous_cumulative, previous_time
-        )
+        return bool(rust_module().survival_should_chunk(int(n_rows), int(n_times)))
 
     def _has_nonparametric_surface(self) -> bool:
         """Whether a saved (non-parametric) survival/cumulative-hazard surface
@@ -208,9 +182,23 @@ class SurvivalPrediction:
                 return True
         return False
 
+    def _cumulative_hazard_knots(self) -> tuple[Any, Any]:
+        """The stored ``(grid, H)`` knot lattice of the cumulative hazard.
+
+        Prefers a saved cumulative-hazard surface; with only a survival
+        surface, the knot values are converted through the exact identity
+        ``H = -ln S`` at the knots. This is the single interpolant the
+        pointwise hazard slope is read from.
+        """
+        grid, surface = self._ffi_surface("cumulative_hazard")
+        if surface is not None:
+            return grid, surface
+        grid, survival_surface = self._ffi_surface("survival")
+        return grid, rust_module().survival_cumulative_from_survival(survival_surface)
+
     def hazard_at(self, times: Any) -> Any:
         times_arr = self._coerce_times(times)
-        hazard = self._ffi_surface_at("hazard", times_arr, clip=(0.0, None))
+        hazard = self._ffi_surface_at("hazard", times_arr)
         if hazard is not None:
             return hazard
         if not self._has_nonparametric_surface():
@@ -220,110 +208,83 @@ class SurvivalPrediction:
             # which would invent zero hazards at repeated times and negative
             # hazards at unsorted times (issue #966).
             params = self._parameters_array()
-            if self._should_auto_chunk_dense(params.shape[0], times_arr.size):
-                return self._collect_chunks(
-                    self.hazard_at_chunks(times_arr),
-                    n_rows=params.shape[0],
-                    n_times=times_arr.size,
-                )
             return rust_module().survival_block_hazard(params, times_arr)
         # A saved cumulative-hazard / survival surface exists but no hazard
-        # surface: differentiate the cumulative-hazard interpolant. The Rust
-        # ``hazard_from_cumulative`` differencing requires strictly increasing
-        # query times (and rejects non-monotone cumulative hazards), so a
-        # forward difference is well defined (issue #966).
-        n_rows = self._cumulative_surface_row_count()
-        if self._should_auto_chunk_dense(n_rows, times_arr.size):
-            return self._collect_chunks(
-                self.hazard_at_chunks(times_arr),
-                n_rows=n_rows,
-                n_times=times_arr.size,
-            )
-        cumulative = self.cumulative_hazard_at(times_arr)
-        return self._hazard_from_cumulative(times_arr, cumulative)
-
-    def _cumulative_surface_row_count(self) -> int:
-        for kind in ("cumulative_hazard", "survival", "hazard"):
-            _grid, surface = self._ffi_surface(kind)
-            if surface is not None:
-                return int(surface.shape[0])
-        return int(self._parameters_array().shape[0])
+        # surface: the hazard at each query is the slope of the STORED
+        # piecewise-linear cumulative-hazard interpolant on the knot interval
+        # containing that query. This is a pointwise property of the saved
+        # curve — secant differencing between consecutive *queries* made
+        # ``hazard_at(t)`` change when an unrelated query time was added to
+        # the same call.
+        grid, cum_knots = self._cumulative_hazard_knots()
+        return rust_module().hazard_from_cumulative_knots(grid, cum_knots, times_arr)
 
     def cumulative_hazard_at(self, times: Any) -> Any:
         times_arr = self._coerce_times(times)
-        cumulative = self._ffi_surface_at("cumulative_hazard", times_arr, clip=(0.0, None))
+        cumulative = self._ffi_surface_at("cumulative_hazard", times_arr)
         if cumulative is not None:
             return cumulative
-        survival = self.survival_at(times)
-        return rust_module().survival_cumulative_from_survival(survival)
+        if self._has_nonparametric_surface():
+            # A survival surface is the stored primitive here; ``H = -ln S``
+            # of the interpolated values is the exact identity on that curve.
+            survival = self.survival_at(times_arr)
+            return rust_module().survival_cumulative_from_survival(survival)
+        # Parametric exponential fallback: ``H(t) = hazard * t`` computed
+        # directly. Reconstructing it as ``-ln(exp(-hazard * t))`` returns 0
+        # where S rounds to 1 (hazard*t ~ 1e-20) and +inf where S underflows
+        # (hazard*t > ~745), corrupting risk scores and concordance ordering.
+        params = self._parameters_array()
+        return rust_module().survival_block_cumulative_hazard(params, times_arr)
 
     def survival_at(self, times: Any) -> Any:
         times_arr = self._coerce_times(times)
-        survival = self._ffi_surface_at("survival", times_arr, clip=(0.0, 1.0))
+        survival = self._ffi_surface_at("survival", times_arr)
         if survival is not None:
             return survival
         params = self._parameters_array()
-        if self._should_auto_chunk_dense(params.shape[0], times_arr.size):
-            return self._collect_chunks(
-                self.survival_at_chunks(times_arr),
-                n_rows=params.shape[0],
-                n_times=times_arr.size,
-            )
         return self._survival_block(params, times_arr)
 
     def failure_at(self, times: Any) -> Any:
         """Failure probability ``F(t) = 1 - S(t)`` at the requested times.
 
-        The complement of :meth:`survival_at`, sharing the same surface
-        interpolation / auto-chunking and ``(n_rows, n_times)`` layout. For a
-        single-event model this is the cumulative incidence of the modeled
-        event.
+        Shares :meth:`survival_at`'s surface interpolation / auto-chunking and
+        ``(n_rows, n_times)`` layout. For a single-event model this is the
+        cumulative incidence of the modeled event. On the parametric
+        exponential fallback the value is ``-expm1(-hazard * t)`` computed
+        directly in the Rust kernel: ``1 - exp(-hazard * t)`` cancels to 0
+        where the true failure probability is tiny (hazard*t ~ 1e-20).
         """
-        import numpy as np
-
-        survival = np.asarray(self.survival_at(times), dtype=float)
-        return 1.0 - survival
+        times_arr = self._coerce_times(times)
+        if not self._has_nonparametric_surface():
+            params = self._parameters_array()
+            return rust_module().survival_block_failure(params, times_arr)
+        survival = self.survival_at(times_arr)
+        return rust_module().survival_failure_from_survival(survival)
 
     def survival_se_at(self, times: Any) -> Any | None:
         if self.survival_se is None:
             return None
         times_arr = self._coerce_times(times)
-        return self._ffi_surface_at("survival_se", times_arr, clip=(0.0, None))
+        return self._ffi_surface_at("survival_se", times_arr)
 
     def _ffi_surface_at(
         self,
         kind: str,
         times_arr: Any,
-        *,
-        clip: tuple[float | None, float | None],
     ) -> Any | None:
         grid, surface = self._ffi_surface(kind)
         if grid is None or surface is None:
             return None
-        left_value, right_value, inf_value = _extrapolation_for(kind)
         if self._should_auto_chunk_dense(surface.shape[0], times_arr.size):
-            clip_lo, clip_hi = clip
-            # The chunked kernel derives its (left, right, inf) policy from
-            # `kind` directly, so it stays in lockstep with the table above.
             return rust_module().survival_chunk_iter_collect(
                 grid,
                 surface,
                 times_arr,
                 kind,
-                clip_lo,
-                clip_hi,
                 DEFAULT_SURVIVAL_PEOPLE_CHUNK,
                 DEFAULT_SURVIVAL_TIME_GRID_CHUNK,
             )
-        return _interpolate_rows(
-            grid,
-            surface,
-            times_arr,
-            clip=clip,
-            left_value=left_value,
-            right_value=right_value,
-            inf_value=inf_value,
-        )
+        return rust_module().interpolate_rows(grid, surface, times_arr, kind)
 
     def _ffi_surface(self, kind: str) -> tuple[Any | None, Any | None]:
         if self.times is None:
@@ -352,39 +313,31 @@ class SurvivalPrediction:
         evaluating the per-row survival block, or transforming an upstream
         chunk -- so the chunking control flow is never duplicated.
         """
-        people_chunk = _validate_survival_chunk_size(people_chunk, "people_chunk")
-        time_grid_chunk = _validate_survival_chunk_size(time_grid_chunk, "time_grid_chunk")
-        for row_start in range(0, n_rows, people_chunk):
-            row_stop = min(row_start + people_chunk, n_rows)
+        ranges = rust_module().survival_chunk_ranges(
+            int(n_rows), int(times_arr.size), int(people_chunk), int(time_grid_chunk)
+        )
+        for row_start, row_stop, time_start, time_stop in ranges:
             row_slice = slice(row_start, row_stop)
-            for time_start in range(0, times_arr.size, time_grid_chunk):
-                time_stop = min(time_start + time_grid_chunk, times_arr.size)
-                time_slice = slice(time_start, time_stop)
-                yield (row_slice, time_slice, block_fn(row_slice, time_slice))
+            time_slice = slice(time_start, time_stop)
+            yield (row_slice, time_slice, block_fn(row_slice, time_slice))
 
     def _ffi_surface_at_chunks(
         self,
         kind: str,
         times_arr: Any,
         *,
-        clip: tuple[float | None, float | None],
         people_chunk: int,
         time_grid_chunk: int,
     ) -> Any | None:
         grid, surface = self._ffi_surface(kind)
         if grid is None or surface is None:
             return None
-        left_value, right_value, inf_value = _extrapolation_for(kind)
-
         def block_fn(row_slice: slice, time_slice: slice) -> Any:
-            return _interpolate_rows(
+            return rust_module().interpolate_rows(
                 grid,
                 surface[row_slice, :],
                 times_arr[time_slice],
-                clip=clip,
-                left_value=left_value,
-                right_value=right_value,
-                inf_value=inf_value,
+                kind,
             )
 
         return self._surface_chunks(
@@ -406,7 +359,6 @@ class SurvivalPrediction:
         ffi_chunks = self._ffi_surface_at_chunks(
             "survival",
             times_arr,
-            clip=(0.0, 1.0),
             people_chunk=people_chunk,
             time_grid_chunk=time_grid_chunk,
         )
@@ -437,12 +389,30 @@ class SurvivalPrediction:
         ffi_chunks = self._ffi_surface_at_chunks(
             "cumulative_hazard",
             times_arr,
-            clip=(0.0, None),
             people_chunk=people_chunk,
             time_grid_chunk=time_grid_chunk,
         )
         if ffi_chunks is not None:
             yield from ffi_chunks
+            return
+        if not self._has_nonparametric_surface():
+            # Parametric exponential fallback: ``H(t) = hazard * t`` per tile,
+            # computed directly instead of round-tripping through the survival
+            # probability (which loses tiny and huge cumulative hazards).
+            params = self._parameters_array()
+
+            def block_fn(row_slice: slice, time_slice: slice) -> Any:
+                return rust_module().survival_block_cumulative_hazard(
+                    params[row_slice, :], times_arr[time_slice]
+                )
+
+            yield from self._surface_chunks(
+                n_rows=params.shape[0],
+                times_arr=times_arr,
+                people_chunk=people_chunk,
+                time_grid_chunk=time_grid_chunk,
+                block_fn=block_fn,
+            )
             return
         for row_slice, time_slice, survival in self.survival_at_chunks(
             times_arr,
@@ -466,7 +436,6 @@ class SurvivalPrediction:
         ffi_chunks = self._ffi_surface_at_chunks(
             "hazard",
             times_arr,
-            clip=(0.0, None),
             people_chunk=people_chunk,
             time_grid_chunk=time_grid_chunk,
         )
@@ -494,36 +463,25 @@ class SurvivalPrediction:
             )
             return
         # A saved cumulative-hazard / survival surface exists but no hazard
-        # surface: forward-difference the cumulative-hazard chunks, carrying the
-        # right boundary of each tile as the predecessor of the next. The Rust
-        # differencing rejects non-increasing query times and non-monotone
-        # cumulative hazards (issue #966).
-        previous_row_key: tuple[int | None, int | None] | None = None
-        previous_cumulative = None
-        previous_time = 0.0
-        for row_slice, time_slice, cumulative in self.cumulative_hazard_at_chunks(
-            times_arr,
+        # surface: each tile reads the slope of the STORED piecewise-linear
+        # cumulative-hazard interpolant on the knot interval containing each
+        # query time. Pointwise per query, so tiles need no carried state and
+        # the result cannot depend on how the query grid is chunked or which
+        # other times share the call.
+        grid, cum_knots = self._cumulative_hazard_knots()
+
+        def block_fn(row_slice: slice, time_slice: slice) -> Any:
+            return rust_module().hazard_from_cumulative_knots(
+                grid, cum_knots[row_slice, :], times_arr[time_slice]
+            )
+
+        yield from self._surface_chunks(
+            n_rows=int(cum_knots.shape[0]),
+            times_arr=times_arr,
             people_chunk=people_chunk,
             time_grid_chunk=time_grid_chunk,
-        ):
-            row_key = (row_slice.start, row_slice.stop)
-            if previous_row_key != row_key or time_slice.start == 0:
-                previous_cumulative = None
-                previous_time = 0.0
-                previous_row_key = row_key
-            time_block = times_arr[time_slice]
-            yield (
-                row_slice,
-                time_slice,
-                self._hazard_from_cumulative(
-                    time_block,
-                    cumulative,
-                    previous_cumulative=previous_cumulative,
-                    previous_time=previous_time,
-                ),
-            )
-            previous_cumulative = cumulative[:, -1:]
-            previous_time = float(time_block[-1])
+            block_fn=block_fn,
+        )
 
     def write_survival_at_csv(
         self,
@@ -537,15 +495,6 @@ class SurvivalPrediction:
         grid, surface = self._ffi_surface("survival")
         if grid is not None and surface is not None:
             include_ids = self.id_column is not None and self.row_ids is not None
-            # This is the streaming counterpart of ``survival_at``: it reads the
-            # SAME fitted FFI surface, so it must apply the SAME extrapolation law
-            # and clip to emit byte-for-byte the numbers ``survival_at`` returns.
-            # We thread both from the single authoritative source used by the
-            # in-memory path (``_SURVIVAL_EXTRAPOLATION`` and ``survival_at``'s
-            # ``clip=(0.0, 1.0)``) rather than have the Rust writer hardcode a
-            # second copy (issue #2154): S(t<=0)=1, finite past-grid flat-clamp
-            # (#1595), S(+inf)=0 (#965), survival probabilities in [0, 1].
-            left_value, right_value, inf_value = _extrapolation_for("survival")
             return str(
                 rust_module().write_survival_csv(
                     str(path),
@@ -556,11 +505,6 @@ class SurvivalPrediction:
                     list(self.row_ids) if include_ids else None,
                     people_chunk,
                     time_grid_chunk,
-                    left_value,
-                    right_value,
-                    inf_value,
-                    0.0,
-                    1.0,
                 )
             )
 
@@ -664,7 +608,9 @@ class SurvivalPrediction:
         Returns
         -------
         float
-            Harrell's C-index in ``[0, 1]``.
+            Harrell's C-index in ``[0, 1]``, or ``nan`` when the sample has no
+            comparable pairs (e.g. every row censored) and the C-index is
+            undefined.
 
         Examples
         --------
@@ -684,13 +630,14 @@ class SurvivalPrediction:
             score_arr = self.risk_score_at(horizon_value)
         else:
             score_arr = np.asarray(risk_score, dtype=float).reshape(-1)
-        return float(
-            rust_module().survival_concordance(
-                times_arr.tolist(),
-                score_arr.tolist(),
-                events_arr.tolist(),
-            )
+        c_index = rust_module().survival_concordance(
+            times_arr.tolist(),
+            score_arr.tolist(),
+            events_arr.tolist(),
         )
+        # The core returns None when no comparable pairs exist (undefined
+        # C-index); report that as NaN rather than a misleading 0.5.
+        return float("nan") if c_index is None else float(c_index)
 
 
 def ordered_prediction_columns(columns: dict[str, list[float]]) -> dict[str, list[float]]:
@@ -700,21 +647,6 @@ def ordered_prediction_columns(columns: dict[str, list[float]]) -> dict[str, lis
 
 def numeric_matrix(values: Any, label: str) -> Any:
     return rust_module().numeric_matrix_validate(values, label)
-
-
-def transformation_normal_z(columns: dict[str, list[float]]) -> list[float]:
-    if not isinstance(columns, dict):
-        raise TypeError("columns must be a dict")
-    return list(
-        rust_module().transformation_normal_z_from_columns(json.dumps(columns))
-    )
-
-
-def _validate_survival_chunk_size(value: int, name: str) -> int:
-    chunk = int(value)
-    if chunk <= 0:
-        raise ValueError(f"{name} must be positive")
-    return chunk
 
 
 def extract_row_ids(
@@ -818,71 +750,6 @@ def term_blocks_for_model(model_bytes: bytes) -> tuple[TermBlock, ...]:
     )
 
 
-def _interpolate_rows(
-    grid: Any,
-    surface: Any,
-    query: Any,
-    *,
-    clip: tuple[float | None, float | None],
-    left_value: float | None = None,
-    right_value: float | None = None,
-    inf_value: float | None = None,
-) -> Any:
-    clip_lo, clip_hi = clip
-    return rust_module().interpolate_rows(
-        grid,
-        surface,
-        query,
-        clip_lo, clip_hi,
-        left_value,
-        right_value,
-        inf_value,
-    )
-
-
-# Boundary values for survival-related surfaces when callers evaluate strictly
-# outside the modeled time grid.
-#
-# Left edge (t below the grid) has an unambiguous, mutually consistent value we
-# can assert by definition: survival(t<=0) = 1 and cumulative-hazard(t<=0) = 0,
-# which satisfy S = exp(-H) exactly (exp(-0) = 1).
-#
-# Right edge (t past the last grid node) must NOT be forced to the t->inf
-# asymptote. survival(t) and cumulative_hazard(t) are two views of ONE fitted
-# curve tied by the exact identity S(t) = exp(-H(t)). The fitted grid only
-# spans the training time support, so past its top node we have no information
-# to distinguish parametric tail shapes -- and forcing survival to its t->inf
-# asymptote 0.0 while leaving H on a flat clamp makes the two views contradict
-# each other (S -> 0 implies H -> +inf, not a finite flat value), and injects a
-# spurious jump discontinuity into S at the grid edge. We therefore flat-clamp
-# BOTH surfaces to their last grid value (right_value=None => nearest-endpoint
-# clamp). Because the identity holds at the top grid node, flat-clamping both
-# preserves S(t) = exp(-H(t)) for every t past the grid: it is the conservative
-# "no further information beyond support" extrapolation that keeps the two
-# accessors mutually consistent and the curve continuous.
-#
-# Hazard / standard-error surfaces have no canonical asymptote, so they stay on
-# the default nearest-endpoint behavior as well.
-# Each entry is (left_value, right_value, inf_value):
-#   * left_value  -- value for t below the grid (t <= t_min).
-#   * right_value -- value for FINITE t past the top grid node. `None` =>
-#     flat-clamp to the last grid value (the #1595 "no information beyond
-#     support" rule that keeps S(t) = exp(-H(t)) consistent across both views).
-#   * inf_value   -- the genuine t -> +inf asymptote, distinct from the finite
-#     flat-clamp (#965): S(+inf) = 0, H(+inf) = +inf. `None` => nearest endpoint
-#     (hazard / SE surfaces have no canonical asymptote).
-_SURVIVAL_EXTRAPOLATION = {
-    "survival": (1.0, None, 0.0),
-    "cumulative_hazard": (0.0, None, float("inf")),
-}
-
-
-def _extrapolation_for(
-    kind: str,
-) -> tuple[float | None, float | None, float | None]:
-    return _SURVIVAL_EXTRAPOLATION.get(kind, (None, None, None))
-
-
 __all__ = [
     "CompetingRisksCIF",
     "CompetingRisksPrediction",
@@ -898,7 +765,6 @@ __all__ = [
     "ordered_prediction_columns",
     "survival_prediction_from_columns",
     "survival_prediction_from_ffi_payload",
-    "transformation_normal_z",
     "_MARGINAL_SLOPE_MODEL_CLASSES",
     "_SURVIVAL_MODEL_CLASSES",
     "_TRANSFORMATION_NORMAL_MODEL_CLASSES",

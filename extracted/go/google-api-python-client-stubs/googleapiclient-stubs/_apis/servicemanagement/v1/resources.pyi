@@ -19,11 +19,11 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            name: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            filter: str | None = ...,
+            name: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListOperationsResponseHttpRequest: ...
         def list_next(
@@ -37,22 +37,22 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class ConfigsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, serviceName: str, body: Service = ..., **kwargs: typing.Any
+                self, *, serviceName: str, body: Service, **kwargs: typing.Any
             ) -> ServiceHttpRequest: ...
             def get(
                 self,
                 *,
                 serviceName: str,
                 configId: str,
-                view: typing_extensions.Literal["BASIC", "FULL"] = ...,
+                view: typing_extensions.Literal["BASIC", "FULL"] | None = ...,
                 **kwargs: typing.Any,
             ) -> ServiceHttpRequest: ...
             def list(
                 self,
                 *,
                 serviceName: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListServiceConfigsResponseHttpRequest: ...
             def list_next(
@@ -64,38 +64,30 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 serviceName: str,
-                body: SubmitConfigSourceRequest = ...,
+                body: SubmitConfigSourceRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
         @typing.type_check_only
         class ConsumersResource(googleapiclient.discovery.Resource):
             def getIamPolicy(
-                self,
-                *,
-                resource: str,
-                body: GetIamPolicyRequest = ...,
-                **kwargs: typing.Any,
+                self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
             ) -> PolicyHttpRequest: ...
             def setIamPolicy(
-                self,
-                *,
-                resource: str,
-                body: SetIamPolicyRequest = ...,
-                **kwargs: typing.Any,
+                self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
             ) -> PolicyHttpRequest: ...
             def testIamPermissions(
                 self,
                 *,
                 resource: str,
-                body: TestIamPermissionsRequest = ...,
+                body: TestIamPermissionsRequest,
                 **kwargs: typing.Any,
             ) -> TestIamPermissionsResponseHttpRequest: ...
 
         @typing.type_check_only
         class RolloutsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, serviceName: str, body: Rollout = ..., **kwargs: typing.Any
+                self, *, serviceName: str, body: Rollout, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def get(
                 self, *, serviceName: str, rolloutId: str, **kwargs: typing.Any
@@ -104,9 +96,9 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 serviceName: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListServiceRolloutsResponseHttpRequest: ...
             def list_next(
@@ -116,13 +108,13 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
             ) -> ListServiceRolloutsResponseHttpRequest | None: ...
 
         def create(
-            self, *, body: ManagedService = ..., **kwargs: typing.Any
+            self, *, body: ManagedService, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, serviceName: str, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def generateConfigReport(
-            self, *, body: GenerateConfigReportRequest = ..., **kwargs: typing.Any
+            self, *, body: GenerateConfigReportRequest, **kwargs: typing.Any
         ) -> GenerateConfigReportResponseHttpRequest: ...
         def get(
             self, *, serviceName: str, **kwargs: typing.Any
@@ -131,24 +123,20 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
             self,
             *,
             serviceName: str,
-            configId: str = ...,
-            view: typing_extensions.Literal["BASIC", "FULL"] = ...,
+            configId: str | None = ...,
+            view: typing_extensions.Literal["BASIC", "FULL"] | None = ...,
             **kwargs: typing.Any,
         ) -> ServiceHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def list(
             self,
             *,
-            consumerId: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            producerProjectId: str = ...,
+            consumerId: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            producerProjectId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListServicesResponseHttpRequest: ...
         def list_next(
@@ -157,17 +145,13 @@ class ServiceManagementResource(googleapiclient.discovery.Resource):
             previous_response: ListServicesResponse,
         ) -> ListServicesResponseHttpRequest | None: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def undelete(

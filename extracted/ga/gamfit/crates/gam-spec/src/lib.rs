@@ -291,6 +291,7 @@ pub struct SasLinkState {
     /// - `Sas`: effective tail parameter `delta = exp(B * tanh(log_delta / B))`,
     ///   `B = SAS_LOG_DELTA_BOUND`.
     /// - `BetaLogistic`: geometric-mean beta shape `exp(log_delta) = sqrt(a*b)`.
+    ///
     /// The beta-logistic derivative kernels take `log_delta` (the log center), so
     /// passing this exponentiated `delta` to them would be off by an `exp`.
     pub delta: f64,
@@ -312,29 +313,6 @@ impl LatentCLogLogState {
         }
         Ok(Self { latent_sd })
     }
-}
-
-/// Whether the inverse link exposes the Fisher-weight jet that the Firth
-/// penalty's higher-order correction consumes. Inlined here (issue #1521) so
-/// `LikelihoodSpec::supports_firth` has no upward dependency on
-/// `solver::mixture_link` — the match is over link variants all defined in this
-/// module, so the predicate is self-contained. The canonical jet evaluation
-/// still lives in `solver::mixture_link`; this is purely the classifier.
-#[inline]
-fn inverse_link_has_fisher_weight_jet(link: &InverseLink) -> bool {
-    matches!(
-        link,
-        InverseLink::Standard(
-            StandardLink::Logit
-                | StandardLink::Probit
-                | StandardLink::CLogLog
-                | StandardLink::LogLog
-                | StandardLink::Cauchit,
-        ) | InverseLink::LatentCLogLog(_)
-            | InverseLink::Sas(_)
-            | InverseLink::BetaLogistic(_)
-            | InverseLink::Mixture(_)
-    )
 }
 
 /// Parameterized inverse-link selector used where mu/derivatives are evaluated.
@@ -381,6 +359,29 @@ impl InverseLink {
             Self::LatentCLogLog(state) => Some(state),
             _ => None,
         }
+    }
+
+    /// Whether this inverse link exposes the Fisher-weight jet consumed by
+    /// higher-order Firth/Jeffreys corrections.
+    ///
+    /// The numerical jet evaluation lives in `gam-solve`; the capability is a
+    /// property of the link vocabulary and therefore belongs here with the
+    /// variants it classifies.
+    #[inline]
+    pub const fn has_fisher_weight_jet(&self) -> bool {
+        matches!(
+            self,
+            Self::Standard(
+                StandardLink::Logit
+                    | StandardLink::Probit
+                    | StandardLink::CLogLog
+                    | StandardLink::LogLog
+                    | StandardLink::Cauchit,
+            ) | Self::LatentCLogLog(_)
+                | Self::Sas(_)
+                | Self::BetaLogistic(_)
+                | Self::Mixture(_)
+        )
     }
 }
 
@@ -694,9 +695,9 @@ impl ResponseFamily {
     /// Concretely:
     /// * `Binomial` — refuses an all-zero or all-one response: the saturated
     ///   logit is ±∞ and the REML score is +∞ (issue #331).
-    /// * Every other family currently returns `Ok(())` at this layer — the
-    ///   support check already guarantees enough variation to make the
-    ///   log-likelihood finite.
+    /// * `Poisson` / `NegativeBinomial` — refuse an all-zero response: the
+    ///   count-rate optimum is at η = −∞, so no finite mode or posterior
+    ///   moments exist (#2255).
     pub fn validate_response_degeneracy(
         &self,
         y: ArrayView1<'_, f64>,
@@ -778,12 +779,27 @@ impl ResponseFamily {
                 }
                 Ok(())
             }
-            Self::Poisson
-            | Self::Tweedie { .. }
-            | Self::NegativeBinomial { .. }
-            | Self::Beta { .. }
-            | Self::Gamma
-            | Self::RoystonParmar => Ok(()),
+            Self::Poisson => {
+                if !y.is_empty() && y.iter().all(|&yi| yi == 0.0) {
+                    Err(ResponseDegeneracy {
+                        family_label: self.response_support_label(),
+                        kind: ResponseDegeneracyKind::PoissonAllZeros,
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+            Self::NegativeBinomial { .. } => {
+                if !y.is_empty() && y.iter().all(|&yi| yi == 0.0) {
+                    Err(ResponseDegeneracy {
+                        family_label: self.response_support_label(),
+                        kind: ResponseDegeneracyKind::NegativeBinomialAllZeros,
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+            Self::Tweedie { .. } | Self::Beta { .. } | Self::Gamma | Self::RoystonParmar => Ok(()),
         }
     }
 
@@ -954,6 +970,12 @@ pub enum ResponseDegeneracyKind {
     BinomialAllZeros,
     /// Bernoulli / Binomial response with every observed value equal to 1.
     BinomialAllOnes,
+    /// Poisson response with no positive counts. The log-rate likelihood has
+    /// its supremum at η = −∞, not at a finite fitted mode.
+    PoissonAllZeros,
+    /// Negative-Binomial response with no positive counts. As for Poisson, the
+    /// log-rate likelihood has no finite optimum or finite posterior moments.
+    NegativeBinomialAllZeros,
     /// Gaussian response that is effectively constant in `f64` arithmetic
     /// (sample standard deviation at or below [`GAUSSIAN_MIN_SAMPLE_SD`]). The
     /// marginal REML log-likelihood `−n/2·log σ²` diverges to `+∞` as the
@@ -1002,6 +1024,16 @@ impl ResponseDegeneracy {
                  is not finite. Fix: ensure the response contains at least one 0 and \
                  at least one 1 (e.g. drop the offending subgroup, or refit on a pooled \
                  sample that includes both classes).",
+                family = self.family_label,
+                name = response_name,
+            ),
+            ResponseDegeneracyKind::PoissonAllZeros
+            | ResponseDegeneracyKind::NegativeBinomialAllZeros => format!(
+                "{family} response '{name}' is degenerate: all counts are 0. \
+                 The log-rate likelihood is maximized only as η → −∞, so there is no \
+                 finite fitted mode or finite posterior mean/variance to report. Fix: \
+                 ensure the response contains at least one positive count (for example, \
+                 drop the empty subgroup or pool it with observations containing events).",
                 family = self.family_label,
                 name = response_name,
             ),
@@ -1301,7 +1333,7 @@ impl FamilySpecKind {
     ///
     /// The authoritative, link-resolved gate is
     /// [`LikelihoodSpec::supports_firth`], which routes through
-    /// `inverse_link_has_fisher_weight_jet`. Keep this in agreement with that
+    /// [`InverseLink::has_fisher_weight_jet`]. Keep this in agreement with that
     /// predicate: a future binomial link without a Fisher-weight jet would make
     /// this approximation diverge and must be handled at both sites.
     #[inline]
@@ -1698,8 +1730,7 @@ impl LikelihoodSpec {
 
     #[inline]
     pub fn supports_firth(&self) -> bool {
-        matches!(self.response, ResponseFamily::Binomial)
-            && inverse_link_has_fisher_weight_jet(&self.link)
+        matches!(self.response, ResponseFamily::Binomial) && self.link.has_fisher_weight_jet()
     }
 
     /// Family-level fixed-dispersion contract. Returns the dispersion parameter
@@ -2840,6 +2871,57 @@ mod tests {
             ResponseFamily::Binomial
                 .validate_response_degeneracy(y.view())
                 .is_ok()
+        );
+    }
+
+    #[test]
+    fn poisson_degeneracy_all_zeros_errors() {
+        let y = arr1(&[0.0_f64, 0.0, 0.0]);
+        let error = ResponseFamily::Poisson
+            .validate_response_degeneracy(y.view())
+            .expect_err("an all-zero Poisson response has no finite log-rate optimum");
+        assert!(matches!(
+            error.kind,
+            ResponseDegeneracyKind::PoissonAllZeros
+        ));
+        assert!(
+            error
+                .message_for("count")
+                .contains("at least one positive count")
+        );
+    }
+
+    #[test]
+    fn negative_binomial_degeneracy_all_zeros_errors() {
+        let y = arr1(&[0.0_f64, 0.0, 0.0]);
+        let family = ResponseFamily::NegativeBinomial {
+            theta: 1.0,
+            theta_fixed: true,
+        };
+        let error = family
+            .validate_response_degeneracy(y.view())
+            .expect_err("an all-zero negative-binomial response has no finite log-rate optimum");
+        assert!(matches!(
+            error.kind,
+            ResponseDegeneracyKind::NegativeBinomialAllZeros
+        ));
+    }
+
+    #[test]
+    fn count_degeneracy_with_positive_event_is_valid() {
+        let y = arr1(&[0.0_f64, 0.0, 2.0]);
+        assert!(
+            ResponseFamily::Poisson
+                .validate_response_degeneracy(y.view())
+                .is_ok()
+        );
+        assert!(
+            ResponseFamily::NegativeBinomial {
+                theta: 1.0,
+                theta_fixed: true,
+            }
+            .validate_response_degeneracy(y.view())
+            .is_ok()
         );
     }
 

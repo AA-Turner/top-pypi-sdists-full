@@ -9,20 +9,13 @@ use gam_problem::{CustomFamilyError, DenseMatrixHyperOperator, EvalMode, HyperOp
 use ndarray::{Array1, Array2};
 use std::sync::Arc;
 
-// The neutral ψ-derivative carriers, operator traits, and the joint-Hessian
-// source-preference / materialization-intent enums live in `gam-problem`; they
-// are re-exported here so every `custom_family::psi_design::*` path keeps
-// resolving without a duplicate definition. Only the trait that couples to the
-// `CustomFamily` evaluation carrier (`ExactNewtonJointHessianWorkspace`) stays
-// local below.
+// The neutral ψ-derivative carriers and operator traits live in
+// `gam-problem`. Only the trait that couples to the `CustomFamily` evaluation
+// carrier (`ExactNewtonJointHessianWorkspace`) stays local below.
 pub use gam_problem::{
     CustomFamilyBlockPsiDerivative, CustomFamilyPsiDerivativeOperator,
     JointHessianSourcePreference, MaterializablePsiDerivativeOperator, MaterializationIntent,
     SharedDerivativeBlocks,
-};
-pub use gam_problem::{
-    ExactNewtonJointPsiSecondOrderContracted, ExactNewtonJointPsiSecondOrderTerms,
-    ExactNewtonJointPsiTerms,
 };
 
 pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
@@ -56,28 +49,9 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
     /// Priming a cache the mode never reads is pure wasted O(n) work, so under-
     /// priming is always safe: every cache is a lazy `get_or_compute`, so a
     /// later consumer (if any) still builds it on demand — just without the
-    /// top-level-rayon fan-out this hook would have given it.
-    fn warm_up_outer_caches_for_mode(&self, eval_mode: EvalMode) -> Result<(), String> {
-        // Legacy default: prime everything (matches the historic
-        // `warm_up_outer_caches` contract) for any workspace that has not
-        // opted into mode-aware priming. Every mode falls through to the same
-        // mode-blind prime; mode-aware workspaces override this method to skip
-        // caches the requested mode never reads.
-        match eval_mode {
-            EvalMode::ValueOnly | EvalMode::ValueAndGradient | EvalMode::ValueGradientHessian => {
-                self.warm_up_outer_caches()
-            }
-        }
-    }
-
-    /// Mode-blind warm-up retained for back-compat: primes every directional
-    /// cache the workspace keeps. Production call sites should prefer
-    /// [`Self::warm_up_outer_caches_for_mode`] so value-only probes skip the
-    /// prime entirely. Default impl is a no-op for workspaces with no per-row
-    /// jet cache.
-    fn warm_up_outer_caches(&self) -> Result<(), String> {
-        Ok(())
-    }
+    /// top-level-rayon fan-out this hook would have given it. Workspaces with no
+    /// directional caches implement this explicitly as a mode-exhaustive no-op.
+    fn warm_up_outer_caches_for_mode(&self, eval_mode: EvalMode) -> Result<(), String>;
 
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         Ok(None)
@@ -305,5 +279,3 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
             .collect()
     }
 }
-
-pub use gam_problem::ExactNewtonJointPsiWorkspace;

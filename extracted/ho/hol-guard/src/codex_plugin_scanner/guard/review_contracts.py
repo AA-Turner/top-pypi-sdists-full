@@ -167,9 +167,11 @@ def _verify_signed_payload(
         verifier = payload.get("verifier")
         if isinstance(verifier, dict):
             key_id = _non_empty_string(verifier.get("keyId"))
+    advertised_keys = _verification_keys_from_payload(payload.get("verificationKeys"))
+    if key_id is None and len(advertised_keys) == 1:
+        key_id = advertised_keys[0].key_id
     if key_id is None:
         raise GuardReviewContractError("missing_signing_key_id")
-    advertised_keys = _verification_keys_from_payload(payload.get("verificationKeys"))
     signing_key = _resolve_anchored_signing_key(
         advertised_keys=advertised_keys,
         anchored_keys=_anchored_review_verification_keys(store),
@@ -361,15 +363,29 @@ def payload_hash_for_remote_approval_envelope(envelope: dict[str, object]) -> st
     return _sha256_hex(_canonical_signed_payload(envelope))
 
 
-def validated_remote_approval_envelope(envelope: dict[str, object], *, store) -> dict[str, object]:
+def validated_remote_approval_envelope(
+    envelope: dict[str, object],
+    *,
+    store,
+    admitted_at: object | None = None,
+) -> dict[str, object]:
     if envelope.get("contractVersion") != _REMOTE_APPROVAL_CONTRACT_VERSION:
         raise GuardReviewContractError("unsupported_remote_approval_contract")
     if envelope.get("scope") not in _REMOTE_APPROVAL_ALLOWED_SCOPES:
         raise GuardReviewContractError("invalid_remote_approval_scope")
     issued_at = _parse_iso_timestamp(envelope.get("issuedAt"), field_name="issued_at")
     expires_at = _parse_iso_timestamp(envelope.get("expiresAt"), field_name="expires_at")
-    if expires_at <= issued_at or expires_at <= _now():
+    if expires_at <= issued_at:
         raise GuardReviewContractError("remote_approval_expired")
+    if expires_at <= _now():
+        if admitted_at is None:
+            raise GuardReviewContractError("remote_approval_expired")
+        queue_admitted_at = _parse_iso_timestamp(
+            admitted_at,
+            field_name="queue_admitted_at",
+        )
+        if queue_admitted_at > expires_at:
+            raise GuardReviewContractError("remote_approval_expired")
     payload_hash = _non_empty_string(envelope.get("payloadHash"))
     if payload_hash is None or payload_hash != payload_hash_for_remote_approval_envelope(envelope):
         raise GuardReviewContractError("remote_approval_payload_hash_mismatch")

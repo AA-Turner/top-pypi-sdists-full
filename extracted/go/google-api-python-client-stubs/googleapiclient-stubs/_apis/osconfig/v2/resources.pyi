@@ -25,17 +25,17 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudOsconfigV2__PolicyOrchestrator = ...,
-                        policyOrchestratorId: str = ...,
-                        requestId: str = ...,
+                        body: GoogleCloudOsconfigV2__PolicyOrchestrator,
+                        policyOrchestratorId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        requestId: str = ...,
+                        etag: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -45,10 +45,10 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudOsconfigV2__ListPolicyOrchestratorsResponseHttpRequest: ...
                     def list_next(
@@ -63,8 +63,8 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudOsconfigV2__PolicyOrchestrator = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudOsconfigV2__PolicyOrchestrator,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -76,7 +76,7 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -89,10 +89,10 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -118,17 +118,17 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudOsconfigV2__PolicyOrchestrator = ...,
-                        policyOrchestratorId: str = ...,
-                        requestId: str = ...,
+                        body: GoogleCloudOsconfigV2__PolicyOrchestrator,
+                        policyOrchestratorId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        requestId: str = ...,
+                        etag: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -138,10 +138,10 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudOsconfigV2__ListPolicyOrchestratorsResponseHttpRequest: ...
                     def list_next(
@@ -156,8 +156,8 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudOsconfigV2__PolicyOrchestrator = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudOsconfigV2__PolicyOrchestrator,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -169,7 +169,7 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -182,10 +182,10 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -211,17 +211,17 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudOsconfigV2__PolicyOrchestrator = ...,
-                        policyOrchestratorId: str = ...,
-                        requestId: str = ...,
+                        body: GoogleCloudOsconfigV2__PolicyOrchestrator,
+                        policyOrchestratorId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        requestId: str = ...,
+                        etag: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -231,10 +231,10 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudOsconfigV2__ListPolicyOrchestratorsResponseHttpRequest: ...
                     def list_next(
@@ -249,8 +249,8 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudOsconfigV2__PolicyOrchestrator = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudOsconfigV2__PolicyOrchestrator,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
@@ -262,7 +262,7 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -275,10 +275,10 @@ class OSConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(

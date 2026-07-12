@@ -15866,6 +15866,42 @@ async function fetchRuntimeSnapshot(input = {}) {
   const snapshot = await readJson(path);
   return normalizeRuntimeSnapshot(snapshot);
 }
+async function fetchReadState() {
+  if (isGuardDemoMode()) {
+    return { ids: [] };
+  }
+  return readJson("/v1/read-state");
+}
+async function postReadStateMarkRead(requestId) {
+  if (isGuardDemoMode()) {
+    return { ids: [] };
+  }
+  return readJson("/v1/read-state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...guardAuthHeaders() },
+    body: JSON.stringify({ action: "mark_read", request_id: requestId })
+  });
+}
+async function postReadStateMarkUnread(requestId) {
+  if (isGuardDemoMode()) {
+    return { ids: [] };
+  }
+  return readJson("/v1/read-state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...guardAuthHeaders() },
+    body: JSON.stringify({ action: "mark_unread", request_id: requestId })
+  });
+}
+async function postReadStateMarkAllRead(requestIds) {
+  if (isGuardDemoMode()) {
+    return { ids: [] };
+  }
+  return readJson("/v1/read-state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...guardAuthHeaders() },
+    body: JSON.stringify({ action: "mark_all_read", request_ids: requestIds })
+  });
+}
 function buildDemoRuntimeSnapshot() {
   const demoRequests2 = getDemoRequests();
   const demoReceipts = getDemoReceipts();
@@ -23257,6 +23293,74 @@ function ConsolidatedEvidenceAlert({ items }) {
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-brand-dark", children: current.content })
   ] });
 }
+const FETCH_DEBOUNCE_MS = 2e3;
+function useRequestReadState() {
+  const [readIds, setReadIds] = reactExports.useState(() => /* @__PURE__ */ new Set());
+  const [lastFetch, setLastFetch] = reactExports.useState(0);
+  const refresh = reactExports.useCallback(async () => {
+    try {
+      const response = await fetchReadState();
+      if (response?.ids) {
+        setReadIds(new Set(response.ids));
+      }
+    } catch {
+    }
+    setLastFetch(Date.now());
+  }, []);
+  reactExports.useEffect(() => {
+    if (Date.now() - lastFetch > FETCH_DEBOUNCE_MS) {
+      void refresh();
+    }
+  }, [lastFetch, refresh]);
+  const isRead = reactExports.useCallback(
+    (requestId) => readIds.has(requestId),
+    [readIds]
+  );
+  const markRead = reactExports.useCallback(
+    (requestId) => {
+      setReadIds((prev) => {
+        if (prev.has(requestId)) return prev;
+        const next = new Set(prev);
+        next.add(requestId);
+        return next;
+      });
+      void postReadStateMarkRead(requestId).catch(() => {
+      });
+    },
+    []
+  );
+  const markUnread = reactExports.useCallback(
+    (requestId) => {
+      setReadIds((prev) => {
+        if (!prev.has(requestId)) return prev;
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
+      void postReadStateMarkUnread(requestId).catch(() => {
+      });
+    },
+    []
+  );
+  const markAllRead = reactExports.useCallback(
+    (requestIds) => {
+      if (requestIds.length === 0) return;
+      setReadIds((prev) => {
+        const next = new Set(prev);
+        for (const id of requestIds) next.add(id);
+        return next;
+      });
+      void postReadStateMarkAllRead(requestIds).catch(() => {
+      });
+    },
+    []
+  );
+  return reactExports.useMemo(
+    () => ({ isRead, markRead, markUnread, markAllRead, readCount: readIds.size }),
+    [isRead, markRead, markUnread, markAllRead, readIds.size]
+  );
+}
+const REQUEST_READ_STATE_LIMIT = 5e4;
 function approvalGateCooldownLabel(seconds) {
   if (seconds === 0) return "Every approval";
   if (seconds === 900) return "15 minutes";
@@ -24383,6 +24487,7 @@ const QUEUE_PAGE_SIZE = 10;
 const commonScopeValues = /* @__PURE__ */ new Set(["artifact"]);
 function ReviewWorkspace(props) {
   const { requests, activeRequestId, detail } = props;
+  const readState = useRequestReadState();
   const queueRef = reactExports.useRef(null);
   const [searchTerm, setSearchTerm] = reactExports.useState("");
   const [categoryFilter, setCategoryFilter] = reactExports.useState("all");
@@ -24392,10 +24497,14 @@ function ReviewWorkspace(props) {
   const [dateTo, setDateTo] = reactExports.useState("");
   const [mobileQueueOpen, setMobileQueueOpen] = reactExports.useState(false);
   const [page, setPage] = reactExports.useState(1);
-  const handleOpenRequest = reactExports.useCallback((id) => {
+  const selectRequest = reactExports.useCallback((id) => {
     props.onOpenRequest(id);
     setMobileQueueOpen(false);
   }, [props.onOpenRequest]);
+  const handleOpenRequest = reactExports.useCallback((id) => {
+    selectRequest(id);
+    readState.markRead(id);
+  }, [selectRequest, readState]);
   const handleToggleMobileQueue = reactExports.useCallback(() => {
     setMobileQueueOpen((v) => !v);
   }, []);
@@ -24423,23 +24532,28 @@ function ReviewWorkspace(props) {
   const categoryOptions = reactExports.useMemo(() => queueCategoriesForItems(requests), [requests]);
   const activeRequest = activeRequestId !== null ? requests.find((r) => r.request_id === activeRequestId) ?? (detail?.item.request_id === activeRequestId ? detail.item : null) : null;
   reactExports.useEffect(() => {
+    function isNestedQueueActionButton(target) {
+      return target instanceof HTMLElement && target.tagName.toLowerCase() === "button" && target.getAttribute("role") !== "option";
+    }
     function handleKeyDown(event) {
       if (pagedRequests.length === 0) return;
+      if (!(event.target instanceof HTMLElement) || !event.target.closest('[role="listbox"]') || isNestedQueueActionButton(event.target))
+        return;
       const activeIdx = pagedRequests.findIndex((r) => r.request_id === activeRequestId);
       if (event.key === "ArrowDown") {
         event.preventDefault();
         const nextIdx = Math.min(activeIdx + 1, pagedRequests.length - 1);
-        if (nextIdx !== activeIdx) props.onOpenRequest(pagedRequests[nextIdx].request_id);
+        if (nextIdx !== activeIdx) handleOpenRequest(pagedRequests[nextIdx].request_id);
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
         const prevIdx = Math.max(activeIdx - 1, 0);
-        if (prevIdx !== activeIdx) props.onOpenRequest(pagedRequests[prevIdx].request_id);
+        if (prevIdx !== activeIdx) handleOpenRequest(pagedRequests[prevIdx].request_id);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [pagedRequests, activeRequestId, props.onOpenRequest]);
+  }, [pagedRequests, activeRequestId, handleOpenRequest]);
   reactExports.useEffect(() => {
     if (filteredRequests.length === 0) {
       return;
@@ -24448,15 +24562,15 @@ function ReviewWorkspace(props) {
     if (activeRequestId !== null && activeInRequests) {
       return;
     }
-    props.onOpenRequest(filteredRequests[0].request_id);
-  }, [activeRequestId, requests, filteredRequests, detail?.item.request_id, props.onOpenRequest]);
+    selectRequest(filteredRequests[0].request_id);
+  }, [activeRequestId, requests, filteredRequests, detail?.item.request_id, selectRequest]);
   reactExports.useEffect(() => {
     if (pagedRequests.length === 0) return;
     const activeOnPage = pagedRequests.some((item) => item.request_id === activeRequestId) || detail?.item.request_id === activeRequestId;
     if (!activeOnPage) {
-      props.onOpenRequest(pagedRequests[0].request_id);
+      selectRequest(pagedRequests[0].request_id);
     }
-  }, [currentPage, pagedRequests, activeRequestId, detail?.item.request_id, props.onOpenRequest]);
+  }, [currentPage, pagedRequests, activeRequestId, detail?.item.request_id, selectRequest]);
   const bulkApprove = useQueueBulkApprove({
     items: filteredRequests,
     approvalGate: props.approvalGate ?? null,
@@ -24548,7 +24662,7 @@ function ReviewWorkspace(props) {
         ]
       }
     ) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] items-start", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)] items-start", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `${mobileQueueOpen ? "block" : "hidden"} md:block`, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
         ReviewQueueList,
         {
@@ -24557,6 +24671,7 @@ function ReviewWorkspace(props) {
           totalCount: requests.length,
           filteredCount: filteredRequests.length,
           activeRequestId: activeItem.request_id,
+          readState,
           categoryOptions,
           categoryFilter,
           searchTerm,
@@ -24627,6 +24742,7 @@ const ReviewQueueList = reactExports.forwardRef(({
   totalCount,
   filteredCount,
   activeRequestId,
+  readState,
   categoryOptions,
   categoryFilter,
   searchTerm,
@@ -24727,10 +24843,23 @@ const ReviewQueueList = reactExports.forwardRef(({
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("aside", { className: "space-y-3", ref, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(SectionLabel, { children: "Queue" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "font-mono text-[11px] font-semibold text-muted-foreground", children: [
-        filteredCount,
-        "/",
-        totalCount
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            disabled: allFilteredRequests.length > 0 && allFilteredRequests.length + readState.readCount - allFilteredRequests.filter((item) => readState.isRead(item.request_id)).length > REQUEST_READ_STATE_LIMIT,
+            title: allFilteredRequests.length + readState.readCount - allFilteredRequests.filter((item) => readState.isRead(item.request_id)).length > REQUEST_READ_STATE_LIMIT ? `Cannot mark all read: doing so would exceed the read-state storage cap (${REQUEST_READ_STATE_LIMIT.toLocaleString()}). Reduce filters to shrink the visible queue, or mark requests read one by one.` : `Marks every visible filtered request as read (remembering up to ${REQUEST_READ_STATE_LIMIT.toLocaleString()}).`,
+            onClick: () => readState.markAllRead(allFilteredRequests.map((item) => item.request_id)),
+            className: `text-xs font-medium transition-colors ${allFilteredRequests.length + readState.readCount - allFilteredRequests.filter((item) => readState.isRead(item.request_id)).length > REQUEST_READ_STATE_LIMIT ? "text-slate-400 cursor-not-allowed" : "text-brand-blue hover:text-brand-dark"}`,
+            children: "Mark all read"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "font-mono text-[11px] font-semibold text-muted-foreground", children: [
+          filteredCount,
+          "/",
+          totalCount
+        ] })
       ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 rounded-xl border border-slate-100 bg-white p-3", children: [
@@ -24744,7 +24873,7 @@ const ReviewQueueList = reactExports.forwardRef(({
             type: "search",
             value: searchTerm,
             onChange: handleSearchChange,
-            placeholder: "Search command, category, host...",
+            placeholder: "Search queue...",
             className: "min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-brand-dark placeholder:text-slate-400 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
           }
         )
@@ -24854,6 +24983,7 @@ const ReviewQueueList = reactExports.forwardRef(({
             {
               item,
               active: item.request_id === activeRequestId,
+              readState,
               index,
               onOpenRequest,
               selectionMode,
@@ -24920,11 +25050,18 @@ function SemanticFilterButton(props) {
     }
   );
 }
-function QueueItemRow({ item, active, index, onOpenRequest, selectionMode = false, selectable = false, selected = false, onToggleSelect }) {
-  const isBlocked = item.policy_action === "block";
+function riskLevelFromScore(score) {
+  if (score <= 2) return "high";
+  if (score <= 4) return "medium";
+  return "low";
+}
+function QueueItemRow({ item, active, readState, index, onOpenRequest, selectionMode = false, selectable = false, selected = false, onToggleSelect }) {
+  const risk = riskScore(item);
+  const riskLevel = riskLevelFromScore(risk);
   const category = resolveQueueCategory(item);
   const CategoryIcon = iconForQueueCategory(category.id);
   const preview = queueItemPreview(item);
+  const isRead = readState.isRead(item.request_id);
   const showCheckbox = selectionMode;
   const canSelect = selectionMode && selectable;
   const handleClick = reactExports.useCallback(() => {
@@ -24950,11 +25087,17 @@ function QueueItemRow({ item, active, index, onOpenRequest, selectionMode = fals
     [item, onToggleSelect, canSelect]
   );
   const checkboxLabel = canSelect ? `Select ${preview} for bulk approval` : `Not eligible for bulk approval: ${category.shortLabel.toLowerCase()}`;
+  const rowClassName = (() => {
+    if (selected) return "border border-brand-blue/60 bg-brand-blue/[0.08] ring-1 ring-brand-blue/20";
+    if (active) return "border border-brand-blue bg-brand-blue/[0.06]";
+    if (isRead) return "border border-transparent bg-white hover:bg-slate-50";
+    return "border border-transparent bg-slate-50 hover:bg-slate-100";
+  })();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
     {
       role: "none",
-      className: `w-full rounded-lg py-2.5 px-2 transition-all ${selected ? "border border-brand-blue/60 bg-brand-blue/[0.08] ring-1 ring-brand-blue/20" : active ? "border border-brand-blue bg-brand-blue/[0.06]" : "border border-transparent bg-white hover:bg-slate-50"}`,
+      className: `group w-full rounded-lg py-2.5 px-2 transition-all ${rowClassName}`,
       children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-2", children: [
         showCheckbox ? /* @__PURE__ */ jsxRuntimeExports.jsx(
           "label",
@@ -24986,32 +25129,48 @@ function QueueItemRow({ item, active, index, onOpenRequest, selectionMode = fals
             "aria-posinset": index + 1,
             "aria-setsize": void 0,
             tabIndex: active ? 0 : -1,
-            className: "flex min-w-0 flex-1 items-center justify-between gap-2 text-left",
+            className: "flex min-w-0 flex-1 items-center gap-2 text-left",
             children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 items-center gap-2", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "span",
-                  {
-                    className: `mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${isBlocked ? "bg-brand-attention" : "bg-emerald-400"}`,
-                    "aria-hidden": "true"
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-sm font-medium text-brand-dark", children: preview }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "truncate text-[11px] text-muted-foreground", children: [
-                    harnessDisplayName(item.harness),
-                    " · ",
-                    category.shortLabel,
-                    " · ",
-                    formatQueueRequestDate(item)
-                  ] })
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: `truncate text-sm ${isRead ? "font-medium text-slate-500" : "font-bold text-brand-dark"}`, children: [
+                  !isRead && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Unread request:" }),
+                  preview
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "truncate text-[11px] text-muted-foreground", children: [
+                  harnessDisplayName(item.harness),
+                  " · ",
+                  category.shortLabel,
+                  " · ",
+                  formatQueueRequestDate(item)
                 ] })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
                 "span",
                 {
-                  className: `inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-brand-blue/10 text-brand-blue" : "bg-slate-50 text-slate-500"}`,
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(CategoryIcon, { className: "h-4 w-4", "aria-hidden": "true" })
+                  role: "img",
+                  "aria-label": `Risk: ${riskLevel}`,
+                  className: "group/icon relative flex h-2 w-2 shrink-0 items-center justify-center",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        className: `h-2 w-2 rounded-full ${riskLevel === "high" ? "bg-red-400" : riskLevel === "medium" ? "bg-amber-400" : "bg-emerald-400"}`
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-md bg-brand-blue px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/icon:opacity-100", children: `Risk: ${riskLevel}` })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "span",
+                {
+                  role: "img",
+                  "aria-label": category.label,
+                  className: `group/icon relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-brand-blue/10 text-brand-blue" : "bg-slate-50 text-slate-500"}`,
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(CategoryIcon, { className: "h-4 w-4", "aria-hidden": "true" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-md bg-brand-blue px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/icon:opacity-100", children: category.label })
+                  ]
                 }
               )
             ]

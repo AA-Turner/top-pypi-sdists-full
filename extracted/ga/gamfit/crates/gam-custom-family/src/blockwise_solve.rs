@@ -5,6 +5,7 @@
 //! labeled-rho aggregation/pullback helpers that drive the outer eval.
 
 use super::*;
+use opt::{RidgeSchedule, escalate_ridge};
 
 pub(crate) fn aggregate_labeled_hessian(
     hessian: &Array2<f64>,
@@ -144,13 +145,13 @@ pub(crate) fn pullback_labeled_outer_eval(
     }
     if eval_mode == EvalMode::ValueGradientHessian {
         result.outer_hessian = match result.outer_hessian {
-            gam_problem::HessianResult::Analytic(hessian) => {
-                gam_problem::HessianResult::Analytic(aggregate_labeled_hessian(&hessian, layout)?)
+            gam_problem::HessianValue::Dense(hessian) => {
+                gam_problem::HessianValue::Dense(aggregate_labeled_hessian(&hessian, layout)?)
             }
-            gam_problem::HessianResult::Operator(operator) => gam_problem::HessianResult::Operator(
-                Arc::new(LabeledOuterHessianOperator::new(operator, layout)),
+            gam_problem::HessianValue::Operator(operator) => gam_problem::HessianValue::Operator(
+                Arc::new(LabeledHessianOperator::new(operator, layout)),
             ),
-            gam_problem::HessianResult::Unavailable => gam_problem::HessianResult::Unavailable,
+            gam_problem::HessianValue::Unavailable => gam_problem::HessianValue::Unavailable,
         };
     }
     result.warm_start.rho = rho.clone();
@@ -1124,16 +1125,36 @@ pub(crate) struct BlockUpdateResult {
     pub(crate) active_set: Option<Vec<usize>>,
 }
 
-#[inline]
+/// Floor strictly positive working weights at `minweight`, preserving exact
+/// zeros (semantically excluded rows stay excluded).
+///
+/// The diagonal working-curvature contract requires nonnegative finite
+/// entries: a negative weight is indefinite diagonal curvature and a
+/// non-finite weight is a broken linearization. Coercing either (negatives to
+/// zero, or NaN to `minweight` through the NaN-ignoring `f64::max`) would
+/// silently substitute a different information matrix — the objective,
+/// gradient, and log|H| would then describe a model the family never
+/// evaluated — so both are rejected.
 pub(crate) fn floor_positiveworking_weights(
     working_weights: &Array1<f64>,
     minweight: f64,
-) -> Array1<f64> {
+) -> Result<Array1<f64>, String> {
+    if let Some((i, &wi)) = working_weights
+        .iter()
+        .enumerate()
+        .find(|&(_, &wi)| !wi.is_finite() || wi < 0.0)
+    {
+        return Err(format!(
+            "invalid diagonal working weight at row {i}: {wi} (the working-curvature \
+             contract requires nonnegative finite entries; negative or non-finite \
+             curvature cannot be coerced without changing the information matrix)"
+        ));
+    }
     let mut out = Array1::<f64>::zeros(working_weights.len());
     ndarray::Zip::from(&mut out)
         .and(working_weights)
-        .par_for_each(|o, &wi| *o = if wi <= 0.0 { 0.0 } else { wi.max(minweight) });
-    out
+        .par_for_each(|o, &wi| *o = if wi == 0.0 { 0.0 } else { wi.max(minweight) });
+    Ok(out)
 }
 
 pub(crate) trait ParameterBlockUpdater {
@@ -1166,7 +1187,13 @@ impl ParameterBlockUpdater for DiagonalBlockUpdater<'_> {
         }
 
         // Zero-weight observations are semantically excluded and must stay inactive.
-        let w_clamped = floor_positiveworking_weights(self.working_weights, ctx.options.minweight);
+        let w_clamped = floor_positiveworking_weights(self.working_weights, ctx.options.minweight)
+            .map_err(|e| {
+                format!(
+                    "block {} ({}) diagonal solve: {e}",
+                    ctx.block_idx, ctx.spec.name
+                )
+            })?;
 
         if let Some(constraints) = ctx.linear_constraints {
             check_linear_feasibility(&ctx.states[ctx.block_idx].beta, constraints, 1e-8).map_err(
@@ -1942,22 +1969,31 @@ pub(crate) fn try_cholesky_with_escalating_ridge<R>(
     mut on_success: impl FnMut(&gam_linalg::faer_ndarray::FaerCholeskyFactor, usize, f64) -> Option<R>,
 ) -> Option<(R, f64, usize)> {
     let p = matrix.nrows();
-    let mut boost = initial_boost;
-    for attempt in 0..max_attempts {
-        let mut candidate = matrix.clone();
-        if boost != 0.0 {
-            for i in 0..p {
-                candidate[[i, i]] += boost;
+    // The shared primitive reports 1-based escalation counts; this helper's
+    // contract hands `on_success` the 0-based attempt index, so the counter
+    // lives here.
+    let mut attempt = 0_usize;
+    escalate_ridge(
+        RidgeSchedule {
+            initial: initial_boost,
+            growth,
+            max_escalations: max_attempts,
+        },
+        |boost| {
+            let this_attempt = attempt;
+            attempt += 1;
+            let mut candidate = matrix.clone();
+            if boost != 0.0 {
+                for i in 0..p {
+                    candidate[[i, i]] += boost;
+                }
             }
-        }
-        if let Ok(chol) = candidate.cholesky(Side::Lower)
-            && let Some(r) = on_success(&chol, attempt, boost)
-        {
-            return Some((r, boost, attempt));
-        }
-        boost *= growth;
-    }
-    None
+            let chol = candidate.cholesky(Side::Lower).ok()?;
+            on_success(&chol, this_attempt, boost).map(|r| (r, boost, this_attempt))
+        },
+    )
+    .ok()
+    .map(|success| success.value)
 }
 
 /// Fallback for penalty pseudo-logdet when eigendecomposition fails.
@@ -2036,45 +2072,6 @@ pub(crate) fn resolved_ridge_determinant_mode(
         RidgeDeterminantMode::Auto => RidgeDeterminantMode::Full,
         mode => mode,
     }
-}
-
-pub(crate) fn inverse_spdwith_retry(
-    matrix: &Array2<f64>,
-    baseridge: f64,
-    max_retry: usize,
-) -> Result<Array2<f64>, String> {
-    let mut sym = matrix.clone();
-    symmetrize_dense_in_place(&mut sym);
-
-    let invert_via_chol =
-        |chol: &gam_linalg::faer_ndarray::FaerCholeskyFactor, _: usize, _: f64| {
-            let mut ident = Array2::<f64>::eye(sym.nrows());
-            chol.solve_mat_in_place(&mut ident);
-            symmetrize_dense_in_place(&mut ident);
-            Some(ident)
-        };
-
-    // Attempt 0 in the original schedule uses ridge=0 (no diagonal addition).
-    // Express this as a single-attempt call with initial_boost=0.
-    if let Some((inv, _, _)) =
-        try_cholesky_with_escalating_ridge(&sym, 0.0, 1, 1.0, invert_via_chol)
-    {
-        return Ok(inv);
-    }
-
-    // Subsequent attempts use ridge = baseridge * 10^(k-1) for k = 1..=max_retry,
-    // which is `max_retry` total attempts with initial_boost=baseridge, growth=10.
-    if max_retry > 0
-        && let Some((inv, _, _)) =
-            try_cholesky_with_escalating_ridge(&sym, baseridge, max_retry, 10.0, invert_via_chol)
-    {
-        return Ok(inv);
-    }
-
-    Err(CustomFamilyError::BasisDecompositionFailed {
-        reason: "failed to invert SPD system after Cholesky ridge retries".to_string(),
-    }
-    .into())
 }
 
 pub(crate) fn symmetrize_dense_in_place(matrix: &mut Array2<f64>) {
@@ -2174,23 +2171,31 @@ pub(crate) fn strict_spd_lm_engine<R>(
     let trace_scale = (0..p).map(|i| sym[[i, i]].abs()).sum::<f64>() / (p as f64);
     let delta0 = (f64::EPSILON * trace_scale.max(1.0)).max(CUSTOM_FAMILY_RIDGE_FLOOR);
 
-    let mut delta = delta0;
-    for escalation in 1..=STRICT_SPD_LM_MAX_ESCALATIONS {
-        let mut ridged = sym.clone();
-        for i in 0..p {
-            ridged[[i, i]] += delta;
-        }
-        if let Ok(chol) = ridged.cholesky(Side::Lower) {
+    let exhausted = match escalate_ridge(
+        RidgeSchedule {
+            initial: delta0,
+            growth: STRICT_SPD_LM_RIDGE_GROWTH,
+            max_escalations: STRICT_SPD_LM_MAX_ESCALATIONS,
+        },
+        |delta| {
+            let mut ridged = sym.clone();
+            for i in 0..p {
+                ridged[[i, i]] += delta;
+            }
+            ridged.cholesky(Side::Lower).ok()
+        },
+    ) {
+        Ok(success) => {
             return Ok((
-                process_chol(&chol),
+                process_chol(&success.value),
                 StrictSpdLmStats {
-                    delta_used: delta,
-                    escalations: escalation,
+                    delta_used: success.ridge,
+                    escalations: success.escalations,
                 },
             ));
         }
-        delta *= STRICT_SPD_LM_RIDGE_GROWTH;
-    }
+        Err(exhausted) => exhausted,
+    };
 
     // δ-ridge schedule exhausted; fall back to rank-aware eigen-floor handling.
     // Floors every eigenvalue at `eps_floor = 1e-12 · max|λ|` so well-conditioned
@@ -2198,6 +2203,7 @@ pub(crate) fn strict_spd_lm_engine<R>(
     // controlled curvature, preventing the spatial-adaptive pilot from collapsing
     // to a cold full-data run.
     let max_esc = STRICT_SPD_LM_MAX_ESCALATIONS;
+    let delta = exhausted.next_ridge;
     let (evals, evecs) = FaerEigh::eigh(&sym, Side::Lower).map_err(|e| {
         format!(
             "{op_label} failed even with LM δ-ridge continuation \
@@ -2335,36 +2341,6 @@ pub(crate) fn strict_exact_pseudo_logdet(
         .filter(|&ev| ev > pos_tol)
         .map(f64::ln)
         .sum())
-}
-
-pub(crate) fn pinv_positive_part(
-    matrix: &Array2<f64>,
-    ridge_floor: f64,
-) -> Result<Array2<f64>, String> {
-    let mut sym = matrix.clone();
-    symmetrize_dense_in_place(&mut sym);
-    let (eigenvalues, eigenvectors) = sym
-        .eigh(Side::Lower)
-        .map_err(|e| format!("positive-part covariance eigendecomposition failed: {e}"))?;
-    let max_abs_eigenvalue = eigenvalues.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-    let tol = (max_abs_eigenvalue * CUSTOM_FAMILY_EVAL_FLOOR)
-        .max(ridge_floor.max(CUSTOM_FAMILY_CONDITION_RELATIVE_FLOOR));
-    let p = matrix.nrows();
-    let mut pinv = Array2::<f64>::zeros((p, p));
-    for (k, &ev) in eigenvalues.iter().enumerate() {
-        if ev <= tol {
-            continue;
-        }
-        let inv_ev = 1.0 / ev;
-        for i in 0..p {
-            let vi = eigenvectors[[i, k]];
-            for j in 0..p {
-                pinv[[i, j]] += inv_ev * vi * eigenvectors[[j, k]];
-            }
-        }
-    }
-    symmetrize_dense_in_place(&mut pinv);
-    Ok(pinv)
 }
 
 /// Numerical nullity of a symmetric penalized Hessian at the shared

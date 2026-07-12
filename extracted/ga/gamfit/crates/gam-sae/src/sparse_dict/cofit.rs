@@ -24,9 +24,11 @@
 //! ```
 //!
 //! (the linear tier's ridge is explicit in `J`; the curved tier's complexity
-//! penalty is realised as the compose lane's cross-fit / e-BH acceptance charge,
-//! which admits a chart only when its cross-validated gain exceeds its
-//! information charge — surfaced per round as [`CofitRound::curved_charge`]).
+//! penalty is realised as the compose lane's cross-fit BIC acceptance charge,
+//! which admits a chart only when its cross-validated deviance gain exceeds its
+//! `½·d_eff·log n_eff` information charge — a descriptive per-chart BIC gate, not
+//! an FDR-controlled e-BH discovery — surfaced per round as
+//! [`CofitRound::curved_charge`]).
 //!
 //! * **Block A — linear tier refit.** With the charts (hence `C`) held fixed and
 //!   the block routing frozen, re-solve the per-row active-set ridge
@@ -104,8 +106,10 @@ pub struct CofitRound {
     pub recon_sse: f64,
     /// Linear-tier ridge energy `λ_lin · ‖codes‖²_F`.
     pub linear_ridge: f64,
-    /// Total e-BH acceptance charge of the accepted charts this round (the curved
-    /// tier's complexity penalty, enforced as an acceptance gate).
+    /// Total BIC complexity charge (`Σ ½·d_eff·log n_eff`) of the descriptively
+    /// accepted charts this round — the curved tier's information penalty,
+    /// enforced as a per-chart BIC acceptance gate (not an FDR-controlled e-BH
+    /// discovery).
     pub curved_charge: f64,
     /// Composed explained variance (`1 − RSS/TSS`, mean baseline).
     pub explained_variance: f64,
@@ -219,13 +223,14 @@ pub fn cofit_block_and_curved(
     let mut work = codes.to_owned();
 
     // ---- Round 0: the one-shot fit-curved-on-linear-residual baseline. ----
-    let compose0 = compose_block_coordinate_charts(target, decoder, blocks, work.view(), &chart_cfg)?;
+    let compose0 =
+        compose_block_coordinate_charts(target, decoder, blocks, work.view(), &chart_cfg)?;
     let mut accepted = accepted_set(&compose0);
     zero_owned_codes(&mut work, blocks, &accepted);
     let mut composed = compose0.reconstructed.clone();
     let mut curved = curved_correction(decoder, blocks, work.view(), b, &accepted, &composed)?;
     let mut charge = accepted_charge(&compose0);
-    let mut n_charts = compose0.accepted_blocks.len() + compose0.accepted_pairs.len();
+    let mut n_charts = compose0.selected_chart_blocks.len() + compose0.selected_chart_pairs.len();
     let mut compose_result = compose0;
 
     let mut rounds: Vec<CofitRound> = Vec::with_capacity(config.max_rounds + 1);
@@ -267,11 +272,18 @@ pub fn cofit_block_and_curved(
         let l_unowned = reconstruct_masked(decoder, blocks, work.view(), b, &accepted, false)?;
         let composed_a = &l_unowned + &curved;
         let objective_a = joint_objective(target.view(), &composed_a, &work, config.code_ridge);
-        assert_monotone(objective_a, prev_objective, config.monotone_slack, round, "A")?;
+        assert_monotone(
+            objective_a,
+            prev_objective,
+            config.monotone_slack,
+            round,
+            "A",
+        )?;
 
         // (B) Curved tier refit against the linear-adjusted target `target − L`,
         //     through the existing compose surface. Guarded commit.
-        let candidate = compose_block_coordinate_charts(target, decoder, blocks, work.view(), &chart_cfg)?;
+        let candidate =
+            compose_block_coordinate_charts(target, decoder, blocks, work.view(), &chart_cfg)?;
         let cand_accepted = accepted_set(&candidate);
         let cand_composed = candidate.reconstructed.clone();
         let objective_b = joint_objective(target.view(), &cand_composed, &work, config.code_ridge);
@@ -284,7 +296,7 @@ pub fn cofit_block_and_curved(
             composed = cand_composed;
             curved = curved_correction(decoder, blocks, work.view(), b, &accepted, &composed)?;
             charge = accepted_charge(&candidate);
-            n_charts = candidate.accepted_blocks.len() + candidate.accepted_pairs.len();
+            n_charts = candidate.selected_chart_blocks.len() + candidate.selected_chart_pairs.len();
             compose_result = candidate;
             objective = objective_b;
         } else {
@@ -308,7 +320,13 @@ pub fn cofit_block_and_curved(
                 curved_committed,
             },
         )?;
-        assert_monotone(objective, prev_objective, config.monotone_slack, round, "round")?;
+        assert_monotone(
+            objective,
+            prev_objective,
+            config.monotone_slack,
+            round,
+            "round",
+        )?;
 
         // Stall test on the relative objective decrease.
         let denom = prev_objective.abs().max(tss).max(1.0);
@@ -317,7 +335,8 @@ pub fn cofit_block_and_curved(
         }
     }
 
-    let linear_reconstruction = reconstruct_masked(decoder, blocks, work.view(), b, &accepted, false)?;
+    let linear_reconstruction =
+        reconstruct_masked(decoder, blocks, work.view(), b, &accepted, false)?;
     let curved_final = &composed - &linear_reconstruction;
     let explained_variance = explained_variance_from_reconstruction(target, composed.view())?;
     // Guard against an inconsistent report (bounds the accepted block indices).
@@ -339,30 +358,29 @@ pub fn cofit_block_and_curved(
     })
 }
 
-/// The global set of chart-owned (accepted) block indices from a compose result:
-/// accepted single blocks plus both members of every accepted pair.
+/// The global set of BIC-selected chart-owned block indices from a compose result.
 fn accepted_set(result: &BlockChartComposeResult) -> HashSet<usize> {
     let mut s = HashSet::new();
-    for &g in &result.accepted_blocks {
+    for &g in &result.selected_chart_blocks {
         s.insert(g);
     }
-    for &(g0, g1) in &result.accepted_pairs {
+    for &(g0, g1) in &result.selected_chart_pairs {
         s.insert(g0);
         s.insert(g1);
     }
     s
 }
 
-/// Total e-BH acceptance charge of the accepted charts (their information cost).
+/// Total complexity charge of the BIC-selected charts.
 fn accepted_charge(result: &BlockChartComposeResult) -> f64 {
     let mut charge = 0.0;
     for rec in &result.block_records {
-        if rec.evidence.accepted {
+        if rec.evidence.selected_by_bic {
             charge += rec.evidence.charge;
         }
     }
     for rec in &result.pair_records {
-        if rec.evidence.accepted {
+        if rec.evidence.selected_by_bic {
             charge += rec.evidence.charge;
         }
     }
@@ -423,7 +441,11 @@ fn reconstruct_masked(
 /// reconstruction does not use, distorting the recorded objective and the
 /// stall test. If ownership later recedes, the block-A exact per-row solve
 /// re-fits the slot from zero.
-fn zero_owned_codes(codes: &mut Array3<f32>, blocks: ArrayView2<'_, u32>, accepted: &HashSet<usize>) {
+fn zero_owned_codes(
+    codes: &mut Array3<f32>,
+    blocks: ArrayView2<'_, u32>,
+    accepted: &HashSet<usize>,
+) {
     let (n, slots, width) = codes.dim();
     for i in 0..n {
         for j in 0..slots.min(blocks.ncols()) {
@@ -688,7 +710,11 @@ mod cofit_tests {
     /// Tied per-block routing: every row fires all three blocks; the within-block
     /// code is the tied projection `z_g = x D_gᵀ` (γ = 1). This is exactly what a
     /// converged block-sparse fit stores.
-    fn tied_routing(x: &Array2<f32>, decoder: &Array2<f32>, b: usize) -> (Array2<u32>, Array3<f32>) {
+    fn tied_routing(
+        x: &Array2<f32>,
+        decoder: &Array2<f32>,
+        b: usize,
+    ) -> (Array2<u32>, Array3<f32>) {
         let n = x.nrows();
         let g = decoder.nrows() / b;
         let mut blocks = Array2::<u32>::zeros((n, g));
@@ -720,7 +746,6 @@ mod cofit_tests {
             min_firings: 8,
             crossfit_folds: 4,
             pair_screen: false,
-            alpha: 0.20,
             ..BlockChartComposeConfig::default()
         }
     }
@@ -738,9 +763,15 @@ mod cofit_tests {
             chart: chart_cfg_small(),
             ..CofitConfig::default()
         };
-        let report =
-            cofit_block_and_curved(x.view(), decoder.view(), blocks.view(), codes.view(), 1.0, &config)
-                .expect("cofit runs");
+        let report = cofit_block_and_curved(
+            x.view(),
+            decoder.view(),
+            blocks.view(),
+            codes.view(),
+            1.0,
+            &config,
+        )
+        .expect("cofit runs");
 
         // (a) The co-fit's composed reconstruction beats the one-shot baseline
         //     (round 0) on explained variance — the linear tier, freed of the
@@ -794,9 +825,15 @@ mod cofit_tests {
             chart: chart_cfg_small(),
             ..CofitConfig::default()
         };
-        let report =
-            cofit_block_and_curved(x.view(), decoder.view(), blocks.view(), codes.view(), 1.0, &config)
-                .expect("cofit runs");
+        let report = cofit_block_and_curved(
+            x.view(),
+            decoder.view(),
+            blocks.view(),
+            codes.view(),
+            1.0,
+            &config,
+        )
+        .expect("cofit runs");
 
         assert!(report.rounds.len() >= 2, "expected multiple rounds");
         let slack = config.monotone_slack;
@@ -826,9 +863,15 @@ mod cofit_tests {
             chart,
             ..CofitConfig::default()
         };
-        let report =
-            cofit_block_and_curved(x.view(), decoder.view(), blocks.view(), codes.view(), 1.0, &config)
-                .expect("cofit runs");
+        let report = cofit_block_and_curved(
+            x.view(),
+            decoder.view(),
+            blocks.view(),
+            codes.view(),
+            1.0,
+            &config,
+        )
+        .expect("cofit runs");
 
         // No charts anywhere.
         assert_eq!(report.rounds.last().unwrap().n_accepted_charts, 0);
@@ -837,7 +880,10 @@ mod cofit_tests {
             .curved_correction
             .iter()
             .fold(0.0f32, |m, &v| m.max(v.abs()));
-        assert!(max_c < 1.0e-5, "curved correction should vanish (max {max_c})");
+        assert!(
+            max_c < 1.0e-5,
+            "curved correction should vanish (max {max_c})"
+        );
 
         // The composed reconstruction equals an independent per-row least-squares
         // linear solve over all fired blocks (the pure linear fit).
@@ -857,7 +903,8 @@ mod cofit_tests {
             }
         }
         let ref_recon =
-            reconstruct_block_sparse_rows(decoder.view(), blocks.view(), ref_codes.view(), b).unwrap();
+            reconstruct_block_sparse_rows(decoder.view(), blocks.view(), ref_codes.view(), b)
+                .unwrap();
         let ev_ref = ev(&x, &ref_recon);
         assert!(
             (report.explained_variance - ev_ref).abs() < 1.0e-6,

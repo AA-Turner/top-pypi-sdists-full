@@ -16,18 +16,18 @@ class ServiceUsageResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class OperationsResource(googleapiclient.discovery.Resource):
         def cancel(
-            self, *, name: str, body: CancelOperationRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CancelOperationRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> OperationHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            name: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            filter: str | None = ...,
+            name: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListOperationsResponseHttpRequest: ...
         def list_next(
@@ -39,20 +39,20 @@ class ServiceUsageResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class ServicesResource(googleapiclient.discovery.Resource):
         def batchEnable(
+            self, *, parent: str, body: BatchEnableServicesRequest, **kwargs: typing.Any
+        ) -> OperationHttpRequest: ...
+        def batchGet(
             self,
             *,
             parent: str,
-            body: BatchEnableServicesRequest = ...,
+            names: str | _list[str] | None = ...,
             **kwargs: typing.Any,
-        ) -> OperationHttpRequest: ...
-        def batchGet(
-            self, *, parent: str, names: str | _list[str] = ..., **kwargs: typing.Any
         ) -> BatchGetServicesResponseHttpRequest: ...
         def disable(
-            self, *, name: str, body: DisableServiceRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: DisableServiceRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def enable(
-            self, *, name: str, body: EnableServiceRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: EnableServiceRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def get(
             self, *, name: str, **kwargs: typing.Any
@@ -61,9 +61,9 @@ class ServiceUsageResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListServicesResponseHttpRequest: ...
         def list_next(

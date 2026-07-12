@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -38,6 +39,15 @@ if TYPE_CHECKING:
 
 RESOURCES = os.path.join(os.path.dirname(__file__), "resources")
 VERSION = metadata.version("nox")
+
+# Script mode installs deps with uv, which can't inspect the MinGW interpreter.
+# Fixed by #1117; xfail (non-strict) keeps the experimental MSYS2 job green.
+IS_MINGW = sysconfig.get_platform().startswith("mingw")
+xfail_mingw_uv = pytest.mark.xfail(
+    IS_MINGW,
+    reason="script mode needs uv, which can't inspect the MinGW interpreter (#1088, fixed by #1117)",
+    strict=False,
+)
 
 
 # This is needed because CI systems will mess up these tests due to the
@@ -258,12 +268,12 @@ def test_main_explicit_sessions_with_spaces_in_names(
     [
         ("NOXSESSION", "sessions", "foo", ["foo"]),
         ("NOXSESSION", "sessions", "foo,bar", ["foo", "bar"]),
-        ("NOXPYTHON", "pythons", "3.9", ["3.9"]),
-        ("NOXPYTHON", "pythons", "3.9,3.10", ["3.9", "3.10"]),
-        ("NOXEXTRAPYTHON", "extra_pythons", "3.9", ["3.9"]),
-        ("NOXEXTRAPYTHON", "extra_pythons", "3.9,3.10", ["3.9", "3.10"]),
-        ("NOXFORCEPYTHON", "force_pythons", "3.9", ["3.9"]),
-        ("NOXFORCEPYTHON", "force_pythons", "3.9,3.10", ["3.9", "3.10"]),
+        ("NOXPYTHON", "pythons", "3.10", ["3.10"]),
+        ("NOXPYTHON", "pythons", "3.10,3.11", ["3.10", "3.11"]),
+        ("NOXEXTRAPYTHON", "extra_pythons", "3.10", ["3.10"]),
+        ("NOXEXTRAPYTHON", "extra_pythons", "3.10,3.11", ["3.10", "3.11"]),
+        ("NOXFORCEPYTHON", "force_pythons", "3.10", ["3.10"]),
+        ("NOXFORCEPYTHON", "force_pythons", "3.10,3.11", ["3.10", "3.11"]),
     ],
     ids=[
         "single_session",
@@ -483,9 +493,16 @@ def test_main_session_with_names(
 
 @pytest.fixture
 def run_nox(
-    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> Callable[..., tuple[int, str, str]]:
     def _run_nox(*args: str) -> tuple[int, str, str]:
+        # Give each invocation its own envdir so sessions that build real
+        # virtualenvs don't collide with other xdist workers sharing the
+        # noxfile's default ``.nox`` directory.
+        if not any(arg.startswith("--envdir") for arg in args):
+            args = (*args, "--envdir", str(tmp_path / ".nox"))
         monkeypatch.setattr(sys, "argv", ["nox", *args])
 
         with mock.patch("sys.exit") as sys_exit:
@@ -560,9 +577,9 @@ def test_main_with_bad_session_names(
     assert session in stderr
 
 
-py39py310 = pytest.mark.skipif(
-    shutil.which("python3.10") is None or shutil.which("python3.9") is None,
-    reason="Python 3.9 and 3.10 required",
+py310py311 = pytest.mark.skipif(
+    shutil.which("python3.10") is None or shutil.which("python3.11") is None,
+    reason="Python 3.10 and 3.11 required",
 )
 
 
@@ -570,8 +587,8 @@ py39py310 = pytest.mark.skipif(
     ("sessions", "expected_order"),
     [
         (("g", "a", "d"), ("b", "c", "h", "g", "a", "e", "d")),
-        pytest.param(("m",), ("k-3.9", "k-3.10", "m"), marks=py39py310),
-        pytest.param(("n",), ("k-3.10", "n"), marks=py39py310),
+        pytest.param(("m",), ("k-3.10", "k-3.11", "m"), marks=py310py311),
+        pytest.param(("n",), ("k-3.11", "n"), marks=py310py311),
         (("v",), ("u(django='1.9')", "u(django='2.0')", "v")),
         (("w",), ("u(django='1.9')", "u(django='2.0')", "w")),
     ],
@@ -632,6 +649,27 @@ def test_main_requries_modern_param(
     noxfile = os.path.join(RESOURCES, "noxfile_requires.py")
     returncode, _, _stderr = run_nox(f"--noxfile={noxfile}", f"--session={session}")
     assert returncode == 0
+
+
+def test_main_list_with_empty_parametrize(
+    run_nox: Callable[..., tuple[Any, Any, Any]],
+) -> None:
+    noxfile = os.path.join(RESOURCES, "noxfile_empty_parametrize.py")
+    returncode, stdout, _ = run_nox(f"--noxfile={noxfile}", "--list")
+    assert returncode == 0
+    assert "regular" in stdout
+    assert "no_params" in stdout
+
+
+def test_main_run_with_empty_parametrize(
+    run_nox: Callable[..., tuple[Any, Any, Any]],
+) -> None:
+    noxfile = os.path.join(RESOURCES, "noxfile_empty_parametrize.py")
+    returncode, stdout, stderr = run_nox(f"--noxfile={noxfile}")
+    assert returncode == 0
+    assert stdout == "regular\n"
+    assert "Session regular was successful." in stderr
+    assert "This session had no parameters available." in stderr
 
 
 def test_main_duplicate_session(
@@ -1107,6 +1145,7 @@ def test_symlink_sym_not(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res.returncode == 1
 
 
+@xfail_mingw_uv
 def test_noxfile_script_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NOX_SCRIPT_MODE", raising=False)
     job = subprocess.run(
@@ -1151,6 +1190,7 @@ def test_noxfile_no_script_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "No module named 'cowsay'" in job.stderr
 
 
+@xfail_mingw_uv
 def test_noxfile_script_mode_exec(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NOX_SCRIPT_MODE", raising=False)
     job = subprocess.run(
@@ -1171,6 +1211,7 @@ def test_noxfile_script_mode_exec(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "another_world" in job.stdout
 
 
+@xfail_mingw_uv
 def test_noxfile_script_mode_url_req() -> None:
     job = subprocess.run(
         [

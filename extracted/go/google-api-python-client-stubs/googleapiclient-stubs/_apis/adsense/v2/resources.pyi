@@ -20,7 +20,7 @@ class AdsenseResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class AdunitsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: AdUnit = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: AdUnit, **kwargs: typing.Any
                 ) -> AdUnitHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -32,8 +32,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAdUnitsResponseHttpRequest: ...
                 def list_next(
@@ -45,8 +45,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListLinkedCustomChannelsResponseHttpRequest: ...
                 def listLinkedCustomChannels_next(
@@ -58,19 +58,15 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AdUnit = ...,
-                    updateMask: str = ...,
+                    body: AdUnit,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> AdUnitHttpRequest: ...
 
             @typing.type_check_only
             class CustomchannelsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self,
-                    *,
-                    parent: str,
-                    body: CustomChannel = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: CustomChannel, **kwargs: typing.Any
                 ) -> CustomChannelHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -82,8 +78,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListCustomChannelsResponseHttpRequest: ...
                 def list_next(
@@ -95,8 +91,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListLinkedAdUnitsResponseHttpRequest: ...
                 def listLinkedAdUnits_next(
@@ -108,8 +104,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CustomChannel = ...,
-                    updateMask: str = ...,
+                    body: CustomChannel,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> CustomChannelHttpRequest: ...
 
@@ -122,8 +118,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListUrlChannelsResponseHttpRequest: ...
                 def list_next(
@@ -142,8 +138,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAdClientsResponseHttpRequest: ...
             def list_next(
@@ -158,7 +154,11 @@ class AdsenseResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class AlertsResource(googleapiclient.discovery.Resource):
             def list(
-                self, *, parent: str, languageCode: str = ..., **kwargs: typing.Any
+                self,
+                *,
+                parent: str,
+                languageCode: str | None = ...,
+                **kwargs: typing.Any,
             ) -> ListAlertsResponseHttpRequest: ...
 
         @typing.type_check_only
@@ -176,8 +176,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListPolicyIssuesResponseHttpRequest: ...
             def list_next(
@@ -194,7 +194,7 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    currencyCode: str = ...,
+                    currencyCode: str | None = ...,
                     dateRange: typing_extensions.Literal[
                         "REPORTING_DATE_RANGE_UNSPECIFIED",
                         "CUSTOM",
@@ -204,26 +204,28 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                         "YEAR_TO_DATE",
                         "LAST_7_DAYS",
                         "LAST_30_DAYS",
-                    ] = ...,
-                    endDate_day: int = ...,
-                    endDate_month: int = ...,
-                    endDate_year: int = ...,
-                    languageCode: str = ...,
+                    ]
+                    | None = ...,
+                    endDate_day: int | None = ...,
+                    endDate_month: int | None = ...,
+                    endDate_year: int | None = ...,
+                    languageCode: str | None = ...,
                     reportingTimeZone: typing_extensions.Literal[
                         "REPORTING_TIME_ZONE_UNSPECIFIED",
                         "ACCOUNT_TIME_ZONE",
                         "GOOGLE_TIME_ZONE",
-                    ] = ...,
-                    startDate_day: int = ...,
-                    startDate_month: int = ...,
-                    startDate_year: int = ...,
+                    ]
+                    | None = ...,
+                    startDate_day: int | None = ...,
+                    startDate_month: int | None = ...,
+                    startDate_year: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> ReportResultHttpRequest: ...
                 def generateCsv(
                     self,
                     *,
                     name: str,
-                    currencyCode: str = ...,
+                    currencyCode: str | None = ...,
                     dateRange: typing_extensions.Literal[
                         "REPORTING_DATE_RANGE_UNSPECIFIED",
                         "CUSTOM",
@@ -233,27 +235,29 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                         "YEAR_TO_DATE",
                         "LAST_7_DAYS",
                         "LAST_30_DAYS",
-                    ] = ...,
-                    endDate_day: int = ...,
-                    endDate_month: int = ...,
-                    endDate_year: int = ...,
-                    languageCode: str = ...,
+                    ]
+                    | None = ...,
+                    endDate_day: int | None = ...,
+                    endDate_month: int | None = ...,
+                    endDate_year: int | None = ...,
+                    languageCode: str | None = ...,
                     reportingTimeZone: typing_extensions.Literal[
                         "REPORTING_TIME_ZONE_UNSPECIFIED",
                         "ACCOUNT_TIME_ZONE",
                         "GOOGLE_TIME_ZONE",
-                    ] = ...,
-                    startDate_day: int = ...,
-                    startDate_month: int = ...,
-                    startDate_year: int = ...,
+                    ]
+                    | None = ...,
+                    startDate_day: int | None = ...,
+                    startDate_month: int | None = ...,
+                    startDate_year: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> HttpBodyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSavedReportsResponseHttpRequest: ...
                 def list_next(
@@ -266,7 +270,7 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 account: str,
-                currencyCode: str = ...,
+                currencyCode: str | None = ...,
                 dateRange: typing_extensions.Literal[
                     "REPORTING_DATE_RANGE_UNSPECIFIED",
                     "CUSTOM",
@@ -276,7 +280,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     "YEAR_TO_DATE",
                     "LAST_7_DAYS",
                     "LAST_30_DAYS",
-                ] = ...,
+                ]
+                | None = ...,
                 dimensions: typing_extensions.Literal[
                     "DIMENSION_UNSPECIFIED",
                     "DATE",
@@ -396,13 +401,14 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                         "WEBVIEW_TYPE_NAME",
                         "WEBVIEW_TYPE_CODE",
                     ]
-                ] = ...,
-                endDate_day: int = ...,
-                endDate_month: int = ...,
-                endDate_year: int = ...,
-                filters: str | _list[str] = ...,
-                languageCode: str = ...,
-                limit: int = ...,
+                ]
+                | None = ...,
+                endDate_day: int | None = ...,
+                endDate_month: int | None = ...,
+                endDate_year: int | None = ...,
+                filters: str | _list[str] | None = ...,
+                languageCode: str | None = ...,
+                limit: int | None = ...,
                 metrics: typing_extensions.Literal[
                     "METRIC_UNSPECIFIED",
                     "PAGE_VIEWS",
@@ -482,23 +488,25 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                         "FUNNEL_CLICKS",
                         "FUNNEL_RPM",
                     ]
-                ] = ...,
-                orderBy: str | _list[str] = ...,
+                ]
+                | None = ...,
+                orderBy: str | _list[str] | None = ...,
                 reportingTimeZone: typing_extensions.Literal[
                     "REPORTING_TIME_ZONE_UNSPECIFIED",
                     "ACCOUNT_TIME_ZONE",
                     "GOOGLE_TIME_ZONE",
-                ] = ...,
-                startDate_day: int = ...,
-                startDate_month: int = ...,
-                startDate_year: int = ...,
+                ]
+                | None = ...,
+                startDate_day: int | None = ...,
+                startDate_month: int | None = ...,
+                startDate_year: int | None = ...,
                 **kwargs: typing.Any,
             ) -> ReportResultHttpRequest: ...
             def generateCsv(
                 self,
                 *,
                 account: str,
-                currencyCode: str = ...,
+                currencyCode: str | None = ...,
                 dateRange: typing_extensions.Literal[
                     "REPORTING_DATE_RANGE_UNSPECIFIED",
                     "CUSTOM",
@@ -508,7 +516,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                     "YEAR_TO_DATE",
                     "LAST_7_DAYS",
                     "LAST_30_DAYS",
-                ] = ...,
+                ]
+                | None = ...,
                 dimensions: typing_extensions.Literal[
                     "DIMENSION_UNSPECIFIED",
                     "DATE",
@@ -628,13 +637,14 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                         "WEBVIEW_TYPE_NAME",
                         "WEBVIEW_TYPE_CODE",
                     ]
-                ] = ...,
-                endDate_day: int = ...,
-                endDate_month: int = ...,
-                endDate_year: int = ...,
-                filters: str | _list[str] = ...,
-                languageCode: str = ...,
-                limit: int = ...,
+                ]
+                | None = ...,
+                endDate_day: int | None = ...,
+                endDate_month: int | None = ...,
+                endDate_year: int | None = ...,
+                filters: str | _list[str] | None = ...,
+                languageCode: str | None = ...,
+                limit: int | None = ...,
                 metrics: typing_extensions.Literal[
                     "METRIC_UNSPECIFIED",
                     "PAGE_VIEWS",
@@ -714,16 +724,18 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                         "FUNNEL_CLICKS",
                         "FUNNEL_RPM",
                     ]
-                ] = ...,
-                orderBy: str | _list[str] = ...,
+                ]
+                | None = ...,
+                orderBy: str | _list[str] | None = ...,
                 reportingTimeZone: typing_extensions.Literal[
                     "REPORTING_TIME_ZONE_UNSPECIFIED",
                     "ACCOUNT_TIME_ZONE",
                     "GOOGLE_TIME_ZONE",
-                ] = ...,
-                startDate_day: int = ...,
-                startDate_month: int = ...,
-                startDate_year: int = ...,
+                ]
+                | None = ...,
+                startDate_day: int | None = ...,
+                startDate_month: int | None = ...,
+                startDate_year: int | None = ...,
                 **kwargs: typing.Any,
             ) -> HttpBodyHttpRequest: ...
             def getSaved(
@@ -738,8 +750,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListSitesResponseHttpRequest: ...
             def list_next(
@@ -753,7 +765,11 @@ class AdsenseResource(googleapiclient.discovery.Resource):
             self, *, name: str, **kwargs: typing.Any
         ) -> AdBlockingRecoveryTagHttpRequest: ...
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListAccountsResponseHttpRequest: ...
         def list_next(
             self,
@@ -764,8 +780,8 @@ class AdsenseResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListChildAccountsResponseHttpRequest: ...
         def listChildAccounts_next(

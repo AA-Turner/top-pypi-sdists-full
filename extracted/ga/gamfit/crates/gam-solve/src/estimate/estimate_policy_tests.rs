@@ -1,14 +1,22 @@
+use super::evaluation::{
+    sas_effective_epsilon, sas_effective_epsilon_second, sas_log_delta_edge_barriercostgrad,
+    sas_log_delta_edge_barriercostgradhess,
+};
 use super::external_options::resolve_external_family;
 use super::optimizer::external_reml_seed_config;
+use super::penalty::REML_SEED_SCREENING_RHO_CAP;
 use super::prefit::{
     PrefitRegularityDiagnostic, detect_prefit_binomial_single_column_separation_in_design,
-    detect_prefit_unpenalized_rank_deficiency_in_design,
+    detect_prefit_unpenalized_rank_deficiency_in_design, reject_prefit_binomial_separation,
+    reject_prefit_unpenalized_rank_deficiency,
 };
 use super::reml::hyper::link_binomial_aux;
 use super::*;
-use gam_linalg::utils::{StableSolver, max_abs_diag};
 use crate::mixture_link::{sas_inverse_link_jet, sas_inverse_link_jetwith_param_partials};
-use gam_problem::{InverseLink, LikelihoodSpec, LinkFunction, ResponseFamily, StandardLink};
+use gam_linalg::utils::{StableSolver, max_abs_diag};
+use gam_problem::{
+    InverseLink, LikelihoodSpec, LinkFunction, ResponseFamily, SeedRiskProfile, StandardLink,
+};
 use ndarray::{Array1, Array2, array};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
@@ -640,8 +648,8 @@ fn sas_log_delta_barrier_hessian_matches_gradient_slope() {
     );
 }
 
-fn decode_invariant_test_fit() -> UnifiedFitResult {
-    UnifiedFitResult::try_from_parts(UnifiedFitResultParts {
+fn decode_invariant_test_parts() -> UnifiedFitResultParts {
+    UnifiedFitResultParts {
         blocks: vec![FittedBlock {
             beta: array![0.25, -0.5],
             role: BlockRole::Mean,
@@ -686,6 +694,7 @@ fn decode_invariant_test_fit() -> UnifiedFitResult {
             coefficient_influence: None,
             weighted_gram: None,
             bias_correction_beta: None,
+            bias_correction_jacobian: None,
         }),
         fitted_link: FittedLinkState::Standard(None),
         geometry: Some(FitGeometry {
@@ -697,10 +706,64 @@ fn decode_invariant_test_fit() -> UnifiedFitResult {
         pirls_status: crate::pirls::PirlsStatus::Converged,
         max_abs_eta: 1.25,
         constraint_kkt: None,
-        artifacts: FitArtifacts::default(),
+        artifacts: FitArtifacts {
+            criterion_certificate: Some(crate::model_types::OuterCriterionCertificate {
+                stationarity: crate::model_types::OuterStationarityCertificate::AnalyticGradient {
+                    grad_norm: 0.05,
+                    projected_grad_norm: 0.05,
+                    bound: 0.1,
+                },
+                hessian_psd: Some(true),
+                lambdas_railed: Vec::new(),
+            }),
+            ..Default::default()
+        },
         inner_cycles: 0,
-    })
-    .unwrap_or_else(|e| panic!("{} failed: {:?}", "construct decode invariant test fit", e))
+    }
+}
+
+fn decode_invariant_test_fit() -> UnifiedFitResult {
+    UnifiedFitResult::try_from_parts(decode_invariant_test_parts())
+        .unwrap_or_else(|e| panic!("{} failed: {:?}", "construct decode invariant test fit", e))
+}
+
+#[test]
+fn unified_fit_constructor_rejects_nonconverged_outer_state() {
+    let mut parts = decode_invariant_test_parts();
+    parts.outer_converged = false;
+    let error = UnifiedFitResult::try_from_parts(parts)
+        .expect_err("an outer checkpoint must not mint a fitted model");
+    assert!(matches!(error, EstimationError::FitDidNotConverge { .. }));
+}
+
+#[test]
+fn unified_fit_constructor_rejects_every_nonconverged_inner_state() {
+    // Every non-converged terminal state remains a checkpoint and must never
+    // mint a fit, including a near-stationary stalled state.
+    for status in [
+        crate::pirls::PirlsStatus::StalledAtValidMinimum,
+        crate::pirls::PirlsStatus::MaxIterationsReached,
+        crate::pirls::PirlsStatus::LmStepSearchExhausted,
+        crate::pirls::PirlsStatus::Unstable,
+    ] {
+        let mut parts = decode_invariant_test_parts();
+        parts.pirls_status = status;
+        let error = UnifiedFitResult::try_from_parts(parts)
+            .expect_err("a non-converged inner state must be rejected");
+        assert!(
+            matches!(error, EstimationError::FitDidNotConverge { .. }),
+            "status {status:?} should surface FitDidNotConverge, got {error:?}"
+        );
+    }
+}
+
+#[test]
+fn unified_fit_constructor_requires_outer_certificate_after_iterations() {
+    let mut parts = decode_invariant_test_parts();
+    parts.artifacts.criterion_certificate = None;
+    let error = UnifiedFitResult::try_from_parts(parts)
+        .expect_err("outer iterations without analytic evidence must be rejected");
+    assert!(matches!(error, EstimationError::FitDidNotConverge { .. }));
 }
 
 #[test]

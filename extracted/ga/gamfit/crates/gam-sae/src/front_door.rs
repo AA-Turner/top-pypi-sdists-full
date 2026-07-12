@@ -1,16 +1,32 @@
-//! SAE front-door lane admission.
+//! SAE front-door lane admission — ONE engine, admitted by memory layout and
+//! model request (design gam#2232, increments 1–6).
 //!
-//! The canonical large-`K` training state is the sparse code state
-//! `(indices[N, s], codes[N, s])`. The dense manifold engine remains available,
-//! but only as the small-`K` certification lane: once the dense routing state
-//! `N×K` is larger than the response matrix scale `N×P`, the front door admits
-//! the sparse/block lane instead of constructing a dense assignment object —
-//! for PENALTY-GATED assignment modes, whose `N×K` logits are live Newton
-//! state. The hard TopK support mode carries no gate coordinates, so its
-//! `K > P` fits are admitted to the CURVED framed/streaming manifold lane
-//! ([`SaeFitLane::CurvedStreaming`], budgeted by
-//! [`crate::manifold::SaeTopKCurvedBudget`]) instead of being demoted to the
-//! linear trainer.
+//! There is one SAE fit engine: the inner arrow-Schur Newton over per-row
+//! active sets `(indices, gates, coords)`, the outer REML evidence loop, and
+//! the birth/death migration ledger. The lanes this door selects are NOT
+//! different models — they are memory-layout admissions and solver
+//! specializations of that engine:
+//!
+//! * [`SaeFitLane::DenseCertification`] — the full-support materialization
+//!   (`N×K` assignment state), admitted only while it is no larger than the
+//!   response (`K ≤ P`): the small-`K` certification lane.
+//! * [`SaeFitLane::SparseCodes`] — the fixed-support LINEAR specialization:
+//!   for genuinely linear atoms with read-only gates, the arrow-Schur inner
+//!   solve degenerates to the `s×s` active-set ridge / block-projection fast
+//!   kernels (`sparse_dict`), with the linear block's ONE variance component
+//!   REML-selected by the shared-ρ schedule. Selected by SHAPE for
+//!   penalty-gated `K > P` requests (whose `N×K` logits are live Newton state
+//!   the architecture forbids), and by REQUEST at any `K` for an explicit
+//!   linear-dictionary model ([`admit_linear_dictionary`]).
+//! * [`SaeFitLane::CurvedStreaming`] — the same curved engine under the
+//!   streaming memory layout: per-row TopK active sets, framed decoders,
+//!   chunked routing; admitted for hard-TopK `K > P` within the concrete host
+//!   budget ([`crate::manifold::SaeTopKCurvedBudget`]) and REFUSED loudly over
+//!   it — a curved manifold request is never silently substituted with the
+//!   linear kernel, and a linear request is never forced onto the dense
+//!   engine. Tiering is a seed policy + alternation cadence of the same
+//!   engine (`tiered`), not a lane; the torch lane is declared interop and
+//!   untouched.
 
 /// Training lane selected by [`admit_sae_fit`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,6 +200,101 @@ pub(crate) fn admit_topk_manifold_with_budget(
     ))
 }
 
+/// MODELING-CHOICE admission for an EXPLICIT linear-dictionary request
+/// (design gam#2232, Increment 5b — the Gap-B resolution).
+///
+/// The `K ≤ P → dense / K > P → sparse` rule of [`admit_sae_fit`] is the
+/// DEFAULT admission for penalty-gated MANIFOLD requests: it guards the
+/// no-`N×K` architecture, and for those callers the linear sparse-code lane is
+/// a demotion. But a caller who EXPLICITLY requests a linear dictionary
+/// (every atom the genuinely linear `d`-dimensional Euclidean atom — the
+/// `max_degree = 1` specialization of the one engine, with hard top-k support)
+/// is asking for exactly the model the sparse-code lane's fixed-support
+/// alternating solve IS the fast kernel of (Increment 2, plug points 1–3):
+/// the `s×s` active-set ridge is the degenerate arrow-Schur inner solve for
+/// read-only gates on linear atoms. That model is legitimate at ANY `K` —
+/// including `K ≤ P`, where the historical gate wrongly forced the dense
+/// engine — so this admission returns [`SaeFitLane::SparseCodes`]
+/// unconditionally (shape validation only). `block_size ≥ 2` (uniform
+/// Euclidean `d = b` atoms) is the Grassmann block lane: framed `d = b` atoms
+/// (`B_k = C_k·U_kᵀ`, `U_k ∈ Gr(b, P)`) with block-TopK support at atom
+/// granularity, whose alternating polar/projection solve is the block fast
+/// kernel of the same engine.
+///
+/// This is NOT a silent substitution (the invariant [`admit_topk_manifold`]
+/// protects): substitution is handing a caller a DIFFERENT model than the one
+/// requested. Here the caller named the linear model; the lane is its
+/// specialized solver.
+pub fn admit_linear_dictionary(
+    n_obs: usize,
+    output_dim: usize,
+    n_atoms: usize,
+    block_size: usize,
+) -> Result<SaeFitAdmission, String> {
+    if n_obs == 0 || output_dim == 0 || n_atoms == 0 {
+        return Err(format!(
+            "admit_linear_dictionary requires positive N, P, and K; got N={n_obs}, \
+             P={output_dim}, K={n_atoms}"
+        ));
+    }
+    if block_size == 0 || block_size > output_dim {
+        return Err(format!(
+            "admit_linear_dictionary requires 1 <= block_size <= P={output_dim} (a block's b \
+             orthonormal directions must fit in R^P); got {block_size}"
+        ));
+    }
+    Ok(SaeFitAdmission {
+        lane: SaeFitLane::SparseCodes,
+        n_obs,
+        output_dim,
+        n_atoms,
+        // The linear schedule never materializes a dense assignment; the audit
+        // cells record the shape the DEFAULT rule would have compared.
+        dense_assignment_cells: n_obs.saturating_mul(n_atoms),
+        response_cells: n_obs.saturating_mul(output_dim),
+    })
+}
+
+/// #2231 Inc C — BORDER-GROWTH admission for the crosscoder's stacked width.
+///
+/// Stacking `L` layers widens the response to `p̃ = p_x + Σ_ℓ p_ℓ`, and the
+/// row-count admissions above are already correct at `output_dim = p̃` (the
+/// response really is `N×p̃`). What they do NOT see is the arrow-Schur BORDER:
+/// the dense full-`B` border is `beta_dim = Σ_k M_k·p̃` — the one quantity
+/// QUADRATIC in the layer count through the `beta_dim²` Hessian workspace
+/// (`take_border_hbb_workspace`) — while the framed border
+/// (`factored_border_dim = Σ_k M_k·r_k`, decoders profiled as
+/// `B_k = C_k·U_kᵀ`, `U_k ∈ Gr(r_k, p̃)`) is `p̃`-INDEPENDENT. This check
+/// admits the border the fit will actually carry (`border_dim`, which equals
+/// `full_beta_dim` on the all-full-`B` path) against the host in-core budget,
+/// and the refusal names the frame default as the remedy: the crosscoder lane
+/// pays the layer widening on the cheap frame side, never by silently
+/// narrowing the stacked target.
+pub fn admit_crosscoder_border(
+    border_dim: usize,
+    full_beta_dim: usize,
+    budget_bytes: usize,
+) -> Result<(), String> {
+    let border_bytes = border_dim
+        .saturating_mul(border_dim)
+        .saturating_mul(std::mem::size_of::<f64>());
+    if border_bytes <= budget_bytes {
+        return Ok(());
+    }
+    let full_bytes = full_beta_dim
+        .saturating_mul(full_beta_dim)
+        .saturating_mul(std::mem::size_of::<f64>());
+    Err(format!(
+        "crosscoder border refused: the arrow-Schur border workspace at the stacked width is \
+         {border_dim}² · 8 = {border_bytes} bytes, over the host in-core budget \
+         ({budget_bytes} bytes); the dense full-B border at this shape is (Σ M_k·p̃)² · 8 = \
+         {full_bytes} bytes. Default the atoms onto profiled Grassmann frames \
+         (maybe_activate_decoder_frame: the factored border Σ M_k·r_k is p̃-independent) or \
+         reduce the stacked width — a crosscoder request is never silently narrowed to fewer \
+         layers"
+    ))
+}
+
 /// Front-door enforcement for the DENSE manifold engine (#985 / E1): admit the
 /// dense-certification lane, or REFUSE the sparse lane.
 ///
@@ -208,8 +319,10 @@ pub fn admit_dense_certification(
         return Err(format!(
             "dense manifold engine refused: it is the small-K certification lane \
              (admitted only while N*K <= N*P, i.e. K <= P); N={n_obs}, P={output_dim}, K={n_atoms} \
-             gives N*K={} > N*P={} — route this fit through the sparse-code lane instead of \
-             building the dense N×K assignment state",
+             gives N*K={} > N*P={} — the overcomplete (K > P) routes are the hard TOP-K SUPPORT \
+             curved lane (assignment='topk', admitted by concrete memory budget; penalty-gated \
+             modes cannot take it because their N×K gate logits are live Newton state) or the \
+             linear sparse-code lane; neither builds the dense N×K assignment state",
             admission.dense_assignment_cells, admission.response_cells
         ));
     }
@@ -320,6 +433,53 @@ mod tests {
             .expect_err("over-both-budgets topk must refuse");
         assert!(err.contains("never silently substituted"));
         assert!(!err.contains("admit_topk_curved_lane"));
+    }
+
+    /// #2232 Inc 5b (Gap B) — an EXPLICIT linear-dictionary request takes the
+    /// sparse-code lane at ANY K: the K>P-only sparse gate is the DEFAULT rule
+    /// for manifold requests, relaxed into a modeling choice for callers who
+    /// name the linear model.
+    #[test]
+    fn explicit_linear_dictionary_admits_sparse_codes_at_any_k() {
+        // K ≤ P: the shape the default rule would send to the dense engine.
+        let small = admit_linear_dictionary(640, 24, 16, 1).expect("K<=P linear admission");
+        assert_eq!(small.lane, SaeFitLane::SparseCodes);
+        assert_eq!(
+            (small.n_obs, small.output_dim, small.n_atoms),
+            (640, 24, 16)
+        );
+        // K > P: identical lane — the request, not the shape, selects it.
+        let large = admit_linear_dictionary(4096, 512, 32_000, 1).expect("K>P linear admission");
+        assert_eq!(large.lane, SaeFitLane::SparseCodes);
+        // Block atoms (uniform Euclidean d=b): same lane, b bounded by P.
+        let block = admit_linear_dictionary(4096, 512, 1024, 4).expect("block linear admission");
+        assert_eq!(block.lane, SaeFitLane::SparseCodes);
+        assert!(admit_linear_dictionary(4096, 512, 1024, 513).is_err());
+        assert!(admit_linear_dictionary(4096, 512, 1024, 0).is_err());
+        assert!(admit_linear_dictionary(0, 512, 1024, 1).is_err());
+    }
+
+    /// #2231 Inc C — the crosscoder border admission: the fit's actual border
+    /// (framed or full-B) must pay `border² · 8` bytes against the budget, and
+    /// the refusal names the frame default (the `p̃`-independent factored
+    /// border) rather than silently narrowing the stacked target.
+    #[test]
+    fn crosscoder_border_admission_checks_actual_border_and_names_frames() {
+        // Small border under a small budget: admitted.
+        admit_crosscoder_border(100, 100, 100 * 100 * 8).expect("within-budget border");
+        // Framed border admitted where the full-B border would refuse: the
+        // exact region the frame default exists for.
+        admit_crosscoder_border(512, 4096, 512 * 512 * 8).expect("framed border within budget");
+        let err = admit_crosscoder_border(4096, 4096, 512 * 512 * 8)
+            .expect_err("full-B border over budget must refuse");
+        assert!(
+            err.contains("never silently narrowed"),
+            "refusal must state the no-narrowing contract; got: {err}"
+        );
+        assert!(
+            err.contains("maybe_activate_decoder_frame"),
+            "refusal must name the frame remedy; got: {err}"
+        );
     }
 
     #[test]

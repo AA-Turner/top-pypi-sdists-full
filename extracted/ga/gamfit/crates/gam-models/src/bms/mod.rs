@@ -1,15 +1,17 @@
+use crate::cubic_cell_kernel as exact_kernel;
 use crate::custom_family::{
     BatchedOuterGradientTerms, BlockEffectiveJacobian, BlockWorkingSet, BlockwiseFitOptions,
     CustomFamily, CustomFamilyWarmStart, EvalMode, ExactNewtonJointGradientEvaluation,
-    ExactNewtonJointHessianWorkspace, ExactNewtonJointPsiSecondOrderTerms,
-    ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace, FamilyEvaluation,
-    FamilyLinearizationState, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
-    custom_family_outer_derivatives, evaluate_custom_family_joint_hyper_efs_shared,
-    evaluate_custom_family_joint_hyper_shared, fit_custom_family,
-    joint_hyper_options_for_outer_tolerance,
+    ExactNewtonJointHessianWorkspace, FamilyEvaluation, FamilyLinearizationState,
+    ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, custom_family_outer_derivatives,
+    evaluate_custom_family_joint_hyper_efs_shared, evaluate_custom_family_joint_hyper_shared,
+    fit_custom_family, joint_hyper_options_for_outer_tolerance,
 };
-use gam_solve::estimate::reml::reml_outer_engine::{DenseSpectralOperator, HessianOperator};
-use crate::cubic_cell_kernel as exact_kernel;
+use crate::fit_orchestration::drivers::{
+    ExactJointHyperSetup, apply_spatial_anisotropy_pilot_initializer,
+    build_term_collection_designs_and_freeze_joint, optimize_spatial_length_scale_exact_joint,
+    spatial_length_scale_term_indices,
+};
 use crate::marginal_slope_shared::{
     CoeffSupport, DirectionalScaleJets, ObservedDenestedCellPartials, SparsePrimaryCoeffJetView,
     add_optional_matrix, add_optional_vector, add_two_surface_psi_outer,
@@ -19,7 +21,13 @@ use crate::marginal_slope_shared::{
     outer_weighted_rows, parameter_block_specs_match_rows, probit_frailty_scale,
     probit_frailty_scale_multi_dir_jet, psi_derivative_location, scale_coeff4,
 };
+use crate::model_types::UnifiedFitResult;
+use crate::outer_subsample::WeightedOuterRow;
 use crate::parameter_block::ParameterBlockInput;
+use crate::probability::{
+    normal_cdf, normal_logcdf, normal_pdf, signed_probit_logcdf_and_mills_ratio,
+    standard_normal_quantile,
+};
 use crate::row_kernel::{
     RowKernel, RowKernelHessianWorkspace, build_row_kernel_cache, row_kernel_gradient,
     row_kernel_hessian_dense, row_kernel_log_likelihood,
@@ -28,25 +36,17 @@ use crate::spatial_psi_bridge::build_block_spatial_psi_derivatives;
 use crate::survival::lognormal_kernel::FrailtySpec;
 use crate::wiggle::initializewiggle_knots_from_seed;
 use gam_linalg::matrix::{DesignMatrix, SymmetricMatrix};
-use crate::model_types::UnifiedFitResult;
-use crate::outer_subsample::WeightedOuterRow;
-use gam_solve::pirls::LinearInequalityConstraints;
-use crate::probability::{
-    normal_cdf, normal_logcdf, normal_pdf, signed_probit_logcdf_and_mills_ratio,
-    standard_normal_quantile,
+use gam_math::jet_partitions::MultiDirJet;
+use gam_problem::{
+    ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
+    HyperOperator, InverseLink, StandardLink, WigglePenaltyConfig,
 };
+use gam_solve::estimate::reml::reml_outer_engine::{DenseSpectralOperator, HessianFactorization};
+use gam_solve::pirls::LinearInequalityConstraints;
 use gam_terms::smooth::{
     SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords, TermCollectionDesign,
     TermCollectionSpec,
 };
-use crate::fit_orchestration::drivers::{
-    ExactJointHyperSetup, apply_spatial_anisotropy_pilot_initializer,
-    build_term_collection_designs_and_freeze_joint, optimize_spatial_length_scale_exact_joint,
-    spatial_length_scale_term_indices,
-};
-use gam_problem::{InverseLink, StandardLink, WigglePenaltyConfig};
-use gam_math::jet_partitions::MultiDirJet;
-use gam_problem::HyperOperator;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut1, s};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -603,8 +603,8 @@ impl LatentZNormalization {
     }
 }
 
-/// Blom-rankit weighted rank inverse-normal transform for the latent
-/// score.
+/// Weighted mid-distribution rank inverse-normal transform for the
+/// latent score.
 ///
 /// When the latent z fails the standard-normal auto-detection
 /// ([`latent_z_is_standard_normal_enough`]), the BMS family applied to
@@ -616,28 +616,37 @@ impl LatentZNormalization {
 /// and its higher-order siblings); at large scale that is the dominant
 /// cost.
 ///
-/// **Rank-INT is exact under monotone re-parameterisation.** The Blom rankit assigns
-/// each sorted training z the rank-probability
-/// `(W_i − 0.375) / (W_total + 0.25)`, then maps that probability
-/// through `Φ⁻¹`. The transform is **strictly monotone** on the
-/// observed support, so the BMS likelihood is invariant up to a
-/// re-parameterisation (the model is a transformation-equivariant
-/// family on the latent axis). The transformed sample is *exactly*
-/// N(0,1) by construction, so the standard-normal closed-form kernel
-/// is **exact** on the calibrated scale. The kept work is the same
-/// closed-form `signed_probit_logcdf_and_mills_ratio` evaluation as
-/// the no-calibration path; the dropped work is the empirical-grid
-/// jet machinery. Persisted to disk so prediction applies the same
+/// **Rank-INT is a modeling choice, not a reparameterisation.** The
+/// rigid BMS predictor is *affine* in the latent score
+/// (`η = q·√(1+b²) + b·z`), so a nonlinear monotone map of `z` changes
+/// the model class and its likelihood — it does not leave them
+/// invariant. Applying the calibration redefines the latent axis: the
+/// affine model is *specified on the calibrated score* `T(z)`. Nor is
+/// the calibrated training sample exactly N(0,1): a finite set of
+/// normal scores is discrete, and with heavy ties it can stay far from
+/// Gaussian. The closed-form standard-normal kernel is therefore
+/// adequate only when the calibrated sample itself passes the same
+/// standard-normal adequacy gate applied to raw z
+/// ([`latent_z_is_standard_normal_enough`]);
+/// [`build_latent_measure_with_geometry`] re-checks the calibrated
+/// sample and falls back to the mathematically exact global-empirical
+/// latent measure when that re-check fails. On the passing path the
+/// kept work is the same closed-form
+/// `signed_probit_logcdf_and_mills_ratio` evaluation as the
+/// no-calibration path; the dropped work is the empirical-grid jet
+/// machinery. Persisted to disk so prediction applies the same
 /// monotone map to incoming z and re-routes through the closed-form
 /// kernel.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LatentZRankIntCalibration {
-    /// Sorted unique z values seen during training, ascending. Knot table
-    /// for `apply_to_training` / `apply_at_predict`.
+    /// Sorted unique positive-mass z values seen during training, ascending.
+    /// Knot table for `apply_to_training` / `apply_at_predict`. Zero-weight
+    /// knots carry no probability mass and are not stored.
     pub sorted_z: Vec<f64>,
-    /// Weighted cumulative-distribution-function values at each
-    /// `sorted_z` knot, in `[eps, 1 - eps]` with
-    /// `eps = 0.5 / W_total`. Strictly increasing.
+    /// Weighted mid-distribution rank `(W_before + w_knot/2) / W_total` at
+    /// each `sorted_z` knot. Strictly increasing, strictly inside `(0, 1)`
+    /// (each knot is bounded away from the endpoints by half its own mass),
+    /// and invariant to a common rescaling of the weights.
     pub weighted_cdf: Vec<f64>,
     /// Weighted mean of the calibrated training sample. Used as a
     /// sanity-check value on `fit`; should be very close to zero.
@@ -651,12 +660,19 @@ impl LatentZRankIntCalibration {
     /// Fit the weighted rank-INT calibration from training z and weights.
     ///
     /// Algorithm:
-    /// 1. Sort rows by ascending z.
-    /// 2. Compute cumulative weight `W_i` at each sorted row.
-    /// 3. Blom-rankit cumulative probability:
-    ///    `p_i = (W_i − 0.375) / (W_total + 0.25)`.
-    /// 4. Clip to `[eps, 1 − eps]` with `eps = 0.5 / W_total`.
-    /// 5. Store `(sorted_z, weighted_cdf = p_i)`.
+    /// 1. Sort rows by ascending z and merge ties into one knot per unique
+    ///    z with the tie group's total weight `w_g`; discard zero-mass
+    ///    knots.
+    /// 2. Weighted mid-distribution rank at each knot:
+    ///    `p_g = (W_before + w_g/2) / W_total`,
+    ///    with `W_before` the cumulative weight strictly below the knot.
+    /// 3. Store `(sorted_z, weighted_cdf = p_g)`.
+    ///
+    /// The mid-rank depends only on *relative* weights (rescaling every
+    /// weight by a common factor leaves every `p_g` unchanged), is strictly
+    /// increasing across knots, and lies strictly inside `(0, 1)` — each
+    /// knot is separated from the endpoints by half its own mass, so no
+    /// ad-hoc clamp is needed and `Φ⁻¹(p_g)` is always finite.
     ///
     /// Returns the calibration plus the post-transform sample's weighted
     /// mean / SD for sanity-check logging.
@@ -696,27 +712,35 @@ impl LatentZRankIntCalibration {
 
         let mut sorted_z: Vec<f64> = Vec::with_capacity(z.len());
         let mut weighted_cdf: Vec<f64> = Vec::with_capacity(z.len());
-        let denom = w_total + 0.25;
-        let eps = 0.5 / w_total.max(1.0);
-        let mut cum_w = 0.0_f64;
-        let mut last_z: Option<f64> = None;
-        for &idx in &order {
-            cum_w += weights[idx];
-            let zi = z[idx];
-            // Collapse ties: store one knot per unique z (last cumulative).
-            if let Some(prev) = last_z
-                && zi == prev
-            {
-                if let Some(slot) = weighted_cdf.last_mut() {
-                    let p = ((cum_w - 0.375) / denom).clamp(eps, 1.0 - eps);
-                    *slot = p;
-                }
-                continue;
+        // Merge ties into one knot per unique z, then assign the weighted
+        // mid-distribution rank p_g = (W_before + w_g/2) / W_total. This is
+        // the mid-point of the tie group's probability mass, so it depends
+        // only on relative weights, is strictly increasing, and sits
+        // strictly inside (0, 1) without any clamp. Zero-mass tie groups
+        // are not knots of the weighted empirical distribution and are
+        // dropped.
+        let mut cum_before = 0.0_f64;
+        let mut pos = 0usize;
+        while pos < order.len() {
+            let zi = z[order[pos]];
+            let mut w_group = 0.0_f64;
+            let mut end = pos;
+            while end < order.len() && z[order[end]] == zi {
+                w_group += weights[order[end]];
+                end += 1;
             }
-            let p = ((cum_w - 0.375) / denom).clamp(eps, 1.0 - eps);
-            sorted_z.push(zi);
-            weighted_cdf.push(p);
-            last_z = Some(zi);
+            if w_group > 0.0 {
+                sorted_z.push(zi);
+                weighted_cdf.push((cum_before + 0.5 * w_group) / w_total);
+                cum_before += w_group;
+            }
+            pos = end;
+        }
+        if sorted_z.is_empty() {
+            return Err(
+                "rank-INT calibration requires at least one positive-weight observation"
+                    .to_string(),
+            );
         }
 
         // Compute sanity-check post-mean and post-sd on the transformed
@@ -845,10 +869,16 @@ pub enum LatentMeasureCalibration {
 /// estimated by weighted ridge regression of `z` (and its squared residual) on
 /// the marginal-index span `a(C) = [1 | X_marginal]`. The corrected `ζ` is
 /// conditionally centered (and homoskedastic when the variance block is
-/// active) by construction, so the `b(C)·m(C)` leakage vanishes and the
-/// standard-normal closed-form kernel is exact on `ζ`. Persisted so prediction
-/// rebuilds `a(C)` from the (reproducible) marginal design and applies the
-/// identical map to incoming z.
+/// active) by construction, so the `b(C)·m(C)` leakage vanishes. Matching the
+/// first two conditional moments does **not** by itself make `ζ` standard
+/// normal (a two-point residual law survives location-scale correction
+/// unchanged in shape), so [`build_latent_measure_with_geometry`] re-checks
+/// the calibrated sample against the standard-normal adequacy gate and
+/// retains an empirical latent measure for the residual distribution when
+/// that re-check fails; only a passing `ζ` uses the closed-form
+/// standard-normal kernel. Persisted so prediction rebuilds `a(C)` from the
+/// (reproducible) marginal design and applies the identical map to incoming
+/// z.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LatentZConditionalCalibration {
     /// Coefficients for the conditional mean `m(C) = β_m·[1 | a(C)]` over the
@@ -1598,7 +1628,7 @@ pub(crate) fn build_latent_measure_with_geometry(
     conditioning: Option<ArrayView2<'_, f64>>,
 ) -> Result<(LatentMeasureKind, LatentMeasureCalibration), String> {
     match policy.latent_measure {
-        LatentMeasureSpec::Auto { grid_size: _ } => {
+        LatentMeasureSpec::Auto { grid_size } => {
             // #905: conditional `E[z|C]`/`Var(z|C)` Rao gate. Inspect the latent
             // score's conditional moments on the marginal-index span a(C)
             // BEFORE the pooled-marginal gate. A significant conditional shift
@@ -1609,15 +1639,36 @@ pub(crate) fn build_latent_measure_with_geometry(
                 && let Some(cal) =
                     fit_conditional_latent_calibration_if_needed(z, weights, a_block)?
             {
+                // Matching the first two conditional moments does not
+                // establish Gaussianity of the residual ζ (a two-point
+                // residual law survives location-scale correction unchanged
+                // in shape). The closed-form standard-normal kernel is only
+                // admissible when the calibrated sample passes the same
+                // pooled adequacy gate raw z faces; otherwise retain an
+                // empirical latent measure built from ζ, so the residual
+                // distribution stays the one the data show.
+                let zeta = cal.apply(z.view(), a_block)?;
+                let residual_is_standard_normal =
+                    latent_z_is_standard_normal_enough(&zeta, weights, policy)?;
+                let kind = if residual_is_standard_normal {
+                    LatentMeasureKind::StandardNormal
+                } else {
+                    build_global_empirical_latent_measure(&zeta, weights, grid_size)?
+                };
                 log::info!(
-                    "[BMS latent-z] conditional location-scale calibrated: basis_ncols={} var_active={} post_mean={:.3e} post_sd={:.3e} (E[z|C]/Var(z|C) Rao gate fired)",
+                    "[BMS latent-z] conditional location-scale calibrated: basis_ncols={} var_active={} post_mean={:.3e} post_sd={:.3e} residual_measure={} (E[z|C]/Var(z|C) Rao gate fired)",
                     cal.basis_ncols,
                     !cal.var_coeffs.is_empty(),
                     cal.post_mean,
                     cal.post_sd,
+                    if residual_is_standard_normal {
+                        "standard-normal"
+                    } else {
+                        "global-empirical"
+                    },
                 );
                 return Ok((
-                    LatentMeasureKind::StandardNormal,
+                    kind,
                     LatentMeasureCalibration::ConditionalLocationScale(cal),
                 ));
             }
@@ -1627,25 +1678,41 @@ pub(crate) fn build_latent_measure_with_geometry(
                     LatentMeasureCalibration::None,
                 ))
             } else {
-                // P4: route bad-normal latent z through a Blom-rankit
-                // weighted rank inverse-normal transform. The transformed
-                // sample is exactly N(0,1) by construction, so the
-                // standard-normal closed-form rigid kernel is exact on the
-                // calibrated scale. This replaces the heavyweight
-                // local-/global-empirical paths at the construction site;
-                // the calibration is persisted so prediction applies the
-                // identical map.
+                // P4: route bad-normal latent z through a weighted
+                // mid-distribution-rank inverse-normal transform. Rank-INT
+                // redefines the latent axis (the affine rigid model is
+                // specified on the calibrated score); it makes the calibrated
+                // sample approximately — not exactly — N(0,1), so the
+                // closed-form standard-normal kernel is admitted only when
+                // the calibrated sample itself passes the adequacy gate.
+                // When it cannot (heavy ties leave the calibrated law
+                // discrete), fall back to the mathematically exact
+                // global-empirical latent measure on the raw score.
                 let calibration = LatentZRankIntCalibration::fit(z, weights)?;
-                log::info!(
-                    "[BMS latent-z] rank-INT calibrated: post_mean={:.3e} post_sd={:.3e} knots={}",
-                    calibration.post_mean,
-                    calibration.post_sd,
-                    calibration.sorted_z.len(),
-                );
-                Ok((
-                    LatentMeasureKind::StandardNormal,
-                    LatentMeasureCalibration::RankInverseNormal(calibration),
-                ))
+                let calibrated = calibration.apply_to_training(z)?;
+                if latent_z_is_standard_normal_enough(&calibrated, weights, policy)? {
+                    log::info!(
+                        "[BMS latent-z] rank-INT calibrated: post_mean={:.3e} post_sd={:.3e} knots={}",
+                        calibration.post_mean,
+                        calibration.post_sd,
+                        calibration.sorted_z.len(),
+                    );
+                    Ok((
+                        LatentMeasureKind::StandardNormal,
+                        LatentMeasureCalibration::RankInverseNormal(calibration),
+                    ))
+                } else {
+                    log::info!(
+                        "[BMS latent-z] rank-INT output failed the standard-normal adequacy gate (post_mean={:.3e} post_sd={:.3e} knots={}); using the global-empirical latent measure",
+                        calibration.post_mean,
+                        calibration.post_sd,
+                        calibration.sorted_z.len(),
+                    );
+                    Ok((
+                        build_global_empirical_latent_measure(z, weights, grid_size)?,
+                        LatentMeasureCalibration::None,
+                    ))
+                }
             }
         }
         LatentMeasureSpec::StandardNormal => Ok((
@@ -2044,9 +2111,15 @@ mod test_support;
 // allowed `*_tests` name so the build.rs ban-scanner exempts it; owned solely by
 // the verifier (never edits the implementer's row_primary_hessian /
 // gradient_paths / cell_moment_assembly).
+pub(crate) mod custom_family_impl;
 #[cfg(test)]
 mod flex_verify_932_tests;
-pub(crate) mod custom_family_impl;
+// #932 direct production-path measurement: forced 65-node empirical grid,
+// warmed/cold row-op allocation counting + ns/row diagnostics for the MSI
+// A/B ledger. The asserted gate is per-row allocation calls (deterministic);
+// timing is eprintln-only per the SPEC ban on wall-clock correctness budgets.
+#[cfg(test)]
+mod flex_measure_932_tests;
 pub(crate) mod row_primary_hessian;
 
 pub use block_specs::fit_bernoulli_marginal_slope_terms;

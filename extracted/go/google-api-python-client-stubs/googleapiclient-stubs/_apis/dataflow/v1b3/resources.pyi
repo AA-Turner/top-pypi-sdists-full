@@ -24,7 +24,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     jobId: str,
-                    body: GetDebugConfigRequest = ...,
+                    body: GetDebugConfigRequest,
                     **kwargs: typing.Any,
                 ) -> GetDebugConfigResponseHttpRequest: ...
                 def sendCapture(
@@ -32,7 +32,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     jobId: str,
-                    body: SendDebugCaptureRequest = ...,
+                    body: SendDebugCaptureRequest,
                     **kwargs: typing.Any,
                 ) -> SendDebugCaptureResponseHttpRequest: ...
 
@@ -43,8 +43,8 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     jobId: str,
-                    endTime: str = ...,
-                    location: str = ...,
+                    endTime: str | None = ...,
+                    location: str | None = ...,
                     minimumImportance: typing_extensions.Literal[
                         "JOB_MESSAGE_IMPORTANCE_UNKNOWN",
                         "JOB_MESSAGE_DEBUG",
@@ -52,10 +52,11 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         "JOB_MESSAGE_BASIC",
                         "JOB_MESSAGE_WARNING",
                         "JOB_MESSAGE_ERROR",
-                    ] = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    startTime: str = ...,
+                    ]
+                    | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    startTime: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListJobMessagesResponseHttpRequest: ...
                 def list_next(
@@ -71,7 +72,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     jobId: str,
-                    body: LeaseWorkItemRequest = ...,
+                    body: LeaseWorkItemRequest,
                     **kwargs: typing.Any,
                 ) -> LeaseWorkItemResponseHttpRequest: ...
                 def reportStatus(
@@ -79,7 +80,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     jobId: str,
-                    body: ReportWorkItemStatusRequest = ...,
+                    body: ReportWorkItemStatusRequest,
                     **kwargs: typing.Any,
                 ) -> ReportWorkItemStatusResponseHttpRequest: ...
 
@@ -89,17 +90,19 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 projectId: str,
                 filter: typing_extensions.Literal[
                     "UNKNOWN", "ALL", "TERMINATED", "ACTIVE"
-                ] = ...,
-                location: str = ...,
-                name: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                location: str | None = ...,
+                name: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 view: typing_extensions.Literal[
                     "JOB_VIEW_UNKNOWN",
                     "JOB_VIEW_SUMMARY",
                     "JOB_VIEW_ALL",
                     "JOB_VIEW_DESCRIPTION",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListJobsResponseHttpRequest: ...
             def aggregated_next(
@@ -111,15 +114,16 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 projectId: str,
-                body: Job = ...,
-                location: str = ...,
-                replaceJobId: str = ...,
+                body: Job,
+                location: str | None = ...,
+                replaceJobId: str | None = ...,
                 view: typing_extensions.Literal[
                     "JOB_VIEW_UNKNOWN",
                     "JOB_VIEW_SUMMARY",
                     "JOB_VIEW_ALL",
                     "JOB_VIEW_DESCRIPTION",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> JobHttpRequest: ...
             def get(
@@ -127,13 +131,14 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 jobId: str,
-                location: str = ...,
+                location: str | None = ...,
                 view: typing_extensions.Literal[
                     "JOB_VIEW_UNKNOWN",
                     "JOB_VIEW_SUMMARY",
                     "JOB_VIEW_ALL",
                     "JOB_VIEW_DESCRIPTION",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> JobHttpRequest: ...
             def getMetrics(
@@ -141,8 +146,8 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 jobId: str,
-                location: str = ...,
-                startTime: str = ...,
+                location: str | None = ...,
+                startTime: str | None = ...,
                 **kwargs: typing.Any,
             ) -> JobMetricsHttpRequest: ...
             def list(
@@ -151,17 +156,19 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 projectId: str,
                 filter: typing_extensions.Literal[
                     "UNKNOWN", "ALL", "TERMINATED", "ACTIVE"
-                ] = ...,
-                location: str = ...,
-                name: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                ]
+                | None = ...,
+                location: str | None = ...,
+                name: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 view: typing_extensions.Literal[
                     "JOB_VIEW_UNKNOWN",
                     "JOB_VIEW_SUMMARY",
                     "JOB_VIEW_ALL",
                     "JOB_VIEW_DESCRIPTION",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListJobsResponseHttpRequest: ...
             def list_next(
@@ -174,7 +181,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 jobId: str,
-                body: SnapshotJobRequest = ...,
+                body: SnapshotJobRequest,
                 **kwargs: typing.Any,
             ) -> SnapshotHttpRequest: ...
             def update(
@@ -182,9 +189,9 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 jobId: str,
-                body: Job = ...,
-                location: str = ...,
-                updateMask: str = ...,
+                body: Job,
+                location: str | None = ...,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> JobHttpRequest: ...
             def debug(self) -> DebugResource: ...
@@ -200,7 +207,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     location: str,
-                    body: LaunchFlexTemplateRequest = ...,
+                    body: LaunchFlexTemplateRequest,
                     **kwargs: typing.Any,
                 ) -> LaunchFlexTemplateResponseHttpRequest: ...
 
@@ -214,7 +221,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         location: str,
                         jobId: str,
-                        body: GetDebugConfigRequest = ...,
+                        body: GetDebugConfigRequest,
                         **kwargs: typing.Any,
                     ) -> GetDebugConfigResponseHttpRequest: ...
                     def getWorkerStacktraces(
@@ -223,7 +230,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         location: str,
                         jobId: str,
-                        body: GetWorkerStacktracesRequest = ...,
+                        body: GetWorkerStacktracesRequest,
                         **kwargs: typing.Any,
                     ) -> GetWorkerStacktracesResponseHttpRequest: ...
                     def sendCapture(
@@ -232,7 +239,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         location: str,
                         jobId: str,
-                        body: SendDebugCaptureRequest = ...,
+                        body: SendDebugCaptureRequest,
                         **kwargs: typing.Any,
                     ) -> SendDebugCaptureResponseHttpRequest: ...
 
@@ -244,7 +251,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         location: str,
                         jobId: str,
-                        endTime: str = ...,
+                        endTime: str | None = ...,
                         minimumImportance: typing_extensions.Literal[
                             "JOB_MESSAGE_IMPORTANCE_UNKNOWN",
                             "JOB_MESSAGE_DEBUG",
@@ -252,10 +259,11 @@ class DataflowResource(googleapiclient.discovery.Resource):
                             "JOB_MESSAGE_BASIC",
                             "JOB_MESSAGE_WARNING",
                             "JOB_MESSAGE_ERROR",
-                        ] = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        startTime: str = ...,
+                        ]
+                        | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        startTime: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListJobMessagesResponseHttpRequest: ...
                     def list_next(
@@ -284,10 +292,10 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         location: str,
                         jobId: str,
                         stageId: str,
-                        endTime: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        startTime: str = ...,
+                        endTime: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        startTime: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> StageExecutionDetailsHttpRequest: ...
                     def getExecutionDetails_next(
@@ -304,7 +312,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         location: str,
                         jobId: str,
-                        body: LeaseWorkItemRequest = ...,
+                        body: LeaseWorkItemRequest,
                         **kwargs: typing.Any,
                     ) -> LeaseWorkItemResponseHttpRequest: ...
                     def reportStatus(
@@ -313,7 +321,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         projectId: str,
                         location: str,
                         jobId: str,
-                        body: ReportWorkItemStatusRequest = ...,
+                        body: ReportWorkItemStatusRequest,
                         **kwargs: typing.Any,
                     ) -> ReportWorkItemStatusResponseHttpRequest: ...
 
@@ -322,14 +330,15 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     location: str,
-                    body: Job = ...,
-                    replaceJobId: str = ...,
+                    body: Job,
+                    replaceJobId: str | None = ...,
                     view: typing_extensions.Literal[
                         "JOB_VIEW_UNKNOWN",
                         "JOB_VIEW_SUMMARY",
                         "JOB_VIEW_ALL",
                         "JOB_VIEW_DESCRIPTION",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobHttpRequest: ...
                 def get(
@@ -343,7 +352,8 @@ class DataflowResource(googleapiclient.discovery.Resource):
                         "JOB_VIEW_SUMMARY",
                         "JOB_VIEW_ALL",
                         "JOB_VIEW_DESCRIPTION",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobHttpRequest: ...
                 def getExecutionDetails(
@@ -352,8 +362,8 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     location: str,
                     jobId: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobExecutionDetailsHttpRequest: ...
                 def getExecutionDetails_next(
@@ -367,7 +377,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     location: str,
                     jobId: str,
-                    startTime: str = ...,
+                    startTime: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobMetricsHttpRequest: ...
                 def list(
@@ -377,16 +387,18 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     location: str,
                     filter: typing_extensions.Literal[
                         "UNKNOWN", "ALL", "TERMINATED", "ACTIVE"
-                    ] = ...,
-                    name: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    ]
+                    | None = ...,
+                    name: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "JOB_VIEW_UNKNOWN",
                         "JOB_VIEW_SUMMARY",
                         "JOB_VIEW_ALL",
                         "JOB_VIEW_DESCRIPTION",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListJobsResponseHttpRequest: ...
                 def list_next(
@@ -400,7 +412,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     location: str,
                     jobId: str,
-                    body: SnapshotJobRequest = ...,
+                    body: SnapshotJobRequest,
                     **kwargs: typing.Any,
                 ) -> SnapshotHttpRequest: ...
                 def update(
@@ -409,8 +421,8 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     projectId: str,
                     location: str,
                     jobId: str,
-                    body: Job = ...,
-                    updateMask: str = ...,
+                    body: Job,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobHttpRequest: ...
                 def debug(self) -> DebugResource: ...
@@ -442,7 +454,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     location: str,
-                    jobId: str = ...,
+                    jobId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSnapshotsResponseHttpRequest: ...
 
@@ -453,7 +465,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     location: str,
-                    body: CreateJobFromTemplateRequest = ...,
+                    body: CreateJobFromTemplateRequest,
                     **kwargs: typing.Any,
                 ) -> JobHttpRequest: ...
                 def get(
@@ -461,8 +473,8 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     location: str,
-                    gcsPath: str = ...,
-                    view: typing_extensions.Literal["METADATA_ONLY"] = ...,
+                    gcsPath: str | None = ...,
+                    view: typing_extensions.Literal["METADATA_ONLY"] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GetTemplateResponseHttpRequest: ...
                 def launch(
@@ -470,11 +482,11 @@ class DataflowResource(googleapiclient.discovery.Resource):
                     *,
                     projectId: str,
                     location: str,
-                    body: LaunchTemplateParameters = ...,
-                    dynamicTemplate_gcsPath: str = ...,
-                    dynamicTemplate_stagingLocation: str = ...,
-                    gcsPath: str = ...,
-                    validateOnly: bool = ...,
+                    body: LaunchTemplateParameters,
+                    dynamicTemplate_gcsPath: str | None = ...,
+                    dynamicTemplate_stagingLocation: str | None = ...,
+                    gcsPath: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> LaunchTemplateResponseHttpRequest: ...
 
@@ -483,7 +495,7 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 location: str,
-                body: SendWorkerMessagesRequest = ...,
+                body: SendWorkerMessagesRequest,
                 **kwargs: typing.Any,
             ) -> SendWorkerMessagesResponseHttpRequest: ...
             def flexTemplates(self) -> FlexTemplatesResource: ...
@@ -498,15 +510,15 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 *,
                 projectId: str,
                 snapshotId: str,
-                location: str = ...,
+                location: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SnapshotHttpRequest: ...
             def list(
                 self,
                 *,
                 projectId: str,
-                jobId: str = ...,
-                location: str = ...,
+                jobId: str | None = ...,
+                location: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListSnapshotsResponseHttpRequest: ...
 
@@ -516,28 +528,28 @@ class DataflowResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 projectId: str,
-                body: CreateJobFromTemplateRequest = ...,
+                body: CreateJobFromTemplateRequest,
                 **kwargs: typing.Any,
             ) -> JobHttpRequest: ...
             def get(
                 self,
                 *,
                 projectId: str,
-                gcsPath: str = ...,
-                location: str = ...,
-                view: typing_extensions.Literal["METADATA_ONLY"] = ...,
+                gcsPath: str | None = ...,
+                location: str | None = ...,
+                view: typing_extensions.Literal["METADATA_ONLY"] | None = ...,
                 **kwargs: typing.Any,
             ) -> GetTemplateResponseHttpRequest: ...
             def launch(
                 self,
                 *,
                 projectId: str,
-                body: LaunchTemplateParameters = ...,
-                dynamicTemplate_gcsPath: str = ...,
-                dynamicTemplate_stagingLocation: str = ...,
-                gcsPath: str = ...,
-                location: str = ...,
-                validateOnly: bool = ...,
+                body: LaunchTemplateParameters,
+                dynamicTemplate_gcsPath: str | None = ...,
+                dynamicTemplate_stagingLocation: str | None = ...,
+                gcsPath: str | None = ...,
+                location: str | None = ...,
+                validateOnly: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> LaunchTemplateResponseHttpRequest: ...
 
@@ -545,15 +557,15 @@ class DataflowResource(googleapiclient.discovery.Resource):
             self,
             *,
             projectId: str,
-            location: str = ...,
-            snapshotId: str = ...,
+            location: str | None = ...,
+            snapshotId: str | None = ...,
             **kwargs: typing.Any,
         ) -> DeleteSnapshotResponseHttpRequest: ...
         def workerMessages(
             self,
             *,
             projectId: str,
-            body: SendWorkerMessagesRequest = ...,
+            body: SendWorkerMessagesRequest,
             **kwargs: typing.Any,
         ) -> SendWorkerMessagesResponseHttpRequest: ...
         def jobs(self) -> JobsResource: ...

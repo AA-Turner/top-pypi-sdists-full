@@ -30,8 +30,8 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListApiOperationsResponseHttpRequest: ...
                         def list_next(
@@ -44,7 +44,7 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: BatchEditTagsApiObservationsRequest = ...,
+                        body: BatchEditTagsApiObservationsRequest,
                         **kwargs: typing.Any,
                     ) -> BatchEditTagsApiObservationsResponseHttpRequest: ...
                     def get(
@@ -54,8 +54,8 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListApiObservationsResponseHttpRequest: ...
                     def list_next(
@@ -69,9 +69,9 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ObservationJob = ...,
-                    observationJobId: str = ...,
-                    requestId: str = ...,
+                    body: ObservationJob,
+                    observationJobId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -81,14 +81,14 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: DisableObservationJobRequest = ...,
+                    body: DisableObservationJobRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enable(
                     self,
                     *,
                     name: str,
-                    body: EnableObservationJobRequest = ...,
+                    body: EnableObservationJobRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -98,8 +98,8 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListObservationJobsResponseHttpRequest: ...
                 def list_next(
@@ -115,9 +115,9 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ObservationSource = ...,
-                    observationSourceId: str = ...,
-                    requestId: str = ...,
+                    body: ObservationSource,
+                    observationSourceId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -130,8 +130,8 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListObservationSourcesResponseHttpRequest: ...
                 def list_next(
@@ -146,7 +146,7 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -159,10 +159,10 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -181,10 +181,10 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
@@ -196,8 +196,8 @@ class APIManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListApiObservationTagsResponseHttpRequest: ...
             def listApiObservationTags_next(

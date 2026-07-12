@@ -345,7 +345,7 @@ impl SaeManifoldTerm {
         let mut acc = 0.0_f64;
         for row in 0..n {
             self.assignment
-                .try_assignments_row_for_rho_into(row, rho, assignments.as_mut_slice())?;
+                .try_assignments_row_into(row, assignments.as_mut_slice())?;
             let r_row = residual.row(row);
             // Metric-applied residual M·r (p-space); identity when not whitening.
             let mr: Vec<f64> = match self.row_metric.as_ref() {
@@ -375,10 +375,8 @@ impl SaeManifoldTerm {
                     self.atoms[k].fill_decoded_derivative_row(row, axis, g1.as_mut_slice());
                     let htt = if whitens {
                         if let Some(metric) = self.row_metric.as_ref() {
-                            let mg = metric.apply_metric_row(
-                                row,
-                                ndarray::ArrayView1::from(g1.as_slice()),
-                            );
+                            let mg = metric
+                                .apply_metric_row(row, ndarray::ArrayView1::from(g1.as_slice()));
                             a_k * a_k * g1.iter().zip(mg.iter()).map(|(&a, &b)| a * b).sum::<f64>()
                         } else {
                             0.0
@@ -471,7 +469,6 @@ impl SaeManifoldTerm {
     pub(crate) fn basin_selection_deflation_correction(
         &self,
         residual: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
         dispersion: f64,
     ) -> Result<f64, String> {
         let n = self.n_obs();
@@ -496,6 +493,12 @@ impl SaeManifoldTerm {
         if k_atoms < 2 {
             return Ok(0.0);
         }
+        if self.assignment.ungated.len() != k_atoms {
+            return Err(format!(
+                "basin_selection_deflation_correction: ungated mask has length {}, expected {k_atoms}",
+                self.assignment.ungated.len()
+            ));
+        }
         let whitens = self
             .row_metric
             .as_ref()
@@ -512,7 +515,7 @@ impl SaeManifoldTerm {
         let mut acc = 0.0_f64;
         for row in 0..n {
             self.assignment
-                .try_assignments_row_for_rho_into(row, rho, assignments.as_mut_slice())?;
+                .try_assignments_row_into(row, assignments.as_mut_slice())?;
             let logits = self.assignment.logits.row(row);
             // Selectable candidates are the GATED atoms (ungated = always-on
             // background tier `a_k≡1`, not part of the selection simplex).
@@ -525,9 +528,16 @@ impl SaeManifoldTerm {
                 _ => 2,
             };
             ranked.clear();
-            ranked.extend(
-                (0..k_atoms).filter(|&k| !self.assignment.ungated.get(k).copied().unwrap_or(false)),
-            );
+            for atom in 0..k_atoms {
+                if !logits[atom].is_finite() {
+                    return Err(format!(
+                        "basin_selection_deflation_correction: non-finite logit on row {row}, atom {atom}"
+                    ));
+                }
+                if !self.assignment.ungated[atom] {
+                    ranked.push(atom);
+                }
+            }
             if ranked.len() < need {
                 continue;
             }
@@ -535,18 +545,10 @@ impl SaeManifoldTerm {
             // logit — the routing order the boundary lives on) to the front, then
             // order just those.
             if ranked.len() > need {
-                ranked.select_nth_unstable_by(need - 1, |a, b| {
-                    logits[*b]
-                        .partial_cmp(&logits[*a])
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+                ranked.select_nth_unstable_by(need - 1, |a, b| logits[*b].total_cmp(&logits[*a]));
                 ranked.truncate(need);
             }
-            ranked.sort_by(|&a, &b| {
-                logits[b]
-                    .partial_cmp(&logits[a])
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+            ranked.sort_by(|&a, &b| logits[b].total_cmp(&logits[a]));
             // The boundary pair `(w, r)` = (the atom whose weight is at stake, the
             // runner-up it would flip to) and the winner mass `a_w` moved across it.
             let (w, r, a_w) = match self.assignment.mode {
@@ -890,6 +892,110 @@ impl SaeManifoldTerm {
                             let s = block_start + axis;
                             traces[k][axis] += 0.5 * inv_diag[row_base + s] * hess;
                             traces[k][axis] -= 0.5 * slot_correction(s, hess);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(traces)
+    }
+
+    /// Per-(atom, axis) derivative of the coordinate-block term
+    /// `½ Σ_i log|H_tt^(i)|` that the rank-charge criterion subtracts from the
+    /// full joint Laplace log-determinant.
+    ///
+    /// Unlike [`Self::ard_log_precision_hessian_trace`], this contracts against
+    /// the row-local inverse `H_tt^(i)⁻¹` itself, with no beta-Schur
+    /// back-substitution. Spectrally conditioned rows use the same
+    /// Daleckii--Krein deflation-map differential as the scalar row-factor
+    /// logdet, so this is the exact derivative of the `htt_half` value term.
+    pub(crate) fn coordinate_block_ard_log_precision_hessian_trace(
+        &self,
+        rho: &SaeManifoldRho,
+        cache: &ArrowFactorCache,
+    ) -> Result<Vec<Array1<f64>>, ArrowSchurError> {
+        let row_weights = self.row_loss_weights.as_deref();
+        let coord_offsets = self.assignment.coord_offsets();
+        let periods: Vec<Vec<Option<f64>>> = self
+            .assignment
+            .coords
+            .iter()
+            .map(LatentCoordValues::effective_axis_periods)
+            .collect();
+        let mut traces: Vec<Array1<f64>> = self
+            .assignment
+            .coords
+            .iter()
+            .enumerate()
+            .map(|(atom, coord)| {
+                if rho.log_ard[atom].is_empty() {
+                    Array1::<f64>::zeros(0)
+                } else {
+                    Array1::<f64>::zeros(coord.latent_dim())
+                }
+            })
+            .collect();
+
+        for row in 0..self.n_obs() {
+            let q = cache.row_dims[row];
+            let factor = cache.undamped_factor(row);
+            let mut inverse = Array2::<f64>::zeros((q, q));
+            let mut unit = Array1::<f64>::zeros(q);
+            for col in 0..q {
+                unit.fill(0.0);
+                unit[col] = 1.0;
+                let solved = cholesky_solve_vector(factor, unit.view());
+                for inverse_row in 0..q {
+                    inverse[[inverse_row, col]] = solved[inverse_row];
+                }
+            }
+            let directions = cache
+                .deflated_row_directions
+                .get(row)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let spectrum = cache
+                .deflation_row_spectra
+                .get(row)
+                .and_then(Option::as_ref);
+            let row_weight = row_weights.map_or(1.0, |weights| weights[row]);
+            let mut accumulate = |atom: usize, axis: usize, slot: usize| {
+                let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom][axis]);
+                let t = self.assignment.coords[atom].row(row)[axis];
+                let prior = ArdAxisPrior::eval(alpha, t, periods[atom][axis]);
+                let curvature = row_weight * prior.hess.max(0.0);
+                let mut trace = inverse[[slot, slot]] * curvature;
+                if !directions.is_empty() && curvature != 0.0 {
+                    let mut derivative = Array2::<f64>::zeros((q, q));
+                    derivative[[slot, slot]] = curvature;
+                    trace -= Self::deflation_block_correction(
+                        &inverse,
+                        &derivative,
+                        directions,
+                        spectrum,
+                    );
+                }
+                traces[atom][axis] += 0.5 * trace;
+            };
+            match self.last_row_layout {
+                Some(ref layout) => {
+                    for (position, &atom) in layout.active_atoms[row].iter().enumerate() {
+                        if rho.log_ard[atom].is_empty() {
+                            continue;
+                        }
+                        let start = layout.coord_starts[row][position];
+                        for axis in 0..self.assignment.coords[atom].latent_dim() {
+                            accumulate(atom, axis, start + axis);
+                        }
+                    }
+                }
+                None => {
+                    for atom in 0..self.k_atoms() {
+                        if rho.log_ard[atom].is_empty() {
+                            continue;
+                        }
+                        for axis in 0..self.assignment.coords[atom].latent_dim() {
+                            accumulate(atom, axis, coord_offsets[atom] + axis);
                         }
                     }
                 }

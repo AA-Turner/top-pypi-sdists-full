@@ -90,14 +90,13 @@ pub fn build_thin_plate_basiswithworkspace(
     // silently becomes a canonical TPS at `M(d)` centers instead of the intended
     // Duchon spline (gam#1813 freeze-promotion arm: e.g. d=5, k=10 < M(5)=21
     // must promote to a 10-center Duchon, not inflate to 21-center canonical TPS).
-    let requested_below_canonical_but_duchon_feasible = center_strategy_num_centers(
-        &spec.center_strategy,
-    )
-    .map(|requested| {
-        requested < poly_cols
-            && duchon_thin_plate_fallback_params(data.ncols(), requested).is_some()
-    })
-    .unwrap_or(false);
+    let requested_below_canonical_but_duchon_feasible =
+        center_strategy_num_centers(&spec.center_strategy)
+            .map(|requested| {
+                requested < poly_cols
+                    && duchon_thin_plate_fallback_params(data.ncols(), requested).is_some()
+            })
+            .unwrap_or(false);
     let center_strategy = if requested_below_canonical_but_duchon_feasible {
         spec.center_strategy.clone()
     } else if augmented_fits_in_data {
@@ -227,6 +226,7 @@ pub fn build_thin_plate_basiswithworkspace(
                 reduced_kernel_transform.clone(),
             ]))),
             Some(Arc::new(poly_block)),
+            workspace.policy().material_policy(),
         )
         .map_err(BasisError::InvalidInput)?;
         let base_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(

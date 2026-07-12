@@ -79,7 +79,6 @@ def test__normalize_path() -> None:
     envdir = "envdir"
     normalize = nox.sessions._normalize_path
     assert normalize(envdir, "hello") == os.path.join("envdir", "hello")
-    assert normalize(envdir, b"hello") == os.path.join("envdir", "hello")
     assert normalize(envdir, "hello(world)") == os.path.join("envdir", "hello-world")
     assert normalize(envdir, "hello(world, meep)") == os.path.join(
         "envdir", "hello-world-meep"
@@ -100,6 +99,20 @@ def test__normalize_path_give_up() -> None:
     envdir = "d" * 100
     norm_path = nox.sessions._normalize_path(envdir, "any-path")
     assert "any-path" in norm_path
+
+
+def test__normalize_path_non_ascii() -> None:
+    envdir = "envdir"
+    normalize = nox.sessions._normalize_path
+
+    norm_path = normalize(envdir, "测试")
+    # The result must be a subdirectory of envdir, not envdir itself.
+    assert os.path.dirname(norm_path) == envdir
+    assert os.path.basename(norm_path)
+    # The result must be stable across calls.
+    assert normalize(envdir, "测试") == norm_path
+    # Two different non-ASCII names must not collide.
+    assert normalize(envdir, "тест") != norm_path
 
 
 class FakeEnv(mock.MagicMock):
@@ -173,6 +186,16 @@ class TestSession:
             assert session.cache_dir == Path(runner.global_config.envdir).joinpath(
                 ".cache"
             )
+
+    def test_cache_dir_missing_envdir(self) -> None:
+        session, runner = self.make_session_and_runner()
+        with tempfile.TemporaryDirectory() as root:
+            runner.global_config.envdir = os.path.join(root, "missing", ".nox")
+
+            cache_dir = session.cache_dir
+
+            assert cache_dir == Path(runner.global_config.envdir).joinpath(".cache")
+            assert cache_dir.is_dir()
 
     def test_no_bin_paths(self) -> None:
         session, runner = self.make_session_and_runner()
@@ -1134,6 +1157,7 @@ class TestSessionRunner:
         func = mock.Mock()
         func.python = None
         func.venv_backend = None
+        func.venv_params = []
         func.reuse_venv = False
         func.requires = []
         return nox.sessions.SessionRunner(
@@ -1281,8 +1305,8 @@ class TestSessionRunner:
 
         create.assert_called_once_with(runner.venv)
         assert isinstance(runner.venv, expected_backend)
-        assert runner.venv.interpreter == "coolpython"  # type: ignore[union-attr]
-        assert runner.venv.reuse_existing is True  # type: ignore[union-attr]
+        assert runner.venv.interpreter == "coolpython"
+        assert runner.venv.reuse_existing is True
 
     def test__create_venv_unexpected_venv_backend(self) -> None:
         runner = self.make_runner()

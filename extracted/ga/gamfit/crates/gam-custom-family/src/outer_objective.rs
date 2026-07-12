@@ -8,47 +8,31 @@
 
 use super::*;
 
-impl gam_problem::OuterHessianOperator for OwnedDenseOuterHessianOperator {
+impl gam_problem::HessianOperator for OwnedDenseHessianOperator {
     fn dim(&self) -> usize {
         self.matrix.nrows()
     }
 
-    fn matvec(&self, v: &Array1<f64>) -> Result<Array1<f64>, String> {
-        if v.len() != self.matrix.ncols() {
-            return Err(CustomFamilyError::DimensionMismatch {
-                reason: format!(
-                    "batched dense outer Hessian matvec length mismatch: got {}, expected {}",
-                    v.len(),
-                    self.matrix.ncols()
-                ),
-            }
-            .into());
-        }
-        Ok(self.matrix.dot(v))
-    }
-
     /// Zero-alloc override: write `matrix · v` directly into `out` using a
     /// row-dot loop, avoiding the `matrix.dot(v)` allocation.
-    fn apply_into(&self, v: &Array1<f64>, out: &mut Array1<f64>) -> Result<(), String> {
+    fn apply_into(
+        &self,
+        v: &Array1<f64>,
+        out: &mut Array1<f64>,
+    ) -> Result<(), opt::ObjectiveEvalError> {
         if v.len() != self.matrix.ncols() {
-            return Err(CustomFamilyError::DimensionMismatch {
-                reason: format!(
-                    "batched dense outer Hessian apply_into input length mismatch: got {}, expected {}",
-                    v.len(),
-                    self.matrix.ncols()
-                ),
-            }
-            .into());
+            return Err(opt::ObjectiveEvalError::fatal(format!(
+                "batched dense outer Hessian apply_into input length mismatch: got {}, expected {}",
+                v.len(),
+                self.matrix.ncols()
+            )));
         }
         if out.len() != self.matrix.nrows() {
-            return Err(CustomFamilyError::DimensionMismatch {
-                reason: format!(
-                    "batched dense outer Hessian apply_into output length mismatch: got {}, expected {}",
-                    out.len(),
-                    self.matrix.nrows()
-                ),
-            }
-            .into());
+            return Err(opt::ObjectiveEvalError::fatal(format!(
+                "batched dense outer Hessian apply_into output length mismatch: got {}, expected {}",
+                out.len(),
+                self.matrix.nrows()
+            )));
         }
         for (row, cell) in self.matrix.rows().into_iter().zip(out.iter_mut()) {
             *cell = row.dot(v);
@@ -56,13 +40,17 @@ impl gam_problem::OuterHessianOperator for OwnedDenseOuterHessianOperator {
         Ok(())
     }
 
-    fn is_cheap_to_materialize(&self) -> bool {
-        true
+    fn materialization(&self) -> opt::HessianMaterialization {
+        opt::HessianMaterialization::Explicit
+    }
+
+    fn materialize_dense(&self) -> Result<Array2<f64>, opt::ObjectiveEvalError> {
+        Ok(self.matrix.clone())
     }
 }
 
-pub(crate) struct LabeledOuterHessianOperator {
-    pub(crate) base: Arc<dyn gam_problem::OuterHessianOperator>,
+pub(crate) struct LabeledHessianOperator {
+    pub(crate) base: Arc<dyn gam_problem::HessianOperator>,
     pub(crate) physical_to_outer: Vec<Option<usize>>,
     pub(crate) outer_dim: usize,
     /// Scratch buffers reused across `apply_into` calls to avoid
@@ -71,9 +59,9 @@ pub(crate) struct LabeledOuterHessianOperator {
     pub(crate) scratch: std::sync::Mutex<(ndarray::Array1<f64>, ndarray::Array1<f64>)>,
 }
 
-impl LabeledOuterHessianOperator {
+impl LabeledHessianOperator {
     pub(crate) fn new(
-        base: Arc<dyn gam_problem::OuterHessianOperator>,
+        base: Arc<dyn gam_problem::HessianOperator>,
         layout: &PenaltyLabelLayout,
     ) -> Self {
         // gam#1587: the base operator spans the per-block physical coords followed
@@ -98,38 +86,9 @@ impl LabeledOuterHessianOperator {
     }
 }
 
-impl gam_problem::OuterHessianOperator for LabeledOuterHessianOperator {
+impl gam_problem::HessianOperator for LabeledHessianOperator {
     fn dim(&self) -> usize {
         self.outer_dim
-    }
-
-    fn matvec(&self, v: &Array1<f64>) -> Result<Array1<f64>, String> {
-        if v.len() != self.outer_dim {
-            return Err(format!(
-                "labeled outer Hessian input length mismatch: got {}, expected {}",
-                v.len(),
-                self.outer_dim
-            ));
-        }
-        let mut physical = Array1::<f64>::zeros(self.physical_to_outer.len());
-        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
-            physical[physical_idx] = outer_idx.map(|idx| v[idx]).unwrap_or(0.0);
-        }
-        let physical_out = self.base.matvec(&physical)?;
-        if physical_out.len() != self.physical_to_outer.len() {
-            return Err(format!(
-                "labeled outer Hessian physical matvec length mismatch: got {}, expected {}",
-                physical_out.len(),
-                self.physical_to_outer.len()
-            ));
-        }
-        let mut out = Array1::<f64>::zeros(self.outer_dim);
-        for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
-            if let Some(outer_idx) = *outer_idx {
-                out[outer_idx] += physical_out[physical_idx];
-            }
-        }
-        Ok(out)
     }
 
     /// Zero-alloc override: reuses hoisted scratch buffers to avoid the
@@ -138,36 +97,35 @@ impl gam_problem::OuterHessianOperator for LabeledOuterHessianOperator {
         &self,
         v: &ndarray::Array1<f64>,
         out: &mut ndarray::Array1<f64>,
-    ) -> Result<(), String> {
+    ) -> Result<(), opt::ObjectiveEvalError> {
         if v.len() != self.outer_dim {
-            return Err(format!(
+            return Err(opt::ObjectiveEvalError::fatal(format!(
                 "labeled outer Hessian apply_into input length mismatch: got {}, expected {}",
                 v.len(),
                 self.outer_dim
-            ));
+            )));
         }
         if out.len() != self.outer_dim {
-            return Err(format!(
+            return Err(opt::ObjectiveEvalError::fatal(format!(
                 "labeled outer Hessian apply_into output length mismatch: got {}, expected {}",
                 out.len(),
                 self.outer_dim
-            ));
+            )));
         }
-        let mut guard = self
-            .scratch
-            .lock()
-            .map_err(|_| "labeled outer Hessian scratch lock poisoned".to_string())?;
+        let mut guard = self.scratch.lock().map_err(|_| {
+            opt::ObjectiveEvalError::fatal("labeled outer Hessian scratch lock poisoned")
+        })?;
         let (physical_in, physical_out) = &mut *guard;
         for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
             physical_in[physical_idx] = outer_idx.map(|idx| v[idx]).unwrap_or(0.0);
         }
         self.base.apply_into(physical_in, physical_out)?;
         if physical_out.len() != self.physical_to_outer.len() {
-            return Err(format!(
+            return Err(opt::ObjectiveEvalError::fatal(format!(
                 "labeled outer Hessian physical apply_into length mismatch: got {}, expected {}",
                 physical_out.len(),
                 self.physical_to_outer.len()
-            ));
+            )));
         }
         out.fill(0.0);
         for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
@@ -178,13 +136,16 @@ impl gam_problem::OuterHessianOperator for LabeledOuterHessianOperator {
         Ok(())
     }
 
-    fn mul_mat(&self, factor: ndarray::ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
+    fn apply_mat(
+        &self,
+        factor: ndarray::ArrayView2<'_, f64>,
+    ) -> Result<Array2<f64>, opt::ObjectiveEvalError> {
         if factor.nrows() != self.outer_dim {
-            return Err(format!(
+            return Err(opt::ObjectiveEvalError::fatal(format!(
                 "labeled outer Hessian factor row mismatch: got {}, expected {}",
                 factor.nrows(),
                 self.outer_dim
-            ));
+            )));
         }
         let mut physical_factor =
             Array2::<f64>::zeros((self.physical_to_outer.len(), factor.ncols()));
@@ -195,13 +156,13 @@ impl gam_problem::OuterHessianOperator for LabeledOuterHessianOperator {
                     .assign(&factor.row(outer_idx));
             }
         }
-        let physical_out = self.base.mul_mat(physical_factor.view())?;
+        let physical_out = self.base.apply_mat(physical_factor.view())?;
         if physical_out.nrows() != self.physical_to_outer.len() {
-            return Err(format!(
+            return Err(opt::ObjectiveEvalError::fatal(format!(
                 "labeled outer Hessian physical output row mismatch: got {}, expected {}",
                 physical_out.nrows(),
                 self.physical_to_outer.len()
-            ));
+            )));
         }
         let mut out = Array2::<f64>::zeros((self.outer_dim, factor.ncols()));
         for (physical_idx, outer_idx) in self.physical_to_outer.iter().enumerate() {
@@ -213,12 +174,8 @@ impl gam_problem::OuterHessianOperator for LabeledOuterHessianOperator {
         Ok(out)
     }
 
-    fn is_cheap_to_materialize(&self) -> bool {
-        self.base.is_cheap_to_materialize()
-    }
-
-    fn materialization_capability(&self) -> gam_problem::OuterHessianMaterialization {
-        self.base.materialization_capability()
+    fn materialization(&self) -> gam_problem::HessianMaterialization {
+        self.base.materialization()
     }
 }
 
@@ -230,7 +187,7 @@ pub(crate) fn custom_family_batched_outer_hessian_operator<F: CustomFamily>(
     rho: &Array1<f64>,
     workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
     eval_mode: EvalMode,
-) -> Result<Option<Arc<dyn gam_problem::OuterHessianOperator>>, String> {
+) -> Result<Option<Arc<dyn gam_problem::HessianOperator>>, String> {
     if eval_mode != EvalMode::ValueGradientHessian {
         return Ok(None);
     }
@@ -240,11 +197,11 @@ pub(crate) fn custom_family_batched_outer_hessian_operator<F: CustomFamily>(
         return Ok(None);
     };
     match terms.outer_hessian {
-        gam_problem::HessianResult::Operator(operator) => Ok(Some(operator)),
-        gam_problem::HessianResult::Analytic(matrix) => {
-            Ok(Some(Arc::new(OwnedDenseOuterHessianOperator { matrix })))
+        gam_problem::HessianValue::Operator(operator) => Ok(Some(operator)),
+        gam_problem::HessianValue::Dense(matrix) => {
+            Ok(Some(Arc::new(OwnedDenseHessianOperator { matrix })))
         }
-        gam_problem::HessianResult::Unavailable => Ok(None),
+        gam_problem::HessianValue::Unavailable => Ok(None),
     }
 }
 

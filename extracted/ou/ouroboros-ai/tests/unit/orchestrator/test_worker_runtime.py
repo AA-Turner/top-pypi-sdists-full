@@ -37,8 +37,24 @@ class _FakeTransport:
         self.spawn_calls.append(kwargs)
         return self._spawn_turn
 
-    async def resume(self, *, session_id: str, prompt: str) -> WorkerTurn:
-        self.resume_calls.append({"session_id": session_id, "prompt": prompt})
+    async def resume(
+        self,
+        *,
+        session_id: str,
+        prompt: str,
+        permission_mode: str | None = None,
+        model: str | None = None,
+        reasoning_effort: str | None = None,
+    ) -> WorkerTurn:
+        self.resume_calls.append(
+            {
+                "session_id": session_id,
+                "prompt": prompt,
+                "permission_mode": permission_mode,
+                "model": model,
+                "reasoning_effort": reasoning_effort,
+            }
+        )
         assert self._resume_turn is not None
         return self._resume_turn
 
@@ -96,6 +112,60 @@ class TestSpawn:
         assert result.value.session_id == "s9"
         assert result.value.resume_handle.native_session_id == "s9"
 
+    @pytest.mark.asyncio
+    async def test_spawn_result_carries_usage_telemetry(self) -> None:
+        t = _FakeTransport(
+            spawn_turn=WorkerTurn(
+                text="done",
+                session_id="s9",
+                usage={"input_tokens": 7, "output_tokens": 3},
+            )
+        )
+
+        messages = [m async for m in _runtime(t).execute_task(prompt="go")]
+
+        assert messages[-1].data["usage"] == {"input_tokens": 7, "output_tokens": 3}
+
+
+class TestModelOverride:
+    """Per-call model-tier override (RFC #1405 sibling) threads to spawn and wins
+    over the constructor pin; None falls back to it (existing callers unchanged)."""
+
+    def _runtime_with_model(
+        self, transport: _FakeTransport, *, model: str | None
+    ) -> LeaderDrivenWorkerRuntime:
+        return LeaderDrivenWorkerRuntime(
+            transport=transport,
+            runtime_backend="codex_mcp",
+            llm_backend="codex",
+            cwd="/tmp",
+            model=model,
+            model_override_support=ParamSupport.NATIVE,
+        )
+
+    def test_capability_defaults_to_ignored(self) -> None:
+        rt = _runtime(_FakeTransport(spawn_turn=WorkerTurn(text="ok", session_id="s1")))
+        assert rt.capabilities.model_override_support is ParamSupport.IGNORED
+
+    def test_declared_support_is_surfaced(self) -> None:
+        t = _FakeTransport(spawn_turn=WorkerTurn(text="ok", session_id="s1"))
+        rt = self._runtime_with_model(t, model="pin")
+        assert rt.capabilities.model_override_support is ParamSupport.NATIVE
+
+    @pytest.mark.asyncio
+    async def test_per_call_model_wins_over_constructor_pin(self) -> None:
+        t = _FakeTransport(spawn_turn=WorkerTurn(text="ok", session_id="s1"))
+        rt = self._runtime_with_model(t, model="pinned-model")
+        _ = [m async for m in rt.execute_task(prompt="hi", model="haiku-child")]
+        assert t.spawn_calls[0]["model"] == "haiku-child"
+
+    @pytest.mark.asyncio
+    async def test_none_model_falls_back_to_constructor_pin(self) -> None:
+        t = _FakeTransport(spawn_turn=WorkerTurn(text="ok", session_id="s1"))
+        rt = self._runtime_with_model(t, model="pinned-model")
+        _ = [m async for m in rt.execute_task(prompt="hi")]
+        assert t.spawn_calls[0]["model"] == "pinned-model"
+
 
 class TestResume:
     @pytest.mark.asyncio
@@ -109,8 +179,68 @@ class TestResume:
         result = await rt.execute_task_to_result(prompt="again", resume_handle=handle)
         assert result.is_ok
         assert result.value.final_message == "second"
-        assert t.resume_calls == [{"session_id": "s1", "prompt": "again"}]
+        assert t.resume_calls == [
+            {
+                "session_id": "s1",
+                "prompt": "again",
+                "permission_mode": None,
+                "model": None,
+                "reasoning_effort": None,
+            }
+        ]
         assert t.spawn_calls == []  # resume path must NOT spawn a new session
+
+    @pytest.mark.asyncio
+    async def test_resume_forwards_per_call_model_and_effort(self) -> None:
+        t = _FakeTransport(
+            spawn_turn=WorkerTurn(text="first", session_id="s1"),
+            resume_turn=WorkerTurn(text="second", session_id="s1"),
+        )
+        rt = _runtime(t)
+        handle = RuntimeHandle(backend="codex_mcp", native_session_id="s1")
+
+        _ = [
+            message
+            async for message in rt.execute_task(
+                prompt="again",
+                resume_handle=handle,
+                model="claude-haiku-4-5",
+                reasoning_effort="high",
+            )
+        ]
+
+        assert t.resume_calls == [
+            {
+                "session_id": "s1",
+                "prompt": "again",
+                "permission_mode": None,
+                "model": "claude-haiku-4-5",
+                "reasoning_effort": "high",
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_resume_forwards_runtime_permission_mode(self) -> None:
+        t = _FakeTransport(
+            spawn_turn=WorkerTurn(text="first", session_id="s1"),
+            resume_turn=WorkerTurn(text="second", session_id="s1"),
+        )
+        rt = LeaderDrivenWorkerRuntime(
+            transport=t,
+            runtime_backend="claude_mcp",
+            llm_backend="claude",
+            permission_mode="bypassPermissions",
+        )
+
+        _ = [
+            message
+            async for message in rt.execute_task(
+                prompt="again",
+                resume_handle=RuntimeHandle(backend="claude_mcp", native_session_id="s1"),
+            )
+        ]
+
+        assert t.resume_calls[0]["permission_mode"] == "bypassPermissions"
 
     @pytest.mark.asyncio
     async def test_resume_does_not_re_emit_init(self) -> None:
@@ -161,7 +291,15 @@ class TestForkFromHostSession:
         handle = RuntimeHandle(backend="codex_mcp", native_session_id="s1")
         result = await _runtime(t).execute_task_to_result(prompt="again", resume_handle=handle)
         assert result.is_ok
-        assert t.resume_calls == [{"session_id": "s1", "prompt": "again"}]
+        assert t.resume_calls == [
+            {
+                "session_id": "s1",
+                "prompt": "again",
+                "permission_mode": None,
+                "model": None,
+                "reasoning_effort": None,
+            }
+        ]
         assert t.spawn_calls == []
 
 
@@ -193,7 +331,13 @@ class TestErrors:
                 raise RuntimeError("transport exploded")
 
             async def resume(
-                self, *, session_id: str, prompt: str
+                self,
+                *,
+                session_id: str,
+                prompt: str,
+                permission_mode: str | None = None,
+                model: str | None = None,
+                reasoning_effort: str | None = None,
             ) -> WorkerTurn:  # pragma: no cover
                 raise AssertionError
 

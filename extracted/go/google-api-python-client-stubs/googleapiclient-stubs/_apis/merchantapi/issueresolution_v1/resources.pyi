@@ -21,9 +21,9 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAggregateProductStatusesResponseHttpRequest: ...
             def list_next(
@@ -40,26 +40,26 @@ class MerchantResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: RenderIssuesRequestPayload = ...,
-            languageCode: str = ...,
-            timeZone: str = ...,
+            body: RenderIssuesRequestPayload,
+            languageCode: str | None = ...,
+            timeZone: str | None = ...,
             **kwargs: typing.Any,
         ) -> RenderAccountIssuesResponseHttpRequest: ...
         def renderproductissues(
             self,
             *,
             name: str,
-            body: RenderIssuesRequestPayload = ...,
-            languageCode: str = ...,
-            timeZone: str = ...,
+            body: RenderIssuesRequestPayload,
+            languageCode: str | None = ...,
+            timeZone: str | None = ...,
             **kwargs: typing.Any,
         ) -> RenderProductIssuesResponseHttpRequest: ...
         def triggeraction(
             self,
             *,
             name: str,
-            body: TriggerActionPayload = ...,
-            languageCode: str = ...,
+            body: TriggerActionPayload,
+            languageCode: str | None = ...,
             **kwargs: typing.Any,
         ) -> TriggerActionResponseHttpRequest: ...
 

@@ -5,6 +5,7 @@
 //! cellwise density-normalization integrand exactly through the implicit
 //! intercept solve for a pair of directions.
 
+use super::super::poly_arith_tests::*;
 use super::*;
 use crate::marginal_slope_shared::SparsePrimaryCoeffJetView;
 use crate::survival::marginal_slope::flex_oracle_structs_tests::{
@@ -204,9 +205,7 @@ impl SurvivalMarginalSlopeFamily {
                                         z: f64|
                      -> f64 {
                         match edge {
-                            crate::cubic_cell_kernel::PartitionEdge::Crossing {
-                                ..
-                            } => {
+                            crate::cubic_cell_kernel::PartitionEdge::Crossing { .. } => {
                                 let direct_g = if axis == primary.g { z } else { 0.0 };
                                 -direct_g / b
                             }
@@ -215,9 +214,7 @@ impl SurvivalMarginalSlopeFamily {
                     };
                     let a_vel = |edge: crate::cubic_cell_kernel::PartitionEdge| -> f64 {
                         match edge {
-                            crate::cubic_cell_kernel::PartitionEdge::Crossing {
-                                ..
-                            } => -1.0 / b,
+                            crate::cubic_cell_kernel::PartitionEdge::Crossing { .. } => -1.0 / b,
                             crate::cubic_cell_kernel::PartitionEdge::Fixed(_) => 0.0,
                         }
                     };
@@ -249,11 +246,12 @@ impl SurvivalMarginalSlopeFamily {
                             let cv = fx.coeff_u[v].map(|value| -value);
                             // Asymmetric flux pair DOUBLED on the diagonal (matching
                             // the base fix); off-diagonal second term is 0 unless v==g.
-                            let mut boundary = super::first_full::moving_density_boundary_flux(
+                            let mut boundary = super::first_full_tests::moving_density_boundary_flux(
                                 v, primary, &au, entry, &cu, b, false,
-                            ) + super::first_full::moving_density_boundary_flux(
-                                u, primary, &au, entry, &cv, b, false,
-                            );
+                            )
+                                + super::first_full_tests::moving_density_boundary_flux(
+                                    u, primary, &au, entry, &cv, b, false,
+                                );
                             let zv_r = crossing_vel(v, part.right_edge, cell.right);
                             let zv_l = crossing_vel(v, part.left_edge, cell.left);
                             boundary += self_flux(zu_r, zv_r, zu_l, zv_l);

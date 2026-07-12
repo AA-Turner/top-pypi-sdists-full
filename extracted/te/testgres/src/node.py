@@ -729,7 +729,11 @@ class PostgresNode(object):
         if testgres_config.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
-                self._logger = TestgresLogger(self.name, self.pg_log_file)
+                self._logger = TestgresLogger(
+                    self.name,
+                    self.pg_log_file,
+                    os_ops=self._os_ops,
+                )
                 self._logger.start()
 
     def _maybe_stop_logger(self):
@@ -807,7 +811,7 @@ class PostgresNode(object):
         Args:
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
-            allow_streaming: should this node add a hba entry for replication?
+            allow_streaming: (ignored) should this node add a hba entry for replication?
             allow_logical: can this node be used as a logical replication publisher?
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
@@ -818,44 +822,10 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
 
+        # hba file is updated
+        self._default_conf__hba()
+
         postgres_conf = self._os_ops.build_path(self.data_dir, PG_CONF_FILE)
-        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
-
-        # filter lines in hba file
-        # get rid of comments and blank lines
-        hba_conf_file = self._os_ops.readlines(hba_conf)
-        lines = [
-            s for s in hba_conf_file
-            if len(s.strip()) > 0 and not s.startswith('#')
-        ]
-
-        # write filtered lines
-        self._os_ops.write(hba_conf, lines, truncate=True)
-
-        # replication-related settings
-        if allow_streaming:
-            # get auth method for host or local users
-            def get_auth_method(t):
-                return next((s.split()[-1]
-                             for s in lines if s.startswith(t)), 'trust')
-
-            # get auth methods
-            auth_local = get_auth_method('local')
-            auth_host = get_auth_method('host')
-            subnet_base = ".".join(self._os_ops.host.split('.')[:-1] + ['0'])
-
-            new_lines = [
-                u"local\treplication\tall\t\t\t{}\n".format(auth_local),
-                u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
-                u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
-                u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\tall\t{}\n".format(auth_host),
-                u"host\treplication\tall\tall\t{}\n".format(auth_host)
-            ]  # yapf: disable
-
-            # write missing lines
-            self._os_ops.write(hba_conf, new_lines)
 
         # overwrite config file
         self._os_ops.write(postgres_conf, '', truncate=True)
@@ -900,6 +870,88 @@ class PostgresNode(object):
             self.append_conf(unix_socket_directories='')
 
         return self
+
+    def _default_conf__hba(self) -> None:
+        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
+
+        # filter lines in hba file
+        # get rid of comments and blank lines
+        hba_conf_file = self._os_ops.readlines(hba_conf, binary=False)
+
+        assert type(hba_conf_file) is list
+
+        hba_conf_file_finished_with_eol = True
+        if len(hba_conf_file) > 0:
+            last_line = hba_conf_file[-1]
+            assert type(last_line) is str
+            hba_conf_file_finished_with_eol = last_line.endswith("\n")
+
+        # Normalize function: turns a string into a list of pure words
+        def normalize_line(line_str):
+            return line_str.strip().split()
+
+        # We collect a list of rules that already exist in the file (in the form of word lists)
+        existing_normalized = []
+        for s in hba_conf_file:
+            s_clean = s.strip()
+            if s_clean and not s_clean.startswith("#"):
+                existing_normalized.append(normalize_line(s_clean))
+            continue
+
+        # get auth method for host or local users
+        def get_auth_method(t):
+            for x in existing_normalized:
+                assert type(x) is list
+                if len(x) > 0 and x[0] == t:
+                    return x[-1]
+                continue
+            return 'trust'
+
+        # get auth methods
+        auth_local = get_auth_method('local')
+        auth_host = get_auth_method('host')
+
+        # Basic rules that we want to see in the file
+        raw_rules = [
+            ("local", "replication", "all", "", auth_local),
+            ("host", "replication", "all", "0.0.0.0/0", auth_host),
+            ("host", "replication", "all", "::/0", auth_host),
+            ("local", "all", "all", "", auth_local),
+            ("host", "all", "all", "0.0.0.0/0", auth_host),
+            ("host", "all", "all", "::/0", auth_host),
+        ]
+
+        add_rules = []
+
+        for type_hba, db, user, addr, method in raw_rules:
+            # We check if such a rule already exists in the file (by meaning, not by tabs!)
+            target_words = [type_hba, db, user, method]
+            if addr:
+                target_words.insert(3, addr)
+
+            if target_words in existing_normalized:
+                continue  # Такое правило уже есть, пропускаем!
+
+            # Beautiful, smooth enterprise formatting with spaces!
+            # Text will be left-aligned and aligned strictly within columns.
+            formatted_rule = "{:<8} {:<16} {:<16} {:<24} {}\n".format(
+                type_hba, db, user, addr if addr else "", method
+            )
+            add_rules.append(formatted_rule)
+            continue
+
+        if len(add_rules) > 0:
+            add_lines = []
+            if not hba_conf_file_finished_with_eol:
+                add_lines.append("\n")
+
+            add_lines.append("\n")
+            add_lines.append("# Testgres default configuration\n")
+            add_lines += add_rules
+
+            # We add only real, beautifully formatted new items
+            self._os_ops.write(hba_conf, add_lines, truncate=False)
+        return
 
     @method_decorator(positional_args_hack(['filename', 'line']))
     def append_conf(self, line='', filename=PG_CONF_FILE, **kwargs):
@@ -2318,9 +2370,11 @@ class PostgresNode(object):
 class PostgresNodeLogReader:
     class LogInfo:
         position: int
+        tail: bytes
 
         def __init__(self, position: int):
             self.position = position
+            self.tail = b''
 
     # --------------------------------------------------------------------
     class LogDataBlock:
@@ -2396,37 +2450,62 @@ class PostgresNodeLogReader:
             assert type(file_name) is str
             assert type(cur_log_info) is __class__.LogInfo
 
-            read_pos = 0
-
-            if file_name in self._logs.keys():
+            if file_name not in self._logs.keys():
+                read_pos = 0
+                file_content_b = b''
+            else:
                 prev_log_info = self._logs[file_name]
                 assert type(prev_log_info) is __class__.LogInfo
                 read_pos = prev_log_info.position  # the previous size
+                file_content_b = prev_log_info.tail
 
-            file_content_b = self._node.os_ops.read_binary(file_name, read_pos)
+            prev_data_sz = len(file_content_b)
+            assert prev_data_sz <= read_pos
+
+            file_content_b += self._node.os_ops.read_binary(file_name, read_pos)
             assert type(file_content_b) is bytes
 
-            #
-            # A POTENTIAL PROBLEM: file_content_b may contain an incompleted UTF-8 symbol.
-            #
-            file_content_s = file_content_b.decode()
-            assert type(file_content_s) is str
+            assert prev_data_sz <= len(file_content_b)
 
-            next_read_pos = read_pos + len(file_content_b)
+            #
+            # We will process completed lines only
+            #
+            completed_data_size = file_content_b.rfind(b"\n") + 1
 
-            # It is a research/paranoja check.
-            # When we will process partial UTF-8 symbol, it must be adjusted.
+            assert completed_data_size >= 0
+            assert completed_data_size <= len(file_content_b)
+
+            completed_data = file_content_b[:completed_data_size]
+            assert type(completed_data) is bytes
+            assert len(completed_data) == completed_data_size
+
+            new_tail = file_content_b[completed_data_size:]
+            assert type(new_tail) is bytes
+            assert len(new_tail) == len(file_content_b) - completed_data_size
+
+            completed_data_s = completed_data.decode()
+            assert type(completed_data_s) is str
+
+            next_read_pos = read_pos - prev_data_sz + len(file_content_b)
+
+            assert read_pos <= next_read_pos
+
+            # It is a FINAL paranoja check.
+            # [2026-07-10] Verified
             assert cur_log_info.position <= next_read_pos
-
-            cur_log_info.position = next_read_pos
 
             block = __class__.LogDataBlock(
                 file_name,
                 read_pos,
-                file_content_s
+                completed_data_s,
             )
 
             result.append(block)
+
+            # Save information to next iteration
+            cur_log_info.position = next_read_pos
+            cur_log_info.tail = new_tail
+            continue
 
         # A new check point
         self._logs = cur_logs

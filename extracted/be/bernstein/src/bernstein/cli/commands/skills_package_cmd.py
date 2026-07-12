@@ -1,0 +1,590 @@
+"""CLI surface for ``bernstein skills package`` (issue #2369).
+
+Subcommands::
+
+    bernstein skills package show
+    bernstein skills package install [--host H --scope S | --dest DIR]
+                                     [--record-only] [--force]
+    bernstein skills package verify [--host H --scope S | --dest DIR]
+
+``install`` copies the bundled cross-vendor ``bernstein-run`` skill into an
+agent host's skill directory and anchors a content-addressed install
+receipt in the ``skills`` lineage spine and the HMAC audit chain (the same
+receipt machinery the signed skills catalog uses). ``--record-only``
+anchors a tree the host already installed - e.g. a plugin checkout -
+without writing to it. ``verify`` recomputes the installed tree's content
+address and proves it against the anchored receipt.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from pathlib import Path
+
+import click
+
+from bernstein.cli.helpers import console
+from bernstein.core.skills.conformance import (
+    DEFAULT_MIN_HOSTS,
+    SubprocessTransport,
+    run_conformance,
+)
+from bernstein.core.skills.packaging import (
+    PACKAGED_SKILL_NAME,
+    PackagedInstallError,
+    discover_installs,
+    host_skill_parent,
+    install_packaged_skill,
+    manifest_hash_for,
+    packaged_skill_dir,
+    supported_hosts,
+    tree_content_hash,
+    update_packaged_install,
+    verify_packaged_install,
+)
+
+
+def _load_hmac_key() -> bytes:
+    from bernstein.core.security.audit import load_or_create_audit_key
+
+    return load_or_create_audit_key()
+
+
+def _resolve_dest(
+    *,
+    host: str | None,
+    scope: str,
+    dest: str | None,
+    workdir: Path,
+) -> tuple[Path, str, str]:
+    """Return ``(dest, host_label, scope_label)`` from the CLI selection."""
+    if dest is not None:
+        return Path(dest), host or "dest", "dest" if host is None else scope
+    if host is None:
+        raise click.ClickException("Provide --host (with optional --scope) or an explicit --dest.")
+    try:
+        parent = host_skill_parent(host, scope, workdir=workdir)
+    except PackagedInstallError as exc:
+        raise click.ClickException(str(exc)) from exc
+    return parent / PACKAGED_SKILL_NAME, host, scope
+
+
+@click.group("package")
+def package_group() -> None:
+    """Install and verify the packaged bernstein agent skill.
+
+    \b
+      bernstein skills package show                       # bundled asset identity
+      bernstein skills package install --host claude      # copy + anchor receipt
+      bernstein skills package verify --host claude       # recompute + prove
+    """
+
+
+@package_group.command("show")
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/.",
+)
+def show_cmd(workdir: str) -> None:
+    """Print the bundled skill's content address and manifest hash."""
+    try:
+        skill = packaged_skill_dir()
+        skill_hash = tree_content_hash(skill)
+        manifest_rel, manifest_hash = manifest_hash_for(skill)
+    except PackagedInstallError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    console.print()
+    console.print(f"[bold]Packaged skill[/bold] {PACKAGED_SKILL_NAME}")
+    console.print(f"  source:        {skill}")
+    console.print(f"  skill_hash:    {skill_hash}")
+    console.print(f"  manifest:      {manifest_rel}")
+    console.print(f"  manifest_sha:  {manifest_hash}")
+    console.print(f"  hosts:         {', '.join(supported_hosts())}")
+
+
+@package_group.command("install")
+@click.option(
+    "--host",
+    type=click.Choice(sorted(supported_hosts())),
+    default=None,
+    help="Agent host whose default skills directory receives the install.",
+)
+@click.option(
+    "--scope",
+    type=click.Choice(["project", "user"]),
+    default="project",
+    show_default=True,
+    help="Install into the project tree or the user home directory.",
+)
+@click.option(
+    "--dest",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Explicit destination directory (overrides --host/--scope).",
+)
+@click.option(
+    "--record-only",
+    is_flag=True,
+    default=False,
+    help="Anchor an already-installed tree at the destination without copying.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Overwrite a destination whose content differs from the bundled skill.",
+)
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/ (where the receipt is anchored).",
+)
+def install_cmd(
+    host: str | None,
+    scope: str,
+    dest: str | None,
+    record_only: bool,
+    force: bool,
+    workdir: str,
+) -> None:
+    """Install the packaged skill and anchor a chain-verifiable receipt.
+
+    Exit codes: 0 = installed and anchored, 1 = error.
+    """
+    root = Path(workdir).resolve()
+    target, host_label, scope_label = _resolve_dest(host=host, scope=scope, dest=dest, workdir=root)
+    install_id = f"agent-plugin-{host_label}-{scope_label}"
+
+    try:
+        outcome = install_packaged_skill(
+            workdir=root,
+            dest=target,
+            hmac_key=_load_hmac_key(),
+            install_id=install_id,
+            timestamp=int(datetime.now(tz=UTC).timestamp()),
+            host=host_label,
+            scope=scope_label,
+            force=force,
+            record_only=record_only,
+        )
+    except PackagedInstallError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    action = "anchored" if not outcome.copied else "installed"
+    console.print(f"[green]{action}[/green] {PACKAGED_SKILL_NAME} -> {outcome.dest}")
+    console.print(f"  skill_hash:    {outcome.skill_hash}")
+    console.print(f"  manifest:      {outcome.manifest_path}")
+    console.print(f"  manifest_sha:  {outcome.manifest_hash}")
+    console.print(f"  install_id:    {outcome.install_id}")
+    console.print(f"  spine_anchor:  {outcome.spine_anchor}")
+
+
+@package_group.command("verify")
+@click.option(
+    "--host",
+    type=click.Choice(sorted(supported_hosts())),
+    default=None,
+    help="Agent host whose default skills directory is verified.",
+)
+@click.option(
+    "--scope",
+    type=click.Choice(["project", "user"]),
+    default="project",
+    show_default=True,
+)
+@click.option(
+    "--dest",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Explicit installed directory (overrides --host/--scope).",
+)
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/.",
+)
+def verify_cmd(host: str | None, scope: str, dest: str | None, workdir: str) -> None:
+    """Recompute the installed tree's receipt and verify its anchor.
+
+    Exit codes: 0 = verified, 1 = bad input (missing directory),
+    2 = attestation failure (no receipt for the recomputed content
+    address, install spine tamper, or manifest drift).
+    """
+    root = Path(workdir).resolve()
+    target, _, _ = _resolve_dest(host=host, scope=scope, dest=dest, workdir=root)
+    if not target.is_dir():
+        console.print(f"[red]No installed tree at[/red] {target}")
+        raise SystemExit(1)
+
+    result = verify_packaged_install(workdir=root, dest=target, hmac_key=_load_hmac_key())
+    console.print()
+    console.print(f"[bold]Packaged install verify[/bold] dest={target}")
+    if result.ok:
+        console.print("[green]OK[/green] -- content address matches an anchored install receipt.")
+        raise SystemExit(0)
+    console.print(f"[red]FAILED[/red] -- {result.reason}")
+    raise SystemExit(2)
+
+
+@package_group.command("update")
+@click.option(
+    "--host",
+    type=click.Choice(sorted(supported_hosts())),
+    default=None,
+    help="Agent host whose default skills directory is updated in place.",
+)
+@click.option(
+    "--scope",
+    type=click.Choice(["project", "user"]),
+    default="project",
+    show_default=True,
+)
+@click.option(
+    "--dest",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Explicit installed directory (overrides --host/--scope).",
+)
+@click.option(
+    "--source",
+    type=click.Path(file_okay=False, exists=True),
+    default=None,
+    help="Tree to update to (defaults to the bundled skill).",
+)
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/ (where the receipt is anchored).",
+)
+def update_cmd(
+    host: str | None,
+    scope: str,
+    dest: str | None,
+    source: str | None,
+    workdir: str,
+) -> None:
+    """Supersede a prior install and anchor a chain-verifiable update receipt.
+
+    The update binds the prior content address to the new one, so the
+    supersession chains back to the root install. Exit codes: 0 = updated or
+    already current, 1 = error (missing or unattested install).
+    """
+    root = Path(workdir).resolve()
+    target, host_label, scope_label = _resolve_dest(host=host, scope=scope, dest=dest, workdir=root)
+    install_id = f"agent-plugin-{host_label}-{scope_label}"
+
+    try:
+        outcome = update_packaged_install(
+            workdir=root,
+            dest=target,
+            source=Path(source) if source is not None else None,
+            hmac_key=_load_hmac_key(),
+            install_id=install_id,
+            timestamp=int(datetime.now(tz=UTC).timestamp()),
+            host=host_label,
+            scope=scope_label,
+        )
+    except PackagedInstallError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not outcome.changed:
+        console.print(f"[green]already current[/green] {PACKAGED_SKILL_NAME} -> {outcome.dest}")
+        console.print(f"  skill_hash:    {outcome.skill_hash}")
+        return
+
+    console.print(f"[green]updated[/green] {PACKAGED_SKILL_NAME} -> {outcome.dest}")
+    console.print(f"  prior_hash:    {outcome.prior_skill_hash}")
+    console.print(f"  skill_hash:    {outcome.skill_hash}")
+    console.print(f"  manifest:      {outcome.manifest_path}")
+    console.print(f"  manifest_sha:  {outcome.manifest_hash}")
+    console.print(f"  install_id:    {outcome.install_id}")
+    console.print(f"  spine_anchor:  {outcome.spine_anchor}")
+
+
+@package_group.command("status")
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Emit the install status as JSON.",
+)
+@click.option(
+    "--home",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Home directory for user-scoped destinations (defaults to the real home).",
+)
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/.",
+)
+def status_cmd(as_json: bool, home: str | None, workdir: str) -> None:
+    """Verify every default host/scope install and report each verdict.
+
+    Scans the default skill directory for each supported host and scope,
+    re-hashes any present tree, and proves it against its anchored receipt.
+    Exit codes: 0 = every present install verifies (or none present),
+    2 = at least one present install failed verification.
+    """
+    root = Path(workdir).resolve()
+    home_dir = Path(home).resolve() if home is not None else None
+    hmac_key = _load_hmac_key()
+
+    rows: list[dict[str, object]] = []
+    any_failed = False
+    for candidate in discover_installs(workdir=root, home=home_dir):
+        if not candidate.exists:
+            continue
+        result = verify_packaged_install(workdir=root, dest=candidate.dest, hmac_key=hmac_key)
+        if not result.ok:
+            any_failed = True
+        rows.append(
+            {
+                "host": candidate.host,
+                "scope": candidate.scope,
+                "dest": str(candidate.dest),
+                "verified": result.ok,
+                "reason": result.reason,
+            }
+        )
+
+    if as_json:
+        console.print_json(data={"installs": rows})
+        raise SystemExit(2 if any_failed else 0)
+
+    console.print()
+    console.print("[bold]Packaged install status[/bold]")
+    if not rows:
+        console.print("  (no installs found under the scanned host directories)")
+        raise SystemExit(0)
+    for row in rows:
+        mark = "[green]OK[/green]" if row["verified"] else f"[red]FAILED[/red] ({row['reason']})"
+        console.print(f"  {row['host']}/{row['scope']}: {mark} -> {row['dest']}")
+    raise SystemExit(2 if any_failed else 0)
+
+
+def _package_version() -> str:
+    """Return the installed bernstein version (the release tag the image pins)."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("bernstein")
+    except PackageNotFoundError:  # pragma: no cover - source checkout without install
+        import tomllib
+
+        pyproject = Path(__file__).resolve().parents[4] / "pyproject.toml"
+        with pyproject.open("rb") as fh:
+            return str(tomllib.load(fh)["project"]["version"])
+
+
+@package_group.command("image-verify")
+@click.option(
+    "--version",
+    "version_override",
+    default=None,
+    help="Release version the signed image must pin (defaults to the installed bernstein version).",
+)
+@click.option(
+    "--online",
+    is_flag=True,
+    default=False,
+    help="Also run `gh attestation verify` against the live Sigstore attestation (needs network + gh).",
+)
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Emit the verdict as JSON.",
+)
+@click.option(
+    "--repo-root",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Repository root holding server.json and packaging/docker-mcp/.",
+)
+def image_verify_cmd(version_override: str | None, online: bool, as_json: bool, repo_root: str) -> None:
+    """Verify the packaged distribution resolves to the canonical signed image.
+
+    Proves, offline, that the MCP registry listing (``server.json``) and the
+    Docker MCP catalog entry (``packaging/docker-mcp/server.yaml``) agree on the
+    same ``ghcr.io/<owner>/bernstein`` repository and that the registry listing
+    pins the release version, so a host pulls the exact signed image the release
+    built. With ``--online`` it also verifies the live Sigstore
+    build-provenance attestation via ``gh attestation verify``.
+
+    Exit codes: 0 = consistent (and, with ``--online``, attestation verified or
+    tooling unavailable); 2 = a manifest mismatch or a failed online attestation.
+    """
+    from bernstein.core.skills.image_provenance import (
+        owner_from_server_json,
+        verify_attestation,
+        verify_signed_image_provenance,
+    )
+
+    root = Path(repo_root).resolve()
+    version = version_override or _package_version()
+    result = verify_signed_image_provenance(repo_root=root, version=version)
+
+    payload: dict[str, object] = {"version": version, "provenance": result.to_dict()}
+    failed = not result.ok
+
+    if online and result.ok:
+        owner = owner_from_server_json(root / "server.json") or ""
+        attestation = verify_attestation(result.image_ref, owner=owner)
+        payload["attestation"] = attestation.to_dict()
+        # A present-but-failed attestation is a hard failure; unavailable tooling
+        # leaves the offline verdict standing.
+        if attestation.available and not attestation.verified:
+            failed = True
+
+    if as_json:
+        console.print_json(data=payload)
+        raise SystemExit(2 if failed else 0)
+
+    console.print()
+    console.print("[bold]Signed-image provenance[/bold]")
+    mark = "[green]OK[/green]" if result.ok else f"[red]FAILED[/red] ({result.reason})"
+    console.print(f"  manifest consistency: {mark}")
+    if result.ok:
+        console.print(f"  signed image: {result.image_ref}")
+    att = payload.get("attestation")
+    if isinstance(att, dict):
+        if not att["available"]:
+            console.print(f"  attestation: [yellow]skipped[/yellow] ({att['detail']})")
+        elif att["verified"]:
+            console.print(f"  attestation: [green]verified[/green] ({att['detail']})")
+        else:
+            console.print(f"  attestation: [red]FAILED[/red] ({att['detail']})")
+    raise SystemExit(2 if failed else 0)
+
+
+def _default_transport() -> SubprocessTransport:
+    """Return the production transport (real ``bernstein`` subprocess).
+
+    Isolated behind a factory so tests can inject a faithful in-process
+    transport without spawning real subprocesses.
+    """
+    return SubprocessTransport()
+
+
+@package_group.command("conformance")
+@click.option(
+    "--host",
+    "hosts",
+    type=click.Choice(sorted(supported_hosts())),
+    multiple=True,
+    help="Agent host to sweep (repeatable); defaults to every supported host.",
+)
+@click.option(
+    "--scope",
+    type=click.Choice(["project", "user"]),
+    default="project",
+    show_default=True,
+    help="Install scope used for each host's skill directory.",
+)
+@click.option(
+    "--min-hosts",
+    type=click.IntRange(min=1),
+    default=DEFAULT_MIN_HOSTS,
+    show_default=True,
+    help="Minimum green hosts required for an overall pass.",
+)
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Emit the sweep verdict as JSON.",
+)
+@click.option(
+    "--workdir",
+    "-w",
+    type=click.Path(file_okay=False, exists=True),
+    default=".",
+    show_default=True,
+    help="Project root containing .sdd/ (the shared install and receipt root).",
+)
+def conformance_cmd(
+    hosts: tuple[str, ...],
+    scope: str,
+    min_hosts: int,
+    as_json: bool,
+    workdir: str,
+) -> None:
+    """Install the skill into each host and replay its self-check contract.
+
+    Proves the packaged skill works from several agent CLIs against one
+    bernstein install and seals the per-host pass/fail table into a
+    content-addressed conformance receipt anchored in the lineage spine and
+    audit chain. Exit codes: 0 = all hosts green and the ``--min-hosts`` bar
+    met, 2 = conformance failed, 1 = error.
+    """
+    root = Path(workdir).resolve()
+    selected = hosts or supported_hosts()
+
+    try:
+        outcome = run_conformance(
+            workdir=root,
+            hosts=selected,
+            transport=_default_transport(),
+            hmac_key=_load_hmac_key(),
+            install_id=f"conformance-{scope}",
+            timestamp=int(datetime.now(tz=UTC).timestamp()),
+            scope=scope,
+            min_hosts=min_hosts,
+        )
+    except PackagedInstallError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    rows = [{"host": r.host, "scope": r.scope, "dest": str(r.dest), "ok": r.ok} for r in outcome.hosts]
+    if as_json:
+        console.print_json(
+            data={
+                "skill_hash": outcome.skill_hash,
+                "receipt_id": outcome.receipt_id,
+                "spine_anchor": outcome.spine_anchor,
+                "min_hosts": outcome.min_hosts,
+                "passed_hosts": list(outcome.passed_hosts),
+                "ok": outcome.ok,
+                "hosts": rows,
+            }
+        )
+        raise SystemExit(0 if outcome.ok else 2)
+
+    console.print()
+    console.print(f"[bold]Packaged skill conformance[/bold] skill_hash={outcome.skill_hash}")
+    for row in rows:
+        mark = "[green]OK[/green]" if row["ok"] else "[red]FAILED[/red]"
+        console.print(f"  {row['host']}/{row['scope']}: {mark} -> {row['dest']}")
+    console.print(f"  passed:        {len(outcome.passed_hosts)}/{len(outcome.hosts)} (min {outcome.min_hosts})")
+    console.print(f"  receipt_id:    {outcome.receipt_id}")
+    console.print(f"  spine_anchor:  {outcome.spine_anchor}")
+    if outcome.ok:
+        console.print("[green]PASS[/green] -- the skill drove every host against one install.")
+        raise SystemExit(0)
+    console.print("[red]FAILED[/red] -- see the per-host verdicts above.")
+    raise SystemExit(2)
+
+
+__all__ = ["package_group"]

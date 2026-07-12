@@ -18,9 +18,9 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
         def search(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchCaseClassificationsResponseHttpRequest: ...
         def search_next(
@@ -40,8 +40,8 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAttachmentsResponseHttpRequest: ...
             def list_next(
@@ -53,15 +53,15 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class CommentsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: Comment = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Comment, **kwargs: typing.Any
             ) -> CommentHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> CommentHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCommentsResponseHttpRequest: ...
             def list_next(
@@ -71,22 +71,22 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
             ) -> ListCommentsResponseHttpRequest | None: ...
 
         def close(  # type: ignore[override]
-            self, *, name: str, body: CloseCaseRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CloseCaseRequest, **kwargs: typing.Any
         ) -> CaseHttpRequest: ...
         def create(
-            self, *, parent: str, body: Case = ..., **kwargs: typing.Any
+            self, *, parent: str, body: Case, **kwargs: typing.Any
         ) -> CaseHttpRequest: ...
         def escalate(
-            self, *, name: str, body: EscalateCaseRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: EscalateCaseRequest, **kwargs: typing.Any
         ) -> CaseHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> CaseHttpRequest: ...
         def list(
             self,
             *,
             parent: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListCasesResponseHttpRequest: ...
         def list_next(
@@ -98,17 +98,17 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: Case = ...,
-            updateMask: str = ...,
+            body: Case,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> CaseHttpRequest: ...
         def search(
             self,
             *,
             parent: str,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchCasesResponseHttpRequest: ...
         def search_next(
@@ -126,21 +126,13 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
             self, *, name: str, **kwargs: typing.Any
         ) -> BytesHttpRequest: ...
         def upload(
-            self,
-            *,
-            parent: str,
-            body: CreateAttachmentRequest = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: CreateAttachmentRequest, **kwargs: typing.Any
         ) -> AttachmentHttpRequest: ...
 
     @typing.type_check_only
     class SupportEventSubscriptionsResource(googleapiclient.discovery.Resource):
         def create(
-            self,
-            *,
-            parent: str,
-            body: SupportEventSubscription = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: SupportEventSubscription, **kwargs: typing.Any
         ) -> SupportEventSubscriptionHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
@@ -152,10 +144,10 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            showDeleted: bool = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            showDeleted: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListSupportEventSubscriptionsResponseHttpRequest: ...
         def list_next(
@@ -167,15 +159,15 @@ class CloudSupportResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: SupportEventSubscription = ...,
-            updateMask: str = ...,
+            body: SupportEventSubscription,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> SupportEventSubscriptionHttpRequest: ...
         def undelete(
             self,
             *,
             name: str,
-            body: UndeleteSupportEventSubscriptionRequest = ...,
+            body: UndeleteSupportEventSubscriptionRequest,
             **kwargs: typing.Any,
         ) -> SupportEventSubscriptionHttpRequest: ...
 

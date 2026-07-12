@@ -22,6 +22,7 @@ macro_rules! impl_reason_error_boilerplate {
     };
 }
 
+pub mod dense;
 mod error;
 pub mod faer_ndarray;
 pub mod gaussian_weighted_ridge_backward;

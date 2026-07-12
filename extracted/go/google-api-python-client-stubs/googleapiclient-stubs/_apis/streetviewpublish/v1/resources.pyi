@@ -15,27 +15,26 @@ _list = list
 class StreetViewPublishResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class PhotoResource(googleapiclient.discovery.Resource):
-        def create(
-            self, *, body: Photo = ..., **kwargs: typing.Any
-        ) -> PhotoHttpRequest: ...
+        def create(self, *, body: Photo, **kwargs: typing.Any) -> PhotoHttpRequest: ...
         def delete(self, *, photoId: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(
             self,
             *,
             photoId: str,
-            languageCode: str = ...,
-            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"] = ...,
+            languageCode: str | None = ...,
+            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> PhotoHttpRequest: ...
         def startUpload(
-            self, *, body: Empty = ..., **kwargs: typing.Any
+            self, *, body: Empty, **kwargs: typing.Any
         ) -> UploadRefHttpRequest: ...
         def update(
             self,
             *,
             id: str,
-            body: Photo = ...,
-            updateMask: str = ...,
+            body: Photo,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> PhotoHttpRequest: ...
 
@@ -44,10 +43,11 @@ class StreetViewPublishResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: PhotoSequence = ...,
+            body: PhotoSequence,
             inputType: typing_extensions.Literal[
                 "INPUT_TYPE_UNSPECIFIED", "VIDEO", "XDM"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
@@ -57,12 +57,13 @@ class StreetViewPublishResource(googleapiclient.discovery.Resource):
             self,
             *,
             sequenceId: str,
-            filter: str = ...,
-            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"] = ...,
+            filter: str | None = ...,
+            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def startUpload(
-            self, *, body: Empty = ..., **kwargs: typing.Any
+            self, *, body: Empty, **kwargs: typing.Any
         ) -> UploadRefHttpRequest: ...
 
     @typing.type_check_only
@@ -70,9 +71,9 @@ class StreetViewPublishResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListPhotoSequencesResponseHttpRequest: ...
         def list_next(
@@ -84,27 +85,29 @@ class StreetViewPublishResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class PhotosResource(googleapiclient.discovery.Resource):
         def batchDelete(
-            self, *, body: BatchDeletePhotosRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchDeletePhotosRequest, **kwargs: typing.Any
         ) -> BatchDeletePhotosResponseHttpRequest: ...
         def batchGet(
             self,
             *,
-            languageCode: str = ...,
-            photoIds: str | _list[str] = ...,
-            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"] = ...,
+            languageCode: str | None = ...,
+            photoIds: str | _list[str] | None = ...,
+            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> BatchGetPhotosResponseHttpRequest: ...
         def batchUpdate(
-            self, *, body: BatchUpdatePhotosRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchUpdatePhotosRequest, **kwargs: typing.Any
         ) -> BatchUpdatePhotosResponseHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            languageCode: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"] = ...,
+            filter: str | None = ...,
+            languageCode: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            view: typing_extensions.Literal["BASIC", "INCLUDE_DOWNLOAD_URL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> ListPhotosResponseHttpRequest: ...
         def list_next(

@@ -98,15 +98,17 @@ class NaFlexVitCfg:
     pos_embed_use_grid_sample: bool = False  # Whether to use grid_sample for naflex position embedding interpolation
 
     # ROPE specific configuration
-    rope_type: str = ''  # ROPE type: '' or 'none' for no ROPE, 'axial' for standard, 'mixed' for learnable frequencies
+    rope_type: str = ''  # ROPE type: '' / 'none', 'axial', 'mixed', 'dinov3', or 'mrope' (interleaved multimodal)
     rope_temperature: float = 10000.0  # Temperature for ROPE frequency computation
     rope_ref_feat_shape: Optional[Tuple[int, int]] = None
     rope_grid_offset: float = 0.  # Grid offset for non-pixel ROPE mode
     rope_grid_indexing: str = 'ij'  # Grid indexing mode for ROPE ('ij' or 'xy')
-    rope_rotate_half: bool = False  # Use rotate_half layout for ROPE (DINOv3 uses True)
+    rope_rotate_half: bool = False  # Use rotate_half layout for ROPE (DINOv3 and 'mrope' use True)
+    rope_mrope_section: Optional[Tuple[int, int, int]] = None  # (T,H,W) channel split for rope_type='mrope'
 
     # Image processing
     dynamic_img_pad: bool = False  # Whether to enable dynamic padding for variable resolution
+    patchify_channels_last: bool = True  # Patch flat layout (matches data pipeline): True=(ph,pw,C), False=(C,ph,pw)
 
     # Other architecture choices
     pre_norm: bool = False  # Whether to apply normalization before attention/MLP layers (start of blocks)
@@ -137,6 +139,7 @@ class NaFlexVitCfg:
 
     # EVA-specific parameters
     attn_type: str = 'standard'  # Attention type: 'standard', 'eva', 'rope'
+    attn_gated: bool = False  # Apply sigmoid output gate in attention (anti attention-sink, GenLIP-style)
     swiglu_mlp: bool = False  # Use SwiGLU MLP variant
     qkv_fused: bool = True  # Whether to use fused QKV projections
 
@@ -282,7 +285,8 @@ def get_block_fn(cfg: NaFlexVitCfg) -> Callable:
     use_eva_features = (
         cfg.attn_type in ('eva', 'rope') or
         cfg.rope_type not in ('', 'none') or  # Any ROPE type requires EVA blocks
-        cfg.swiglu_mlp
+        cfg.swiglu_mlp or
+        cfg.attn_gated  # gated attention is implemented on the EVA/rope attention path
     )
 
     if use_eva_features:
@@ -300,7 +304,8 @@ def get_block_fn(cfg: NaFlexVitCfg) -> Callable:
             scale_attn_inner=cfg.scale_attn_inner_norm,
             qkv_fused=cfg.qkv_fused,
             num_prefix_tokens=num_prefix_tokens,
-            rotate_half=cfg.rope_rotate_half,
+            rotate_half=cfg.rope_rotate_half or cfg.rope_type == 'mrope',  # MRoPE requires the half-rotation layout
+            gated_attn=cfg.attn_gated,
         )
     else:
         # Standard ViT block
@@ -380,6 +385,7 @@ class NaFlexEmbeds(nn.Module):
             norm_layer: Optional[Type[nn.Module]] = None,
             pos_drop_rate: float = 0.,
             enable_patch_interpolator: bool = False,
+            channels_last: bool = True,
             device=None,
             dtype=None,
     ) -> None:
@@ -404,6 +410,7 @@ class NaFlexEmbeds(nn.Module):
             norm_layer: Default normalization layer.
             pos_drop_rate: Dropout rate for position embeddings.
             enable_patch_interpolator: Enable dynamic patch size support.
+            channels_last: Per-patch flat layout: True=(ph,pw,C) [NaFlex default], False=(C,ph,pw).
         """
         dd = {'device': device, 'dtype': dtype}
         super().__init__()
@@ -417,6 +424,7 @@ class NaFlexEmbeds(nn.Module):
         self.embed_dim = embed_dim
         self.dynamic_img_pad = dynamic_img_pad
         self.enable_patch_interpolator = enable_patch_interpolator
+        self.channels_last = channels_last
 
         # Calculate number of prefix tokens
         self.num_prefix_tokens = 1 if class_token else 0
@@ -472,6 +480,7 @@ class NaFlexEmbeds(nn.Module):
                 embed_dim=embed_dim,
                 interpolation=pos_embed_interp_mode,
                 antialias=True,
+                channels_last=channels_last,
             )
         else:
             self.patch_interpolator = None
@@ -882,22 +891,25 @@ class NaFlexEmbeds(nn.Module):
             if patch_coord is None:
                 # Standard 2D (B, C, H, W) mode
                 _assert(x.ndim == 4, 'Expecting 2D image input with input ndim == 4')
-                x, grid_size = batch_patchify(x, self.patch_size, pad=self.dynamic_img_pad)
+                x, grid_size = batch_patchify(
+                    x, self.patch_size, pad=self.dynamic_img_pad, channels_last=self.channels_last)
             else:
-                # Pre-patchified NaFlex mode
-                # Variable patch size mode: [B, N, Ph, Pw, C], normal mode: [B, N, P*P*C]
+                # Pre-patchified NaFlex mode. Variable patch size (ndim==5) is channels_last
+                # [B, N, Ph, Pw, C] or channels_first [B, N, C, Ph, Pw]; normal mode (ndim==3): [B, N, P*P*C].
                 _assert(x.ndim == 5 or x.ndim == 3, 'Expecting patchified input with ndim == 3 or 5.')
 
             # Handle variable patch size projection
             if self.enable_patch_interpolator and x.ndim == 5:
                 _assert(self.norm_input is None, 'input norm not supported with patch resizing')
 
+                # patch (Ph, Pw) sits at axes (2, 3) for channels_last, (3, 4) for channels_first
+                patch_hw = tuple(x.shape[2:4] if self.channels_last else x.shape[3:5])
                 # Apply projection with interpolation
                 x = self.patch_interpolator(
                     x,
                     self.proj.weight,
                     self.proj.bias,
-                    patch_size=tuple(x.shape[2:4]),  # patch size from [B, N, Ph, Pw, C] shape
+                    patch_size=patch_hw,
                     is_linear=True,
                 )
             else:
@@ -1186,6 +1198,7 @@ class NaFlexVit(nn.Module):
             proj_norm_layer=embed_norm_layer,
             pos_drop_rate=cfg.pos_drop_rate,
             enable_patch_interpolator=getattr(cfg, 'enable_patch_interpolator', False),
+            channels_last=getattr(cfg, 'patchify_channels_last', True),
             **dd,
         )
         self.norm_pre = norm_layer(cfg.embed_dim, **dd) if cfg.pre_norm else nn.Identity()
@@ -1194,7 +1207,9 @@ class NaFlexVit(nn.Module):
         self.rope: Optional[nn.Module] = None
         self.rope_is_mixed = False
         if cfg.rope_type and cfg.rope_type != 'none':
-            from timm.layers.pos_embed_sincos import RotaryEmbeddingCat, RotaryEmbeddingDinoV3, RotaryEmbeddingMixed
+            from timm.layers.pos_embed_sincos import (
+                RotaryEmbeddingCat, RotaryEmbeddingDinoV3, RotaryEmbeddingMixed, RotaryEmbeddingMRope,
+            )
             if cfg.rope_type == 'mixed':
                 self.rope = RotaryEmbeddingMixed(
                     cfg.embed_dim,
@@ -1225,6 +1240,16 @@ class NaFlexVit(nn.Module):
                     feat_shape=None,  # Dynamic shapes for NaFlex
                     grid_indexing=cfg.rope_grid_indexing,
                     rotate_half=cfg.rope_rotate_half,
+                    **dd,
+                )
+                self.rope_is_mixed = False
+            elif cfg.rope_type == 'mrope':
+                assert cfg.rope_mrope_section is not None, "rope_type='mrope' requires cfg.rope_mrope_section"
+                self.rope = RotaryEmbeddingMRope(
+                    cfg.embed_dim // cfg.num_heads,
+                    mrope_section=cfg.rope_mrope_section,
+                    temperature=cfg.rope_temperature,
+                    grid_indexing=cfg.rope_grid_indexing,
                     **dd,
                 )
                 self.rope_is_mixed = False
@@ -1337,10 +1362,11 @@ class NaFlexVit(nn.Module):
     def load_pretrained(self, checkpoint_path: str, prefix: str = '') -> None:
         # Custom loading for the new model structure
         from .vision_transformer import _load_weights as _orig_load_weights
+        from ._helpers import _torch_load
 
         def _load_weights_adapter(model, checkpoint_path, prefix=''):
             """Adapter function to handle the different model structure"""
-            state_dict = torch.load(checkpoint_path, map_location='cpu')
+            state_dict = _torch_load(checkpoint_path, map_location='cpu', weights_only=True)
             if isinstance(state_dict, dict) and 'state_dict' in state_dict:
                 state_dict = state_dict['state_dict']
 
@@ -1589,21 +1615,37 @@ class NaFlexVit(nn.Module):
             attn_mask: Optional attention mask for masked attention
         Returns:
             A tuple with (final_features, intermediates), a list of intermediate features, or a dictionary containing
-            'image_features' and 'image_intermediates' (and optionally 'image_intermediates_prefix')
-        """
+            'image_features' and 'image_intermediates' (and optionally 'image_intermediates_prefix').
 
-        # FIXME unfinished / untested
+        NaFlex (dict / pre-patchified) inputs: NLC output only (per-sample grids are variable, a single
+        spatial reshape is undefined); with ``output_dict=True`` the result also carries 'patch_valid'
+        aligned with the spatial intermediates so consumers can mask padding or scatter via patch_coord.
+        """
 
         assert output_fmt in ('NCHW', 'NLC'), 'Output format must be one of NCHW or NLC.'
         reshape = output_fmt == 'NCHW'
         intermediates = []
         take_indices, max_index = feature_take_indices(len(self.blocks), indices)
-        if isinstance(x, Dict):
-            # Handle dictionary input from NaFlex collator
+        if isinstance(x, dict):
+            # Dictionary input from the NaFlex collator. Per-sample grids are variable
+            # (native aspect) and padding tokens belong to no grid, so a single spatial
+            # reshape is undefined -- NLC output only.
+            if reshape:
+                raise ValueError(
+                    'output_fmt="NCHW" is not supported for NaFlex (dict) inputs, use "NLC". '
+                    'Per-sample grids vary; reconstruct spatial maps downstream via patch_coord.')
             patch_coord = x['patch_coord']
-            patch_valid = x['patch_valid']
+            patch_valid = x.get('patch_valid', patch_valid)
+            attn_mask = x.get('attn_mask', attn_mask)
             patches = x['patches']
-            assert False, 'WIP, patch mode needs more work'
+            H = W = None
+            if not output_dict and self.training and self.patch_drop is not None:
+                # patch dropout gathers the token sequence, so the caller's input patch_valid no
+                # longer aligns with the returned tokens -- the gathered mask is only surfaced in
+                # dict output mode. Tuple mode is fine at eval / without patch dropout.
+                raise ValueError(
+                    'NaFlex forward_intermediates with active patch dropout requires '
+                    'output_dict=True to return the gathered patch_valid.')
         else:
             patches = x
             height, width = x.shape[-2:]
@@ -1620,6 +1662,8 @@ class NaFlexVit(nn.Module):
         rope_embeds = embeds.get('rope_embeds', None)
         keep_indices = embeds.get('keep_indices', None)
         attn_mask = embeds.get('attn_mask', None)
+        # validity aligned with the token sequence (gathered through patch dropout)
+        patch_valid = embeds.get('patch_valid', patch_valid)
 
         # Forward pass through blocks
         if torch.jit.is_scripting() or not stop_early:  # can't slice blocks in torchscript
@@ -1679,8 +1723,6 @@ class NaFlexVit(nn.Module):
                 for y in intermediates
             ]
 
-        # FIXME always use dict for NaFlex mode to return masks and more?
-
         # For dictionary output
         if output_dict:
             result_dict = {}
@@ -1688,6 +1730,10 @@ class NaFlexVit(nn.Module):
             result_dict['image_intermediates'] = intermediates
             if prefix_tokens is not None and return_prefix_tokens:
                 result_dict['image_intermediates_prefix'] = prefix_tokens
+            if patch_valid is not None:
+                # NaFlex mode: patch-only validity aligned with the (spatial) intermediates,
+                # padding excluded -- consumers need this to mask or scatter tokens
+                result_dict['patch_valid'] = patch_valid
 
             # Only include features if not intermediates_only
             if not intermediates_only:
@@ -1835,7 +1881,7 @@ class NaFlexVit(nn.Module):
         Returns:
             Model output tensor.
         """
-        input_is_dict = isinstance(x, Dict)
+        input_is_dict = isinstance(x, dict)
         naflex_mode = input_is_dict or patch_coord is not None
         if naflex_mode:
             if input_is_dict:

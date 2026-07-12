@@ -18,34 +18,21 @@ class Area120TablesResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class RowsResource(googleapiclient.discovery.Resource):
             def batchCreate(
-                self,
-                *,
-                parent: str,
-                body: BatchCreateRowsRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: BatchCreateRowsRequest, **kwargs: typing.Any
             ) -> BatchCreateRowsResponseHttpRequest: ...
             def batchDelete(
-                self,
-                *,
-                parent: str,
-                body: BatchDeleteRowsRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: BatchDeleteRowsRequest, **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def batchUpdate(
-                self,
-                *,
-                parent: str,
-                body: BatchUpdateRowsRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: BatchUpdateRowsRequest, **kwargs: typing.Any
             ) -> BatchUpdateRowsResponseHttpRequest: ...
             def create(
                 self,
                 *,
                 parent: str,
-                body: Row = ...,
-                view: typing_extensions.Literal[
-                    "VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"
-                ] = ...,
+                body: Row,
+                view: typing_extensions.Literal["VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> RowHttpRequest: ...
             def delete(
@@ -55,22 +42,20 @@ class Area120TablesResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                view: typing_extensions.Literal[
-                    "VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"
-                ] = ...,
+                view: typing_extensions.Literal["VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> RowHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                view: typing_extensions.Literal[
-                    "VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"
-                ] = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                view: typing_extensions.Literal["VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListRowsResponseHttpRequest: ...
             def list_next(
@@ -82,11 +67,10 @@ class Area120TablesResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Row = ...,
-                updateMask: str = ...,
-                view: typing_extensions.Literal[
-                    "VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"
-                ] = ...,
+                body: Row,
+                updateMask: str | None = ...,
+                view: typing_extensions.Literal["VIEW_UNSPECIFIED", "COLUMN_ID_VIEW"]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> RowHttpRequest: ...
 
@@ -94,9 +78,9 @@ class Area120TablesResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListTablesResponseHttpRequest: ...
         def list_next(
@@ -110,7 +94,11 @@ class Area120TablesResource(googleapiclient.discovery.Resource):
     class WorkspacesResource(googleapiclient.discovery.Resource):
         def get(self, *, name: str, **kwargs: typing.Any) -> WorkspaceHttpRequest: ...
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListWorkspacesResponseHttpRequest: ...
         def list_next(
             self,

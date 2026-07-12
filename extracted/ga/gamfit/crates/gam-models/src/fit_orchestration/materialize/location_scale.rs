@@ -52,7 +52,7 @@ pub(crate) fn materialize_location_scale<'a>(
         effectivelinkwiggle_formulaspec(parsed.linkwiggle.as_ref(), link_choice.as_ref());
 
     let policy =
-        resolved_resource_policy(config, data, gam_runtime::resource::ProblemHints::default());
+        resolved_resource_policy(config, gam_runtime::resource::ProblemHints::default());
     let meanspec = build_termspec_with_geometry_and_overrides(
         &parsed.terms,
         data,
@@ -81,7 +81,7 @@ pub(crate) fn materialize_location_scale<'a>(
     let weights = resolve_weight_column(data, col_map, config.weight_column.as_deref())?;
     let mean_offset = resolve_offset_column(data, col_map, config.offset_column.as_deref())?;
     let noise_offset = resolve_offset_column(data, col_map, config.noise_offset_column.as_deref())?;
-    let kappa_options = SpatialLengthScaleOptimizationOptions::default();
+    let kappa_options = config.spatial_optimization.clone();
     let options = BlockwiseFitOptions::default();
 
     let wiggle_cfg = effective_linkwiggle.map(|cfg| LinkWiggleConfig {

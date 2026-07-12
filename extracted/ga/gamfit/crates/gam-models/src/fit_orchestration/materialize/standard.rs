@@ -76,7 +76,6 @@ pub(crate) fn materialize_standard<'a>(
 
     let policy = resolved_resource_policy(
         config,
-        term_data,
         gam_runtime::resource::ProblemHints::default(),
     );
     let mut spec = build_termspec_with_geometry_and_overrides(
@@ -87,15 +86,7 @@ pub(crate) fn materialize_standard<'a>(
         config.scale_dimensions,
         &policy,
         config.smooth_overrides.as_ref(),
-        // #1689: keep escalation DORMANT (worst-case `default_num_centers`
-        // provisioning) until the fit→measure-edf→re-materialize refit loop that
-        // climbs `spatial_escalation_level` actually exists. Passing
-        // `Some(level)` here with `level` pinned at its 0 default (nothing raises
-        // it) would cap every 2-D spatial smooth at the k≈30 start with no path
-        // back up — a silent accuracy regression (wiggly truths need k≈136). The
-        // start count is the accuracy fixed point ONLY when saturation escalation
-        // can grow it; without the loop, `None` is the correct default.
-        None,
+        config.spatial_center_counts.as_deref(),
     )?;
     // #1074: the Duchon default penalty is a Hilbert scale (curvature +
     // mass/tension operator dials). REML deselects the lower orders faithfully
@@ -138,7 +129,7 @@ pub(crate) fn materialize_standard<'a>(
     let weights = resolve_weight_column(data, col_map, config.weight_column.as_deref())?;
     let offset = resolve_offset_column(data, col_map, config.offset_column.as_deref())?;
     let latent_cloglog = if family.is_latent_cloglog() {
-        let sigma = match config.frailty.clone().unwrap_or(FrailtySpec::None) {
+        let sigma = match config.frailty.clone() {
             FrailtySpec::HazardMultiplier {
                 sigma_fixed: Some(sigma),
                 loading: crate::survival::lognormal_kernel::HazardLoading::Full,
@@ -185,7 +176,7 @@ pub(crate) fn materialize_standard<'a>(
                 .map_err(|e| format!("invalid latent_cloglog state: {e}"))?,
         )
     } else {
-        if config.frailty.as_ref().is_some_and(FrailtySpec::is_active) {
+        if config.frailty.is_active() {
             return Err(WorkflowError::InvalidConfig {
                 reason: format!(
                     "config.frailty is not supported for standard family {:?}; use a frailty-aware family instead",
@@ -264,7 +255,7 @@ pub(crate) fn materialize_standard<'a>(
         }
     });
     let optimize_sas = sas_link.is_some();
-    let options = crate::fit_orchestration::canonical_standard_fit_options(
+    let mut options = crate::fit_orchestration::canonical_standard_fit_options(
         config,
         crate::fit_orchestration::StandardFitOptionsInputs {
             latent_cloglog,
@@ -274,11 +265,11 @@ pub(crate) fn materialize_standard<'a>(
             optimize_sas,
             firth_bias_reduction: config.firth,
             adaptive_regularization: standard_adaptive_regularization_options(config),
-            persist_warm_start_disk: config.persist_warm_start_disk,
             ..Default::default()
         },
     );
-    let kappa_options = SpatialLengthScaleOptimizationOptions::default();
+    options.resource_policy = policy.clone();
+    let kappa_options = config.spatial_optimization.clone();
 
     let wiggle = effective_linkwiggle.as_ref().and_then(|cfg| {
         if !family.is_binomial() {
@@ -317,12 +308,21 @@ pub(crate) fn materialize_standard<'a>(
         })
     });
 
+    // Borrow the caller's projected matrix for the ordinary path. Latent
+    // coordinates create an augmented matrix locally, so move that one owned
+    // allocation behind a shared handle instead of cloning it into the
+    // request. Either representation is clone-cheap for iterative estimators.
+    let request_data = match latent_dataset {
+        Some(dataset) => StandardFitData::shared(dataset.values),
+        None => StandardFitData::borrowed(data.values.view()),
+    };
+
     Ok(MaterializedModel {
         request: FitRequest::Standard(StandardFitRequest {
-            data: term_data.values.clone(),
-            y,
-            weights,
-            offset,
+            data: request_data,
+            y: Arc::new(y),
+            weights: Arc::new(weights),
+            offset: Arc::new(offset),
             spec,
             family,
             estimate_tweedie_p,
@@ -332,7 +332,6 @@ pub(crate) fn materialize_standard<'a>(
             coefficient_groups: config.coefficient_groups.clone(),
             penalty_block_gamma_priors: config.penalty_block_gamma_priors.clone(),
             latent_coord,
-            _marker: std::marker::PhantomData,
         }),
         inference_notes,
     })

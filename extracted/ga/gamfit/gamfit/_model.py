@@ -50,7 +50,7 @@ class Model:
 
     __slots__ = ("_model_bytes", "_training_table_kind")
 
-    def __init__(self, *, _model_bytes: bytes, _training_table_kind: str | None = None) -> None:
+    def __init__(self, *, _model_bytes: bytes, _training_table_kind: str) -> None:
         self._model_bytes = _model_bytes
         self._training_table_kind = _training_table_kind
 
@@ -85,23 +85,31 @@ class Model:
             into this single flag (use ``interval=0.95`` for the SE-only
             case).
 
-            Pass ``interval="conformal"`` to use exact distribution-free
-            jackknife+ prediction intervals (Barber et al. 2021) — no
-            held-out calibration fold is required. The coverage level is
-            controlled by ``conformal_level`` (default ``0.9``). This path
-            requires a Gaussian-identity model fitted without prior weights,
-            offsets, or a link wiggle; use :meth:`predict_conformal` for
-            split-conformal intervals on other families.
+            Pass ``interval="conformal"`` to use distribution-free jackknife+
+            prediction intervals (Barber et al. 2021) — no held-out
+            calibration fold is required. The interval *targets*
+            ``conformal_level`` (default ``0.9``) marginal coverage; the
+            finite-sample guarantee the theorem certifies at this setting is
+            the weaker ``2 * conformal_level - 1`` (coverage >= 1 - 2*alpha at
+            alpha = 1 - level). This path requires a Gaussian-identity model
+            fitted without prior weights, offsets, or a link wiggle; use
+            :meth:`predict_conformal` for split-conformal intervals on other
+            families.
 
-            Pass ``interval="full_conformal"`` for the EXACT full-conformal
-            set (#942 Layer 1): every observation is used for both fitting and
-            calibration, the exact prediction set is computed from one Cholesky
-            per test point with zero refits, and the output additionally gains a
-            ``frozen_rho_certified`` column reporting the Layer-3 frozen-ρ
-            self-diagnostic (whether freezing the global smoothing parameter is
-            certified equal to the honest ρ-re-selecting set). Same eligibility
-            as ``"conformal"``; ``mean_lower`` / ``mean_upper`` report the outer
-            envelope of the (possibly multi-interval) exact set.
+            Pass ``interval="full_conformal"`` for the full-conformal set at
+            the fitted (frozen) smoothing parameters (#942 Layer 1): every
+            observation is used for both fitting and calibration, and the set
+            is exact *given* the frozen penalty, computed from one Cholesky per
+            test point with zero refits. Because the smoothing parameters were
+            selected from all training responses, the distribution-free
+            finite-sample ``conformal_level`` coverage theorem applies only
+            where the per-row ``frozen_rho_certified`` output column is 1.0
+            (the Layer-3 certificate that freezing the global smoothing
+            parameter matches the honest ρ-re-selecting set, under a
+            grid-checked Lipschitz assumption); rows with 0.0 carry no
+            finite-sample guarantee. Same eligibility as ``"conformal"``;
+            ``mean_lower`` / ``mean_upper`` report the outer envelope of the
+            (possibly multi-interval) set.
         conformal_level : float, default 0.9
             Target marginal coverage in ``(0, 1)`` when ``interval="conformal"``
             or ``interval="full_conformal"``
@@ -190,9 +198,11 @@ class Model:
         headers, rows, table_kind = normalize_table(data)
         row_ids = extract_row_ids(headers, rows, id_column)
         # #1054: interval='conformal' routes to the exact Gaussian jackknife+
-        # path (no held-out fold needed, finite-sample ≥conformal_level
-        # marginal coverage). The returned JSON has the same column schema as
-        # the model-based predict path so shape_predict_response is unchanged.
+        # path (no held-out fold needed; targets conformal_level coverage with
+        # the finite-sample floor 2*level-1 — see the Rust route for the
+        # calibration decision, #1546). The returned JSON has the same column
+        # schema as the model-based predict path so shape_predict_response is
+        # unchanged.
         if interval == "conformal":
             try:
                 raw = rust_module().predict_table_jackknife_plus(
@@ -212,11 +222,12 @@ class Model:
                 row_ids=row_ids,
                 restore=restore_output_table,
             )
-        # #1098: interval='full_conformal' routes to the EXACT Gaussian
-        # full-conformal set (no held-out fold; finite-sample ≥conformal_level
-        # marginal coverage; #942 Layer 1). One Cholesky per test point, zero
-        # refits. The returned JSON carries the same column schema plus a
-        # `frozen_rho_certified` column (the Layer-3 self-diagnostic).
+        # #1098: interval='full_conformal' routes to the Gaussian
+        # full-conformal set at frozen smoothing parameters (no held-out fold;
+        # exact given Sλ; the finite-sample ≥conformal_level theorem holds per
+        # row only where frozen_rho_certified=1 — see the docstring; #942
+        # Layer 1). One Cholesky per test point, zero refits. The returned
+        # JSON carries the same column schema plus that certificate column.
         if interval == "full_conformal":
             try:
                 raw = rust_module().predict_table_full_conformal(
@@ -261,6 +272,46 @@ class Model:
             id_column=id_column,
             row_ids=row_ids,
             restore=restore_output_table,
+        )
+
+    def transformation_score(
+        self,
+        data: Any,
+        *,
+        return_type: str | None = None,
+        id_column: str | None = None,
+    ) -> Any:
+        """Evaluate ``Phi^-1(F_hat(y|x))`` on labelled rows.
+
+        This method is defined only for conditional transformation-normal
+        models and requires both the fitted covariates and the observed
+        response column.  It is intentionally distinct from :meth:`predict`,
+        whose CTM point estimate is the response-scale conditional mean
+        ``E[Y|x]`` and therefore does not consume an observed response.
+
+        The returned score is the generated regressor used by a downstream
+        marginal-slope model.  By default this is a one-dimensional NumPy
+        array; ``return_type=`` or ``id_column=`` requests a one-column table
+        named ``score`` (plus the requested identifier).
+        """
+        headers, rows, table_kind = normalize_table(data)
+        row_ids = extract_row_ids(headers, rows, id_column)
+        try:
+            scores = rust_module().transformation_score_table(
+                self._model_bytes, headers, rows
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        if return_type is None and id_column is None:
+            return scores
+        columns: dict[str, list[Any]] = {"score": scores.tolist()}
+        if id_column is not None:
+            columns = {id_column: list(row_ids or []), **columns}
+        return restore_output_table(
+            columns,
+            requested=return_type,
+            input_kind=table_kind,
+            training_kind=self._training_table_kind,
         )
 
     def predict_array(
@@ -597,7 +648,7 @@ class Model:
             options_json = ffi.build_sample_payload_json(
                 samples, warmup, chains, target_accept, seed
             )
-            raw = ffi.sample_table(
+            payload = ffi.sample_table(
                 self._model_bytes,
                 headers,
                 rows,
@@ -605,7 +656,7 @@ class Model:
             )
         except Exception as exc:
             raise map_exception(exc) from exc
-        return PosteriorSamples.from_ffi_json(raw, model_bytes=self._model_bytes)
+        return PosteriorSamples.from_ffi_payload(payload, model_bytes=self._model_bytes)
 
     def sample_replicates(
         self,
@@ -676,10 +727,10 @@ class Model:
         group: str | None = None,
         pairs: Sequence[tuple[Any, Any]] | None = None,
         n: int = 100,
-        level: float = 0.95,
+        level: float | None = None,
         simultaneous: bool = False,
-        n_sim: int = 10_000,
-        seed: int | None = 12345,
+        n_sim: int | None = None,
+        seed: int | None = None,
         marginalise_random: bool = True,
         group_means: bool = True,
         data: Any | None = None,
@@ -713,9 +764,9 @@ class Model:
                 group_arg,
                 pairs_arg,
                 int(n),
-                float(level),
+                float(level) if level is not None else None,
                 bool(simultaneous),
-                int(n_sim),
+                int(n_sim) if n_sim is not None else None,
                 seed_arg,
                 bool(marginalise_random),
                 bool(group_means),
@@ -827,7 +878,7 @@ class Model:
         return response_column_name(self.formula)
 
     @property
-    def training_table_kind(self) -> str | None:
+    def training_table_kind(self) -> str:
         return self._training_table_kind
 
     @property
@@ -1007,16 +1058,21 @@ class Model:
         data: Any,
         term: str | None = None,
     ) -> dict[str, float] | float:
-        """Term-wise variance decomposition ``var(X_t β_t) / var(X β)``.
+        """Term-wise variance decomposition ``cov(X_t β_t, X β) / var(X β)``.
 
         Computed by the Rust core (``model_variance_share``) on the rows of
-        ``data``; the intercept is excluded. Returns ``{term: fraction}`` for
-        every non-intercept term, or the scalar fraction when ``term`` is given.
+        ``data``; the intercept is excluded. Cross-covariances between terms
+        are split symmetrically (the Shapley allocation for a sum of terms),
+        so the shares of all non-intercept terms sum to exactly 1 — unlike a
+        naive ``var(f_t)/var(η)`` ratio, which drops every covariance term
+        and need not sum to anything meaningful. A share can be negative (or
+        exceed 1) when a term genuinely anticorrelates with the rest of the
+        predictor. Returns ``{term: share}`` for every non-intercept term, or
+        the scalar share when ``term`` is given.
         """
-        headers, data_rows, _ = normalize_table(data)
-        rows = [[str(v) for v in row] for row in data_rows]
+        headers, rows, _ = normalize_table(data)
         pairs = rust_module().model_variance_share(
-            self._model_bytes, list(headers), rows, term
+            self._model_bytes, headers, rows, term
         )
         shares = {str(name): float(frac) for name, frac in pairs}
         if term is not None:
@@ -1115,40 +1171,6 @@ class Model:
         return self.report()
 
 
-def _multinomial_lambda_component_labels(
-    lambda_labels: Sequence[str],
-    term_labels: Sequence[str],
-    n_lam: int,
-) -> list[str]:
-    """Return exactly ``n_lam`` labels for one class block's λ slice (#1544).
-
-    Each active class block selects one λ per *penalty component*, and the
-    Marra–Wood double penalty (plus tensor/operator smooths) emits more than one
-    component per smooth term. The authoritative per-component labels live in
-    ``lambda_labels`` (length ``n_lam``); when present they are used verbatim so
-    each λ names both its term and its role (e.g. ``s(x)`` and
-    ``s(x) [null space]``).
-
-    The fallbacks exist only for models serialized before per-component labels
-    were recorded. They must still yield *exactly* ``n_lam`` labels so the
-    caller's ``zip(names, lam_chunk)`` never drops a λ — the silent truncation
-    that the old ``zip(term_labels, lam_chunk)`` caused when there were fewer
-    term labels than λ. If the component count is an exact multiple of the term
-    count, components are grouped under their term with a 1-based suffix;
-    otherwise positional ``λ{i}`` labels are used.
-    """
-    labels = list(lambda_labels)
-    if len(labels) == n_lam:
-        return labels
-    terms = list(term_labels)
-    if terms and n_lam % len(terms) == 0:
-        comps = n_lam // len(terms)
-        if comps == 1:
-            return list(terms)
-        return [f"{t} [{c + 1}]" for t in terms for c in range(comps)]
-    return [f"λ{i}" for i in range(n_lam)]
-
-
 class MultinomialPrediction:
     """Multinomial class-probability prediction with delta-method uncertainty.
 
@@ -1206,7 +1228,7 @@ class MultinomialModel:
         self,
         *,
         _model_bytes: bytes,
-        _training_table_kind: str | None = None,
+        _training_table_kind: str,
     ) -> None:
         self._model_bytes = _model_bytes
         self._training_table_kind = _training_table_kind
@@ -1234,8 +1256,8 @@ class MultinomialModel:
         return "multinomial"
 
     @property
-    def converged(self) -> bool:
-        return bool(self._metadata["converged"])
+    def training_table_kind(self) -> str:
+        return self._training_table_kind
 
     @property
     def deviance(self) -> float:
@@ -1406,9 +1428,8 @@ class MultinomialModel:
         m = int(meta["n_active_classes"])
         levels = list(meta["class_levels"])
         ref = int(meta["reference_class_index"])
-        lambdas = list(meta.get("lambdas", []))
-        lambdas_per_block = list(meta.get("lambdas_per_block", []))
-        term_labels = list(meta.get("smooth_term_labels", []))
+        lambdas = list(meta["lambdas"])
+        lambdas_per_block = list(meta["lambdas_per_block"])
         # Per-penalty-component λ labels, parallel to a single class block's λ
         # slice (#1544). The Marra–Wood double penalty (and tensor/operator
         # smooths) emit more than one penalty component — hence more than one λ —
@@ -1417,23 +1438,8 @@ class MultinomialModel:
         # each carrying its own label here. Pairing λ with these component labels
         # (rather than assuming one λ per term) is what keeps every λ in the
         # summary instead of silently truncating the null-space penalties.
-        lambda_labels = list(meta.get("lambda_labels", []))
+        lambda_labels = list(meta["lambda_labels"])
         edf_per_class = meta.get("edf_per_class")
-
-        # Structural invariants that keep the per-class λ slicing below in
-        # bounds: one λ-block per active class, and the blocks partition the flat
-        # λ vector exactly. These guard genuine metadata corruption; the
-        # label/λ cardinality is reconciled per-component in the renderer, never
-        # assumed 1:1 with the term count (the #1544 root cause).
-        if lambdas:
-            if len(lambdas_per_block) != m:
-                raise ValueError(
-                    f"Multinomial lambda metadata mismatch: {len(lambdas_per_block)} blocks for {m} active classes"
-                )
-            if sum(lambdas_per_block) != len(lambdas):
-                raise ValueError(
-                    f"Multinomial lambda metadata mismatch: {len(lambdas)} lambdas but blocks ask for {sum(lambdas_per_block)}"
-                )
 
         lines = [
             f"MultinomialModel formula: {meta['formula']}",
@@ -1441,7 +1447,7 @@ class MultinomialModel:
             f"  active classes (K-1): {m}",
             f"  coefficients per class (P): {p}",
             f"  total coefficients: {p * m}",
-            f"  iterations: {int(meta['iterations'])}  converged: {bool(meta['converged'])}",
+            f"  iterations: {int(meta['iterations'])}",
             f"  deviance: {float(meta['deviance']):.6g}",
             f"  penalized -log L: {float(meta['penalized_neg_log_likelihood']):.6g}",
         ]
@@ -1454,14 +1460,14 @@ class MultinomialModel:
             class_block = coefs[a::m]
             norm = math.sqrt(sum(c * c for c in class_block))
             row_bits = [f"‖β_a‖₂ = {norm:.4g}"]
-            if lambdas_per_block and lambdas_per_block[a] > 0:
+            if lambdas_per_block[a] > 0:
                 n_lam = lambdas_per_block[a]
                 lam_chunk = lambdas[lambda_offset : lambda_offset + n_lam]
                 lambda_offset += n_lam
-                names = _multinomial_lambda_component_labels(
-                    lambda_labels, term_labels, n_lam
-                )
-                lam_strs = [f"{t}: {float(v):.4g}" for t, v in zip(names, lam_chunk)]
+                lam_strs = [
+                    f"{label}: {float(value):.4g}"
+                    for label, value in zip(lambda_labels, lam_chunk, strict=True)
+                ]
                 row_bits.append(f"λ = [{', '.join(lam_strs)}]")
             if edf_per_class is not None and a < len(edf_per_class):
                 row_bits.append(f"edf = {float(edf_per_class[a]):.4g}")
@@ -1494,7 +1500,7 @@ class MultinomialModel:
     def __repr__(self) -> str:
         return (
             f"MultinomialModel(formula={self.formula!r}, "
-            f"classes={self.classes_!r}, converged={self.converged})"
+            f"classes={self.classes_!r})"
         )
 
     def __str__(self) -> str:

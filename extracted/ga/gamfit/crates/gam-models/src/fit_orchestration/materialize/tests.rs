@@ -1,10 +1,15 @@
 use super::*;
-use gam_terms::basis::{DuchonNullspaceOrder, minimum_duchon_power_for_operator_penalties};
-use gam_terms::inference::formula_dsl::{default_linkwiggle_formulaspec, parse_linkwiggle_formulaspec};
-use gam_terms::smooth::SmoothBasisSpec;
-use gam_solve::rho_optimizer::{HessianSource, OuterPlan, OuterResult, Solver};
 use gam_data::load_dataset_projected;
 use gam_data::{ColumnKindTag, DataSchema, SchemaColumn};
+use gam_solve::rho_optimizer::{HessianSource, OuterPlan, OuterResult, Solver};
+use gam_terms::basis::{
+    DuchonNullspaceOrder, center_strategy_is_auto, minimum_duchon_power_for_operator_penalties,
+    starting_num_centers,
+};
+use gam_terms::inference::formula_dsl::{
+    default_linkwiggle_formulaspec, parse_linkwiggle_formulaspec,
+};
+use gam_terms::smooth::SmoothBasisSpec;
 use ndarray::Array2;
 use std::fs;
 use tempfile::tempdir;
@@ -313,13 +318,14 @@ fn survival_marginal_slope_matern_logslope_penalties_keep_surface_width() {
             .unwrap_or_else(|err| {
                 panic!("joint freeze should preserve per-block penalty geometry {case}: {err}")
             });
-        let (rebuilt, _) = crate::fit_orchestration::drivers::build_term_collection_designs_and_freeze_joint(
-            data.values.view(),
-            &frozen_specs,
-        )
-        .unwrap_or_else(|err| {
-            panic!("frozen rebuild should preserve per-block penalty geometry {case}: {err}")
-        });
+        let (rebuilt, _) =
+            crate::fit_orchestration::drivers::build_term_collection_designs_and_freeze_joint(
+                data.values.view(),
+                &frozen_specs,
+            )
+            .unwrap_or_else(|err| {
+                panic!("frozen rebuild should preserve per-block penalty geometry {case}: {err}")
+            });
 
         for (label, design) in [
             ("raw marginal", &designs[0]),
@@ -536,8 +542,16 @@ fn competing_risks_weibull_fit_is_reachable_1590() {
     // raw-age coefficient is +0.025 for cause 1 and −0.020 for cause 2.
     let beta1 = &surv.fit.blocks[0].beta;
     let beta2 = &surv.fit.blocks[1].beta;
-    assert_eq!(beta1.len(), 4, "cause 1 must keep raw width 4 (no reduction)");
-    assert_eq!(beta2.len(), 4, "cause 2 must keep raw width 4 (no reduction)");
+    assert_eq!(
+        beta1.len(),
+        4,
+        "cause 1 must keep raw width 4 (no reduction)"
+    );
+    assert_eq!(
+        beta2.len(),
+        4,
+        "cause 2 must keep raw width 4 (no reduction)"
+    );
     // The dead centered-constant coefficient is pinned to ~0 by the stabilization
     // ridge rather than left at its arbitrary unidentified seed.
     assert!(
@@ -667,6 +681,47 @@ fn issue_1561_locscale_large_scale_basis_does_not_crash_joint_newton() {
                 );
             }
         }
+    }
+}
+
+#[test]
+fn issue_1561_secondary_smooth_retains_null_recovery_default() {
+    let mut data = workflow_test_dataset();
+    data.values = Array2::from_shape_fn((12, 5), |(row, col)| {
+        let z = -1.0 + 2.0 * row as f64 / 11.0;
+        [
+            40.0 + row as f64,
+            43.0 + row as f64,
+            (row % 2) as f64,
+            24.0 + z,
+            z,
+        ][col]
+    });
+    for (noise_formula, expected_double_penalty) in [
+        ("1 + s(z, bs='tp')", true),
+        ("1 + s(z, bs='tp', double_penalty=false)", false),
+    ] {
+        let materialized = materialize(
+            "bmi ~ 1",
+            &data,
+            &FitConfig {
+                family: Some("gaussian".to_string()),
+                noise_formula: Some(noise_formula.to_string()),
+                ..FitConfig::default()
+            },
+        )
+        .expect("materialize Gaussian location-scale formula");
+        let FitRequest::GaussianLocationScale(request) = materialized.request else {
+            panic!("noise formula must materialize Gaussian location-scale");
+        };
+        let basis = &request.spec.log_sigmaspec.smooth_terms[0].basis;
+        let SmoothBasisSpec::ThinPlate { spec, .. } = basis else {
+            panic!("bs='tp' scale formula must resolve a thin-plate basis");
+        };
+        assert_eq!(
+            spec.double_penalty, expected_double_penalty,
+            "secondary materialization must preserve the ordinary null-recovery default and the explicit opt-out for `{noise_formula}`"
+        );
     }
 }
 
@@ -829,6 +884,213 @@ fn duchon_workflow_dataset() -> Dataset {
             ColumnKindTag::Continuous,
         ],
     }
+}
+
+fn univariate_radial_workflow_dataset() -> Dataset {
+    let n = 30usize;
+    let mut values = Array2::<f64>::zeros((n, 2));
+    for i in 0..n {
+        let x = i as f64 / (n - 1) as f64;
+        values[[i, 0]] = (4.0 * std::f64::consts::PI * x).sin();
+        values[[i, 1]] = x;
+    }
+    Dataset {
+        headers: vec!["y".to_string(), "x".to_string()],
+        values,
+        schema: DataSchema {
+            columns: vec![
+                SchemaColumn {
+                    name: "y".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+                SchemaColumn {
+                    name: "x".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+            ],
+        },
+        column_kinds: vec![ColumnKindTag::Continuous, ColumnKindTag::Continuous],
+    }
+}
+
+fn planned_radial_centers(basis: &SmoothBasisSpec) -> (usize, bool) {
+    match basis {
+        SmoothBasisSpec::Duchon {
+            feature_cols, spec, ..
+        } => (
+            spec.center_strategy.planned_num_centers(feature_cols.len()),
+            center_strategy_is_auto(&spec.center_strategy),
+        ),
+        other => panic!("expected Duchon basis, got {other:?}"),
+    }
+}
+
+#[test]
+fn adaptive_univariate_duchon_start_preserves_formula_floor_and_applies_growth_1867() {
+    let data = univariate_radial_workflow_dataset();
+
+    let label = "Duchon";
+    let formula = "y ~ duchon(x)";
+    let raw = materialize(formula, &data, &FitConfig::default())
+        .unwrap_or_else(|error| panic!("raw {label} materialization failed: {error}"));
+    let FitRequest::Standard(raw_request) = raw.request else {
+        panic!("expected standard {label} request");
+    };
+    let (raw_centers, raw_is_auto) =
+        planned_radial_centers(&raw_request.spec.smooth_terms[0].basis);
+    assert!(
+        raw_is_auto,
+        "implicit {label} centers must retain Auto provenance"
+    );
+    assert!(
+        raw_centers > starting_num_centers(data.values.nrows(), 1),
+        "{label} formula default must retain its derived univariate resolution floor"
+    );
+
+    let initial_config = FitConfig {
+        spatial_center_counts: Some(Vec::new()),
+        ..FitConfig::default()
+    };
+    let initial = materialize(formula, &data, &initial_config)
+        .unwrap_or_else(|error| panic!("initial adaptive {label} materialization failed: {error}"));
+    let FitRequest::Standard(initial_request) = initial.request else {
+        panic!("expected standard adaptive {label} request");
+    };
+    let (initial_centers, initial_is_auto) =
+        planned_radial_centers(&initial_request.spec.smooth_terms[0].basis);
+    assert_eq!(
+        initial_centers, raw_centers,
+        "an absent adaptive proposal must preserve the canonical 1-D {label} formula resolution"
+    );
+    assert!(
+        initial_is_auto,
+        "adaptive {label} centers must retain Auto provenance"
+    );
+
+    let proposed_centers = raw_centers.saturating_mul(2).min(data.values.nrows());
+    assert!(
+        proposed_centers > raw_centers,
+        "test data must leave room for a genuine {label} growth proposal"
+    );
+    let growth_config = FitConfig {
+        spatial_center_counts: Some(vec![Some(proposed_centers)]),
+        ..FitConfig::default()
+    };
+    let grown = materialize(formula, &data, &growth_config)
+        .unwrap_or_else(|error| panic!("grown adaptive {label} materialization failed: {error}"));
+    let FitRequest::Standard(grown_request) = grown.request else {
+        panic!("expected grown standard {label} request");
+    };
+    let (grown_centers, grown_is_auto) =
+        planned_radial_centers(&grown_request.spec.smooth_terms[0].basis);
+    assert_eq!(
+        grown_centers, proposed_centers,
+        "an explicit adaptive {label} growth proposal must remain authoritative"
+    );
+    assert!(
+        grown_is_auto,
+        "grown {label} centers must retain Auto provenance"
+    );
+}
+
+#[test]
+fn matern_is_excluded_from_generic_adaptive_center_growth() {
+    let data = univariate_radial_workflow_dataset();
+    let formula = "y ~ matern(x)";
+    let raw = materialize(formula, &data, &FitConfig::default()).expect("raw Matérn request");
+    let FitRequest::Standard(raw_request) = raw.request else {
+        panic!("expected standard Matérn request");
+    };
+    let SmoothBasisSpec::Matern { spec: raw_spec, .. } = &raw_request.spec.smooth_terms[0].basis
+    else {
+        panic!("expected Matérn basis");
+    };
+    let raw_centers = raw_spec.center_strategy.planned_num_centers(1);
+
+    let adaptive = materialize(
+        formula,
+        &data,
+        &FitConfig {
+            spatial_center_counts: Some(vec![Some(raw_centers.saturating_mul(2))]),
+            ..FitConfig::default()
+        },
+    )
+    .expect("Matérn request with generic adaptive proposal");
+    let FitRequest::Standard(adaptive_request) = adaptive.request else {
+        panic!("expected standard Matérn request");
+    };
+    let SmoothBasisSpec::Matern {
+        spec: adaptive_spec,
+        ..
+    } = &adaptive_request.spec.smooth_terms[0].basis
+    else {
+        panic!("expected Matérn basis");
+    };
+    assert_eq!(
+        adaptive_spec.center_strategy.planned_num_centers(1),
+        raw_centers,
+        "generic EDF saturation proposals must not rewrite Matérn center topology"
+    );
+}
+
+#[test]
+fn adaptive_spatial_start_is_activated_only_by_its_orchestrator() {
+    let data = duchon_workflow_dataset();
+
+    let raw = materialize("y ~ duchon(ct, st)", &data, &FitConfig::default())
+        .expect("raw Duchon materialization");
+    let FitRequest::Standard(raw_request) = raw.request else {
+        panic!("expected standard request");
+    };
+    let SmoothBasisSpec::Duchon { spec: raw_spec, .. } = &raw_request.spec.smooth_terms[0].basis
+    else {
+        panic!("expected Duchon smooth");
+    };
+    let raw_centers = raw_spec.center_strategy.planned_num_centers(2);
+
+    let adaptive_config = FitConfig {
+        spatial_center_counts: Some(Vec::new()),
+        ..FitConfig::default()
+    };
+    let adaptive = materialize("y ~ duchon(ct, st)", &data, &adaptive_config)
+        .expect("adaptive-start Duchon materialization");
+    let FitRequest::Standard(adaptive_request) = adaptive.request else {
+        panic!("expected standard request");
+    };
+    let SmoothBasisSpec::Duchon {
+        spec: adaptive_spec,
+        ..
+    } = &adaptive_request.spec.smooth_terms[0].basis
+    else {
+        panic!("expected Duchon smooth");
+    };
+    let adaptive_centers = adaptive_spec.center_strategy.planned_num_centers(2);
+    assert_eq!(
+        adaptive_centers,
+        starting_num_centers(data.values.nrows(), 2)
+    );
+    assert!(
+        raw_centers > adaptive_centers,
+        "raw materialization must retain the ordinary basis because it has no grow-loop owner"
+    );
+    assert!(center_strategy_is_auto(&adaptive_spec.center_strategy));
+
+    let explicit = materialize("y ~ duchon(ct, st, centers=12)", &data, &adaptive_config)
+        .expect("explicit-center Duchon materialization");
+    let FitRequest::Standard(explicit_request) = explicit.request else {
+        panic!("expected standard request");
+    };
+    let SmoothBasisSpec::Duchon {
+        spec: explicit_spec,
+        ..
+    } = &explicit_request.spec.smooth_terms[0].basis
+    else {
+        panic!("expected Duchon smooth");
+    };
+    assert_eq!(explicit_spec.center_strategy.planned_num_centers(2), 12);
+    assert!(!center_strategy_is_auto(&explicit_spec.center_strategy));
 }
 
 #[test]
@@ -1399,7 +1661,7 @@ fn bernoulli_marginal_slope_prune_rejects_penalized_redundant_scalar_term() {
         &mut notes,
     )
     .err()
-        .expect("explicitly penalized duplicate scalar term must be rejected");
+    .expect("explicitly penalized duplicate scalar term must be rejected");
     let msg = err.to_string();
     assert!(
         msg.contains("explicitly penalized linear term 'constant_spline_col' is redundant"),
@@ -1499,13 +1761,16 @@ fn linkwiggle_noncubic_degree_is_rejected_at_the_routing_boundary_issue_384() {
         let raw = format!("linkwiggle(degree={deg}, internal_knots=3)");
         let spec = parse_linkwiggle_formulaspec(&options, &raw)
             .expect("non-cubic wiggle degree must still parse at the shared layer");
-        assert_eq!(spec.degree, deg, "parser must carry the degree through verbatim");
+        assert_eq!(
+            spec.degree, deg,
+            "parser must carry the degree through verbatim"
+        );
 
         // logslope_formula = linkwiggle(...) is the score-warp route the Python
         // marginal-slope path uses.
         let err = route_marginal_slope_deviation_blocks(None, Some(&spec))
             .err()
-        .expect("non-cubic linkwiggle must be rejected before any fit");
+            .expect("non-cubic linkwiggle must be rejected before any fit");
         assert!(
             err.contains("degree must be 3"),
             "rejection must name the cubic-only contract, got: {err}"
@@ -1518,7 +1783,7 @@ fn linkwiggle_noncubic_degree_is_rejected_at_the_routing_boundary_issue_384() {
         // The main-formula link-deviation route is gated identically.
         let err_main = route_marginal_slope_deviation_blocks(Some(&spec), None)
             .err()
-        .expect("non-cubic link-deviation must be rejected before any fit");
+            .expect("non-cubic link-deviation must be rejected before any fit");
         assert!(err_main.contains("degree must be 3"));
     }
 
@@ -1636,7 +1901,7 @@ fn survival_inverse_link_result_requires_convergence() {
         |_| Some(InverseLink::Standard(StandardLink::Logit)),
     )
     .err()
-        .expect("non-converged inverse-link search should fail");
+    .expect("non-converged inverse-link search should fail");
 
     assert!(err.contains("did not converge"));
     assert!(err.contains("final_objective"));
@@ -1650,7 +1915,7 @@ fn survival_inverse_link_result_requires_recoverable_state() {
         |_| None,
     )
     .err()
-        .expect("unrecoverable inverse-link state should fail");
+    .expect("unrecoverable inverse-link state should fail");
 
     assert!(err.contains("produced an invalid inverse-link state"));
     assert!(err.contains("9.0"));
@@ -2077,8 +2342,13 @@ fn gaussian_location_scale_engine_matches_reference_flow() {
     // same standardize→fit→rescale envelope the engine applies (#884), so the
     // two paths compare the same σ-floor model rather than diverging on the
     // raw-vs-scale-relative floor.
-    let ref_solved =
-        reference_gaussian_wiggle(req_data, spec.clone(), &wiggle_cfg, &options, &kappa_options);
+    let ref_solved = reference_gaussian_wiggle(
+        req_data,
+        spec.clone(),
+        &wiggle_cfg,
+        &options,
+        &kappa_options,
+    );
 
     assert_block_states_match(
         "gaussian/wiggle",
@@ -2086,8 +2356,7 @@ fn gaussian_location_scale_engine_matches_reference_flow() {
         &ref_solved.fit.fit,
     );
     assert_eq!(
-        engine_wiggle.wiggle_degree,
-        ref_solved.wiggle_degree,
+        engine_wiggle.wiggle_degree, ref_solved.wiggle_degree,
         "gaussian wiggle degree must match the reference refit"
     );
     let engine_knots = engine_wiggle
@@ -2461,11 +2730,8 @@ fn nonsurvival_gaussian_dataset() -> Dataset {
             format!("{x:.17e}"),
         ]));
     }
-    gam_data::encode_recordswith_inferred_schema(
-        vec!["time".to_string(), "x".to_string()],
-        records,
-    )
-    .expect("encode non-survival gaussian dataset")
+    gam_data::encode_recordswith_inferred_schema(vec!["time".to_string(), "x".to_string()], records)
+        .expect("encode non-survival gaussian dataset")
 }
 
 #[test]

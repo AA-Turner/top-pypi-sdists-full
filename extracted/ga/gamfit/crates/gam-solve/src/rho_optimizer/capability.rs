@@ -147,9 +147,9 @@ pub struct OuterCapability {
     ///
     /// # Hybrid EFS strategy (when `psi_dim > 0`)
     ///
-    /// Enabled when `psi_dim > 0`,
-    /// `n_params > SMALL_OUTER_BFGS_MAX_PARAMS`, and
-    /// `fixed_point_available`.
+    /// Enabled when `psi_dim > 0`, `fixed_point_available`, and either the
+    /// analytic gradient is unavailable or the problem is above the small-
+    /// dimensional BFGS crossover.
     /// Combines:
     /// - Standard EFS multiplicative fixed-point updates for ρ coordinates
     /// - Safeguarded preconditioned gradient steps for ψ coordinates:
@@ -222,14 +222,22 @@ impl OuterCapability {
         self.fixed_point_available
             && !self.disable_fixed_point
             && self.all_penalty_like()
-            && self.n_params > SMALL_OUTER_BFGS_MAX_PARAMS
+            // With an analytic gradient, the small-dimensional crossover is a
+            // performance choice: BFGS is cheaper below the cutoff. Without a
+            // gradient, EFS is the objective's only declared analytic
+            // stationarity mechanism and must remain eligible at every
+            // dimension. Routing a two-coordinate matrix-free problem to BFGS
+            // merely guarantees a capability error before the first step.
+            && (self.gradient == Derivative::Unavailable
+                || self.n_params > SMALL_OUTER_BFGS_MAX_PARAMS)
     }
 
     fn hybrid_efs_plan_eligible(&self) -> bool {
         self.fixed_point_available
             && !self.disable_fixed_point
             && self.has_psi_coords()
-            && self.n_params > SMALL_OUTER_BFGS_MAX_PARAMS
+            && (self.gradient == Derivative::Unavailable
+                || self.n_params > SMALL_OUTER_BFGS_MAX_PARAMS)
     }
 
     fn declared_hessian_for_planning(&self) -> Derivative {
@@ -347,16 +355,18 @@ impl OuterPlan {
 ///
 /// This is a pure function with no side effects. All policy lives here.
 pub fn plan(cap: &OuterCapability) -> OuterPlan {
-    use Derivative::*;
+    use Derivative as D;
     use HessianSource as H;
     use Solver as S;
 
     match (cap.gradient, cap.declared_hessian_for_planning()) {
-        (Analytic, Analytic) => OuterPlan {
+        (D::Analytic, D::Analytic) => OuterPlan {
             solver: S::Arc,
             hessian_source: H::Analytic,
         },
-        // EFS: all penalty-like coords, no analytic Hessian, many params.
+        // EFS: all penalty-like coords and no analytic Hessian. With an
+        // analytic gradient this is the many-parameter fast path; without one
+        // it is the only declared analytic solver at any dimension.
         // Multiplicative fixed-point needs only traces — no gradient evals.
         // Much cheaper than BFGS for k=10-50 smoothing parameters.
         //
@@ -365,11 +375,11 @@ pub fn plan(cap: &OuterCapability) -> OuterPlan {
         // a quantitative check each step via `barrier_curvature_is_significant`
         // and bails out early if the barrier curvature becomes non-negligible
         // relative to the penalized Hessian diagonal.
-        (Analytic, Unavailable) if cap.efs_plan_eligible() => OuterPlan {
+        (D::Analytic, D::Unavailable) if cap.efs_plan_eligible() => OuterPlan {
             solver: S::Efs,
             hessian_source: H::EfsFixedPoint,
         },
-        (Unavailable, Unavailable) if cap.efs_plan_eligible() => OuterPlan {
+        (D::Unavailable, D::Unavailable) if cap.efs_plan_eligible() => OuterPlan {
             solver: S::Efs,
             hessian_source: H::EfsFixedPoint,
         },
@@ -386,17 +396,17 @@ pub fn plan(cap: &OuterCapability) -> OuterPlan {
         //
         // This stays O(1) H⁻¹ solves per iteration (vs O(dim(θ)) for BFGS)
         // and uses the same trace Gram matrix that EFS already computes.
-        (Analytic, Unavailable) if cap.hybrid_efs_plan_eligible() => OuterPlan {
+        (D::Analytic, D::Unavailable) if cap.hybrid_efs_plan_eligible() => OuterPlan {
             solver: S::HybridEfs,
             hessian_source: H::HybridEfsFixedPoint,
         },
-        (Unavailable, Unavailable) if cap.hybrid_efs_plan_eligible() => OuterPlan {
+        (D::Unavailable, D::Unavailable) if cap.hybrid_efs_plan_eligible() => OuterPlan {
             solver: S::HybridEfs,
             hessian_source: H::HybridEfsFixedPoint,
         },
 
         // Gradient-only problems should use a gradient-only optimizer.
-        (Analytic, Unavailable) => OuterPlan {
+        (D::Analytic, D::Unavailable) => OuterPlan {
             solver: S::Bfgs,
             hessian_source: H::BfgsApprox,
         },
@@ -408,7 +418,7 @@ pub fn plan(cap: &OuterCapability) -> OuterPlan {
         // analytic gradient this capability declares is absent. We deliberately
         // do NOT invent a working primary here — a cost-only objective has no
         // solver, by design.
-        (Unavailable, _) => OuterPlan {
+        (D::Unavailable, _) => OuterPlan {
             solver: S::Bfgs,
             hessian_source: H::BfgsApprox,
         },

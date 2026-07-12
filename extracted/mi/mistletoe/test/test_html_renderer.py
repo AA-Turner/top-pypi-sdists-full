@@ -40,8 +40,8 @@ class TestHtmlRenderer(TestRenderer):
         self._test_token('Strikethrough', '<del>inner</del>')
 
     def test_image(self):
-        expected = '<img src="src" alt="" title="title" />'
-        self._test_token('Image', expected, src='src', title='title')
+        expected = '<img src="s&amp;r%3Ec" alt="" title="title" />'
+        self._test_token('Image', expected, src='s&r>c', title='title')
 
     def test_link(self):
         expected = '<a href="target" title="title">inner</a>'
@@ -50,6 +50,11 @@ class TestHtmlRenderer(TestRenderer):
     def test_autolink(self):
         expected = '<a href="link">inner</a>'
         self._test_token('AutoLink', expected, target='link', mailto=False)
+
+    def test_email_autolink_escapes_href(self):
+        expected = '<a href="mailto:a&amp;b@example.com">inner</a>'
+        self._test_token('AutoLink', expected, target='a&b@example.com',
+                         mailto=True)
 
     def test_escape_sequence(self):
         self._test_token('EscapeSequence', 'inner')
@@ -157,6 +162,12 @@ class TestHtmlRendererEscaping(TestCase):
             token = Document(['<div><br> as plain text</div>\n'])
             expected = '<p>&lt;div&gt;&lt;br&gt; as plain text&lt;/div&gt;</p>\n'
             self.assertEqual(renderer.render(token), expected)
+
+    def test_email_autolink_escapes_href(self):
+        with HtmlRenderer() as renderer:
+            output = renderer.render(Document('<a&b@example.com>'))
+        expected = '<p><a href="mailto:a&amp;b@example.com">a&amp;b@example.com</a></p>\n'
+        self.assertEqual(output, expected)
 
 
 class TestHtmlRendererFootnotes(TestCase):

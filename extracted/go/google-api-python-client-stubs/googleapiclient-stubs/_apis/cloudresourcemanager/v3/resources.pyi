@@ -18,9 +18,9 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListEffectiveTagsResponseHttpRequest: ...
         def list_next(
@@ -40,32 +40,28 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Capability = ...,
-                updateMask: str = ...,
+                body: Capability,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
         def create(
-            self, *, body: Folder = ..., **kwargs: typing.Any
+            self, *, body: Folder, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> FolderHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
-            showDeleted: bool = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
+            showDeleted: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListFoldersResponseHttpRequest: ...
         def list_next(
@@ -74,22 +70,22 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: ListFoldersResponse,
         ) -> ListFoldersResponseHttpRequest | None: ...
         def move(
-            self, *, name: str, body: MoveFolderRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: MoveFolderRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def patch(
             self,
             *,
             name: str,
-            body: Folder = ...,
-            updateMask: str = ...,
+            body: Folder,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def search(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchFoldersResponseHttpRequest: ...
         def search_next(
@@ -98,37 +94,31 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: SearchFoldersResponse,
         ) -> SearchFoldersResponseHttpRequest | None: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def undelete(
-            self, *, name: str, body: UndeleteFolderRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: UndeleteFolderRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def capabilities(self) -> CapabilitiesResource: ...
 
     @typing.type_check_only
     class LiensResource(googleapiclient.discovery.Resource):
-        def create(
-            self, *, body: Lien = ..., **kwargs: typing.Any
-        ) -> LienHttpRequest: ...
+        def create(self, *, body: Lien, **kwargs: typing.Any) -> LienHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> LienHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListLiensResponseHttpRequest: ...
         def list_next(
@@ -156,8 +146,8 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: TagBindingCollection = ...,
-                updateMask: str = ...,
+                body: TagBindingCollection,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
@@ -176,18 +166,14 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             self, *, name: str, **kwargs: typing.Any
         ) -> OrganizationHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def search(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchOrganizationsResponseHttpRequest: ...
         def search_next(
@@ -196,43 +182,35 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: SearchOrganizationsResponse,
         ) -> SearchOrganizationsResponseHttpRequest | None: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
 
     @typing.type_check_only
     class ProjectsResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, body: Project = ..., **kwargs: typing.Any
+            self, *, body: Project, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> ProjectHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
-            showDeleted: bool = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
+            showDeleted: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListProjectsResponseHttpRequest: ...
         def list_next(
@@ -241,22 +219,22 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: ListProjectsResponse,
         ) -> ListProjectsResponseHttpRequest | None: ...
         def move(
-            self, *, name: str, body: MoveProjectRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: MoveProjectRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def patch(
             self,
             *,
             name: str,
-            body: Project = ...,
-            updateMask: str = ...,
+            body: Project,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def search(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchProjectsResponseHttpRequest: ...
         def search_next(
@@ -265,21 +243,17 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             previous_response: SearchProjectsResponse,
         ) -> SearchProjectsResponseHttpRequest | None: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def undelete(
-            self, *, name: str, body: UndeleteProjectRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: UndeleteProjectRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
 
     @typing.type_check_only
@@ -287,8 +261,8 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: TagBinding = ...,
-            validateOnly: bool = ...,
+            body: TagBinding,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
@@ -297,9 +271,9 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListTagBindingsResponseHttpRequest: ...
         def list_next(
@@ -311,33 +285,29 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class TagKeysResource(googleapiclient.discovery.Resource):
         def create(
-            self, *, body: TagKey = ..., validateOnly: bool = ..., **kwargs: typing.Any
+            self, *, body: TagKey, validateOnly: bool | None = ..., **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def delete(
             self,
             *,
             name: str,
-            etag: str = ...,
-            validateOnly: bool = ...,
+            etag: str | None = ...,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> TagKeyHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def getNamespaced(
-            self, *, name: str = ..., **kwargs: typing.Any
+            self, *, name: str | None = ..., **kwargs: typing.Any
         ) -> TagKeyHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListTagKeysResponseHttpRequest: ...
         def list_next(
@@ -349,23 +319,19 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: TagKey = ...,
-            updateMask: str = ...,
-            validateOnly: bool = ...,
+            body: TagKey,
+            updateMask: str | None = ...,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -377,20 +343,24 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: TagHold = ...,
-                validateOnly: bool = ...,
+                body: TagHold,
+                validateOnly: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def delete(
-                self, *, name: str, validateOnly: bool = ..., **kwargs: typing.Any
+                self,
+                *,
+                name: str,
+                validateOnly: bool | None = ...,
+                **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTagHoldsResponseHttpRequest: ...
             def list_next(
@@ -402,35 +372,31 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: TagValue = ...,
-            validateOnly: bool = ...,
+            body: TagValue,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
             self,
             *,
             name: str,
-            etag: str = ...,
-            validateOnly: bool = ...,
+            etag: str | None = ...,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> TagValueHttpRequest: ...
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def getNamespaced(
-            self, *, name: str = ..., **kwargs: typing.Any
+            self, *, name: str | None = ..., **kwargs: typing.Any
         ) -> TagValueHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListTagValuesResponseHttpRequest: ...
         def list_next(
@@ -442,23 +408,19 @@ class CloudResourceManagerResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: TagValue = ...,
-            updateMask: str = ...,
-            validateOnly: bool = ...,
+            body: TagValue,
+            updateMask: str | None = ...,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def tagHolds(self) -> TagHoldsResource: ...

@@ -16,7 +16,6 @@ from torch.optim import Optimizer
 from .._binding import rust_module
 from .._penalty_bridge import (
     GumbelTemperatureSchedule,
-    fixed_weight_schedule as _fixed_weight_schedule,
     ard_descriptor,
     block_orthogonality_descriptor,
     call_rust_value_grad as _call_rust_value_grad,
@@ -687,38 +686,28 @@ class JumpReLUPenalty(_RustPenaltyModule):
 
 
 class _JumpReLUSTEFn(torch.autograd.Function):
-    """Hard-threshold JumpReLU gate — a pure-torch, on-device transcription of Rust.
+    """Hard-threshold JumpReLU gate backed by the Rust value/gradient kernel.
 
     Forward returns the hard gate ``φ(z) = z · 1[z > τ]``; backward uses the
     smooth surrogate ``φ̃(z) = z · σ((z − τ)/ε)`` so the activation keeps a usable
     subgradient inside the smoothing band ``|z − τ| ≲ ε`` (a straight-through
-    estimator). The math is transcribed element-for-element from the Rust source
-    of truth ``gam::terms::analytic_penalties::jumprelu_gate_value_grad``
-    (crates/gam-terms/src/analytic_penalties/sparsity.rs), computed directly in
-    torch so no ``(N, F)`` matrix ever crosses the Python↔Rust boundary and
-    dtype/device are preserved (works on GPU without a CPU/float64 round-trip).
-    Parity is pinned by ``tests/torch/test_jumprelu_ste_parity.py``.
+    estimator). Rust computes the value and both per-element derivatives through
+    ``jumprelu_gate_value_grad``; Python only caches those derivatives and applies
+    the upstream gradient on Torch's tape.
     """
 
     @staticmethod
     def forward(ctx: Any, z: torch.Tensor, tau: torch.Tensor, smoothing_eps: float) -> torch.Tensor:
-        # Pure-torch, on-device transcription of the Rust source of truth
-        # `gam::terms::analytic_penalties::jumprelu_gate_value_grad`. Per element,
-        # with per-column threshold ``τ`` broadcast over rows (matching the Rust
-        # divide order for parity):
-        #   ``g         = σ((z − τ)/ε)`` (stable_logistic ≡ torch.sigmoid)
-        #   ``value     = z`` where ``z > τ`` else ``0`` (hard gate)
-        #   ``slope     = z·g·(1 − g)/ε``
-        #   ``dphi_dz   = g + slope``   ``dphi_dtau = −slope`` (smooth surrogate STE)
-        rows = z.reshape(z.shape[0], -1)
-        tau_row = tau.reshape(1, -1).to(device=rows.device, dtype=rows.dtype)
-        g = torch.sigmoid((rows - tau_row) / smoothing_eps)
-        value = torch.where(rows > tau_row, rows, torch.zeros_like(rows))
-        slope = rows * g * (1.0 - g) / smoothing_eps
-        dphi_dz = g + slope
-        dphi_dtau = -slope
-        ctx.save_for_backward(dphi_dz.reshape_as(z), dphi_dtau.reshape_as(z))
-        return value.reshape_as(z)
+        value_np, dphi_dz_np, dphi_dtau_np = rust_module().jumprelu_gate_value_grad(
+            to_numpy_f64(z.reshape(z.shape[0], -1)),
+            to_numpy_f64(tau.reshape(-1)),
+            float(smoothing_eps),
+        )
+        value = from_numpy_like(value_np, z).reshape_as(z)
+        dphi_dz = from_numpy_like(dphi_dz_np, z).reshape_as(z)
+        dphi_dtau = from_numpy_like(dphi_dtau_np, z).reshape_as(z)
+        ctx.save_for_backward(dphi_dz, dphi_dtau)
+        return value
 
     @staticmethod
     def backward(ctx: Any, grad_output: torch.Tensor):
@@ -729,11 +718,11 @@ class _JumpReLUSTEFn(torch.autograd.Function):
 
 
 class _IBPMapFn(torch.autograd.Function):
-    """IBP-MAP concrete relaxation, value+grad from the Rust source of truth.
+    """IBP posterior-mean gate, value+grad from the Rust source of truth.
 
-    Forward returns ``z_k = σ(l_k/τ) · π_k`` where ``π_k = (α/(α+1))^(k+1)`` is
-    the consistent truncated stick-breaking prior mean (every atom shrunk by one
-    Beta(α,1) stick, #614); backward multiplies the upstream gradient by
+    Forward returns ``z_k = σ(l_k/τ)``. The ordered Beta--Bernoulli shrinkage is
+    scored once by the IBP prior rather than multiplied into the final function;
+    backward multiplies the upstream gradient by
     the diagonal logit Jacobian ``∂z_k/∂l_k`` that Rust returns. Replacing the
     bare ``sigmoid(logits/τ)`` torch path makes torch IBP-Gumbel agree with the
     closed-form ``SaeAssignment`` IBP-MAP assignments (see
@@ -741,58 +730,39 @@ class _IBPMapFn(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx: Any, logits: torch.Tensor, temperature: float, alpha: float) -> torch.Tensor:
-        # Pure-torch, on-device transcription of the Rust source of truth
-        # `gam::terms::sae::assignment::ibp_map_row_value_grad`
-        # (crates/gam-sae/src/assignment.rs:1033). Per atom `k` (0-indexed),
-        # with ``inv_tau = 1/τ`` (matching the Rust multiply order for parity):
-        #   ``π_k = max((α/(α+1))^{k+1}, tiny)`` — the truncated stick-breaking
-        #     prior mean, accumulated in LOG space then floored at the smallest
-        #     positive normal so large-K atoms keep a live (never hard-masked)
-        #     gradient path, exactly as `ordered_geometric_shrinkage_prior`
-        #     (assignment.rs:966) does with `f64::MIN_POSITIVE`.
-        #   ``sig   = σ(l_k·inv_tau)`` (stable_logistic ≡ torch.sigmoid)
-        #   ``value = sig · π_k``
-        #   ``grad  = sig·(1 − sig)·inv_tau·π_k`` (diagonal logit Jacobian)
-        # No (N, K) matrix crosses the FFI boundary; dtype and device are
-        # preserved (runs on GPU without a CPU/float64 round-trip).
-        rows = logits.reshape(logits.shape[0], -1)
-        k_atoms = rows.shape[1]
-        inv_tau = 1.0 / temperature
-        log_ratio = math.log(alpha / (alpha + 1.0))
-        atom_index = torch.arange(1, k_atoms + 1, device=rows.device, dtype=rows.dtype)
-        tiny = torch.finfo(rows.dtype).tiny
-        pi = torch.exp(atom_index * log_ratio).clamp_min(tiny).reshape(1, -1)
-        sig = torch.sigmoid(rows * inv_tau)
-        value = sig * pi
-        grad = sig * (1.0 - sig) * inv_tau * pi
-        ctx.save_for_backward(grad.reshape_as(logits))
-        return value.reshape_as(logits)
+    def forward(ctx: Any, logits: torch.Tensor, temperature: float) -> torch.Tensor:
+        value_np, grad_np = rust_module().sae_ibp_map_batch_value_grad(
+            to_numpy_f64(logits.reshape(logits.shape[0], -1)),
+            float(temperature),
+        )
+        value = from_numpy_like(value_np, logits).reshape_as(logits)
+        grad = from_numpy_like(grad_np, logits).reshape_as(logits)
+        ctx.save_for_backward(grad)
+        return value
 
     @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[torch.Tensor, None, None]:
+    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[torch.Tensor, None]:
         (jac_diag,) = ctx.saved_tensors
-        return grad_output * jac_diag, None, None
+        return grad_output * jac_diag, None
 
 
-def ibp_map(logits: torch.Tensor, temperature: float, alpha: float) -> torch.Tensor:
-    """Differentiable IBP-MAP assignments via the Rust value+grad kernel."""
+def ibp_map(logits: torch.Tensor, temperature: float) -> torch.Tensor:
+    """Differentiable IBP posterior-mean assignments via Rust."""
     if not isinstance(logits, torch.Tensor):
         raise TypeError("ibp_map logits must be a torch.Tensor")
     apply = cast(Callable[..., torch.Tensor], _IBPMapFn.apply)
-    return apply(logits, float(temperature), float(alpha))
+    return apply(logits, float(temperature))
 
 
 class _JumpReLUBoundedGateFn(torch.autograd.Function):
-    """Bounded threshold gate — a pure-torch, on-device transcription of Rust.
+    """Bounded threshold gate backed by the Rust value/gradient kernel.
 
     Forward returns ``a_k = σ((l_k − θ_k)/τ) · 1[l_k > θ_k]`` — the SAME bounded
     ``[0, 1)`` gate the closed-form ``SaeAssignment`` jumprelu / threshold_gate
     path evaluates (``jumprelu_row``; magnitude lives in the decoder). The math
-    is transcribed from the Rust source of truth
-    ``gam_sae::assignment::jumprelu_row_value_grad`` and computed directly in
-    torch, so no ``(N, K)`` matrix ever crosses the Python↔Rust boundary and
-    dtype/device are preserved (works on GPU without a CPU/float64 round-trip).
+    is computed by the Rust source of truth
+    ``gam_sae::assignment::jumprelu_batch_value_grad`` through one batched FFI
+    call. Python caches the returned diagonal derivative for Torch's backward.
     Backward multiplies the upstream gradient by the smooth surrogate's diagonal
     derivative ``da/dl_k = σ'((l_k − θ_k)/τ)/τ`` (a straight-through estimator,
     alive on both sides of the jump so gated-off atoms keep a training signal);
@@ -804,22 +774,15 @@ class _JumpReLUBoundedGateFn(torch.autograd.Function):
     def forward(
         ctx: Any, logits: torch.Tensor, thresholds: torch.Tensor, temperature: float
     ) -> torch.Tensor:
-        # Pure-torch, on-device transcription of the Rust source of truth
-        # `gam_sae::assignment::jumprelu_row_value_grad` (crates/gam-sae/src/
-        # assignment.rs). Per atom, with ``inv_tau = 1/τ`` (matching the Rust
-        # multiply order for bit-parity):
-        #   ``sig = σ((l − θ)·inv_tau)`` (stable_logistic ≡ torch.sigmoid)
-        #   ``value = sig`` where ``l > θ`` else ``0`` (hard jump)
-        #   ``grad  = sig·(1 − sig)·inv_tau`` (straight-through, both sides)
-        # No CPU/float64 round-trip: dtype and device are preserved.
-        rows = logits.reshape(logits.shape[0], -1)
-        thr = thresholds.reshape(1, -1)
-        inv_tau = 1.0 / temperature
-        sig = torch.sigmoid((rows - thr) * inv_tau)
-        value = torch.where(rows > thr, sig, torch.zeros_like(sig))
-        grad = sig * (1.0 - sig) * inv_tau
-        ctx.save_for_backward(grad.reshape_as(logits))
-        return value.reshape_as(logits)
+        value_np, grad_np = rust_module().sae_jumprelu_batch_value_grad(
+            to_numpy_f64(logits.reshape(logits.shape[0], -1)),
+            float(temperature),
+            to_numpy_f64(thresholds.reshape(-1)),
+        )
+        value = from_numpy_like(value_np, logits).reshape_as(logits)
+        grad = from_numpy_like(grad_np, logits).reshape_as(logits)
+        ctx.save_for_backward(grad)
+        return value
 
     @staticmethod
     def backward(
@@ -843,36 +806,24 @@ def jumprelu_bounded_gate(
 
 
 class _TopKActivationFn(torch.autograd.Function):
-    """Top-k SAE activation — a pure-torch, on-device transcription of Rust.
+    """Top-k SAE activation backed by the Rust value-and-gradient kernel.
 
     Forward returns the per-atom **independent**, strictly non-negative
     activation ``a_k = τ·softplus(l_k/τ)`` the ``softmax_topk`` gate scores atoms
-    with. The math is transcribed from the Rust source of truth
-    ``gam_sae::assignment::topk_activation_row_value_grad`` and computed directly
-    in torch, so no ``(N, K)`` matrix ever crosses the Python↔Rust boundary and
-    dtype/device are preserved (works on GPU without a CPU/float64 round-trip).
-    Backward multiplies the upstream gradient by the diagonal derivative
-    ``da/dl_k = σ(l_k/τ)`` (the temperature cancels in the chain rule since
-    ``a = τ·softplus(l/τ)``). The hard top-k *selection* and its masked gradient
-    are applied by the caller on the tape — this Function owns only the smooth
-    activation and its exact derivative, the single-source-of-truth counterpart
-    to the closed-form family's ``ibp_map`` / ``jumprelu`` activations.
+    with. Both that value and its diagonal derivative ``da/dl_k = σ(l_k/τ)``
+    come from ``gam_sae::assignment::topk_activation_batch_value_grad`` through
+    ``sae_topk_activation_value_grad``. Python only caches the returned Jacobian
+    diagonal for Torch's backward pass. The hard top-k *selection* and its masked
+    gradient remain on the caller's tape.
     """
 
     @staticmethod
     def forward(ctx: Any, logits: torch.Tensor, temperature: float) -> torch.Tensor:
-        # Pure-torch, on-device transcription of the Rust source of truth
-        # `gam_sae::assignment::topk_activation_row_value_grad`
-        # (crates/gam-sae/src/assignment.rs). With ``inv_tau = 1/τ`` (matching the
-        # Rust multiply order for bit-parity):
-        #   ``scaled = l · inv_tau``
-        #   ``value  = τ · softplus(scaled)`` (stable_softplus ≡ softplus)
-        #   ``grad   = σ(scaled)``          (stable_logistic ≡ torch.sigmoid)
-        # No CPU/float64 round-trip: dtype and device are preserved.
-        inv_tau = 1.0 / temperature
-        scaled = logits * inv_tau
-        value = temperature * torch.nn.functional.softplus(scaled)
-        grad = torch.sigmoid(scaled)
+        value_np, grad_np = rust_module().sae_topk_activation_value_grad(
+            to_numpy_f64(logits), float(temperature)
+        )
+        value = from_numpy_like(value_np, logits).reshape_as(logits)
+        grad = from_numpy_like(grad_np, logits).reshape_as(logits)
         ctx.save_for_backward(grad)
         return value
 

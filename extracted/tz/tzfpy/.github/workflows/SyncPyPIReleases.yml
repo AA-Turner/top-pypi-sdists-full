@@ -38,7 +38,7 @@ jobs:
       count: ${{ steps.resolve.outputs.count }}
       versions_json: ${{ steps.resolve.outputs.versions_json }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -72,7 +72,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -164,7 +164,7 @@ jobs:
 
       - name: Create new GitHub release with files
         if: ${{ steps.check_tag.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -183,7 +183,7 @@ jobs:
 
       - name: Upload files to existing GitHub release
         if: ${{ steps.check_tag.outputs.exists == 'true' && steps.check_release.outputs.exists == 'true' && steps.missing_files.outputs.missing_count != '0' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

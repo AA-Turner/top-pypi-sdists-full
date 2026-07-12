@@ -22,11 +22,68 @@ pub struct StandardBinomialWiggleConfig {
     pub refit_options: BlockwiseFitOptions,
 }
 
+/// Clone-cheap training-matrix backing for a standard fit.
+///
+/// Ordinary formula fits borrow the projected [`Dataset`] matrix all the way
+/// through fitting. A latent-coordinate fit has to augment that matrix during
+/// materialization, so it moves the augmented allocation into an [`Arc`]. In
+/// both cases cloning this handle aliases the same storage; outer estimators
+/// such as expectile LAWS can therefore issue repeated fit requests without
+/// copying the complete `n x p` dataset on every iteration.
+#[derive(Clone)]
+pub enum StandardFitData<'a> {
+    Borrowed(ArrayView2<'a, f64>),
+    Shared(Arc<Array2<f64>>),
+}
+
+impl<'a> StandardFitData<'a> {
+    pub fn borrowed(data: ArrayView2<'a, f64>) -> Self {
+        Self::Borrowed(data)
+    }
+
+    pub fn shared(data: Array2<f64>) -> Self {
+        Self::Shared(Arc::new(data))
+    }
+
+    pub fn view(&self) -> ArrayView2<'_, f64> {
+        match self {
+            Self::Borrowed(data) => data.view(),
+            Self::Shared(data) => data.view(),
+        }
+    }
+
+    pub fn nrows(&self) -> usize {
+        match self {
+            Self::Borrowed(data) => data.nrows(),
+            Self::Shared(data) => data.nrows(),
+        }
+    }
+
+    pub fn ncols(&self) -> usize {
+        match self {
+            Self::Borrowed(data) => data.ncols(),
+            Self::Shared(data) => data.ncols(),
+        }
+    }
+
+    pub fn column(&self, index: usize) -> ArrayView1<'_, f64> {
+        match self {
+            Self::Borrowed(data) => data.column(index),
+            Self::Shared(data) => data.column(index),
+        }
+    }
+}
+
 pub struct StandardFitRequest<'a> {
-    pub data: Array2<f64>,
-    pub y: Array1<f64>,
-    pub weights: Array1<f64>,
-    pub offset: Array1<f64>,
+    pub data: StandardFitData<'a>,
+    /// Clone-cheap immutable response backing. Iterative estimators retain one
+    /// allocation while issuing multiple standard-fit requests.
+    pub y: Arc<Array1<f64>>,
+    /// Clone-cheap prior/working-weight backing. A new allocation is made only
+    /// when an estimator actually changes the weights.
+    pub weights: Arc<Array1<f64>>,
+    /// Clone-cheap immutable offset backing.
+    pub offset: Arc<Array1<f64>>,
     pub spec: TermCollectionSpec,
     pub family: LikelihoodSpec,
     /// #2026: estimate the Tweedie variance power `p` by profile likelihood
@@ -43,8 +100,6 @@ pub struct StandardFitRequest<'a> {
     pub coefficient_groups: Vec<CoefficientGroupSpec>,
     pub penalty_block_gamma_priors: Vec<(String, f64, f64)>,
     pub latent_coord: Option<StandardLatentCoordConfig>,
-    #[doc(hidden)]
-    pub _marker: std::marker::PhantomData<&'a ()>,
 }
 
 pub struct GaussianLocationScaleFitRequest<'a> {
@@ -165,6 +220,16 @@ pub struct StandardFitResult {
     pub fit: UnifiedFitResult,
     pub design: TermCollectionDesign,
     pub resolvedspec: TermCollectionSpec,
+    /// Which resolved smooth positions originated from an auto-sized radial
+    /// spatial basis. Freeze replaces center strategies with explicit center
+    /// matrices, so this provenance must travel beside the result for the
+    /// adaptive resolution loop.
+    pub adaptive_spatial_terms: Vec<bool>,
+    /// Requested (pre-freeze) center counts aligned with
+    /// `adaptive_spatial_terms`. Frozen specs store realized center matrices,
+    /// whose row count can include periodic image expansion and is therefore
+    /// not the next request size.
+    pub adaptive_spatial_center_counts: Vec<Option<usize>>,
     pub adaptive_diagnostics: Option<AdaptiveRegularizationDiagnostics>,
     pub kappa_timing: Option<SpatialLengthScaleOptimizationTiming>,
     pub saved_link_state: FittedLinkState,
@@ -180,6 +245,83 @@ pub struct StandardFitResult {
     /// evaluate the warp basis at the frozen index `η̂` the fit pinned it at,
     /// rather than at the de-aliased base predictor.
     pub wiggle_saved_index_shift: Option<Vec<f64>>,
+}
+
+pub(crate) fn adaptive_spatial_term_mask(spec: &TermCollectionSpec) -> Vec<bool> {
+    fn auto_spatial(basis: &gam_terms::smooth::SmoothBasisSpec) -> bool {
+        use gam_terms::smooth::SmoothBasisSpec as B;
+        match basis {
+            B::ByVariable { inner, .. } | B::FactorSumToZero { inner, .. } => auto_spatial(inner),
+            B::BySmooth { smooth, .. } => auto_spatial(smooth),
+            B::ThinPlate {
+                feature_cols, spec, ..
+            } => {
+                !feature_cols.is_empty()
+                    && gam_terms::basis::center_strategy_is_auto(&spec.center_strategy)
+            }
+            B::Duchon {
+                feature_cols, spec, ..
+            } => {
+                !feature_cols.is_empty()
+                    && gam_terms::basis::center_strategy_is_auto(&spec.center_strategy)
+            }
+            // Matérn's learned range changes both its basin and realized kernel
+            // rank as centers move. It has no validated EDF-saturation growth
+            // theorem yet, so the generic radial grow loop must not claim it.
+            B::Matern { .. } => false,
+            B::ConstantCurvature { feature_cols, spec } => {
+                !feature_cols.is_empty()
+                    && gam_terms::basis::center_strategy_is_auto(&spec.center_strategy)
+            }
+            B::MeasureJet {
+                feature_cols, spec, ..
+            } => {
+                !feature_cols.is_empty()
+                    && gam_terms::basis::center_strategy_is_auto(&spec.center_strategy)
+            }
+            _ => false,
+        }
+    }
+
+    spec.smooth_terms
+        .iter()
+        .map(|term| auto_spatial(&term.basis))
+        .collect()
+}
+
+pub(crate) fn adaptive_spatial_center_counts(spec: &TermCollectionSpec) -> Vec<Option<usize>> {
+    fn center_count(basis: &gam_terms::smooth::SmoothBasisSpec) -> Option<usize> {
+        use gam_terms::smooth::SmoothBasisSpec as B;
+        match basis {
+            B::ByVariable { inner, .. } | B::FactorSumToZero { inner, .. } => center_count(inner),
+            B::BySmooth { smooth, .. } => center_count(smooth),
+            B::ThinPlate {
+                feature_cols, spec, ..
+            } if !feature_cols.is_empty() => {
+                Some(spec.center_strategy.planned_num_centers(feature_cols.len()))
+            }
+            B::Duchon {
+                feature_cols, spec, ..
+            } if !feature_cols.is_empty() => {
+                Some(spec.center_strategy.planned_num_centers(feature_cols.len()))
+            }
+            B::Matern { .. } => None,
+            B::ConstantCurvature { feature_cols, spec } if !feature_cols.is_empty() => {
+                Some(spec.center_strategy.planned_num_centers(feature_cols.len()))
+            }
+            B::MeasureJet {
+                feature_cols, spec, ..
+            } if !feature_cols.is_empty() => {
+                Some(spec.center_strategy.planned_num_centers(feature_cols.len()))
+            }
+            _ => None,
+        }
+    }
+
+    spec.smooth_terms
+        .iter()
+        .map(|term| center_count(&term.basis))
+        .collect()
 }
 
 pub struct SurvivalLocationScaleFitResult {
@@ -366,8 +508,9 @@ pub struct FitConfig {
     pub offset_column: Option<String>,
     /// Optional additive offset column for the noise/log-scale predictor.
     pub noise_offset_column: Option<String>,
-    /// Optional family-level frailty modifier.
-    pub frailty: Option<FrailtySpec>,
+    /// Family-level frailty. `None` is represented only by
+    /// [`FrailtySpec::None`]; an outer `Option` would create two null states.
+    pub frailty: FrailtySpec,
 
     // Survival-specific
     /// Baseline target: "linear", "weibull", "gompertz", "gompertz-makeham".
@@ -430,6 +573,10 @@ pub struct FitConfig {
 
     // Fitting options
     pub scale_dimensions: bool,
+    /// Spatial length-scale/anisotropy optimization policy shared by every
+    /// formula family. Front ends must set model-wide spatial knobs here rather
+    /// than mutating a request after materialization.
+    pub spatial_optimization: SpatialLengthScaleOptimizationOptions,
     /// Enable exact spatial adaptive regularization for standard formula fits.
     /// `None` uses the quality-first automatic policy. The current automatic
     /// policy leaves LAREG off unless explicitly requested because the
@@ -451,7 +598,7 @@ pub struct FitConfig {
     pub outer_max_iter: Option<usize>,
 
     /// GPU backend selection policy. `Auto` uses supported device kernels for
-    /// large workloads, `Off` pins execution to CPU kernels, and `Force` fails
+    /// large workloads, `Off` pins execution to CPU kernels, and `Required` fails
     /// loudly when a requested GPU kernel has no compiled backend.
     pub gpu_policy: gam_gpu::GpuPolicy,
     /// Optional override of the [`gam_runtime::resource::ResourcePolicy`] used when
@@ -463,6 +610,12 @@ pub struct FitConfig {
     /// field; saved-model builders pass it through so deployment consumers can
     /// recover group provenance.
     pub group_metadata: Option<BTreeMap<String, JsonValue>>,
+
+    /// Container type of the caller's training table (`"pandas"`, `"polars"`,
+    /// `"pyarrow"`, `"numpy"`, or `"unknown"` outside a typed table frontend).
+    /// Fitting ignores this field; saved-model builders persist it so every
+    /// current frontend writes the same complete model schema.
+    pub training_table_kind: String,
 
     /// Optional user-defined coefficient groups with separate precision
     /// parameters. Group-local priors, including catalog-metadata-informed
@@ -501,26 +654,23 @@ pub struct FitConfig {
     /// explicit array-valued `centers=` differs, routing through
     /// `CenterStrategy::UserProvided` instead of `FarthestPoint`/`EqualMass`.
     pub smooth_overrides: Option<JsonValue>,
-    /// Engage the cross-process ON-DISK persistent warm-start layer (#1082).
+    /// Engage the cross-process ON-DISK persistent checkpoint layer (#1082).
     ///
-    /// Default `false`: only the always-on in-memory warm start runs, so a
-    /// single fit and throwaway/replicate/CI-coverage loops pay zero disk I/O
-    /// (no `WarmStartStore` dir/eviction scan, no record load/store). Set
-    /// `true` to engage cross-process / repeat-fit resume: the flag threads
+    /// Default `true`: formula fits survive process and wall interruptions.
+    /// The flag threads
     /// `FitConfig → FitOptions → ExternalOptimOptions` down to the standard
     /// `RemlState`, which then calls `enable_persistent_warm_start_disk()`.
+    /// Low-level embedding code may disable it explicitly when it owns a
+    /// stronger external checkpoint transaction.
     pub persist_warm_start_disk: bool,
-    /// Saturation-escalation level for 2-D+ spatial smooths (#1689). In-process
-    /// plumbing ONLY — never a user flag/env var: the `fit_from_formula` refit
-    /// loop sets it (0, 1, 2, …) and re-materializes, and the spatial term build
-    /// resolves each 2-D+ smooth's center count to
-    /// `gam_terms::basis::escalated_num_centers(n, d, level)` instead of the
-    /// worst-case `default_num_centers`. Level 0 is the modest mgcv-parity start;
-    /// the loop grows the level only while a fitted spatial term's edf says its
-    /// basis is saturated and its count is still below the `default_num_centers`
-    /// ceiling (so a saturated fit converges back to today's basis size — the
-    /// accuracy fixed point). Default 0 for every fit.
-    pub spatial_escalation_level: u32,
+    /// Per-smooth spatial center requests maintained by the adaptive
+    /// fit→expand→refit loop. Outer `None` means no loop owns this request, so
+    /// raw materialization keeps the ordinary full basis. `Some` activates the
+    /// canonical formula workflow: missing inner entries select the structural
+    /// identifiable start and `Some(k)` requests the next evidence-backed
+    /// resolution for that smooth only. This is in-process orchestration state,
+    /// never a user knob or environment setting.
+    pub spatial_center_counts: Option<Vec<Option<usize>>>,
 }
 
 impl Default for FitConfig {
@@ -532,7 +682,7 @@ impl Default for FitConfig {
             flexible_link: false,
             offset_column: None,
             noise_offset_column: None,
-            frailty: None,
+            frailty: FrailtySpec::None,
             baseline_target: "linear".into(),
             baseline_scale: None,
             baseline_shape: None,
@@ -555,6 +705,7 @@ impl Default for FitConfig {
             expectile_tau: None,
             ctn_stage1: None,
             scale_dimensions: false,
+            spatial_optimization: SpatialLengthScaleOptimizationOptions::default(),
             adaptive_regularization: None,
             ridge_lambda: 1e-6,
             transformation_normal: false,
@@ -563,14 +714,15 @@ impl Default for FitConfig {
             gpu_policy: gam_gpu::GpuPolicy::Auto,
             resource_policy: None,
             group_metadata: None,
+            training_table_kind: "unknown".to_string(),
             coefficient_groups: Vec::new(),
             penalty_block_gamma_priors: Vec::new(),
             latents: None,
             analytic_penalties: None,
             topology_auto_selector: None,
             smooth_overrides: None,
-            persist_warm_start_disk: false,
-            spatial_escalation_level: 0,
+            persist_warm_start_disk: true,
+            spatial_center_counts: None,
         }
     }
 }
@@ -604,4 +756,35 @@ pub struct ResidualCascadeInputs {
     /// Sobolev smoothness order `s` of the multilevel Wendland-(3,1) prior,
     /// clamped into the native-space window `(d/2, (d+3)/2]` (issue caveat 1).
     pub sobolev_s: f64,
+}
+
+#[cfg(test)]
+mod default_workflow_policy_tests {
+    use super::*;
+
+    #[test]
+    fn formula_fits_checkpoint_durably_by_default() {
+        let config = FitConfig::default();
+        assert!(config.persist_warm_start_disk);
+        let options = canonical_standard_fit_options(&config, StandardFitOptionsInputs::default());
+        assert!(options.persist_warm_start_disk);
+    }
+
+    #[test]
+    fn raw_materialization_does_not_activate_adaptive_spatial_resolution() {
+        assert!(
+            FitConfig::default().spatial_center_counts.is_none(),
+            "raw materialization must not activate a grow loop it does not own"
+        );
+    }
+
+    #[test]
+    fn explicit_external_checkpoint_owner_can_disable_disk_layer() {
+        let config = FitConfig {
+            persist_warm_start_disk: false,
+            ..FitConfig::default()
+        };
+        let options = canonical_standard_fit_options(&config, StandardFitOptionsInputs::default());
+        assert!(!options.persist_warm_start_disk);
+    }
 }

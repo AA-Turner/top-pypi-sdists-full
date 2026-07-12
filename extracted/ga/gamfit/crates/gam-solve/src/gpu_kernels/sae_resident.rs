@@ -335,8 +335,8 @@ impl DeviceResidentArrowWorkspace {
     }
 
     /// Production seam (#1017 Phase 3): one SAE data-fit inner Newton step under
-    /// the process-wide [`gam_gpu::GpuMode`] residency contract the caller passes
-    /// (`gam_gpu::gpu_mode()`). This is the entry a production inner Newton loop
+    /// the process-wide [`gam_gpu::GpuPolicy`] residency contract the caller passes
+    /// (`gam_gpu::global_policy()`). This is the entry a production inner Newton loop
     /// calls per iterate; it does NOT touch the fitting loop itself — the caller
     /// wires it (see the #1017 seam report).
     ///
@@ -346,61 +346,61 @@ impl DeviceResidentArrowWorkspace {
     /// row-block workload, so a below-break-even shape is simply not
     /// device-resident. This method adds the mode lever and the typed fallback:
     ///
-    /// * [`gam_gpu::GpuMode::Off`] — the dense CPU reference step; no device
+    /// * [`gam_gpu::GpuPolicy::Off`] — the dense CPU reference step; no device
     ///   contact.
-    /// * [`gam_gpu::GpuMode::Auto`] — the resident device step when the workspace
+    /// * [`gam_gpu::GpuPolicy::Auto`] — the resident device step when the workspace
     ///   is device-resident, else the CPU reference; on a device-solve fault the
     ///   fallback to the CPU reference is taken and logged ONCE per process (never
     ///   a silent CPU downgrade). The resident step is a single frame-build +
     ///   solve (no tile loop), so there is no unbounded async backlog to stall on
     ///   silently — the #2227 "never silent" discipline here is the one-shot
     ///   engagement warn plus the typed fault surface, not a per-tile heartbeat.
-    /// * [`gam_gpu::GpuMode::Required`] — the resident device step, or a typed
+    /// * [`gam_gpu::GpuPolicy::Required`] — the resident device step, or a typed
     ///   [`DeviceResidentArrowError`] when the workspace is not device-resident or
     ///   the solve faults (fails closed; never degrades to CPU).
     pub fn inner_iteration_for_production(
         &self,
-        mode: gam_gpu::GpuMode,
+        mode: gam_gpu::GpuPolicy,
         ridge_t: f64,
         ridge_beta: f64,
     ) -> Result<DeviceResidentArrowStep, DeviceResidentArrowError> {
         match mode {
-            gam_gpu::GpuMode::Off => {
-                note_resident_engagement(false, "GpuMode::Off — CPU reference step");
+            gam_gpu::GpuPolicy::Off => {
+                note_resident_engagement(false, "GpuPolicy::Off — CPU reference step");
                 self.cpu_reference_step(ridge_t, ridge_beta)
             }
-            gam_gpu::GpuMode::Required => {
+            gam_gpu::GpuPolicy::Required => {
                 if !self.device_resident() {
                     return Err(DeviceResidentArrowError::Unavailable {
                         reason: format!(
-                            "SAE resident inner step GpuMode::Required: workspace is not \
+                            "SAE resident inner step GpuPolicy::Required: workspace is not \
                              device-resident (the CUDA runtime did not admit shape n={} p={} d={} \
                              at break-even); refusing to run on the CPU",
                             self.shape.n, self.shape.p, self.shape.d
                         ),
                     });
                 }
-                note_resident_engagement(true, "GpuMode::Required — resident device step");
+                note_resident_engagement(true, "GpuPolicy::Required — resident device step");
                 self.one_inner_iteration(ridge_t, ridge_beta)
             }
-            gam_gpu::GpuMode::Auto => {
+            gam_gpu::GpuPolicy::Auto => {
                 if !self.device_resident() {
                     note_resident_engagement(
                         false,
-                        "GpuMode::Auto — workspace not device-resident; CPU reference step",
+                        "GpuPolicy::Auto — workspace not device-resident; CPU reference step",
                     );
                     return self.cpu_reference_step(ridge_t, ridge_beta);
                 }
                 match self.one_inner_iteration(ridge_t, ridge_beta) {
                     Ok(step) => {
-                        note_resident_engagement(true, "GpuMode::Auto — resident device step");
+                        note_resident_engagement(true, "GpuPolicy::Auto — resident device step");
                         Ok(step)
                     }
                     Err(err) => {
                         note_resident_engagement(
                             false,
                             &format!(
-                                "GpuMode::Auto — device solve fault, CPU reference fallback: {err}"
+                                "GpuPolicy::Auto — device solve fault, CPU reference fallback: {err}"
                             ),
                         );
                         self.cpu_reference_step(ridge_t, ridge_beta)
@@ -2101,43 +2101,53 @@ mod tests {
 
             // The resident frame's single-gradient solve must also match a full
             // independent solve at the same gradient (the per-iterate contract).
-            let frame = crate::gpu_kernels::arrow_schur::ResidentArrowFrameHandle::new(
+            // `ResidentArrowFrameHandle` is UNINHABITED on CPU-only hosts, so a
+            // `let … .expect()` binding marks everything after it unreachable
+            // under `-D warnings`; the consuming assertions therefore live
+            // inside the `Ok` arm (dead match arms are lint-exempt), exactly
+            // like the production consumers.
+            match crate::gpu_kernels::arrow_schur::ResidentArrowFrameHandle::new(
                 &base,
                 opts.initial_ridge_t,
                 opts.initial_ridge_beta,
-            )
-            .expect("resident frame must build on CUDA host");
-            let g_t: Vec<f64> = base
-                .rows
-                .iter()
-                .flat_map(|r| r.gt.iter().copied())
-                .collect();
-            let g_beta: Vec<f64> = base.gb.iter().copied().collect();
-            let resident_sol = frame
-                .solve_gradient(&g_t, &g_beta)
-                .expect("resident single-gradient solve");
-            let full = crate::gpu_kernels::arrow_schur::solve_arrow_newton_step_dense_reference(
-                &base,
-                opts.initial_ridge_t,
-                opts.initial_ridge_beta,
-            )
-            .expect("dense reference single solve");
-            let mut max_step_rel = 0.0_f64;
-            let step_scale = full
-                .delta_t
-                .iter()
-                .chain(full.delta_beta.iter())
-                .fold(1.0_f64, |m, &v| m.max(v.abs()));
-            for (a, b) in resident_sol.delta_t.iter().zip(full.delta_t.iter()) {
-                max_step_rel = max_step_rel.max((a - b).abs() / step_scale);
+            ) {
+                Err(err) => panic!("resident frame must build on CUDA host: {err:?}"),
+                Ok(frame) => {
+                    let g_t: Vec<f64> = base
+                        .rows
+                        .iter()
+                        .flat_map(|r| r.gt.iter().copied())
+                        .collect();
+                    let g_beta: Vec<f64> = base.gb.iter().copied().collect();
+                    let resident_sol = frame
+                        .solve_gradient(&g_t, &g_beta)
+                        .expect("resident single-gradient solve");
+                    let full =
+                        crate::gpu_kernels::arrow_schur::solve_arrow_newton_step_dense_reference(
+                            &base,
+                            opts.initial_ridge_t,
+                            opts.initial_ridge_beta,
+                        )
+                        .expect("dense reference single solve");
+                    let mut max_step_rel = 0.0_f64;
+                    let step_scale = full
+                        .delta_t
+                        .iter()
+                        .chain(full.delta_beta.iter())
+                        .fold(1.0_f64, |m, &v| m.max(v.abs()));
+                    for (a, b) in resident_sol.delta_t.iter().zip(full.delta_t.iter()) {
+                        max_step_rel = max_step_rel.max((a - b).abs() / step_scale);
+                    }
+                    for (a, b) in resident_sol.delta_beta.iter().zip(full.delta_beta.iter()) {
+                        max_step_rel = max_step_rel.max((a - b).abs() / step_scale);
+                    }
+                    assert!(
+                        max_step_rel < 1e-9,
+                        "resident solve_gradient must match full dense reference step \
+                         (rel {max_step_rel:e})"
+                    );
+                }
             }
-            for (a, b) in resident_sol.delta_beta.iter().zip(full.delta_beta.iter()) {
-                max_step_rel = max_step_rel.max((a - b).abs() / step_scale);
-            }
-            assert!(
-                max_step_rel < 1e-9,
-                "resident solve_gradient must match full dense reference step (rel {max_step_rel:e})"
-            );
 
             // The re-uploading GPU loop (residency baseline) must reach the same
             // minimiser as both the resident loop and the CPU reference.
@@ -2433,9 +2443,13 @@ mod tests {
             // iteration amortization the bench is measuring, so it is timed
             // separately from the per-solve loop).
             let t_build = Instant::now();
-            let frame =
-                crate::gpu_kernels::arrow_schur::ResidentArrowFrameHandle::new(&base, 0.0, 0.0)
-                    .expect("resident frame must build on CUDA host");
+            // `ResidentArrowFrameHandle` is UNINHABITED on CPU-only hosts: a
+            // `let … .expect()` binding marks everything after it unreachable
+            // under `-D warnings`, so the bench body consumes the frame inside
+            // the `Ok` arm — the same pattern as the production consumers.
+            match crate::gpu_kernels::arrow_schur::ResidentArrowFrameHandle::new(&base, 0.0, 0.0) {
+                Err(err) => panic!("resident frame must build on CUDA host: {err:?}"),
+                Ok(frame) => {
             let frame_build_ms = t_build.elapsed().as_secs_f64() * 1e3;
 
             // Warm-up: one solve on each path before timing so the residency
@@ -2555,6 +2569,8 @@ mod tests {
                  frame either silently re-uploaded D/B or the dispatch dropped the \
                  amortized factor path"
             );
+                }
+            }
         }
     }
 

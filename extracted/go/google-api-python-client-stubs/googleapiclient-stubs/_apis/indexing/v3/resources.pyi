@@ -16,10 +16,10 @@ class IndexingResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class UrlNotificationsResource(googleapiclient.discovery.Resource):
         def getMetadata(
-            self, *, url: str = ..., **kwargs: typing.Any
+            self, *, url: str | None = ..., **kwargs: typing.Any
         ) -> UrlNotificationMetadataHttpRequest: ...
         def publish(
-            self, *, body: UrlNotification = ..., **kwargs: typing.Any
+            self, *, body: UrlNotification, **kwargs: typing.Any
         ) -> PublishUrlNotificationResponseHttpRequest: ...
 
     def new_batch_http_request(

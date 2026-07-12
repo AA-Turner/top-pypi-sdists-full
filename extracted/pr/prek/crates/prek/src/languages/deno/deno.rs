@@ -79,11 +79,7 @@ impl LanguageImpl for Deno {
             .await
             .context("Failed to install deno")?;
 
-        let mut info = InstallInfo::new(
-            hook.language,
-            hook.env_key_dependencies().clone(),
-            &store.hooks_dir(),
-        )?;
+        let mut info = InstallInfo::new(&hook, &store.hooks_dir())?;
 
         info.with_toolchain(deno.deno().to_path_buf());
         info.with_language_version((**deno.version()).clone());
@@ -163,7 +159,6 @@ impl LanguageImpl for Deno {
 
     async fn check_health(&self, info: &InstallInfo) -> Result<()> {
         let deno = DenoResult::from_executable(info.toolchain.clone())
-            .fill_version()
             .await
             .context("Failed to query deno version")?;
 

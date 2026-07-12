@@ -28,9 +28,12 @@ Example:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
+import contextlib
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -40,10 +43,26 @@ import anyio
 from rich.console import Console
 
 from ouroboros.core.seed import AcceptanceCriterionSpec, ac_text
+
+# Import the harness submodules directly, NOT the ``ouroboros.harness`` package
+# aggregate: ``harness.__init__`` pulls in ``deliver_routing`` which imports from
+# ``ouroboros.orchestrator``, so importing the aggregate here would re-enter a
+# partially-initialized ``harness`` during ``orchestrator`` package import. The
+# concrete submodules below import nothing from ``orchestrator``, breaking the cycle.
+from ouroboros.harness.claim_term_guard import strict_deterministic_claim_term_guard
+from ouroboros.harness.deliver_gate import (
+    DeliverEvidenceClaim,
+    DeliverEvidenceFact,
+    evaluate_deliver_claim,
+    load_ac_evidence_manifest,
+)
+from ouroboros.harness.journal import EvidenceEntry, EvidenceManifest
+from ouroboros.harness.traceguard_validator import validate_evidence_claims
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.ac_runtime_handle_manager import ACRuntimeHandleManager
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
+    ParamSupport,
     RuntimeHandle,
 )
 from ouroboros.orchestrator.atomic_prompt_builder import (
@@ -221,6 +240,10 @@ from ouroboros.orchestrator.level_context import (
     extract_level_context,
     serialize_level_contexts,
 )
+from ouroboros.orchestrator.model_routing import (
+    resolve_execute_model,
+    tier_from_profile_hint,
+)
 from ouroboros.orchestrator.parallel_executor_models import (
     ACExecutionOutcome,
     ACExecutionResult,
@@ -228,7 +251,7 @@ from ouroboros.orchestrator.parallel_executor_models import (
     ParallelExecutionStageResult,
     StageExecutionOutcome,
 )
-from ouroboros.orchestrator.profile_loader import ExecutionProfile
+from ouroboros.orchestrator.profile_loader import ExecutionProfile, SuggestedModelTier
 from ouroboros.orchestrator.rate_limit import (
     RateLimitBackoff,
     RateLimitGate,
@@ -238,6 +261,7 @@ from ouroboros.orchestrator.rate_limit import (
 from ouroboros.orchestrator.runtime_param_negotiation import (
     announce_execution_param_degradations,
 )
+from ouroboros.orchestrator.shadow_replay import isolated_workspace, run_shadow_replay
 from ouroboros.orchestrator.verifier import (
     Verifier,
     VerifierContractError,
@@ -253,9 +277,320 @@ if TYPE_CHECKING:
         DependencyGraph,
         StagedExecutionPlan,
     )
+    from ouroboros.orchestrator.model_routing import ModelRouter
     from ouroboros.persistence.event_store import EventStore
 
 log = get_logger(__name__)
+
+
+# -- Frugality-proof producer helpers ----------------------------------------
+# Token keys the deliver-verdict claim surface may carry a handle under. Mirrors
+# the vocabulary traceguard_validator._CHUNK_ID_KEYS accepts, so a leaf-emitted
+# structured fact is not misread as "no evidence handle".
+_DELIVER_CLAIM_SURFACE_KEYS: tuple[str, ...] = (
+    "evidence_claims",
+    "observed_facts",
+    "retained_facts",
+)
+_DELIVER_FACT_ID_KEYS: tuple[str, ...] = ("fact_id",)
+_DELIVER_EVIDENCE_HANDLE_KEYS: tuple[str, ...] = (
+    "evidence_handle",
+    "chunk_id",
+    "evidence",
+    "chunk",
+)
+_STANDARD_DELIVER_EVIDENCE_FIELDS: tuple[str, ...] = (
+    "files_touched",
+    "commands_run",
+    "tests_passed",
+)
+_FILE_MUTATION_TOOLS = frozenset({"Edit", "Write", "NotebookEdit", "MultiEdit"})
+_TOKEN_SPEND_FALLBACK_KEYS: tuple[str, ...] = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+_TOKEN_USAGE_KEYS: tuple[str, ...] = (
+    *_TOKEN_SPEND_FALLBACK_KEYS,
+    "cached_input_tokens",
+    "total_tokens",
+)
+
+
+def _finite_nonneg_number(value: object) -> float | None:
+    """Return ``value`` as a finite, non-negative float, else ``None``.
+
+    Mirrors ``frugality_proof._finite_number`` (rejects ``None``, booleans,
+    non-numerics, NaN/inf) and additionally rejects negatives: a token count is a
+    spend, and a negative spend is malformed telemetry that must be dropped rather
+    than counted (a negative would understate the run's real spend and skew the
+    proof's aggregate reduction).
+    """
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number < 0:
+        return None
+    return number
+
+
+def _harvest_token_spend(
+    messages: list[AgentMessage],
+) -> tuple[float, dict[str, float]] | None:
+    """Sum runtime-reported token usage across a leaf's message stream.
+
+    Usage semantics are resolved PER MESSAGE before messages are added together:
+
+    * a usable ``total_tokens`` is authoritative for that message;
+    * otherwise spend is ``input_tokens + output_tokens`` plus Anthropic's
+      additive ``cache_creation_input_tokens + cache_read_input_tokens``;
+    * OpenAI's ``cached_input_tokens`` remains in the diagnostic breakdown but is
+      never added separately because it is already a subset of ``input_tokens``.
+
+    Token telemetry is all-or-nothing across the leaf. If a ``usage`` payload is
+    malformed, or any present recognized counter is invalid, the whole attempt
+    returns ``None``. Dropping only the bad component (or falling back when an
+    invalid ``total_tokens`` is present) would undercount spend and can create a
+    false frugality PASS. An absent payload or a valid payload with no spend
+    counter contributes nothing; when no spend is observed the function returns
+    ``None`` rather than fabricating a char-proxy or zero-token spend.
+
+    Multiple usage-bearing messages in one stream (e.g. a Claude result message
+    plus Codex ``turn.completed`` messages) are summed, so a decomposed child's
+    full spend is attributed even when the runtime reports it in pieces.
+
+    Returns:
+        ``(token_spend, usage_breakdown)`` where ``usage_breakdown`` is the summed
+        per-key total for every usable key, or ``None`` when no spend was seen.
+    """
+    breakdown: dict[str, float] = {}
+    token_spend = 0.0
+    observed_spend = False
+    for message in messages:
+        data = getattr(message, "data", None)
+        if not isinstance(data, dict):
+            continue
+        if data.get("usage_invalid") is True:
+            return None
+        if "usage" not in data:
+            continue
+        usage = data["usage"]
+        if not isinstance(usage, Mapping):
+            return None
+        usable_usage: dict[str, float] = {}
+        for key in _TOKEN_USAGE_KEYS:
+            if key not in usage:
+                continue
+            raw_value = usage[key]
+            number = _finite_nonneg_number(raw_value)
+            if number is None:
+                return None
+            usable_usage[key] = number
+            breakdown[key] = breakdown.get(key, 0.0) + number
+
+        total_tokens = usable_usage.get("total_tokens")
+        if total_tokens is not None:
+            token_spend += total_tokens
+            observed_spend = True
+            continue
+
+        spend_components = [
+            usable_usage[key] for key in _TOKEN_SPEND_FALLBACK_KEYS if key in usable_usage
+        ]
+        if spend_components:
+            token_spend += sum(spend_components)
+            observed_spend = True
+
+    if (
+        not observed_spend
+        or not math.isfinite(token_spend)
+        or any(not math.isfinite(value) for value in breakdown.values())
+    ):
+        return None
+    return token_spend, breakdown
+
+
+def _first_nonblank_str(entry: Mapping[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        value = entry.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _structured_deliver_facts(
+    typed_evidence: EvidenceRecord | None,
+) -> list[DeliverEvidenceFact]:
+    """Extract genuinely-present ``(fact_id, evidence_handle)`` claim facts.
+
+    Reads only an EXPLICIT structured claim array the leaf emitted (one of
+    :data:`_DELIVER_CLAIM_SURFACE_KEYS`, each item a mapping bearing a non-blank
+    ``fact_id`` and a non-blank evidence handle). Returns ``[]`` when the evidence
+    carries no such surface — the common non-fat-harness case — so the caller
+    SKIPs rather than fabricating facts from prose, which would reward-hack the
+    very proof the deliver gate exists to keep honest.
+    """
+    if typed_evidence is None:
+        return []
+    data = getattr(typed_evidence, "data", None)
+    if not isinstance(data, Mapping):
+        return []
+    facts: list[DeliverEvidenceFact] = []
+    seen: set[str] = set()
+    for surface_key in _DELIVER_CLAIM_SURFACE_KEYS:
+        entries = data.get(surface_key)
+        if not isinstance(entries, (list, tuple)):
+            continue
+        for entry in entries:
+            if not isinstance(entry, Mapping):
+                continue
+            fact_id = _first_nonblank_str(entry, _DELIVER_FACT_ID_KEYS)
+            handle = _first_nonblank_str(entry, _DELIVER_EVIDENCE_HANDLE_KEYS)
+            if fact_id is None or handle is None or fact_id in seen:
+                continue
+            seen.add(fact_id)
+            statement = entry.get("statement")
+            facts.append(
+                DeliverEvidenceFact(
+                    fact_id=fact_id,
+                    evidence_handle=handle,
+                    statement=statement if isinstance(statement, str) else "",
+                )
+            )
+    return facts
+
+
+def _standard_deliver_facts(
+    typed_evidence: EvidenceRecord,
+    manifest: EvidenceManifest,
+    *,
+    task_cwd: str | None,
+    verifier_passed: bool,
+) -> list[DeliverEvidenceFact] | None:
+    """Bind default-profile evidence to exact accepted-leaf tool journal rows.
+
+    ``None`` means the record exposes none of the standard code-profile fields,
+    allowing the caller to fall back to an explicit structured claim surface.
+    A list (including an empty list) means the standard surface was present and
+    therefore takes priority over arbitrary ``observed_facts``.
+
+    Every scalar becomes a fact. Exact one-entry matches receive that journal
+    handle; missing or ambiguous matches receive a guaranteed-absent handle so
+    TraceGuard emits a deterministic rejection. File paths must be relative and
+    contained in ``task_cwd``. ``tests_passed`` additionally requires both a
+    harness verifier PASS and exact membership in ``commands_run``.
+    """
+    data = typed_evidence.data
+    if not any(field in data for field in _STANDARD_DELIVER_EVIDENCE_FIELDS):
+        return None
+
+    commands = frozenset(_string_evidence_values(data.get("commands_run")))
+    facts: list[DeliverEvidenceFact] = []
+    seen: set[tuple[str, str]] = set()
+    for field in _STANDARD_DELIVER_EVIDENCE_FIELDS:
+        raw_values = data.get(field)
+        values = _string_evidence_values(raw_values)
+        if raw_values is not None and not values:
+            values = ("<invalid-or-empty-evidence>",)
+        for index, raw_value in enumerate(values):
+            normalized = raw_value.strip()
+            if field == "files_touched":
+                normalized_path = _contained_workspace_relative_path(normalized, task_cwd)
+                match_value = normalized_path or normalized
+                eligible = normalized_path is not None
+            else:
+                match_value = normalized
+                eligible = bool(normalized) and "\n" not in normalized and "\r" not in normalized
+            if field == "tests_passed":
+                eligible = eligible and verifier_passed and normalized in commands
+
+            dedupe_key = (field, match_value)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            matches = (
+                _matching_journal_entries(manifest, field=field, value=match_value)
+                if eligible
+                else ()
+            )
+            handle = matches[0].handle if len(matches) == 1 else f"missing:{field}:{index}"
+            statement_value = _structured_literal(match_value)
+            if statement_value is None:
+                handle = f"missing:{field}:{index}"
+                statement_value = "invalid"
+            facts.append(
+                DeliverEvidenceFact(
+                    fact_id=f"typed:{field}:{index}",
+                    evidence_handle=handle,
+                    statement=f"typed_evidence {field}={statement_value}",
+                )
+            )
+    return facts
+
+
+def _string_evidence_values(value: object) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value.strip(),) if value.strip() else ()
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(item.strip() for item in value if isinstance(item, str) and item.strip())
+
+
+def _contained_workspace_relative_path(value: str, task_cwd: str | None) -> str | None:
+    if not value or task_cwd is None:
+        return None
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts:
+        return None
+    try:
+        root = Path(task_cwd).expanduser().resolve(strict=False)
+        candidate = (root / path).resolve(strict=False)
+        normalized = candidate.relative_to(root).as_posix()
+    except (OSError, ValueError):
+        return None
+    return normalized if normalized not in {"", "."} else None
+
+
+def _matching_journal_entries(
+    manifest: EvidenceManifest,
+    *,
+    field: str,
+    value: str,
+) -> tuple[EvidenceEntry, ...]:
+    matches: list[EvidenceEntry] = []
+    for entry in manifest.entries:
+        if entry.ok is not True or not isinstance(entry.payload, Mapping):
+            continue
+        payload = entry.payload
+        tool_name = payload.get("tool_name")
+        if field == "files_touched":
+            if tool_name not in _FILE_MUTATION_TOOLS:
+                continue
+            observed = payload.get("workspace_relative_path")
+        else:
+            if tool_name != "Bash":
+                continue
+            observed = payload.get("command")
+            if not isinstance(observed, str):
+                observed = payload.get("args_preview")
+        if isinstance(observed, str) and observed.strip() == value:
+            matches.append(entry)
+    return tuple(matches)
+
+
+def _structured_literal(value: str) -> str | None:
+    """Quote a scalar for the strict key=value claim-term grammar."""
+    if not value or "\n" in value or "\r" in value:
+        return None
+    for quote in ("`", '"', "'"):
+        if quote not in value:
+            return f"{quote}{value}{quote}"
+    return None
+
 
 # Decomposition constants
 # Depth >= max_decomposition_depth forces atomic execution as a soft safety net.
@@ -450,10 +785,12 @@ class ParallelACExecutor:
         fat_harness_mode: bool = False,
         atomic_verifier: Verifier | None = None,
         reasoning_effort: str | None = None,
+        model_router: ModelRouter | None = None,
         run_verify_commands: bool = True,
         verify_command_timeout_seconds: int = 600,
         ac_retry_attempts: int = 0,
         cross_harness_redispatch: bool | None = None,
+        shadow_replay_enabled: bool = False,
     ):
         """Initialize executor.
 
@@ -492,7 +829,14 @@ class ParallelACExecutor:
         self._console = console or Console()
         self._enable_decomposition = enable_decomposition
         self._max_decomposition_depth = max(0, max_decomposition_depth)
-        self._inherited_runtime_handle = inherited_runtime_handle
+        approval_mode = getattr(adapter, "permission_mode", None)
+        self._inherited_runtime_handle = (
+            replace(inherited_runtime_handle, approval_mode=approval_mode.strip())
+            if inherited_runtime_handle is not None
+            and isinstance(approval_mode, str)
+            and approval_mode.strip()
+            else inherited_runtime_handle
+        )
         self._task_cwd = task_cwd
         self._execution_profile = execution_profile
         self._fat_harness_mode = fat_harness_mode
@@ -504,10 +848,22 @@ class ParallelACExecutor:
         # routing dormant (execute_task receives no level → no behavior change),
         # so laying the executor on the capability contract is safe by default.
         self._reasoning_effort = reasoning_effort
+        # Model-tier investment dial (the frugality sibling of reasoning_effort).
+        # The router maps a per-unit tier decision to a backend-executable model id;
+        # ``None`` leaves model routing dormant (execute_task receives no model
+        # override → byte-identical to today's behavior), so laying the executor on
+        # the model capability contract is safe by default.
+        self._model_router = model_router
+        # Opt-in shadow-replay baseline harness (frugality-proof AC5). Default OFF:
+        # replaying a decomposed child at the parent tier doubles token cost, so
+        # this is an experiment lever, never a production default. When on, a
+        # successful decomposed child is re-executed in an isolated workspace to
+        # measure its parent-tier baseline spend. See ``shadow_replay`` module.
+        self._shadow_replay_enabled = shadow_replay_enabled
         self._atomic_verifier = atomic_verifier
         self._coordinator = LevelCoordinator(
             adapter,
-            inherited_runtime_handle=inherited_runtime_handle,
+            inherited_runtime_handle=self._inherited_runtime_handle,
             task_cwd=task_cwd,
         )
         self._semaphore = anyio.Semaphore(max_concurrent)
@@ -2355,7 +2711,11 @@ class ParallelACExecutor:
         from ouroboros.orchestrator.runtime_factory import create_agent_runtime
 
         cwd = self._task_cwd or self._adapter.working_directory
-        alt_adapter = create_agent_runtime(backend=backend, cwd=cwd)
+        alt_adapter = create_agent_runtime(
+            backend=backend,
+            cwd=cwd,
+            permission_mode="bypassPermissions",
+        )
 
         event = create_alt_harness_redispatch_event(
             session_id=rerun_kwargs["session_id"],
@@ -2386,7 +2746,14 @@ class ParallelACExecutor:
             fat_harness_mode=self._fat_harness_mode,
             atomic_verifier=self._atomic_verifier,
             reasoning_effort=self._reasoning_effort,
+            # The router's backend-mismatch guard makes it inert on a different
+            # backend, so passing it to the alt-harness executor is safe.
+            model_router=self._model_router,
             cross_harness_redispatch=False,
+            # The router is inert on a different backend, so the baseline resolves
+            # no parent-tier model and the replay self-skips — threading the flag
+            # just keeps the throwaway executor's behavior consistent.
+            shadow_replay_enabled=self._shadow_replay_enabled,
         )
         return await alt_executor._execute_single_ac(**rerun_kwargs, retry_attempt=retry_attempt)
 
@@ -2978,12 +3345,91 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         # reasoning_effort ONLY for runtimes that enforce it; advised runtimes that
         # do not accept the parameter are never handed it.
 
+        # Sibling of the effort routing above: decide WHICH model tier runs this
+        # unit (a decomposed child drops one tier cheaper; a hard AC on its
+        # escalation retry is raised one notch) and classify how the chosen runtime
+        # will honor it — enforced via a native per-call override, or merely advised.
+        # A profile's suggested_model_tier seeds the starting tier ONLY when it is
+        # something other than the shipped default MEDIUM ("no opinion"); MEDIUM
+        # leaves precedence with the router's own base/child logic and any explicit
+        # model_tier arg. Dormant by default (router None → no model override).
+        suggested_tier: str | None = None
+        if (
+            self._execution_profile is not None
+            and self._execution_profile.suggested_model_tier is not SuggestedModelTier.MEDIUM
+        ):
+            suggested_tier = tier_from_profile_hint(
+                self._execution_profile.suggested_model_tier.value
+            )
+        model_decision, execute_model_kwargs = resolve_execute_model(
+            self._adapter,
+            router=self._model_router,
+            is_decomposed_child=is_sub_ac,
+            retry_attempt=retry_attempt,
+            suggested_tier=suggested_tier,
+        )
+        if model_decision.model is not None:
+            log.debug(
+                "orchestrator.executor.model_routed",
+                ac_index=ac_index,
+                is_sub_ac=is_sub_ac,
+                model_tier=model_decision.tier,
+                model=model_decision.model,
+                model_mode=model_decision.mode,
+                backend=getattr(self._adapter, "runtime_backend", None),
+            )
+            await self._event_emitter.emit_model_routed(
+                runtime_identity=runtime_identity,
+                execution_id=execution_context_id,
+                session_id=session_id,
+                ac_index=ac_index,
+                is_sub_ac=is_sub_ac,
+                model_tier=model_decision.tier,
+                model=model_decision.model,
+                model_mode=model_decision.mode,
+                retry_attempt=retry_attempt,
+                runtime_backend=getattr(self._adapter, "runtime_backend", None),
+            )
+        # Merge the model override into the effort kwargs. The merged dict flows
+        # through LeafDispatcher.stream → execute_task unchanged (LeafDispatcher
+        # itself is untouched); ``model`` is present ONLY for runtimes that enforce
+        # a per-call override, so an advised runtime is never handed one.
+        execute_effort_kwargs = {**execute_effort_kwargs, **execute_model_kwargs}
+
         # Runtime dispatch + streaming/heartbeat consumption. The dispatcher owns
         # the stall-scoped CancelScope and the per-message loop; it mutates
         # ``dispatch_state`` in place (including on the exception path) so the
         # ``except``/``finally`` below observe the latest runtime handle, session
         # id, and partial message list. Created before the ``try`` so it is always
         # bound for the ``except``/``finally``.
+        #
+        # When the opt-in shadow baseline is armed, freeze the live filesystem
+        # NOW — immediately before the real child dispatch. Recreating isolation
+        # after the child succeeds would compare against a different input state
+        # (or, with a detached worktree, silently lose all uncommitted/untracked
+        # context). The ExitStack stays open through the replay and is closed on
+        # every success/failure/stall exit in the outer finally below.
+        shadow_snapshot_stack = contextlib.ExitStack()
+        shadow_snapshot_cwd: str | None = None
+        if self._shadow_replay_enabled and is_sub_ac:
+            try:
+                snapshot_source = self._task_cwd or getattr(
+                    self._adapter, "working_directory", None
+                )
+                if isinstance(snapshot_source, (str, os.PathLike)):
+                    shadow_snapshot_cwd = shadow_snapshot_stack.enter_context(
+                        isolated_workspace(os.fspath(snapshot_source))
+                    )
+            except Exception as exc:
+                # Experiment-only preparation must never prevent the live child.
+                log.warning(
+                    "parallel_executor.ac.shadow_replay.snapshot_prepare_failed",
+                    ac_id=runtime_identity.ac_id,
+                    error=str(exc),
+                )
+                with contextlib.suppress(Exception):
+                    shadow_snapshot_stack.close()
+                shadow_snapshot_stack = contextlib.ExitStack()
         dispatch_state = LeafDispatchState(messages=messages, runtime_handle=runtime_handle)
         try:
             await LeafDispatcher(self).stream(
@@ -3144,6 +3590,50 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 has_expected_artifacts=has_expected_artifacts,
                 verify_gate_active=verify_gate_active,
             )
+            # Frugality-proof grounding axis (seed AC4). Only when the leaf was
+            # accepted AND emitted a structured evidence claim (the fat-harness
+            # case) do we run the deterministic TraceGuard verdict; the common
+            # non-fat-harness leaf has no structured claim surface and is skipped.
+            await self._observe_deliver_verdict(
+                runtime_identity=runtime_identity,
+                execution_id=execution_context_id,
+                session_id=session_id,
+                is_sub_ac=is_sub_ac,
+                success=success,
+                typed_evidence=typed_evidence,
+                verifier_verdict=verifier_verdict,
+            )
+            # Frugality-proof baseline axis (seed AC5), OPT-IN experiment. Only an
+            # accepted decomposed child has a parent baseline to price against; the
+            # harness re-executes it at the parent tier/effort in an ISOLATED
+            # workspace and emits ``execution.ac.shadow_replay``. Default OFF
+            # (doubles token cost) and fire-and-forget — it never changes this AC's
+            # result. Forced-atomic children are marked untrustworthy so the proof
+            # excludes them (mirrors the depth-limit canary in _execute_single_ac).
+            if self._shadow_replay_enabled and is_sub_ac and success:
+                # The current decomposer validates only JSON shape/count. It does
+                # not deterministically prove semantic coverage or exclusivity,
+                # so live children must not claim the MECE trust required by the
+                # frugality proof. Test harnesses may still exercise the complete
+                # proof contract by calling the replay producer with an explicit
+                # trusted decomposition attestation.
+                decomposition_trustworthy = False
+                await run_shadow_replay(
+                    self,
+                    runtime_identity=runtime_identity,
+                    execution_id=execution_context_id,
+                    session_id=session_id,
+                    ac_index=ac_index,
+                    is_sub_ac=is_sub_ac,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    decomposition_trustworthy=decomposition_trustworthy,
+                    ac_content=ac_content,
+                    ac_spec=ac_spec,
+                    isolated_cwd=shadow_snapshot_cwd,
+                    suggested_tier=suggested_tier,
+                )
             await self._emit_ac_runtime_event(
                 event_type=(
                     "execution.session.completed" if success else "execution.session.failed"
@@ -3245,20 +3735,192 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 runtime_handle=dispatch_state.runtime_handle,
             )
         finally:
-            if clear_cached_runtime_handle:
-                await self._terminate_runtime_handle(
-                    dispatch_state.runtime_handle,
-                    runtime_scope_id=runtime_identity.session_scope_id,
-                )
-                self._forget_ac_runtime_handle(
-                    ac_index,
-                    execution_context_id=execution_context_id,
+            try:
+                # Frugality-proof token axis (seed AC2). Attribute this leaf's real
+                # runtime-measured spend on EVERY exit — success, stall, and the
+                # mid-stream exception path all consumed tokens, and spend is spend.
+                # ``messages`` is the same list the dispatcher mutates in place, so the
+                # partial stream is attributed even when the runtime raised.
+                await self._emit_token_attribution_for_leaf(
+                    messages=messages,
+                    runtime_identity=runtime_identity,
+                    execution_id=execution_context_id,
+                    session_id=session_id,
+                    ac_index=ac_index,
                     is_sub_ac=is_sub_ac,
-                    parent_ac_index=parent_ac_index,
-                    sub_ac_index=sub_ac_index,
-                    node_identity=node_identity,
                     retry_attempt=retry_attempt,
+                    model_decision=model_decision,
+                    effort_decision=effort_decision,
                 )
+                if clear_cached_runtime_handle:
+                    await self._terminate_runtime_handle(
+                        dispatch_state.runtime_handle,
+                        runtime_scope_id=runtime_identity.session_scope_id,
+                    )
+                    self._forget_ac_runtime_handle(
+                        ac_index,
+                        execution_context_id=execution_context_id,
+                        is_sub_ac=is_sub_ac,
+                        parent_ac_index=parent_ac_index,
+                        sub_ac_index=sub_ac_index,
+                        node_identity=node_identity,
+                        retry_attempt=retry_attempt,
+                    )
+            finally:
+                try:
+                    shadow_snapshot_stack.close()
+                except Exception as exc:
+                    log.warning(
+                        "parallel_executor.ac.shadow_replay.snapshot_cleanup_failed",
+                        ac_id=runtime_identity.ac_id,
+                        error=str(exc),
+                    )
+
+    async def _emit_token_attribution_for_leaf(
+        self,
+        *,
+        messages: list[AgentMessage],
+        runtime_identity: ACRuntimeIdentity,
+        execution_id: str,
+        session_id: str,
+        ac_index: int,
+        is_sub_ac: bool,
+        retry_attempt: int,
+        model_decision: Any,
+        effort_decision: Any,
+    ) -> None:
+        """Harvest and emit this leaf's runtime token spend (frugality-proof AC2).
+
+        Emits nothing when the stream carried no runtime usage telemetry — the
+        proof treats missing as missing rather than fabricating a spend. Observe-only:
+        any failure degrades to a warning so token attribution never disrupts the
+        leaf's teardown or result.
+        """
+        try:
+            harvested = _harvest_token_spend(messages)
+            if harvested is None:
+                return
+            token_spend, usage_breakdown = harvested
+            await self._event_emitter.emit_token_attribution(
+                runtime_identity=runtime_identity,
+                execution_id=execution_id,
+                session_id=session_id,
+                ac_index=ac_index,
+                is_sub_ac=is_sub_ac,
+                retry_attempt=retry_attempt,
+                token_spend=token_spend,
+                usage_breakdown=usage_breakdown,
+                model=getattr(model_decision, "model", None),
+                model_tier=getattr(model_decision, "tier", None),
+                model_mode=getattr(model_decision, "mode", None),
+                effort_level=getattr(effort_decision, "level", None),
+                runtime_backend=getattr(self._adapter, "runtime_backend", None),
+            )
+        except Exception as exc:
+            log.warning(
+                "parallel_executor.ac.token_attribution.observe_failed",
+                ac_index=ac_index,
+                error=str(exc),
+            )
+
+    async def _observe_deliver_verdict(
+        self,
+        *,
+        runtime_identity: ACRuntimeIdentity,
+        execution_id: str,
+        session_id: str,
+        is_sub_ac: bool,
+        success: bool,
+        typed_evidence: EvidenceRecord | None,
+        verifier_verdict: VerifierVerdict | None,
+    ) -> None:
+        """Evaluate + emit the TraceGuard deliver verdict for an accepted leaf (AC4).
+
+        Skips silently (debug log) when the leaf was not accepted or carries no
+        structured evidence claim — the manifest is loaded and the deterministic
+        TraceGuard verdict is only run against a genuine ``(fact_id,
+        evidence_handle)`` claim surface. HARD RULE: observe-only. This never
+        changes AC success/failure, retries, or routing; any failure degrades to a
+        warning.
+        """
+        if (
+            not success
+            or not self._fat_harness_mode
+            or typed_evidence is None
+            or verifier_verdict is None
+            or not verifier_verdict.passed
+        ):
+            return
+        try:
+            ac_id = runtime_identity.ac_id
+            typed_data = typed_evidence.data
+            has_standard_surface = any(
+                field in typed_data for field in _STANDARD_DELIVER_EVIDENCE_FIELDS
+            )
+            explicit_facts = _structured_deliver_facts(typed_evidence)
+            if not has_standard_surface and not explicit_facts:
+                log.debug(
+                    "parallel_executor.ac.deliver_verdict.skipped_no_claim_surface",
+                    ac_id=runtime_identity.ac_id,
+                )
+                return
+            # Bound the manifest to this execution only; the execution_id anchor
+            # already isolates it, and omitting the session filter avoids pruning
+            # execution-scoped journal rows that carry a different runtime session.
+            # ``execution.tool.started`` rows are admitted only here, after the
+            # leaf, typed record, and harness verifier have all passed; exact
+            # typed-value matching below decides whether any can back a claim.
+            manifest = await load_ac_evidence_manifest(
+                self._event_store,
+                ac_id=ac_id,
+                execution_id=execution_id,
+                admit_accepted_tool_starts=True,
+                accepted_retry_attempt=runtime_identity.retry_attempt,
+                accepted_session_attempt_id=runtime_identity.session_attempt_id,
+            )
+            standard_facts = _standard_deliver_facts(
+                typed_evidence,
+                manifest,
+                task_cwd=self._task_cwd or getattr(self._adapter, "working_directory", None),
+                verifier_passed=verifier_verdict.passed,
+            )
+            facts = standard_facts if standard_facts is not None else explicit_facts
+            if not facts:
+                log.debug(
+                    "parallel_executor.ac.deliver_verdict.skipped_no_claim_surface",
+                    ac_id=runtime_identity.ac_id,
+                )
+                return
+            claim = DeliverEvidenceClaim(ac_id=ac_id, facts=tuple(facts))
+            verdict = evaluate_deliver_claim(
+                manifest,
+                claim,
+                traceguard_validator=validate_evidence_claims,
+                claim_term_guard=strict_deterministic_claim_term_guard,
+                journal_bound=True,
+            )
+            await self._event_emitter.emit_deliver_verdict(
+                runtime_identity=runtime_identity,
+                execution_id=execution_id,
+                session_id=session_id,
+                is_sub_ac=is_sub_ac,
+                traceguard_verdict="accepted" if verdict.accepted else "rejected",
+                unsupported_claim_rate=verdict.unsupported_claim_rate,
+                rejected_reasons=list(verdict.rejected_reasons),
+                accepted_fact_count=len(verdict.accepted_fact_ids),
+                # A paired baseline deliver verdict is not available in the
+                # isolated replay.  Fail closed: an accepted child cannot be a
+                # newly-rejected regression; any rejected child is conservatively
+                # treated as a regression rather than manufacturing ``False``.
+                grounding_regression=not verdict.accepted,
+                grounding_regression_mode="fail_closed_live_traceguard",
+            )
+        except Exception as exc:
+            log.warning(
+                "parallel_executor.ac.deliver_verdict.observe_failed",
+                ac_id=runtime_identity.ac_id,
+                error=str(exc),
+            )
 
     def _observe_atomic_typed_evidence(
         self,
@@ -3451,6 +4113,42 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
             atomic_verifier_verdict=verdict,
         )
 
+    async def _emit_ac_outcome_finalized(
+        self,
+        *,
+        result: ACExecutionResult,
+        root_ac_index: int,
+        session_id: str,
+        execution_id: str,
+    ) -> None:
+        """Persist the outer verify/retry layer's authoritative AC outcome.
+
+        Leaf-level deliver and shadow events are provisional because they are
+        emitted before the seed-level success contract runs.  The deterministic
+        frugality proof requires this marker and admits only roots whose latest
+        retry was finally accepted.  Event persistence remains observe-only: if
+        the marker is dropped, the proof fails closed by excluding the rows.
+        """
+        from ouroboros.events.base import BaseEvent
+
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.ac.outcome_finalized",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "root_ac_index": root_ac_index,
+                    "ac_index": root_ac_index,
+                    "retry_attempt": result.retry_attempt,
+                    "success": result.success,
+                    "outcome": result.outcome.value if result.outcome is not None else None,
+                    "is_decomposed": result.is_decomposed,
+                },
+            )
+        )
+
     async def _compute_sibling_flip_gated_out(
         self,
         *,
@@ -3578,10 +4276,17 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         for position, ac_idx in enumerate(batch_executable):
             result = results[position]
             if isinstance(result, ACExecutionResult):
-                results[position] = await self._apply_verify_gate(
+                gated = await self._apply_verify_gate(
                     seed=seed,
                     ac_index=ac_idx,
                     result=result,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                )
+                results[position] = gated
+                await self._emit_ac_outcome_finalized(
+                    result=gated,
+                    root_ac_index=ac_idx,
                     session_id=session_id,
                     execution_id=execution_id,
                 )
@@ -3654,6 +4359,13 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                         execution_id=execution_id,
                     )
                 results[position_by_idx[ac_idx]] = gated
+                if isinstance(gated, ACExecutionResult):
+                    await self._emit_ac_outcome_finalized(
+                        result=gated,
+                        root_ac_index=ac_idx,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                    )
 
                 if not self._is_retryable_failure(gated):
                     pending.discard(ac_idx)
@@ -3668,6 +4380,32 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                     and last_failure_class.get(ac_idx) is not None
                     and new_class == last_failure_class[ac_idx]
                 ):
+                    model_support = getattr(
+                        getattr(self._adapter, "capabilities", None),
+                        "model_override_support",
+                        ParamSupport.IGNORED,
+                    )
+                    escalation_attempt = (
+                        self._model_router.escalation_retry_threshold
+                        if self._model_router is not None
+                        else None
+                    )
+                    pending_enforced_escalation = (
+                        self._model_router is not None
+                        and self._model_router.runtime_backend
+                        == getattr(self._adapter, "runtime_backend", None)
+                        and model_support is ParamSupport.NATIVE
+                        and escalation_attempt is not None
+                        and ac_retry_attempts[ac_idx]
+                        < escalation_attempt
+                        <= self._ac_retry_attempts
+                    )
+                    if pending_enforced_escalation:
+                        # The next scheduled retry is the first one that can use
+                        # a stronger model. Identical weak-model failures are not
+                        # evidence that the escalation itself is futile.
+                        last_failure_class[ac_idx] = new_class
+                        continue
                     # Identical failure class on every attempt: stop early
                     # rather than burning the last attempt.
                     log.info(
@@ -3701,10 +4439,17 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                             # verify gate the same-runtime results get, so an
                             # alternate 'success' with a failing verify_command or
                             # missing expected artifact is not accepted as success.
-                            results[position_by_idx[ac_idx]] = await self._apply_verify_gate(
+                            finalized_alt = await self._apply_verify_gate(
                                 seed=seed,
                                 ac_index=ac_idx,
                                 result=alt,
+                                session_id=session_id,
+                                execution_id=execution_id,
+                            )
+                            results[position_by_idx[ac_idx]] = finalized_alt
+                            await self._emit_ac_outcome_finalized(
+                                result=finalized_alt,
+                                root_ac_index=ac_idx,
                                 session_id=session_id,
                                 execution_id=execution_id,
                             )
@@ -3815,6 +4560,8 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         has_success_contract: bool = False,
         has_expected_artifacts: bool = False,
         verify_gate_active: bool = False,
+        force_runtime_transcript: bool = False,
+        task_cwd_override: str | None = None,
     ) -> VerifierVerdict | None:
         """Run the separate verifier pass once typed evidence is schema-valid."""
         if (
@@ -3854,7 +4601,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                     leaf_output=final_message,
                     record=scoped_evidence,
                 )
-                if verifier is not None
+                if verifier is not None and not force_runtime_transcript
                 else self._verify_atomic_evidence_against_runtime_messages(
                     messages=messages,
                     typed_evidence=scoped_evidence,
@@ -3862,6 +4609,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                     has_success_contract=has_success_contract,
                     has_expected_artifacts=has_expected_artifacts,
                     verify_gate_active=verify_gate_active,
+                    task_cwd_override=task_cwd_override,
                 )
             )
         except VerifierContractError:
@@ -3882,14 +4630,15 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         has_success_contract: bool = False,
         has_expected_artifacts: bool = False,
         verify_gate_active: bool = False,
+        task_cwd_override: str | None = None,
     ) -> VerifierVerdict:
         return _verify_atomic_evidence_against_runtime_messages(
             messages=messages,
             typed_evidence=typed_evidence,
             ac_content=ac_content,
             execution_profile=self._execution_profile,
-            task_cwd=self._task_cwd,
-            adapter_working_directory=self._adapter.working_directory,
+            task_cwd=task_cwd_override or self._task_cwd,
+            adapter_working_directory=(task_cwd_override or self._adapter.working_directory),
             has_success_contract=has_success_contract,
             has_expected_artifacts=has_expected_artifacts,
             verify_gate_active=verify_gate_active,

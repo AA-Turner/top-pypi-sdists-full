@@ -14,7 +14,9 @@ linear / block lanes these diagnostics read.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +37,46 @@ def _as_2d_u32(values: Any, label: str) -> np.ndarray:
     if arr.ndim != 2:
         raise ValueError(f"{label} must be a 2-D array; got shape {arr.shape}")
     return np.ascontiguousarray(arr)
+
+
+def _sparse_route_arrays(
+    route: Any, label: str, block_size: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Normalize a fixed-width sparse route without expanding implicit zeros."""
+    if isinstance(route, Mapping):
+        if "indices" not in route:
+            raise ValueError(f"{label} mapping must contain 'indices'")
+        indices = route["indices"]
+        if "values" in route:
+            values = route["values"]
+        elif "codes" in route:
+            values = route["codes"]
+        else:
+            raise ValueError(f"{label} mapping must contain 'values' or 'codes'")
+    elif isinstance(route, Sequence) and not isinstance(route, (str, bytes, bytearray)):
+        if len(route) != 2:
+            raise ValueError(f"{label} must be an (indices, values) pair")
+        indices, values = route
+    elif hasattr(route, "indices") and hasattr(route, "codes"):
+        indices, values = route.indices, route.codes
+    else:
+        raise TypeError(
+            f"{label} must be a sparse route mapping/object or (indices, values) pair"
+        )
+    idx = _as_2d_u32(indices, f"{label}.indices")
+    val = np.asarray(values, dtype=np.float32)
+    if block_size == 1 and val.ndim == 2:
+        val = val[:, :, None]
+    if val.ndim != 3:
+        raise ValueError(
+            f"{label}.values must be N x s x block_size; got shape {val.shape}"
+        )
+    if val.shape != (idx.shape[0], idx.shape[1], block_size):
+        raise ValueError(
+            f"{label} values shape {val.shape} does not match indices {idx.shape} "
+            f"and block_size {block_size}"
+        )
+    return idx, np.ascontiguousarray(val)
 
 
 def _as_optional_1d_f64(values: Any | None, label: str) -> np.ndarray | None:
@@ -118,123 +160,6 @@ def dimension_spectrometer(
 
 
 # --------------------------------------------------------------------------- #
-# Tiered SAE fit (#2023)
-# --------------------------------------------------------------------------- #
-# Unified-ledger move kind legend for ``TieredFitResult.ledger_move_kind``.
-SAE_MOVE_BIRTH = 0
-SAE_MOVE_DEATH = 1
-SAE_MOVE_REFUSE = 2
-# Ladder-stage legend for ``TieredFitResult.ledger_move_stage``.
-SAE_STAGE_RESIDUAL = 0
-SAE_STAGE_LINEAR = 1
-SAE_STAGE_CURVED = 2
-# Birth-seed legend for ``TieredFitResult.ledger_move_seed`` (``-1`` non-birth).
-SAE_SEED_RESIDUAL_FACTOR = 0
-SAE_SEED_LINEAR_ATOM = 1
-SAE_SEED_CURVED_CHART = 2
-SAE_SEED_PRINCIPAL_COMPONENT = 3
-
-
-@dataclass(frozen=True)
-class TieredFitResult:
-    """End-to-end tiered SAE fit: Tier-0 mean, Tier-1 block-sparse linear bulk,
-    Tier-2 curved co-fit on the Tier-1 residual, and the unified migration ledger.
-
-    ``ledger_move_kind`` uses the ``SAE_MOVE_*`` legend (``0`` birth, ``1`` death,
-    ``2`` refuse), ``ledger_move_stage`` the ``SAE_STAGE_*`` legend (``0``
-    residual, ``1`` linear, ``2`` curved), and ``ledger_move_seed`` the
-    ``SAE_SEED_*`` legend for births (``-1`` for non-births); a
-    ``ledger_move_round`` of ``-1`` marks the Tier-1 structural death tally.
-    ``ledger_pc_reseed_events`` is ``0`` by construction on this path (the curved
-    tier seeds from the Tier-1 routing / residual, never principal components).
-    """
-
-    explained_variance: float
-    tier0_mean: np.ndarray
-    tier1_decoder: np.ndarray
-    tier1_blocks: np.ndarray
-    tier1_gamma: float
-    tier1_block_utilization: np.ndarray
-    tier1_explained_variance: float
-    tier1_epochs: int
-    tier1_converged: bool
-    tier2_enabled: bool
-    tier2_explained_variance: float
-    tier2_n_rounds: int
-    tier2_n_accepted_charts: int
-    ledger_pc_reseed_events: int
-    ledger_n_births: int
-    ledger_n_deaths: int
-    ledger_n_refusals: int
-    ledger_move_kind: np.ndarray
-    ledger_move_stage: np.ndarray
-    ledger_move_seed: np.ndarray
-    ledger_move_round: np.ndarray
-    ledger_move_count: np.ndarray
-    ledger_move_dl_bits: np.ndarray
-    ledger_move_reml_delta: np.ndarray
-    ledger_move_rank_charge: np.ndarray
-    ledger_move_objective: np.ndarray
-
-
-def sae_manifold_fit_tiered(
-    data: Any,
-    *,
-    n_blocks: int,
-    block_size: int = 2,
-    block_topk: int = 1,
-    max_epochs: int = 30,
-    tier2_enabled: bool = True,
-    cofit_max_rounds: int = 6,
-    cofit_rel_tol: float = 1.0e-4,
-    cofit_code_ridge: float = 1.0e-6,
-) -> TieredFitResult:
-    """Fit the tiered decomposition (#2023): Tier-0 mean peel → Tier-1
-    block-sparse linear bulk → Tier-2 curved co-fit on the Tier-1 residual, with
-    a migration ledger that replaces principal-component reseeding."""
-    x = _as_2d_f32(data, "data")
-    payload = rust_module().sae_manifold_fit_tiered(
-        x,
-        n_blocks,
-        block_size,
-        block_topk,
-        max_epochs,
-        tier2_enabled,
-        cofit_max_rounds,
-        cofit_rel_tol,
-        cofit_code_ridge,
-    )
-    return TieredFitResult(
-        explained_variance=float(payload["explained_variance"]),
-        tier0_mean=np.asarray(payload["tier0_mean"]),
-        tier1_decoder=np.asarray(payload["tier1_decoder"]),
-        tier1_blocks=np.asarray(payload["tier1_blocks"]),
-        tier1_gamma=float(payload["tier1_gamma"]),
-        tier1_block_utilization=np.asarray(payload["tier1_block_utilization"]),
-        tier1_explained_variance=float(payload["tier1_explained_variance"]),
-        tier1_epochs=int(payload["tier1_epochs"]),
-        tier1_converged=bool(payload["tier1_converged"]),
-        tier2_enabled=bool(payload["tier2_enabled"]),
-        tier2_explained_variance=float(payload["tier2_explained_variance"]),
-        tier2_n_rounds=int(payload["tier2_n_rounds"]),
-        tier2_n_accepted_charts=int(payload["tier2_n_accepted_charts"]),
-        ledger_pc_reseed_events=int(payload["ledger_pc_reseed_events"]),
-        ledger_n_births=int(payload["ledger_n_births"]),
-        ledger_n_deaths=int(payload["ledger_n_deaths"]),
-        ledger_n_refusals=int(payload["ledger_n_refusals"]),
-        ledger_move_kind=np.asarray(payload["ledger_move_kind"]),
-        ledger_move_stage=np.asarray(payload["ledger_move_stage"]),
-        ledger_move_seed=np.asarray(payload["ledger_move_seed"]),
-        ledger_move_round=np.asarray(payload["ledger_move_round"]),
-        ledger_move_count=np.asarray(payload["ledger_move_count"]),
-        ledger_move_dl_bits=np.asarray(payload["ledger_move_dl_bits"]),
-        ledger_move_reml_delta=np.asarray(payload["ledger_move_reml_delta"]),
-        ledger_move_rank_charge=np.asarray(payload["ledger_move_rank_charge"]),
-        ledger_move_objective=np.asarray(payload["ledger_move_objective"]),
-    )
-
-
-# --------------------------------------------------------------------------- #
 # Block-firing circle coordinates
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
@@ -261,21 +186,17 @@ class BlockCoordinateReport:
 def block_firing_coordinates(
     decoder: Any,
     blocks: Any,
-    gates: Any,
     codes: Any,
     block: int,
-    *,
-    block_topk: int = 1,
 ) -> BlockCoordinateReport:
     """Recover per-firing circle coordinates (phase, amplitude, SEs) for one
-    ``b = 2`` block of a fitted block-sparse dictionary."""
+    ``b = 2`` block from fixed-width sparse ``blocks`` / ``codes`` routing."""
     dec = _as_2d_f32(decoder, "decoder")
     blk = _as_2d_u32(blocks, "blocks")
-    gat = _as_2d_f32(gates, "gates")
     cod = np.ascontiguousarray(np.asarray(codes, dtype=np.float32))
     if cod.ndim != 3:
         raise ValueError(f"codes must be a 3-D N x k x b array; got shape {cod.shape}")
-    payload = rust_module().block_firing_coordinates(dec, blk, gat, cod, block, block_topk)
+    payload = rust_module().block_firing_coordinates(dec, blk, cod, block)
     return BlockCoordinateReport(
         sigma_hat=float(payload["sigma_hat"]),
         mean_radius=float(payload["mean_radius"]),
@@ -457,13 +378,6 @@ def _load_decoder_checkpoint(checkpoint: Any, decoder_key: str | None) -> tuple[
     )
 
 
-def _dense_codes_from_sparse(indices: np.ndarray, sparse_codes: np.ndarray, k: int) -> np.ndarray:
-    dense = np.zeros((indices.shape[0], k), dtype=np.float32)
-    rows = np.arange(indices.shape[0])[:, None]
-    dense[rows, indices] = sparse_codes
-    return np.ascontiguousarray(dense)
-
-
 def audit_sae(
     checkpoint: Any,
     activations: Any,
@@ -473,7 +387,6 @@ def audit_sae(
     decoder_key: str | None = None,
     active: int | None = None,
     block_size: int = 1,
-    block_topk: int | None = None,
     delta: float = 0.05,
     quantile_levels: tuple[float, ...] | None = (0.5, 0.9, 0.99),
     max_candidates: int = 16,
@@ -497,14 +410,14 @@ def audit_sae(
     ``K x P``: one dictionary row per atom and one column per activation
     dimension. ``activations`` is ``N x P``.
 
-    If dense SAE ``codes`` (``N x K``) are supplied, they are audited as the
-    frozen external encoder output. If not, the Rust sparse router encodes
-    ``activations`` against the frozen decoder with ``active`` atoms per row
-    (default ``1``) before running the audit. ``random_weight_codes`` is an
-    architecture-matched random-weight encoder donor used for the required
-    null battery attached to topology and atlas claims. All certificate,
-    routability, coordinate-SE, topology, and atlas-nerve quantities are
-    computed by Rust.
+    ``codes`` and ``random_weight_codes`` are sparse routes represented as an
+    ``(indices, values)`` pair or a mapping/object with ``indices`` and
+    ``values``/``codes`` fields. ``indices`` is ``N x s``; values are ``N x s``
+    for scalar routing or ``N x s x block_size`` for block routing. If
+    ``codes`` is omitted in the scalar lane, the Rust sparse router encodes the
+    activations with ``active`` atoms per row. Block audits require the frozen
+    external route because its fitted block-gate state is part of the encoder.
+    Neither Python nor Rust materializes the logical ``N x K`` matrix.
     """
     dec, checkpoint_meta = _load_decoder_checkpoint(checkpoint, decoder_key)
     acts = _as_2d_f32(activations, "activations")
@@ -513,6 +426,10 @@ def audit_sae(
             f"activations have P={acts.shape[1]} columns but decoder has P={dec.shape[1]}"
         )
     if codes is None:
+        if block_size != 1:
+            raise ValueError(
+                "block audit requires sparse external codes=(block_indices, block_values)"
+            )
         route_active = 1 if active is None else int(active)
         routed = rust_module().sparse_dictionary_transform_ffi(
             acts,
@@ -522,25 +439,24 @@ def audit_sae(
             float(code_ridge),
             score_mode,
         )
-        cod = _dense_codes_from_sparse(routed["indices"], routed["codes"], dec.shape[0])
+        route_indices, route_values = _sparse_route_arrays(
+            routed, "codes", block_size
+        )
         route_meta: dict[str, Any] = {
             "source": "rust_sparse_router",
             "active": route_active,
             "score_route_stats": dict(routed.get("score_route_stats", {})),
         }
     else:
-        cod = _as_2d_f32(codes, "codes")
+        route_indices, route_values = _sparse_route_arrays(codes, "codes", block_size)
         route_meta = {"source": "external_codes"}
-    if cod.shape != (acts.shape[0], dec.shape[0]):
+    if route_indices.shape[0] != acts.shape[0]:
         raise ValueError(
-            f"codes must have shape (N, K)=({acts.shape[0]}, {dec.shape[0]}); got {cod.shape}"
+            f"codes must have N={acts.shape[0]} rows; got {route_indices.shape[0]}"
         )
-    rw_cod = _as_2d_f32(random_weight_codes, "random_weight_codes")
-    if rw_cod.shape[1] != dec.shape[0] or rw_cod.shape[0] == 0:
-        raise ValueError(
-            "random_weight_codes must be a non-empty matrix with K="
-            f"{dec.shape[0]} columns; got {rw_cod.shape}"
-        )
+    donor_indices, donor_values = _sparse_route_arrays(
+        random_weight_codes, "random_weight_codes", block_size
+    )
     if transport is not None:
         if transport_theta_in is not None or transport_theta_out is not None:
             raise ValueError(
@@ -553,13 +469,13 @@ def audit_sae(
     blocks = None if coordinate_blocks is None else [int(block) for block in coordinate_blocks]
     payload = rust_module().audit_sae(
         dec,
-        cod,
+        route_indices,
+        route_values,
         acts,
-        rw_cod,
+        donor_indices,
+        donor_values,
         {
-            "active": active,
             "block_size": block_size,
-            "block_topk": block_topk,
             "delta": delta,
             "quantile_levels": q_levels,
             "max_candidates": max_candidates,
@@ -583,37 +499,139 @@ def audit_sae(
 # SAEBench manifold-native metrics (chart-interp, dose-response, posterior)
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
-class ChartInterpReport:
-    """Orientation-quotiented weighted cyclic phase-lock of a recovered chart
-    coordinate against ground-truth cyclic labels (#1942 chart-interp metric).
-
-    ``circular_correlation`` is the ``[0, 1]`` phase-lock after quotienting
-    orientation; ``signed_circular_correlation`` keeps the sign (negative when
-    the recovered coordinate runs backwards relative to the labels);
-    ``effective_weight`` is the accepted posterior/evidence weight mass.
-    """
-
+class ChartInterpStatisticValue:
     circular_correlation: float
     signed_circular_correlation: float
     effective_weight: float
 
 
+class ChartInterpNullProtocol(str, Enum):
+    """Closed Rust-owned chart-null surrogate protocols."""
+
+    MATCHED_SPECTRUM_GAUSSIAN_V1 = "matched_spectrum_gaussian_v1"
+
+
+class ChartInterpReadout(str, Enum):
+    """Coordinate readout repeated identically on observed and null data."""
+
+    TOKEN_MEAN_PCA_PLANE_V1 = "token_mean_pca_plane_v1"
+    FITTED_CHART_COORDINATE_V1 = "fitted_chart_coordinate_v1"
+
+
+@dataclass(frozen=True)
+class ChartInterpNullCalibration:
+    """Complete null input; scalar null statistics are intentionally invalid."""
+
+    protocol: ChartInterpNullProtocol
+    readout: ChartInterpReadout
+    seed: int
+    expected_draws: int
+    observation_draws: Sequence[Sequence[tuple[float, float, float]]]
+
+
+@dataclass(frozen=True)
+class ChartInterpNullCalibrationReport:
+    statistic: str
+    protocol: str
+    readout: str
+    null_kind: str
+    draw_policy: str
+    seed: int
+    tail: str
+    draws: int
+    observed_statistic: float
+    mean: float
+    sd: float
+    minimum: float
+    q25: float
+    median: float
+    q75: float
+    maximum: float
+    z: float
+    p_value: float
+    monte_carlo_standard_error: float
+    extreme_draws: int
+    null_statistics: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class ChartInterpReport:
+    """Provenance-complete calibration of one exact chart statistic (#2250)."""
+
+    statistic: str
+    observed: ChartInterpStatisticValue
+    calibration: ChartInterpNullCalibrationReport
+    significance_level: float
+    verdict: str
+
+
 def chart_interp_score(
     observations: list[tuple[float, float, float]],
+    null_calibration: ChartInterpNullCalibration,
+    significance_level: float,
 ) -> ChartInterpReport:
-    """Score chart-coordinate interpretability against cyclic labels.
+    """Calibrate chart interpretability against complete null readout ledgers.
 
     ``observations`` are ``(recovered_turns, label_turns, weight)`` triples: the
     recovered chart coordinate and its ground-truth cyclic label, both in turns
-    (wrapped modulo one), and a non-negative posterior/evidence weight. All
-    scoring is the audited Rust ``chart_interp_score`` definition."""
+    (wrapped modulo one), and a non-negative posterior/evidence weight.
+    ``null_calibration`` separately names the closed surrogate protocol and the
+    coordinate readout repeated on observed and null data, then carries every
+    complete draw ledger. Rust recomputes the same named statistic on each
+    ledger; a p-value for an EV gap or adjacency score cannot enter this API.
+    There is deliberately no scalar-only fallback."""
     payload = rust_module().chart_interp_score(
-        [(float(t), float(y), float(w)) for t, y, w in observations]
+        [(float(t), float(y), float(w)) for t, y, w in observations],
+        [
+            [(float(t), float(y), float(w)) for t, y, w in draw]
+            for draw in null_calibration.observation_draws
+        ],
+        null_calibration.protocol.value,
+        null_calibration.readout.value,
+        int(null_calibration.seed),
+        int(null_calibration.expected_draws),
+        float(significance_level),
     )
+    observed = payload["observed"]
+    calibration = payload["calibration"]
     return ChartInterpReport(
-        circular_correlation=float(payload["circular_correlation"]),
-        signed_circular_correlation=float(payload["signed_circular_correlation"]),
-        effective_weight=float(payload["effective_weight"]),
+        statistic=str(payload["statistic"]),
+        observed=ChartInterpStatisticValue(
+            circular_correlation=float(observed["circular_correlation"]),
+            signed_circular_correlation=float(
+                observed["signed_circular_correlation"]
+            ),
+            effective_weight=float(observed["effective_weight"]),
+        ),
+        calibration=ChartInterpNullCalibrationReport(
+            statistic=str(calibration["statistic"]),
+            protocol=str(calibration["protocol"]),
+            readout=str(calibration["readout"]),
+            null_kind=str(calibration["null_kind"]),
+            draw_policy=str(calibration["draw_policy"]),
+            seed=int(calibration["seed"]),
+            tail=str(calibration["tail"]),
+            draws=int(calibration["draws"]),
+            observed_statistic=float(calibration["observed_statistic"]),
+            mean=float(calibration["mean"]),
+            sd=float(calibration["sd"]),
+            minimum=float(calibration["min"]),
+            q25=float(calibration["q25"]),
+            median=float(calibration["median"]),
+            q75=float(calibration["q75"]),
+            maximum=float(calibration["max"]),
+            z=float(calibration["z"]),
+            p_value=float(calibration["p_value"]),
+            monte_carlo_standard_error=float(
+                calibration["monte_carlo_standard_error"]
+            ),
+            extreme_draws=int(calibration["extreme_draws"]),
+            null_statistics=tuple(
+                float(value) for value in calibration["null_statistics"]
+            ),
+        ),
+        significance_level=float(payload["significance_level"]),
+        verdict=str(payload["verdict"]),
     )
 
 
@@ -624,15 +642,15 @@ class DoseResponseCalibrationReport:
 
     ``slope_through_origin`` is the no-intercept weighted least-squares slope of
     measured nats on predicted output-Fisher nats and ``r2_through_origin`` its
-    weighted R²; ``mean_measured_nats_per_arc`` / ``cv_measured_nats_per_arc``
-    are the weighted mean and coefficient of variation of measured nats per unit
-    arc-length — the unit-speed constancy kill-test.
+    weighted R²; ``mean_measured_nats_per_arc_squared`` /
+    ``cv_measured_nats_per_arc_squared`` are the weighted mean and coefficient
+    of variation of measured nats per squared arc length, the local Fisher law.
     """
 
     slope_through_origin: float
     r2_through_origin: float
-    mean_measured_nats_per_arc: float
-    cv_measured_nats_per_arc: float
+    mean_measured_nats_per_arc_squared: float
+    cv_measured_nats_per_arc_squared: float
     effective_weight: float
 
 
@@ -654,8 +672,12 @@ def dose_response_calibration(
     return DoseResponseCalibrationReport(
         slope_through_origin=float(payload["slope_through_origin"]),
         r2_through_origin=float(payload["r2_through_origin"]),
-        mean_measured_nats_per_arc=float(payload["mean_measured_nats_per_arc"]),
-        cv_measured_nats_per_arc=float(payload["cv_measured_nats_per_arc"]),
+        mean_measured_nats_per_arc_squared=float(
+            payload["mean_measured_nats_per_arc_squared"]
+        ),
+        cv_measured_nats_per_arc_squared=float(
+            payload["cv_measured_nats_per_arc_squared"]
+        ),
         effective_weight=float(payload["effective_weight"]),
     )
 
@@ -797,9 +819,8 @@ class AtlasNerveDiagram:
     """Čech-nerve reduction of a block-sparse dictionary's per-block charts.
 
     ``computed`` is False for shapes the nerve does not apply to (scalar
-    ``block_size == 1``, a width that does not divide ``K`` into >= 2 charts, or
-    more blocks than ``max_charts`` without an explicit ``blocks`` list), in which
-    case only ``reason`` is populated. When ``computed`` is True, ``betti`` is the
+    ``block_size == 1`` or fewer than two selected charts), in which case only
+    ``reason`` is populated. When ``computed`` is True, ``betti`` is the
     ``{b0, b1, b2}`` signature and the simplex counts / covering side describe the
     reduced nerve complex.
     """
@@ -819,21 +840,29 @@ class AtlasNerveDiagram:
 
 
 def atlas_nerve_diagram(
-    codes: Any,
+    route: Any,
+    n_units: int,
     block_size: int,
     *,
     activation_threshold: float = 1.0e-6,
     blocks: Any | None = None,
-    max_charts: int = 16,
 ) -> AtlasNerveDiagram:
-    """Build the atlas-nerve Betti signature from a dense ``N x K`` block-sparse
-    code matrix, one chart per ``block_size``-wide block. Returns a report whose
-    ``computed`` flag is False (with a ``reason``) for shapes the nerve does not
-    apply to."""
-    cod = _as_2d_f32(codes, "codes")
+    """Build an atlas nerve from fixed-width sparse block routing.
+
+    ``route`` is an ``(indices, values)`` pair (or equivalent mapping/object),
+    with ``indices`` shaped ``N x s`` and values shaped
+    ``N x s x block_size``. ``n_units`` preserves charts with no observed
+    firing; the logical ``N x K`` code matrix is never materialized.
+    """
+    indices, values = _sparse_route_arrays(route, "route", int(block_size))
     block_list = None if blocks is None else [int(b) for b in blocks]
     payload = rust_module().atlas_nerve_diagram(
-        cod, int(block_size), float(activation_threshold), block_list, int(max_charts)
+        indices,
+        values,
+        int(n_units),
+        int(block_size),
+        float(activation_threshold),
+        block_list,
     )
     if not bool(payload["computed"]):
         return AtlasNerveDiagram(computed=False, reason=str(payload["reason"]))

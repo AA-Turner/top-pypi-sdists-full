@@ -102,8 +102,28 @@ class SparseDictionaryTransform:
 
 
 @dataclass(frozen=True, slots=True)
+class SparseDictionaryConvergence:
+    """Read-only certificate for a converged sparse-dictionary fit."""
+
+    inner_ev_residual: float
+    inner_tolerance: float
+    decoder_residual: float
+    decoder_tolerance: float
+    routing_residual: float
+    routing_tolerance: float
+    outer_rho_residual: float
+    outer_tolerance: float
+    selected_rho: float
+    outer_iterations: int
+
+
+@dataclass(frozen=True, slots=True)
 class SparseDictionaryFit:
-    """Result of a collapsed-linear-lane fit.
+    """A certified-converged collapsed-linear-lane model.
+
+    The Rust solver raises on non-convergence, so this model type is created
+    only after both the inner alternation and outer REML fixed point satisfy
+    their stopping certificates.
 
     Attributes
     ----------
@@ -119,7 +139,9 @@ class SparseDictionaryFit:
         retain a second dense copy of the training matrix.
     explained_variance:
         Held-in EV (``1 - RSS/TSS``) of the fitted reconstruction.
-    epochs, converged, active:
+    convergence:
+        Read-only inner, decoder-solve, and outer-REML residual evidence.
+    epochs, active:
         Run metadata.
     """
 
@@ -128,7 +150,7 @@ class SparseDictionaryFit:
     codes: np.ndarray
     explained_variance: float
     epochs: int
-    converged: bool
+    convergence: SparseDictionaryConvergence
     active: int
     score_route_stats: dict[str, Any]
 
@@ -219,17 +241,19 @@ class SparseDictStreamArtifact:
         ``K x P`` unit-norm decoder (one atom per row), FP32.
     explained_variance:
         EV of the final epoch's pass (the pre-refresh decoder of the last epoch);
-        for a converged fit this equals the returned decoder's EV to tolerance.
-    epochs, converged, active:
+        this equals the returned decoder's EV to tolerance.
+    epochs, active:
         Run metadata.
     score_route_stats:
         Aggregate CPU/GPU route telemetry across streamed shards.
+
+    Every instance is converged: :meth:`SparseDictStream.finalize` raises instead
+    of returning a best-effort iterate.
     """
 
     decoder: np.ndarray
     explained_variance: float
     epochs: int
-    converged: bool
     active: int
     score_route_stats: dict[str, Any]
 
@@ -357,14 +381,18 @@ class SparseDictStream:
         return dict(self._handle.end_epoch())
 
     def finalize(self) -> SparseDictStreamArtifact:
-        """Hand back the trained decoder plus run metadata as a
-        :class:`SparseDictStreamArtifact`."""
+        """Hand back the converged decoder plus run metadata as a
+        :class:`SparseDictStreamArtifact`.
+
+        Raises if the streaming loop has not converged (SPEC 20): the stream
+        handle remains a resumable checkpoint — run more epochs until
+        :meth:`end_epoch` reports convergence, then finalize.
+        """
         data = dict(self._handle.finalize())
         return SparseDictStreamArtifact(
             decoder=np.ascontiguousarray(data["decoder"], dtype=np.float32),
             explained_variance=float(data["explained_variance"]),
             epochs=int(data["epochs"]),
-            converged=bool(data["converged"]),
             active=int(data["active"]),
             score_route_stats=_route_stats(data["score_route_stats"]),
         )
@@ -385,9 +413,22 @@ class SparseDictStream:
         return int(self._handle.epochs_run)
 
 
+@dataclass(frozen=True, slots=True)
+class BlockSparseDictionaryConvergence:
+    """Read-only fixed-point certificate for a block-sparse fit."""
+
+    ev_residual: float
+    gamma_residual: float
+    frame_residual: float
+    tolerance: float
+
+
 @dataclass(frozen=True)
 class BlockSparseDictionaryFit:
-    """Result of a block-sparse fit (#1026 block extension).
+    """A certified-converged block-sparse model (#1026 block extension).
+
+    The Rust solver raises on non-convergence, so every instance carries the
+    residual certificate for its final full alternation.
 
     The ``K = G*b`` atoms are grouped into ``G`` blocks of ``b`` orthonormal
     atoms. Routing selects whole blocks by their group ℓ₂ gate ``‖z_g‖₂``
@@ -421,7 +462,9 @@ class BlockSparseDictionaryFit:
         ``matryoshka_prefix=True`` was passed to :func:`block_sparse_dictionary_fit`.
     fitted:
         ``N x P`` dense reconstruction of the training rows (FP32).
-    explained_variance, epochs, converged, block_topk, block_size:
+    convergence:
+        Read-only EV, shared-``gamma``, and gauge-invariant frame residuals.
+    explained_variance, epochs, block_topk, block_size:
         Run metadata.
     """
 
@@ -436,7 +479,7 @@ class BlockSparseDictionaryFit:
     fitted: np.ndarray
     explained_variance: float
     epochs: int
-    converged: bool
+    convergence: BlockSparseDictionaryConvergence
     block_topk: int
     block_size: int
 
@@ -444,6 +487,16 @@ class BlockSparseDictionaryFit:
     def n_blocks(self) -> int:
         """Number of blocks ``G = K / b``."""
         return self.decoder.shape[0] // self.block_size
+
+    @property
+    def n_atoms(self) -> int:
+        """Scalar dictionary capacity ``K`` (decoder rows)."""
+        return int(self.decoder.shape[0])
+
+    @property
+    def active(self) -> int:
+        """Maximum active scalar coordinates per row."""
+        return int(self.block_topk * self.block_size)
 
     def read_loss_at_prefix(self, K: int) -> float:
         """Return the stored MATRYOSHKA-PREFIX loss at atom prefix ``K``."""
@@ -727,6 +780,9 @@ def block_sparse_dictionary_fit(
     Stiefel-constrained frames refreshed by polar steps, and AuxK dead-block
     revival seeded from worst-reconstructed residual rows.
 
+    Non-convergence is raised by the Rust solver; a returned model includes
+    checkable EV, shared-``gamma``, and gauge-invariant frame residuals.
+
     Parameters
     ----------
     n_blocks:
@@ -745,7 +801,7 @@ def block_sparse_dictionary_fit(
         ``minibatch x (block_tile*b)``, never ``N x K``).
     frame_ridge, aux_k, matryoshka_prefix, tolerance:
         Frame-refresh ridge, AuxK dead-block revival budget, optional nested
-        prefix loss ladder, and the EV stopping tolerance.
+        prefix loss ladder, and the full-alternation stopping tolerance.
     """
     if not grassmann:
         raise ValueError(
@@ -772,7 +828,60 @@ def block_sparse_dictionary_fit(
         matryoshka_prefix=bool(matryoshka_prefix),
         tolerance=float(tolerance),
     )
+    return _block_sparse_fit_from_payload(payload)
+
+
+def fixed_budget_block_sparse_dictionary_fit(
+    X: Any,
+    n_atoms: int,
+    *,
+    active: int,
+    block_size: int,
+    max_epochs: int = 30,
+    minibatch: int = 512,
+    block_tile: int = 1024,
+    frame_ridge: float = 1.0e-9,
+    aux_k: int = 0,
+    matryoshka_prefix: bool = False,
+    tolerance: float = 1.0e-6,
+) -> BlockSparseDictionaryFit:
+    """Fit a block dictionary at an exact scalar capacity and active budget.
+
+    ``n_atoms`` is the number of decoder rows and ``active`` is the maximum
+    number of active scalar coordinates per row, so these quantities are
+    directly comparable to a scalar TopK SAE.  The Rust core requires both to
+    divide exactly into complete ``block_size`` groups; it never rounds or
+    clamps either budget.  For example, ``n_atoms=114688, active=64,
+    block_size=4`` fits 28,672 blocks and selects exactly 16 blocks/row while
+    retaining exactly 114,688 scalar decoder coordinates and 64 active scalar
+    coordinates.
+
+    Group routing removes within-block competition: correlated directions that
+    describe one local concept are selected by one gauge-invariant group-ℓ₂
+    gate, then carried as signed orthonormal coordinates.  This is the
+    fixed-budget alternative used by the #2251 concept-probe acceptance harness.
+    """
+    x = _as_2d_f32(X, "X")
+    payload = rust_module().fixed_budget_block_sparse_dictionary_fit(
+        x,
+        int(n_atoms),
+        active=int(active),
+        block_size=int(block_size),
+        max_epochs=int(max_epochs),
+        minibatch=int(minibatch),
+        block_tile=int(block_tile),
+        frame_ridge=float(frame_ridge),
+        aux_k=int(aux_k),
+        matryoshka_prefix=bool(matryoshka_prefix),
+        tolerance=float(tolerance),
+    )
+    return _block_sparse_fit_from_payload(payload)
+
+
+def _block_sparse_fit_from_payload(payload: Any) -> BlockSparseDictionaryFit:
+    """Convert the single Rust block-fit wire payload into the public model."""
     data = dict(payload)
+    convergence = dict(data["convergence"])
     return BlockSparseDictionaryFit(
         decoder=np.ascontiguousarray(data["decoder"], dtype=np.float32),
         blocks=np.ascontiguousarray(data["blocks"], dtype=np.uint32),
@@ -787,7 +896,12 @@ def block_sparse_dictionary_fit(
         fitted=np.ascontiguousarray(data["fitted"], dtype=np.float32),
         explained_variance=float(data["explained_variance"]),
         epochs=int(data["epochs"]),
-        converged=bool(data["converged"]),
+        convergence=BlockSparseDictionaryConvergence(
+            ev_residual=float(convergence["ev_residual"]),
+            gamma_residual=float(convergence["gamma_residual"]),
+            frame_residual=float(convergence["frame_residual"]),
+            tolerance=float(convergence["tolerance"]),
+        ),
         block_topk=int(data["block_topk"]),
         block_size=int(data["block_size"]),
     )
@@ -948,9 +1062,10 @@ class BlockSparseDictStream:
         return dict(self._handle.partial_fit(shard_arr))
 
     def end_epoch(self) -> dict[str, Any]:
-        """Close the epoch: refresh γ + block frames from the accumulators, revive
-        dead blocks onto worst-reconstructed residual rows, reset the accumulators.
-        Returns ``{explained_variance, revived, dead, gamma, converged, epoch}``."""
+        """Close the epoch: refresh γ + block frames and advance the exact
+        residual-row birth transaction. Returns
+        ``{explained_variance, accepted_births, birth_pending, dead, gamma,
+        converged, epoch}``."""
         return dict(self._handle.end_epoch())
 
     def block_rank_charges(self, n_obs: int) -> dict[str, Any]:
@@ -1093,7 +1208,10 @@ def sparse_dictionary_fit(
     tolerance: float = 1.0e-6,
     score_mode: str = "auto",
 ) -> SparseDictionaryFit:
-    """Fit a fixed-``K`` sparse, minibatched linear dictionary to ``X`` (``N x P``).
+    """Fit a certified fixed-``K`` sparse dictionary to ``X`` (``N x P``).
+
+    Non-convergence is raised by the Rust solver; a returned model includes
+    checkable inner-alternation, decoder-solve, and outer-REML evidence.
 
     Parameters
     ----------
@@ -1125,13 +1243,25 @@ def sparse_dictionary_fit(
         score_mode=str(score_mode),
     )
     data = dict(payload)
+    convergence = dict(data["convergence"])
     return SparseDictionaryFit(
         decoder=np.ascontiguousarray(data["decoder"], dtype=np.float32),
         indices=np.ascontiguousarray(data["indices"], dtype=np.uint32),
         codes=np.ascontiguousarray(data["codes"], dtype=np.float32),
         explained_variance=float(data["explained_variance"]),
         epochs=int(data["epochs"]),
-        converged=bool(data["converged"]),
+        convergence=SparseDictionaryConvergence(
+            inner_ev_residual=float(convergence["inner_ev_residual"]),
+            inner_tolerance=float(convergence["inner_tolerance"]),
+            decoder_residual=float(convergence["decoder_residual"]),
+            decoder_tolerance=float(convergence["decoder_tolerance"]),
+            routing_residual=float(convergence["routing_residual"]),
+            routing_tolerance=float(convergence["routing_tolerance"]),
+            outer_rho_residual=float(convergence["outer_rho_residual"]),
+            outer_tolerance=float(convergence["outer_tolerance"]),
+            selected_rho=float(convergence["selected_rho"]),
+            outer_iterations=int(convergence["outer_iterations"]),
+        ),
         active=int(data["active"]),
         score_route_stats=_route_stats(data["score_route_stats"]),
     )
@@ -1172,14 +1302,17 @@ def rank_charge_dof(
 
 __all__ = [
     "BlockSparseDictStream",
+    "BlockSparseDictionaryConvergence",
     "BlockSparseDictionaryFit",
     "BlockSparseStreamArtifact",
     "SparseDictStream",
     "SparseDictStreamArtifact",
+    "SparseDictionaryConvergence",
     "SparseDictionaryFit",
     "SparseDictionaryTransform",
     "block_sparse_dictionary_fit",
     "block_sparse_dictionary_fit_begin",
+    "fixed_budget_block_sparse_dictionary_fit",
     "rank_charge_dof",
     "sparse_dictionary_fit",
     "sparse_dictionary_fit_begin",

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2022 Stéphane Caron
 
 """Panda description."""
 
@@ -19,3 +18,5 @@ REPOSITORY_PATH: str = _clone_to_cache(
 PACKAGE_PATH: str = _path.join(REPOSITORY_PATH, "robots", "panda_description")
 
 URDF_PATH: str = _path.join(PACKAGE_PATH, "urdf", "panda.urdf")
+
+SRDF_PATH: str = _path.join(PACKAGE_PATH, "srdf", "panda.srdf")

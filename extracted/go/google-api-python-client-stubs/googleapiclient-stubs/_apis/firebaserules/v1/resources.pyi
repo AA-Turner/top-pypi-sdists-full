@@ -18,7 +18,7 @@ class FirebaseRulesResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class ReleasesResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, name: str, body: Release = ..., **kwargs: typing.Any
+                self, *, name: str, body: Release, **kwargs: typing.Any
             ) -> ReleaseHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -32,16 +32,17 @@ class FirebaseRulesResource(googleapiclient.discovery.Resource):
                     "RELEASE_EXECUTABLE_VERSION_UNSPECIFIED",
                     "FIREBASE_RULES_EXECUTABLE_V1",
                     "FIREBASE_RULES_EXECUTABLE_V2",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> GetReleaseExecutableResponseHttpRequest: ...
             def list(
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListReleasesResponseHttpRequest: ...
             def list_next(
@@ -50,17 +51,13 @@ class FirebaseRulesResource(googleapiclient.discovery.Resource):
                 previous_response: ListReleasesResponse,
             ) -> ListReleasesResponseHttpRequest | None: ...
             def patch(
-                self,
-                *,
-                name: str,
-                body: UpdateReleaseRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: UpdateReleaseRequest, **kwargs: typing.Any
             ) -> ReleaseHttpRequest: ...
 
         @typing.type_check_only
         class RulesetsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, name: str, body: Ruleset = ..., **kwargs: typing.Any
+                self, *, name: str, body: Ruleset, **kwargs: typing.Any
             ) -> RulesetHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -70,9 +67,9 @@ class FirebaseRulesResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListRulesetsResponseHttpRequest: ...
             def list_next(
@@ -82,7 +79,7 @@ class FirebaseRulesResource(googleapiclient.discovery.Resource):
             ) -> ListRulesetsResponseHttpRequest | None: ...
 
         def test(
-            self, *, name: str, body: TestRulesetRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: TestRulesetRequest, **kwargs: typing.Any
         ) -> TestRulesetResponseHttpRequest: ...
         def releases(self) -> ReleasesResource: ...
         def rulesets(self) -> RulesetsResource: ...

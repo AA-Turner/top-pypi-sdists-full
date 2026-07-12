@@ -21,15 +21,15 @@ class MyBusinessVerificationsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: CompleteVerificationRequest = ...,
+                body: CompleteVerificationRequest,
                 **kwargs: typing.Any,
             ) -> CompleteVerificationResponseHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListVerificationsResponseHttpRequest: ...
             def list_next(
@@ -42,24 +42,21 @@ class MyBusinessVerificationsResource(googleapiclient.discovery.Resource):
             self,
             *,
             location: str,
-            body: FetchVerificationOptionsRequest = ...,
+            body: FetchVerificationOptionsRequest,
             **kwargs: typing.Any,
         ) -> FetchVerificationOptionsResponseHttpRequest: ...
         def getVoiceOfMerchantState(
             self, *, name: str, **kwargs: typing.Any
         ) -> VoiceOfMerchantStateHttpRequest: ...
         def verify(
-            self, *, name: str, body: VerifyLocationRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: VerifyLocationRequest, **kwargs: typing.Any
         ) -> VerifyLocationResponseHttpRequest: ...
         def verifications(self) -> VerificationsResource: ...
 
     @typing.type_check_only
     class VerificationTokensResource(googleapiclient.discovery.Resource):
         def generate(
-            self,
-            *,
-            body: GenerateInstantVerificationTokenRequest = ...,
-            **kwargs: typing.Any,
+            self, *, body: GenerateInstantVerificationTokenRequest, **kwargs: typing.Any
         ) -> GenerateInstantVerificationTokenResponseHttpRequest: ...
 
     def new_batch_http_request(

@@ -23,7 +23,7 @@ class CloudBuildResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
@@ -36,12 +36,12 @@ class CloudBuildResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: WorkerPool = ...,
-                    workerPoolId: str = ...,
+                    body: WorkerPool,
+                    workerPoolId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -53,8 +53,8 @@ class CloudBuildResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: WorkerPool = ...,
-                    updateMask: str = ...,
+                    body: WorkerPool,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 

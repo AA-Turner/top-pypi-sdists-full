@@ -217,6 +217,7 @@ nav:
       - Compatibility: adapters/compatibility.md
       - Deferred adapters: adapter-deferred.md
       - Hook system: integrations/hook-system.md
+      - Agent sessions (skill and plugin): integrations/agent-session.md
       - Plugin SDK: integrations/plugin-sdk.md
       - MCP server injection: integrations/mcp-server-injection.md
       - MCP tool-search lazy loading: protocols/tool-search.md
@@ -279,6 +280,7 @@ nav:
       - Per-agent run instrumentation: operations/INSTRUMENTATION.md
       - Verification tracking: operations/verification-tracking.md
       - Deterministic replay: operations/deterministic-replay.md
+      - Run review board: operations/review-board.md
       - Observability: operations/observability-overview.md
       - Side-channel telemetry: observability/side-channel.md
       - LLM watcher (opt-in): observability/llm-watcher.md
@@ -299,6 +301,7 @@ nav:
       - Lineage v2: operations/lineage-v2.md
       - GitLab integration: operations/gitlab.md
       - Cost optimization: operations/cost-optimization.md
+      - Cost-aware scheduling: operations/cost-aware-scheduling.md
       - Performance tuning: operations/performance-tuning.md
       - Autofix daemon: operations/autofix.md
       - Merge queue: operations/merge-queue.md
@@ -329,6 +332,7 @@ nav:
       - MCP catalog: reference/mcp-catalog.md
       - MCP tool tiers: mcp/tool_tiers.md
       - Local endpoints: reference/local-endpoints.md
+      - SPIFFE workload identity: reference/spiffe-workload-identity.md
       - API reference: reference/openapi-reference.md
       - ACP bridge: reference/acp-bridge.md
       - Feature matrix: reference/FEATURE_MATRIX.md

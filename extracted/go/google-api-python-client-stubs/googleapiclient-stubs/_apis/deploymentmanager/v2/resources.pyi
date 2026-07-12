@@ -20,7 +20,7 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            body: DeploymentsCancelPreviewRequest = ...,
+            body: DeploymentsCancelPreviewRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
@@ -28,8 +28,8 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            deletePolicy: typing_extensions.Literal["DELETE", "ABANDON"] = ...,
-            header_bypassBillingFilter: bool = ...,
+            deletePolicy: typing_extensions.Literal["DELETE", "ABANDON"] | None = ...,
+            header_bypassBillingFilter: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def get(
@@ -37,7 +37,7 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            header_bypassBillingFilter: bool = ...,
+            header_bypassBillingFilter: bool | None = ...,
             **kwargs: typing.Any,
         ) -> DeploymentHttpRequest: ...
         def getIamPolicy(
@@ -45,30 +45,29 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             resource: str,
-            header_bypassBillingFilter: bool = ...,
-            optionsRequestedPolicyVersion: int = ...,
+            header_bypassBillingFilter: bool | None = ...,
+            optionsRequestedPolicyVersion: int | None = ...,
             **kwargs: typing.Any,
         ) -> PolicyHttpRequest: ...
         def insert(
             self,
             *,
             project: str,
-            body: Deployment = ...,
-            createPolicy: typing_extensions.Literal[
-                "CREATE_OR_ACQUIRE", "ACQUIRE"
-            ] = ...,
-            header_bypassBillingFilter: bool = ...,
-            preview: bool = ...,
+            body: Deployment,
+            createPolicy: typing_extensions.Literal["CREATE_OR_ACQUIRE", "ACQUIRE"]
+            | None = ...,
+            header_bypassBillingFilter: bool | None = ...,
+            preview: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def list(
             self,
             *,
             project: str,
-            filter: str = ...,
-            maxResults: int = ...,
-            orderBy: str = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            maxResults: int | None = ...,
+            orderBy: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> DeploymentsListResponseHttpRequest: ...
         def list_next(
@@ -81,13 +80,12 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            body: Deployment = ...,
-            createPolicy: typing_extensions.Literal[
-                "CREATE_OR_ACQUIRE", "ACQUIRE"
-            ] = ...,
-            deletePolicy: typing_extensions.Literal["DELETE", "ABANDON"] = ...,
-            header_bypassBillingFilter: bool = ...,
-            preview: bool = ...,
+            body: Deployment,
+            createPolicy: typing_extensions.Literal["CREATE_OR_ACQUIRE", "ACQUIRE"]
+            | None = ...,
+            deletePolicy: typing_extensions.Literal["DELETE", "ABANDON"] | None = ...,
+            header_bypassBillingFilter: bool | None = ...,
+            preview: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def setIamPolicy(
@@ -95,7 +93,7 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             resource: str,
-            body: GlobalSetPolicyRequest = ...,
+            body: GlobalSetPolicyRequest,
             **kwargs: typing.Any,
         ) -> PolicyHttpRequest: ...
         def stop(
@@ -103,7 +101,7 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            body: DeploymentsStopRequest = ...,
+            body: DeploymentsStopRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def testIamPermissions(
@@ -111,8 +109,8 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             resource: str,
-            body: TestPermissionsRequest = ...,
-            header_bypassBillingFilter: bool = ...,
+            body: TestPermissionsRequest,
+            header_bypassBillingFilter: bool | None = ...,
             **kwargs: typing.Any,
         ) -> TestPermissionsResponseHttpRequest: ...
         def update(
@@ -120,13 +118,12 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            body: Deployment = ...,
-            createPolicy: typing_extensions.Literal[
-                "CREATE_OR_ACQUIRE", "ACQUIRE"
-            ] = ...,
-            deletePolicy: typing_extensions.Literal["DELETE", "ABANDON"] = ...,
-            header_bypassBillingFilter: bool = ...,
-            preview: bool = ...,
+            body: Deployment,
+            createPolicy: typing_extensions.Literal["CREATE_OR_ACQUIRE", "ACQUIRE"]
+            | None = ...,
+            deletePolicy: typing_extensions.Literal["DELETE", "ABANDON"] | None = ...,
+            header_bypassBillingFilter: bool | None = ...,
+            preview: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
 
@@ -138,7 +135,7 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             project: str,
             deployment: str,
             manifest: str,
-            header_bypassBillingFilter: bool = ...,
+            header_bypassBillingFilter: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ManifestHttpRequest: ...
         def list(
@@ -146,10 +143,10 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            filter: str = ...,
-            maxResults: int = ...,
-            orderBy: str = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            maxResults: int | None = ...,
+            orderBy: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ManifestsListResponseHttpRequest: ...
         def list_next(
@@ -165,17 +162,17 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             operation: str,
-            header_bypassBillingFilter: bool = ...,
+            header_bypassBillingFilter: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def list(
             self,
             *,
             project: str,
-            filter: str = ...,
-            maxResults: int = ...,
-            orderBy: str = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            maxResults: int | None = ...,
+            orderBy: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationsListResponseHttpRequest: ...
         def list_next(
@@ -192,7 +189,7 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             project: str,
             deployment: str,
             resource: str,
-            header_bypassBillingFilter: bool = ...,
+            header_bypassBillingFilter: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ResourceHttpRequest: ...
         def list(
@@ -200,10 +197,10 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             *,
             project: str,
             deployment: str,
-            filter: str = ...,
-            maxResults: int = ...,
-            orderBy: str = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            maxResults: int | None = ...,
+            orderBy: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ResourcesListResponseHttpRequest: ...
         def list_next(
@@ -218,10 +215,10 @@ class DeploymentManagerResource(googleapiclient.discovery.Resource):
             self,
             *,
             project: str,
-            filter: str = ...,
-            maxResults: int = ...,
-            orderBy: str = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            maxResults: int | None = ...,
+            orderBy: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> TypesListResponseHttpRequest: ...
         def list_next(

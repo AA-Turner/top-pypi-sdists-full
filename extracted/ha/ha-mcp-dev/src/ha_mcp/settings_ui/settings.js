@@ -26,6 +26,13 @@ let toolStates = {};
 // Populated from data.env_pinned in loadTools(); read by render() to
 // lock rows and show the env-var name banner.
 let toolEnvPinned = {};
+// Conversation-agent LLM API exposure (#1745). toolLlm mirrors the
+// server-computed EFFECTIVE value per tool (user override, else the
+// deny-by-default for beta/dev/restart tools); toolLlmOverrides holds
+// only the user-set overrides and is what saveConfig persists — tools
+// never flipped keep tracking their defaults across releases.
+let toolLlm = {};
+let toolLlmOverrides = {};
 let saveTimer = null;
 let openGroups = new Set();
 
@@ -160,6 +167,8 @@ async function loadTools() {
   toolData = data.tools || [];
   toolStates = data.states || {};
   toolEnvPinned = data.env_pinned || {};
+  toolLlm = data.llm_api || {};
+  toolLlmOverrides = data.llm_api_overrides || {};
   READ_ONLY_EXEMPT = new Set(data.read_only_exempt || []);
   // Load policy state before the first render so the "security gated"
   // toggle reflects current policy.rules. loadPolicyState() never throws
@@ -741,6 +750,14 @@ function render() {
               `<span class="slider"></span></label>` +
             `<span>security gated</span>` +
           `</div>` +
+          `<div class="toggle-group ${isEnabled ? '' : 'disabled-toggle'}" ` +
+               `title="Offer this tool to Home Assistant conversation agents through the LLM API. Applies on the agent's next message - no restart. A tool disabled above is unavailable to agents regardless.">` +
+            `<label class="switch"><input type="checkbox" name="tool:${escapeHtml(t.name)}:llm" data-tool="${escapeHtml(t.name)}" data-field="llm" ` +
+              `aria-label="${escapeHtml(title)} exposed to the conversation-agent LLM API" ` +
+              `${(toolLlm[t.name] !== false) ? 'checked' : ''} ${isEnabled ? '' : 'disabled'}>` +
+              `<span class="slider"></span></label>` +
+            `<span>LLM API</span>` +
+          `</div>` +
         `</div>`;
 
       const inputs = div.querySelectorAll('input[type="checkbox"]');
@@ -763,6 +780,16 @@ function render() {
               e.target.checked = wasGated;
               alert('Failed to update tool security policy: ' + err.message);
             }
+            render();
+            return;
+          }
+          if (field === 'llm') {
+            // LLM-API exposure lives in its own overrides map (persisted
+            // alongside states by saveConfig); the effective map mirrors it
+            // immediately so the re-render shows the new value.
+            toolLlm[t.name] = e.target.checked;
+            toolLlmOverrides[t.name] = e.target.checked;
+            scheduleSave();
             render();
             return;
           }
@@ -816,7 +843,7 @@ async function saveConfig() {
     resp = await fetch('./api/settings/tools', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({states: toolStates}),
+      body: JSON.stringify({states: toolStates, llm_api: toolLlmOverrides}),
     });
   } catch (e) {
     // Auto-save is fire-and-forget (scheduleSave -> setTimeout); without
@@ -826,8 +853,20 @@ async function saveConfig() {
     return;
   }
   if (resp.ok) {
-    updateStatus('Saved. Restart required.', true);
-    markRestartRequired();
+    // LLM-API-exposure-only saves apply live (stamped per tools/list);
+    // enable/disable/pin changes still need a restart. The server tells
+    // us which happened.
+    let restartRequired = true;
+    try {
+      const saved = await resp.json();
+      restartRequired = saved.restart_required !== false;
+    } catch (e) { /* keep the conservative default */ }
+    if (restartRequired) {
+      updateStatus('Saved. Restart required.', true);
+      markRestartRequired();
+    } else {
+      updateStatus('Saved. LLM API exposure applies on the next agent message.', true);
+    }
   } else {
     // Surface the server's structured error when present (mirrors
     // saveAdvancedSettings / saveFeatureFlag) instead of a generic
@@ -1553,7 +1592,7 @@ const FEATURE_META = {
   },
   enable_code_mode: {
     label: "Enable code-mode sandbox (beta)",
-    help: "Beta feature, disabled by default. Enables ha_manage_custom_tool, a sandboxed Python interpreter (pydantic-monty) that lets AI assistants write/run/save/delete custom tools when no built-in tool covers the request. Sandbox cannot touch the filesystem or arbitrary network, but CAN call any registered MCP tool, hit the HA REST API, or send HA WebSocket commands, effectively 'do whatever existing tools allow you to do, in any combination'. See docs/beta.md for known limitations. Requires restart to take effect.",
+    help: "Beta feature, disabled by default. Enables ha_manage_custom_tool, a sandboxed Python interpreter (pydantic-monty) that lets AI assistants write/run/save/delete custom tools when no built-in tool covers the request. Sandbox cannot touch the filesystem or arbitrary network, but CAN call any registered MCP tool, hit the HA REST API, or send HA WebSocket commands, effectively 'do whatever existing tools allow you to do, in any combination'. Saved tools persist and are visible to any client that can connect to ha-mcp. See docs/beta.md for known limitations. Requires restart to take effect.",
   },
   enable_lite_docstrings: {
     label: "Enable lite tool docstrings (beta)",
@@ -2946,6 +2985,8 @@ const ADVANCED_FIELD_META = {
   automation_config_time_budget: { label: "Automation config time budget (s)", help: "Max seconds ha_search/ha_deep_search spends fetching automation configs before returning a partial result. Raise on instances with many automations. Range 1–600. Restart required." },
   script_config_time_budget:     { label: "Script config time budget (s)",     help: "Max seconds ha_search/ha_deep_search spends fetching script configs before returning a partial result. Range 1–600. Restart required." },
   scene_config_time_budget:      { label: "Scene config time budget (s)",      help: "Max seconds ha_search/ha_deep_search spends fetching scene configs before returning a partial result. Range 1–600. Restart required." },
+  individual_config_timeout:     { label: "Per-request config fetch timeout (s)", help: "Timeout for each individual automation/script/scene config fetch during deep search. On HA servers that serve config reads serially, raise this and/or lower the batch size so queued requests don't time out. Values above the HA request timeout (HA_TIMEOUT, default 30) have no extra effect — the HTTP client gives up first. Range 1–600. Restart required." },
+  individual_fetch_batch_size:   { label: "Config fetch batch size",          help: "How many per-id config fetches deep search issues concurrently. Lower toward 1 on HA servers that serve config reads serially (symptom: 'timed out' partial-result warnings). Range 1–100. Restart required." },
   backup_hint:         { label: "Backup-hint level",           help: "Tunes how strongly the LLM is prompted to take a full-HA snapshot before risky writes." },
   dashboard_screenshot_engine_url: { label: "Dashboard screenshot engine URL", help: "Base URL of the screenshot engine (e.g. http://puppet:10000). Leave blank to auto-discover the Puppet App (add-on) via the Supervisor (HA OS / Supervised). Only used when the Dashboard Screenshot beta feature is enabled. Takes effect without a restart." },
   enable_websocket:    { label: "Enable WebSocket",            help: "WebSocket-based state monitoring. Disabling falls back to polling; many tools degrade. Restart required." },
@@ -2985,6 +3026,9 @@ const ADVANCED_RESTART_REQUIRED = new Set([
   // it is resolved live per capture, so it takes effect immediately.
   "automation_config_time_budget", "script_config_time_budget",
   "scene_config_time_budget",
+  // The Attempt-C per-request timeout and batch size (#1784) share the
+  // budgets' import-time consumption, so they need a restart too.
+  "individual_config_timeout", "individual_fetch_batch_size",
   "code_mode_max_duration", "code_mode_max_memory",
   "code_mode_max_recursion", "code_mode_max_invocations",
   "code_mode_saved_tools_path",

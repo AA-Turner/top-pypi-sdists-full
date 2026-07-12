@@ -1754,148 +1754,6 @@ pub(crate) fn build_duchon_basis_designwithworkspace(
     Ok(DuchonBasisDesign { basis })
 }
 
-pub(crate) fn build_cyclic_duchon_basis_1dwithworkspace(
-    data: ArrayView2<'_, f64>,
-    spec: &DuchonBasisSpec,
-    start: f64,
-    end: f64,
-) -> Result<BasisBuildResult, BasisError> {
-    if data.ncols() != 1 {
-        crate::bail_invalid_basis!("cyclic Duchon smooths currently require exactly one covariate");
-    }
-    if end <= start {
-        return Err(BasisError::InvalidRange(start, end));
-    }
-    let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
-    if centers.ncols() != 1 {
-        crate::bail_dim_basis!(
-            "cyclic Duchon centers must have one column, got {}",
-            centers.ncols()
-        );
-    }
-    let k = centers.nrows();
-    let s_order_usize = spec.power_as_usize();
-    if k <= s_order_usize.max(1) {
-        crate::bail_invalid_basis!(
-            "cyclic Duchon basis requires more centers ({k}) than power ({})",
-            spec.power
-        );
-    }
-    let period = end - start;
-    let p_order = duchon_p_from_nullspace_order(DuchonNullspaceOrder::Zero);
-    // Hybrid kernel evaluates the truncated integer `s` (`power_as_usize`);
-    // scale-free uses the literal fractional power. Gate on the realized value.
-    let validation_power = if spec.length_scale.is_some() {
-        s_order_usize as f64
-    } else {
-        spec.power
-    };
-    validate_duchon_kernel_orders(spec.length_scale, p_order, validation_power, 1)?;
-    let coeffs = spec
-        .length_scale
-        .map(|ls| duchon_partial_fraction_coeffs(p_order, s_order_usize, 1.0 / ls.max(1e-300)));
-    let pure_poly_coeff = if spec.length_scale.is_none() {
-        Some(PolyharmonicBlockCoeff::new(
-            pure_duchon_block_order(p_order, spec.power),
-            1,
-        ))
-    } else {
-        None
-    };
-    let kernel_amp = duchon_kernel_amplification(
-        centers.view(),
-        spec.length_scale,
-        p_order,
-        duchon_power_to_usize(spec.power),
-        1,
-        None,
-        coeffs.as_ref(),
-        pure_poly_coeff.as_ref(),
-    );
-    let mut basis = Array2::<f64>::zeros((data.nrows(), k + 1));
-    for i in 0..data.nrows() {
-        let x = wrap_to_period(data[[i, 0]], start, period);
-        for j in 0..k {
-            let c = wrap_to_period(centers[[j, 0]], start, period);
-            let r = cyclic_distance_1d(x, c, period);
-            let raw = if let Some(ref ppc) = pure_poly_coeff {
-                ppc.eval(r)
-            } else {
-                duchon_matern_kernel_general_from_distance(
-                    r,
-                    spec.length_scale,
-                    p_order,
-                    s_order_usize,
-                    1,
-                    coeffs.as_ref(),
-                )?
-            };
-            basis[[i, j]] = raw * kernel_amp;
-        }
-        basis[[i, k]] = 1.0;
-    }
-
-    let identifiability_transform = spatial_identifiability_transform_from_design(
-        data,
-        basis.view(),
-        &spec.identifiability,
-        "cyclic Duchon",
-    )?;
-    let (design_matrix, transform_for_penalty) = if let Some(z) = identifiability_transform.as_ref()
-    {
-        (fast_ab(&basis, z), Some(z))
-    } else {
-        (basis, None)
-    };
-
-    let mut s_kernel = Array2::<f64>::zeros((k + 1, k + 1));
-    let s_cyclic = create_cyclic_difference_penalty_matrix(k, s_order_usize.max(1).min(k - 1))?;
-    s_kernel.slice_mut(s![..k, ..k]).assign(&s_cyclic);
-    let s_final = if let Some(z) = transform_for_penalty {
-        fast_ab(&fast_atb(z, &s_kernel), z)
-    } else {
-        s_kernel
-    };
-    // Frobenius-normalize the cyclic roughness penalty so its smoothing
-    // parameter shares the unit-Frobenius scale of every other basis (cr /
-    // duchon / tensor / open-and-cyclic ps, #1365); a raw operator (scale 1.0)
-    // would put `λ` on a basis-dependent scale and miscalibrate the outer
-    // λ-search. Fit-invariant at the REML optimum (only `λ̂` rescales by `c`).
-    let (s_final_norm, s_final_scale) = normalize_penalty(&s_final);
-    let candidates = vec![PenaltyCandidate {
-        matrix: s_final_norm,
-        nullspace_dim_hint: 1,
-        source: PenaltySource::Primary,
-        normalization_scale: s_final_scale,
-        kronecker_factors: None,
-        op: None,
-    }];
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
-    Ok(BasisBuildResult {
-        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design_matrix)),
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        metadata: BasisMetadata::Duchon {
-            centers,
-            length_scale: spec.length_scale,
-            periodic: Some(vec![Some(period)]),
-            power: spec.power,
-            nullspace_order: DuchonNullspaceOrder::Zero,
-            identifiability_transform,
-            input_scales: None,
-            aniso_log_scales: None,
-            operator_collocation_points: None,
-            radial_reparam: None,
-        },
-        kronecker_factored: None,
-        ops,
-        null_eigenvectors,
-        joint_null_rotation: None,
-    })
-}
-
 /// Generic Duchon builder returning design + penalty list.
 pub fn build_duchon_basis(
     data: ArrayView2<'_, f64>,
@@ -1914,6 +1772,32 @@ pub fn create_duchon_basis_1d_derivative_dense(
     period: Option<f64>,
     order: usize,
 ) -> Result<Array2<f64>, BasisError> {
+    create_duchon_basis_1d_derivative_dense_with_radial_reparam(
+        t,
+        centers,
+        power,
+        nullspace_order,
+        periodic,
+        period,
+        None,
+        order,
+    )
+}
+
+/// Evaluate a 1-D Duchon design derivative in an already-frozen radial chart.
+/// Position-batched consumers compute the data-metric chart once from the
+/// complete ragged batch and reuse it for every segment; without this argument
+/// each segment differentiates a different coefficient basis.
+pub fn create_duchon_basis_1d_derivative_dense_with_radial_reparam(
+    t: ArrayView1<'_, f64>,
+    centers: ArrayView1<'_, f64>,
+    power: f64,
+    nullspace_order: DuchonNullspaceOrder,
+    periodic: bool,
+    period: Option<f64>,
+    radial_reparam: Option<ArrayView2<'_, f64>>,
+    order: usize,
+) -> Result<Array2<f64>, BasisError> {
     if order > 2 {
         crate::bail_invalid_basis!(
             "Duchon basis derivative supports orders 0, 1, and 2; got order={order}"
@@ -1928,6 +1812,11 @@ pub fn create_duchon_basis_1d_derivative_dense(
     if !periodic && period.is_some() {
         crate::bail_invalid_basis!(
             "Duchon basis derivative period is only valid when periodic=true"
+        );
+    }
+    if periodic && radial_reparam.is_some() {
+        crate::bail_invalid_basis!(
+            "periodic 1-D Duchon derivatives do not admit an open-domain radial reparameterization"
         );
     }
 
@@ -2009,8 +1898,18 @@ pub fn create_duchon_basis_1d_derivative_dense(
         return Ok(basis);
     }
 
-    let z =
+    let mut z =
         kernel_constraint_nullspace(center_matrix.view(), effective_order, &mut workspace.cache)?;
+    if let Some(radial_reparam) = radial_reparam {
+        if radial_reparam.nrows() != z.ncols() {
+            crate::bail_dim_basis!(
+                "Duchon frozen radial reparam shape {:?} does not match constrained kernel dimension {}",
+                radial_reparam.dim(),
+                z.ncols()
+            );
+        }
+        z = fast_ab(&z, &radial_reparam.to_owned());
+    }
     let kernel_cols = z.ncols();
     let poly_cols = polynomial_block_from_order(data.view(), effective_order).ncols();
 

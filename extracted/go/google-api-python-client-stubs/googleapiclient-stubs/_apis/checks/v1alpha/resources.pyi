@@ -23,7 +23,7 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -36,10 +36,10 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -48,26 +48,26 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
                     previous_response: ListOperationsResponse,
                 ) -> ListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self,
-                    *,
-                    name: str,
-                    body: WaitOperationRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: WaitOperationRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
 
             @typing.type_check_only
             class ReportsResource(googleapiclient.discovery.Resource):
                 def get(
-                    self, *, name: str, checksFilter: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    checksFilter: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> GoogleChecksReportV1alphaReportHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    checksFilter: str = ...,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    checksFilter: str | None = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleChecksReportV1alphaListReportsResponseHttpRequest: ...
                 def list_next(
@@ -83,8 +83,8 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleChecksAccountV1alphaListAppsResponseHttpRequest: ...
             def list_next(
@@ -109,7 +109,7 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleChecksRepoScanV1alphaGenerateScanRequest = ...,
+                    body: GoogleChecksRepoScanV1alphaGenerateScanRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -119,9 +119,9 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleChecksRepoScanV1alphaListRepoScansResponseHttpRequest: ...
                 def list_next(
@@ -143,7 +143,7 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
         def classifyContent(
             self,
             *,
-            body: GoogleChecksAisafetyV1alphaClassifyContentRequest = ...,
+            body: GoogleChecksAisafetyV1alphaClassifyContentRequest,
             **kwargs: typing.Any,
         ) -> GoogleChecksAisafetyV1alphaClassifyContentResponseHttpRequest: ...
 
@@ -153,7 +153,7 @@ class ChecksServiceResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            body: GoogleChecksReportV1alphaAnalyzeUploadRequest = ...,
+            body: GoogleChecksReportV1alphaAnalyzeUploadRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
 

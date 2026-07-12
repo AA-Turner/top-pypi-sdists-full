@@ -21,15 +21,15 @@ class ResellerResource(googleapiclient.discovery.Resource):
         def insert(
             self,
             *,
-            body: Customer = ...,
-            customerAuthToken: str = ...,
+            body: Customer,
+            customerAuthToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> CustomerHttpRequest: ...
         def patch(
-            self, *, customerId: str, body: Customer = ..., **kwargs: typing.Any
+            self, *, customerId: str, body: Customer, **kwargs: typing.Any
         ) -> CustomerHttpRequest: ...
         def update(
-            self, *, customerId: str, body: Customer = ..., **kwargs: typing.Any
+            self, *, customerId: str, body: Customer, **kwargs: typing.Any
         ) -> CustomerHttpRequest: ...
 
     @typing.type_check_only
@@ -38,10 +38,10 @@ class ResellerResource(googleapiclient.discovery.Resource):
             self, **kwargs: typing.Any
         ) -> ResellernotifyGetwatchdetailsResponseHttpRequest: ...
         def register(
-            self, *, serviceAccountEmailAddress: str = ..., **kwargs: typing.Any
+            self, *, serviceAccountEmailAddress: str | None = ..., **kwargs: typing.Any
         ) -> ResellernotifyResourceHttpRequest: ...
         def unregister(
-            self, *, serviceAccountEmailAddress: str = ..., **kwargs: typing.Any
+            self, *, serviceAccountEmailAddress: str | None = ..., **kwargs: typing.Any
         ) -> ResellernotifyResourceHttpRequest: ...
 
     @typing.type_check_only
@@ -54,7 +54,7 @@ class ResellerResource(googleapiclient.discovery.Resource):
             *,
             customerId: str,
             subscriptionId: str,
-            body: ChangePlanRequest = ...,
+            body: ChangePlanRequest,
             **kwargs: typing.Any,
         ) -> SubscriptionHttpRequest: ...
         def changeRenewalSettings(
@@ -62,7 +62,7 @@ class ResellerResource(googleapiclient.discovery.Resource):
             *,
             customerId: str,
             subscriptionId: str,
-            body: RenewalSettings = ...,
+            body: RenewalSettings,
             **kwargs: typing.Any,
         ) -> SubscriptionHttpRequest: ...
         def changeSeats(
@@ -70,7 +70,7 @@ class ResellerResource(googleapiclient.discovery.Resource):
             *,
             customerId: str,
             subscriptionId: str,
-            body: Seats = ...,
+            body: Seats,
             **kwargs: typing.Any,
         ) -> SubscriptionHttpRequest: ...
         def delete(
@@ -90,22 +90,21 @@ class ResellerResource(googleapiclient.discovery.Resource):
             self,
             *,
             customerId: str,
-            body: Subscription = ...,
-            action: typing_extensions.Literal[
-                "actionUnspecified", "buy", "switch"
-            ] = ...,
-            customerAuthToken: str = ...,
-            sourceSkuId: str = ...,
+            body: Subscription,
+            action: typing_extensions.Literal["actionUnspecified", "buy", "switch"]
+            | None = ...,
+            customerAuthToken: str | None = ...,
+            sourceSkuId: str | None = ...,
             **kwargs: typing.Any,
         ) -> SubscriptionHttpRequest: ...
         def list(
             self,
             *,
-            customerAuthToken: str = ...,
-            customerId: str = ...,
-            customerNamePrefix: str = ...,
-            maxResults: int = ...,
-            pageToken: str = ...,
+            customerAuthToken: str | None = ...,
+            customerId: str | None = ...,
+            customerNamePrefix: str | None = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> SubscriptionsHttpRequest: ...
         def list_next(

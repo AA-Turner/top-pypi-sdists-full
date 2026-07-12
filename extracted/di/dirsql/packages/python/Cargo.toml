@@ -4,7 +4,7 @@ name = "dirsql-py-ext"
 # pypi/maturin handler can rewrite it via `write-version` before
 # `maturin build`. `pyproject.toml` declares `dynamic = ["version"]`
 # and maturin reads this field. Mirrors `packages/rust/Cargo.toml`.
-version = "0.3.92"
+version = "0.3.93"
 # abi3 note: the `abi3-py311` pyo3 feature (below) builds ONE stable-ABI
 # `cp311-abi3` wheel per platform that loads on every CPython >= 3.11
 # (matching `pyproject.toml`'s `requires-python = ">=3.11"`), instead of

@@ -301,6 +301,35 @@ def _model_router_fingerprint() -> dict:
         return {}
 
 
+def _model_router_currency() -> dict:
+    """Compute the NemoClaw model-router currency verdict (#3652).
+
+    Mirrors ``isManagedModelRouterCurrent()`` from harness
+    ``src/lib/onboard/model-router.ts``: compares the installed fingerprint
+    (``<venv>/.nemoclaw-source-fingerprint``) against the expected/current
+    source pin (``<venv>/.nemoclaw-expected-fingerprint``) written by the
+    harness during onboarding to record the SHA the current NemoClaw version
+    pins its model-router to.
+
+    Returns ``{"modelRouterCurrent": bool}`` when both files are present and
+    readable; ``{}`` when either is absent (plain OpenClaw, old NemoClaw
+    installs that pre-date the expected-pin file, or no venv at all).
+    Never raises.
+    """
+    venv = os.environ.get("NEMOCLAW_MODEL_ROUTER_VENV") or os.path.expanduser(
+        os.path.join("~", ".nemoclaw", "model-router-venv"))
+    try:
+        with open(os.path.join(venv, ".nemoclaw-source-fingerprint"), encoding="utf-8") as fh:
+            installed = (fh.read() or "").strip()
+        with open(os.path.join(venv, ".nemoclaw-expected-fingerprint"), encoding="utf-8") as fh:
+            expected = (fh.read() or "").strip()
+        if not installed or not expected:
+            return {}
+        return {"modelRouterCurrent": installed == expected}
+    except (OSError, ValueError):
+        return {}
+
+
 def _resolve_ollama_host() -> str:
     """Return the active Ollama base URL from env vars or the default.
 
@@ -481,33 +510,52 @@ def _openshell_sandbox_logs(name: str, count: int = 20) -> list:
 
 
 def _sandbox_egress_denied_count(name: str, count: int = 100) -> dict:
-    """Count DNS-backed HTTPS fail-closed denial events in recent sandbox OCSF logs.
+    """Summarise OCSF audit events from recent sandbox logs (#3616).
 
     Fetches the <count> most-recent OCSF audit events for sandbox <name> and
-    counts those with verdict=='deny' that carry a network-egress context:
-    either an OCSF network-activity class_uid (4001-4004) or the presence of
-    endpoint fields (dst_endpoint / src_endpoint) that imply a connection
-    attempt.  Returns {"egressDeniedCount": N} when N>0 so callers can
-    .update() a sandbox entry dict directly; returns {} otherwise -- identical
-    to the _openshell_sandbox_ocsf_enabled() contract.  Never raises.
+    classifies every event into one of three buckets:
+
+    - Network-egress denied  (class_uid 4001-4004 or endpoint fields, verdict==deny)
+      → ``egressDeniedCount``
+    - Network-egress allowed (class_uid 4001-4004 or endpoint fields, verdict==allow)
+      → ``egressAllowedCount``
+    - Non-network audit      (process-activity, file-activity, auth events, …)
+      → ``processFileAuthAuditCount``
+
+    Each key is omitted when its count is zero, preserving the .update()-friendly
+    contract used by callers.  Never raises.
     """
     _NETWORK_CLASS_UIDS = frozenset([4001, 4002, 4003, 4004])
     try:
         events = _openshell_sandbox_logs(name, count=count)
         denied = 0
+        allowed = 0
+        non_network = 0
         for evt in events:
             if not isinstance(evt, dict):
                 continue
-            if evt.get("verdict") != "deny":
-                continue
             class_uid = evt.get("class_uid")
-            if class_uid in _NETWORK_CLASS_UIDS:
-                denied += 1
-            elif "dst_endpoint" in evt or "src_endpoint" in evt:
-                denied += 1
+            is_network = (
+                class_uid in _NETWORK_CLASS_UIDS
+                or "dst_endpoint" in evt
+                or "src_endpoint" in evt
+            )
+            if is_network:
+                verdict = evt.get("verdict")
+                if verdict == "deny":
+                    denied += 1
+                elif verdict == "allow":
+                    allowed += 1
+            else:
+                non_network += 1
+        result: dict = {}
         if denied:
-            return {"egressDeniedCount": denied}
-        return {}
+            result["egressDeniedCount"] = denied
+        if allowed:
+            result["egressAllowedCount"] = allowed
+        if non_network:
+            result["processFileAuthAuditCount"] = non_network
+        return result
     except Exception:
         return {}
 
@@ -1285,6 +1333,10 @@ class OpenClawAdapter(AgentAdapter):
             # OpenClaw, so meta is unchanged there. (#2610 skill-catalog deferred
             # — see note above: no host-readable on-disk location.)
             meta.update(_model_router_fingerprint())
+            # Currency verdict (#3652): is the installed router up-to-date?
+            # Distinct from liveness (crashed vs alive); this catches the case
+            # where NemoClaw upgraded but the router wasn't reinstalled.
+            meta.update(_model_router_currency())
             meta.update(_model_router_proxy_config_models())
             # Runtime liveness (#2795). The fingerprint above only proves the
             # router was INSTALLED; probe /health so a crashed router is no
@@ -1428,6 +1480,16 @@ class OpenClawAdapter(AgentAdapter):
             _fm_fallback = s.get("fallbackModel") or s.get("fastModeFallbackModel")
             if _fm_fallback is not None:
                 extra["fallbackModel"] = _fm_fallback
+            # Runtime-engine fallback dimension (#3649): CHANGELOG #98021 added
+            # an atomic runtime (engine) selection alongside model and thinking;
+            # capture it so engine switches (OpenClaw↔Codex) are distinguishable.
+            _fb_runtime = (
+                s.get("fallbackRuntime")
+                or s.get("fallbackRuntimeEngine")
+                or s.get("runtimeEngine")
+            )
+            if _fb_runtime is not None:
+                extra["fallbackRuntime"] = _fb_runtime
             # /think reasoning-level tier (#3324): PR #94067 stores the active
             # level (light/medium/deep) on session records; surface when present.
             _think_level = s.get("thinkLevel") or s.get("reasoningLevel")
@@ -1804,6 +1866,15 @@ class OpenClawAdapter(AgentAdapter):
                             _fm_fallback = obj.get("fallbackModel") or obj.get("fastModeFallbackModel")
                             if _fm_fallback is not None:
                                 extra["fallbackModel"] = _fm_fallback
+                            # Runtime-engine fallback dimension (#3649): same
+                            # atomic engine field captured at the event level.
+                            _fb_runtime = (
+                                obj.get("fallbackRuntime")
+                                or obj.get("fallbackRuntimeEngine")
+                                or obj.get("runtimeEngine")
+                            )
+                            if _fb_runtime is not None:
+                                extra["fallbackRuntime"] = _fb_runtime
                             # /think reasoning-level tier (#3324): PR #94067 stores
                             # the active level (light/medium/deep) on model-turn
                             # records; try camelCase then snake_case.

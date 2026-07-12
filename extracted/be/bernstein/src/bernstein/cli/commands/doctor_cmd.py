@@ -64,7 +64,7 @@ def check_python_version() -> dict[str, Any]:
 def check_adapters_installed() -> list[dict[str, Any]]:
     """Check which CLI adapters are on PATH."""
     results: list[dict[str, Any]] = []
-    for name in ("claude", "codex", "gemini", "qwen", "aider"):
+    for name in ("agy", "claude", "codex", "gemini", "qwen", "aider"):
         found = shutil.which(name) is not None
         results.append(
             {
@@ -157,6 +157,68 @@ def check_adapter_advisories() -> list[dict[str, Any]]:
                     "name": label,
                     "status": _CHECK_PASS,
                     "detail": f"{version} >= safe floor {advisory.min_safe_version}",
+                    "fix": "",
+                }
+            )
+    return results
+
+
+def check_canary_last_green() -> list[dict[str, Any]]:
+    """Warn when an installed agent version is ahead of its last-green.
+
+    The nightly adapter conformance canary regenerates a per-adapter
+    last-green projection (the newest upstream version whose conformance
+    receipt passed; see ``docs/adapters/conformance-canary.md``). When a
+    locally installed binary is *newer* than last-green, the canary has
+    not yet verified that release against the adapter contract, so
+    unattended runs are one upstream regression away from failing without
+    warning. Rows:
+
+    - PASS when the installed version is at or below last-green,
+    - WARN when it is strictly ahead of last-green,
+    - adapters whose binary is missing, whose version cannot be probed,
+      or which carry no last-green row are omitted so the surface stays
+      quiet.
+    """
+    from packaging.version import InvalidVersion, Version
+
+    from bernstein.adapters.canary import load_last_green
+
+    results: list[dict[str, Any]] = []
+    for name, entry in sorted(load_last_green().items()):
+        if shutil.which(entry.binary) is None:
+            continue  # adapter not installed: nothing to advise on
+        version = _probe_adapter_version(entry.binary)
+        if version is None:
+            continue  # unknown version is already surfaced by advisories
+        try:
+            installed = Version(version)
+            last_green = Version(entry.version)
+        except InvalidVersion:
+            continue
+        label = f"Adapter last-green: {name}"
+        if installed > last_green:
+            results.append(
+                {
+                    "name": label,
+                    "status": _CHECK_WARN,
+                    "detail": (
+                        f"{version} is ahead of last-green {entry.version} "
+                        f"(receipt {entry.receipt_sha256[:12]}); the conformance "
+                        "canary has not verified this release yet"
+                    ),
+                    "fix": (
+                        f"Check docs/adapters/conformance-canary.md, or pin {entry.binary} "
+                        f"to {entry.version} for unattended runs"
+                    ),
+                }
+            )
+        else:
+            results.append(
+                {
+                    "name": label,
+                    "status": _CHECK_PASS,
+                    "detail": f"{version} <= last-green {entry.version}",
                     "fix": "",
                 }
             )
@@ -406,12 +468,37 @@ def check_schedule_supervisor() -> dict[str, Any]:
     }
 
 
+def check_price_table_advisory() -> dict[str, Any]:
+    """Warn when the shipped cost-scheduling price table is stale (issue #2354).
+
+    USD budgets are enforced against a hash-pinned price table; provider rates
+    drift between releases, so a table older than the staleness window is a
+    signal to refresh ``cost_policy.pricing`` (or the shipped defaults). This is
+    an advisory only -- it never blocks.
+    """
+    from datetime import UTC, datetime
+
+    from bernstein.core.cost.scheduling.price_table import DEFAULT_PRICE_TABLE, price_table_staleness
+
+    advisory = price_table_staleness(DEFAULT_PRICE_TABLE, now_iso=datetime.now(tz=UTC).strftime("%Y-%m-%d"))
+    return {
+        "name": "Cost price table",
+        "status": _CHECK_WARN if advisory.stale else _CHECK_PASS,
+        "detail": advisory.message,
+        "fix": "Refresh cost_policy.pricing in bernstein.yaml or update the shipped price table"
+        if advisory.stale
+        else "",
+    }
+
+
 def run_all_checks() -> list[dict[str, Any]]:
     """Run all health checks and return results."""
     checks: list[dict[str, Any]] = []
     checks.append(check_python_version())
     checks.extend(check_adapters_installed())
     checks.extend(check_adapter_advisories())
+    checks.extend(check_canary_last_green())
+    checks.append(check_price_table_advisory())
     checks.extend(check_api_keys())
     checks.extend(
         (

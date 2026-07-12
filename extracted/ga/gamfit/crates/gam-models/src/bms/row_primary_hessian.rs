@@ -708,9 +708,7 @@ impl BernoulliMarginalSlopeFamily {
         block_states: &[ParameterBlockState],
         row_contexts: &[BernoulliMarginalSlopeRowExactContext],
     ) -> Result<Option<crate::cell_moment_family::CellFamilyForest>, String> {
-        use crate::cell_moment_family::{
-            CellFamilyForest, CellMomentFamilySpec, ComboKey,
-        };
+        use crate::cell_moment_family::{CellFamilyForest, CellMomentFamilySpec, ComboKey};
         if !self.effective_flex_active(block_states)? {
             return Ok(None);
         }
@@ -1522,9 +1520,7 @@ impl BernoulliMarginalSlopeFamily {
                     stride,
                     n_cells,
                 })) => {
-                    if stride != crate::bms::gpu::row::MOMENT_STRIDE
-                        || n_cells != total_cells_us
-                    {
+                    if stride != crate::bms::gpu::row::MOMENT_STRIDE || n_cells != total_cells_us {
                         return Err(format!(
                             "bms_flex_row device-moment substrate returned bad shape: \
                              stride={stride} n_cells={n_cells} expected stride={} cells={}",
@@ -1601,43 +1597,41 @@ impl BernoulliMarginalSlopeFamily {
         drop(gpu_cells);
         drop(gpu_branches);
 
-        Ok(Some(
-            crate::bms::gpu::row::BmsFlexRowKernelInputsOwned {
-                n_rows: n,
-                r,
-                p_h,
-                p_w,
-                s_f: scale,
-                q: row_q,
-                b: row_b,
-                mu_1: row_mu1,
-                mu_2: row_mu2,
-                z_obs: row_zobs,
-                y: row_y,
-                w: row_w,
-                e_obs: row_e_obs,
-                cell_offsets,
-                cell_c0,
-                cell_c1,
-                cell_c2,
-                cell_c3,
-                cell_a,
-                cell_aa,
-                cell_r: cell_r_buf,
-                cell_ar,
-                cell_sbb,
-                cell_sbh,
-                cell_sbw,
-                cell_moments,
-                #[cfg(target_os = "linux")]
-                cell_moments_device,
-                chi_obs: row_chi,
-                xi_obs: row_xi,
-                rho_u: row_rho,
-                tau_u: row_tau,
-                r_uv: row_ruv,
-            },
-        ))
+        Ok(Some(crate::bms::gpu::row::BmsFlexRowKernelInputsOwned {
+            n_rows: n,
+            r,
+            p_h,
+            p_w,
+            s_f: scale,
+            q: row_q,
+            b: row_b,
+            mu_1: row_mu1,
+            mu_2: row_mu2,
+            z_obs: row_zobs,
+            y: row_y,
+            w: row_w,
+            e_obs: row_e_obs,
+            cell_offsets,
+            cell_c0,
+            cell_c1,
+            cell_c2,
+            cell_c3,
+            cell_a,
+            cell_aa,
+            cell_r: cell_r_buf,
+            cell_ar,
+            cell_sbb,
+            cell_sbh,
+            cell_sbw,
+            cell_moments,
+            #[cfg(target_os = "linux")]
+            cell_moments_device,
+            chi_obs: row_chi,
+            xi_obs: row_xi,
+            rho_u: row_rho,
+            tau_u: row_tau,
+            r_uv: row_ruv,
+        }))
     }
 
     pub(super) fn build_row_primary_hessian_cache(
@@ -1665,8 +1659,7 @@ impl BernoulliMarginalSlopeFamily {
             runtime_available,
             workspace_pinned,
         );
-        let gpu_decision =
-            crate::bms::gpu::flex::require_row_primary_hessian_supported(n, r)?;
+        let gpu_decision = crate::bms::gpu::flex::require_row_primary_hessian_supported(n, r)?;
         // When the policy says GPU, eagerly probe the backend so any NVRTC
         // compile / context init failure surfaces in the cache-decision log
         // instead of at first dispatch. A probe returning `NoDeviceKernel`
@@ -1818,7 +1811,7 @@ impl BernoulliMarginalSlopeFamily {
         //    skipped. Any failure (`NoDeviceKernel`, driver errors, or
         //    pack-time precondition mismatch) logs a one-liner and falls
         //    through to the existing CPU path, preserving production
-        //    behaviour under `gpu=auto`. Under `gpu=force`, the upstream
+        //    behaviour under `gpu=auto`. Under `gpu=required`, the upstream
         //    `require_row_primary_hessian_supported` would already have
         //    failed; here we still fall back on launch failure rather than
         //    panic mid-fit.
@@ -1840,20 +1833,18 @@ impl BernoulliMarginalSlopeFamily {
                             let md_is_rowmajor = md.is_standard_layout();
                             let gd_is_rowmajor = gd.is_standard_layout();
                             if md_is_rowmajor && gd_is_rowmajor {
-                                let block_layout =
-                                    crate::bms::gpu::row::BmsFlexBlockLayout {
-                                        p_m: cache.slices.marginal.len(),
-                                        p_g: cache.slices.logslope.len(),
-                                        h: cache.slices.h.clone(),
-                                        w: cache.slices.w.clone(),
-                                        p_total: cache.slices.total,
-                                    };
-                                let primary_layout =
-                                    crate::bms::gpu::row::BmsFlexPrimaryLayout {
-                                        h: primary.h.clone(),
-                                        w: primary.w.clone(),
-                                        r: primary.total,
-                                    };
+                                let block_layout = crate::bms::gpu::row::BmsFlexBlockLayout {
+                                    p_m: cache.slices.marginal.len(),
+                                    p_g: cache.slices.logslope.len(),
+                                    h: cache.slices.h.clone(),
+                                    w: cache.slices.w.clone(),
+                                    p_total: cache.slices.total,
+                                };
+                                let primary_layout = crate::bms::gpu::row::BmsFlexPrimaryLayout {
+                                    h: primary.h.clone(),
+                                    w: primary.w.clone(),
+                                    r: primary.total,
+                                };
                                 let md_slice = md
                                     .as_slice()
                                     .expect("dense marginal_design is row-major contiguous");
@@ -1889,9 +1880,7 @@ impl BernoulliMarginalSlopeFamily {
                             }
                         }
                     }
-                    match crate::bms::gpu::row::launch_bms_flex_row_kernel(
-                        owned.as_borrowed(),
-                    ) {
+                    match crate::bms::gpu::row::launch_bms_flex_row_kernel(owned.as_borrowed()) {
                         Ok(outputs) => {
                             if log_exact_work(n) {
                                 log::info!(
@@ -2008,60 +1997,69 @@ impl BernoulliMarginalSlopeFamily {
         let mut packed_neglog = Array1::<f64>::zeros(tile_len);
         let mut packed_grad = Array2::<f64>::zeros((tile_len, r));
         let mut packed_hess = Array2::<f64>::zeros((tile_len, r * r));
-        let chunk_evals: Vec<(f64, Vec<f64>, Vec<f64>)> = rows
-            .clone()
-            .into_par_iter()
-            .map(|row| -> Result<(f64, Vec<f64>, Vec<f64>), String> {
-                let row_ctx = Self::row_ctx(cache, row);
-                let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(r);
-                let row_moments = cache
-                    .row_cell_moments
-                    .as_ref()
-                    .and_then(|bundle| bundle.row(row, 9));
-                let neglog = self.compute_row_analytic_flex_into_with_moments(
-                    row,
-                    block_states,
-                    &cache.primary,
-                    row_ctx,
-                    row_moments,
-                    cache.cell_family_forest.as_ref(),
-                    true,
-                    &mut scratch,
-                )?;
-                if log_exact_work(n) {
-                    let done = completed_rows.fetch_add(1, Ordering::Relaxed) + 1;
-                    if done == n || done % progress_step == 0 {
-                        log::info!(
-                            "[BMS row-primary-hessian-cache] progress rows={}/{} elapsed={:.3}s",
-                            done,
-                            n,
-                            started.elapsed().as_secs_f64()
+        {
+            // #932 cold-builder allocation fix: one flex scratch per rayon
+            // worker split (`try_for_each_init`), with each row's outputs
+            // written straight into disjoint chunks of the preallocated packed
+            // arrays. The former shape allocated a fresh scratch plus two
+            // output `Vec`s per row and an intermediate per-tile `Vec` of
+            // triples, all repacked serially afterwards. The row kernel's own
+            // `scratch.reset(need_hessian)` makes worker-local reuse exact.
+            use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator};
+            use rayon::slice::ParallelSliceMut;
+            let neglog_out = packed_neglog
+                .as_slice_mut()
+                .expect("packed_neglog is contiguous");
+            let grad_out = packed_grad
+                .as_slice_mut()
+                .expect("packed_grad is contiguous");
+            let hess_out = packed_hess
+                .as_slice_mut()
+                .expect("packed_hess is contiguous");
+            rows.clone()
+                .into_par_iter()
+                .zip(neglog_out.par_iter_mut())
+                .zip(grad_out.par_chunks_mut(r))
+                .zip(hess_out.par_chunks_mut(r * r))
+                .try_for_each_init(
+                    || BernoulliMarginalSlopeFlexRowScratch::new(r),
+                    |scratch, (((row, neglog_slot), grad_slot), hess_slot)| -> Result<(), String> {
+                        let row_ctx = Self::row_ctx(cache, row);
+                        let row_moments = cache
+                            .row_cell_moments
+                            .as_ref()
+                            .and_then(|bundle| bundle.row(row, 9));
+                        let neglog = self.compute_row_analytic_flex_into_with_moments(
+                            row,
+                            block_states,
+                            &cache.primary,
+                            row_ctx,
+                            row_moments,
+                            cache.cell_family_forest.as_ref(),
+                            true,
+                            scratch,
+                        )?;
+                        if log_exact_work(n) {
+                            let done = completed_rows.fetch_add(1, Ordering::Relaxed) + 1;
+                            if done == n || done % progress_step == 0 {
+                                log::info!(
+                                    "[BMS row-primary-hessian-cache] progress rows={}/{} elapsed={:.3}s",
+                                    done,
+                                    n,
+                                    started.elapsed().as_secs_f64()
+                                );
+                            }
+                        }
+                        *neglog_slot = neglog;
+                        grad_slot.copy_from_slice(
+                            scratch.grad.as_slice().expect("grad is contiguous"),
                         );
-                    }
-                }
-                Ok((
-                    neglog,
-                    scratch.grad.to_vec(),
-                    scratch
-                        .hess
-                        .as_slice()
-                        .expect("hess is contiguous")
-                        .to_vec(),
-                ))
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        for (offset, (neglog, grad_flat, hess_flat)) in chunk_evals.into_iter().enumerate() {
-            packed_neglog[offset] = neglog;
-            packed_grad
-                .row_mut(offset)
-                .iter_mut()
-                .zip(grad_flat.iter())
-                .for_each(|(d, s)| *d = *s);
-            packed_hess
-                .row_mut(offset)
-                .iter_mut()
-                .zip(hess_flat.iter())
-                .for_each(|(d, s)| *d = *s);
+                        hess_slot.copy_from_slice(
+                            scratch.hess.as_slice().expect("hess is contiguous"),
+                        );
+                        Ok(())
+                    },
+                )?;
         }
         Ok(RowPrimaryEvalPin::new(
             packed_neglog,
@@ -2648,7 +2646,8 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_aa = 0.0f64;
         use super::exact_kernel as exact;
 
-        let dot = |c: &[f64; 4], q: &[f64; 4]| c[0] * q[0] + c[1] * q[1] + c[2] * q[2] + c[3] * q[3];
+        let dot =
+            |c: &[f64; 4], q: &[f64; 4]| c[0] * q[0] + c[1] * q[1] + c[2] * q[2] + c[3] * q[3];
         let quad = |cu: &[f64; 4], m: &[[f64; 4]; 4], cv: &[f64; 4]| -> f64 {
             let mut s = 0.0;
             for i in 0..4 {
@@ -2689,8 +2688,10 @@ impl BernoulliMarginalSlopeFamily {
                     z_probe,
                     "score-warp (factored)",
                     |_, idx, basis_span| {
-                        coeff_u[idx] =
-                            scale_coeff4(exact::score_basis_cell_coefficients(basis_span, b), scale);
+                        coeff_u[idx] = scale_coeff4(
+                            exact::score_basis_cell_coefficients(basis_span, b),
+                            scale,
+                        );
                         if need_hessian {
                             coeff_bu[idx] = scale_coeff4(
                                 exact::score_basis_cell_coefficients(basis_span, 1.0),
@@ -2730,7 +2731,11 @@ impl BernoulliMarginalSlopeFamily {
             let mut q_m = [0.0f64; 4];
             let mut m_m = [[0.0f64; 4]; 4];
             let mut any = false;
-            for (&node, &weight) in empirical_grid.nodes.iter().zip(empirical_grid.weights.iter()) {
+            for (&node, &weight) in empirical_grid
+                .nodes
+                .iter()
+                .zip(empirical_grid.weights.iter())
+            {
                 if !(node >= lo && node < hi) {
                     continue;
                 }

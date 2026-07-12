@@ -1,14 +1,19 @@
-from django.contrib.auth.models import Group, Permission, User
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 
-from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.django import (
     add_permissions_to_user_by_name,
     app_labels,
     permission_by_name,
     users_with_permission,
 )
-from app_utils.testdata_factories import UserFactory
+from app_utils.testdata_factories import (
+    EveCharacterFactory,
+    GroupFactory,
+    StateFactory,
+    UserFactory,
+    UserMainFactory,
+)
 
 
 class TestAppLabel(TestCase):
@@ -18,71 +23,97 @@ class TestAppLabel(TestCase):
             self.assertIn(label, labels)
 
 
-class TestUsersWithPermissionQS(TestCase):
+class TestUsersWithPermission(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.permission = Permission.objects.first()
-        if not cls.permission:
+        cls.perm = Permission.objects.first()
+        if not cls.perm:
             raise RuntimeError("no permission found")
-        cls.group, _ = Group.objects.get_or_create(name="Test Group")
-        AuthUtils.add_permissions_to_groups([cls.permission], [cls.group])
-        cls.state = AuthUtils.create_state(name="Test State", priority=75)
-        cls.state.permissions.add(cls.permission)
 
-    def setUp(self) -> None:
-        self.user_1 = AuthUtils.create_user("Bruce Wayne")
-        self.user_2 = AuthUtils.create_user("Lex Luther")
-        self.user_3 = User.objects.create_superuser("Spiderman")
+        cls.perm_name = f"{cls.perm.content_type.app_label}.{cls.perm.codename}"
 
-    @classmethod
-    def user_with_permission_pks(cls, include_superusers=True) -> set:
-        return set(
-            users_with_permission(
-                cls.permission, include_superusers=include_superusers
-            ).values_list("pk", flat=True)
-        )
-
-    def test_should_return_users_with_user_permission(self):
+    def test_should_include_superusers(self):
         # given
-        AuthUtils.add_permissions_to_user([self.permission], self.user_1)
-        # when
-        result = self.user_with_permission_pks()
-        # then
-        self.assertSetEqual(result, {self.user_1.pk, self.user_3.pk})
+        user = UserFactory(is_superuser=True)
+        UserFactory()
 
-    def test_should_return_users_with_user_permission_excluding_superusers(self):
+        # when
+        got = users_with_permission(permission=self.perm)
+
+        # then
+        self.assertCountEqual(got, [user])
+
+    def test_should_not_include_superusers(self):
         # given
-        AuthUtils.add_permissions_to_user([self.permission], self.user_1)
+        UserFactory(is_superuser=True)
+
         # when
-        result = self.user_with_permission_pks(include_superusers=False)
+        got = users_with_permission(permission=self.perm, include_superusers=False)
+
         # then
-        self.assertSetEqual(result, {self.user_1.pk})
+        self.assertFalse(got)
 
-    def test_group_permission(self):
-        """group permissions"""
-        self.user_1.groups.add(self.group)
-        self.assertSetEqual(
-            self.user_with_permission_pks(), {self.user_1.pk, self.user_3.pk}
-        )
-
-    def test_state_permission(self):
-        """state permissions"""
-        AuthUtils.assign_state(self.user_1, self.state, disconnect_signals=True)
-        self.assertSetEqual(
-            self.user_with_permission_pks(), {self.user_1.pk, self.user_3.pk}
-        )
-
-    def test_distinct_qs(self):
-        """only return one user object, despite multiple matches"""
+    def test_should_include_user_with_permission(self):
         # given
-        AuthUtils.add_permissions_to_user([self.permission], self.user_1)
-        self.user_1.groups.add(self.group)
-        AuthUtils.assign_state(self.user_1, self.state, disconnect_signals=True)
+        user = UserFactory(permissions=[self.perm_name])
+        UserFactory()
+
         # when
-        result = self.user_with_permission_pks()
+        got = users_with_permission(permission=self.perm)
+
         # then
-        self.assertSetEqual(result, {self.user_1.pk, self.user_3.pk})
+        self.assertCountEqual(got, [user])
+
+    def test_should_include_users_inheriting_permission_from_a_group(self):
+        # given
+        group = GroupFactory()
+        group.permissions.add(self.perm.pk)
+        user = UserFactory()
+        user.groups.add(group)
+
+        UserFactory()
+
+        # when
+        got = users_with_permission(permission=self.perm)
+
+        # then
+        self.assertCountEqual(got, [user])
+
+    def test_should_include_users_inheriting_permission_from_state(self):
+        # given
+        character = EveCharacterFactory()
+        state = StateFactory(member_characters=[character])
+        state.permissions.add(self.perm.pk)
+        user = UserMainFactory(main_character__character=character)
+
+        UserMainFactory()
+
+        # when
+        got = users_with_permission(permission=self.perm)
+
+        # then
+        self.assertCountEqual(got, [user])
+
+    def test_should_return_distinct_objects(self):
+        # given
+        character = EveCharacterFactory()
+        state = StateFactory(member_characters=[character])
+        state.permissions.add(self.perm.pk)
+        group = GroupFactory()
+        group.permissions.add(self.perm.pk)
+        user = UserMainFactory(
+            main_character__character=character, permissions=[self.perm_name]
+        )
+        user.groups.add(group)
+
+        UserMainFactory()
+
+        # when
+        got = users_with_permission(permission=self.perm)
+
+        # then
+        self.assertCountEqual(got, [user])
 
 
 class TestAddPermissionsToUserByName(TestCase):

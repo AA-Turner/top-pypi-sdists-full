@@ -2,80 +2,64 @@
 mod amortized_encoder_tests {
     use crate::manifold::tests::small_two_atom_periodic_term;
 
-    /// #1026 ladder item 2/3 — the amortized encoder is reachable end-to-end
-    /// from a fitted term and is certificate-honest: it encodes the dictionary's
-    /// own fit-time target, returns one result per atom with the right shape, and
-    /// every row is either certified or counted in
-    /// `encode_uncertified_count` (never silently miscounted), with the exact
-    /// fallback strictly reducing the uncertified count it inherits.
+    /// The fitted encoder is reachable end-to-end and returns one coordinate
+    /// block per atom plus one honest joint-convergence verdict per row.
     #[test]
-    fn amortized_encode_fitted_is_reachable_and_certificate_honest() {
-        let (term, target, rho) = small_two_atom_periodic_term();
+    fn amortized_encode_fitted_is_reachable_and_jointly_solved() {
+        let (term, target, _rho_unused) = small_two_atom_periodic_term();
         let n = term.n_obs();
         let k = term.k_atoms();
 
         let results = term
-            .amortized_encode_fitted(target.view(), &rho)
+            .amortized_encode_fitted(target.view())
             .expect("amortized encode of the fit-time target runs end-to-end");
-        assert_eq!(
-            results.len(),
-            k,
-            "one encode result per atom in dictionary order"
-        );
+        assert_eq!(results.coords.len(), k, "one coordinate block per atom");
 
-        for (atom_idx, result) in results.iter().enumerate() {
+        for (atom_idx, result) in results.coords.iter().enumerate() {
             assert_eq!(
-                result.coords.nrows(),
+                result.nrows(),
                 n,
                 "atom {atom_idx} encode must produce one coordinate per row"
             );
             assert_eq!(
-                result.coords.ncols(),
+                result.ncols(),
                 term.atoms[atom_idx].latent_dim,
                 "atom {atom_idx} encode coords must match its latent dim"
             );
-            // The uncertified count is the honest tally of rows the certificate
-            // could not gate — it must equal the false entries of the mask.
-            let uncertified = result.certified.iter().filter(|c| !**c).count();
-            assert_eq!(
-                result.encode_uncertified_count, uncertified,
-                "atom {atom_idx} uncertified count must match the certificate mask"
-            );
-            assert_eq!(
-                result.certified.len(),
-                n,
-                "atom {atom_idx} certificate mask must cover every row"
-            );
         }
+        assert_eq!(
+            results.converged.len(),
+            n,
+            "joint verdict must cover every row"
+        );
+        assert_eq!(
+            results.unconverged_count,
+            results.converged.iter().filter(|ok| !**ok).count()
+        );
     }
 
-    /// The fitted amplitudes the encoder derives are the realised intensity
-    /// coordinates the reconstruction uses: the existence gate times the explicit
-    /// cone radial scale.  Returning the bare gate would silently re-couple
-    /// presence and intensity for amortized encoding as soon as `log_amplitude`
-    /// moves away from zero.
+    /// The fitted amplitudes the encoder derives are exactly the posterior gate
+    /// coordinates used by reconstruction. Decoder magnitude stays in `B`, so
+    /// there is no second radial-scale channel to fold into these values.
     #[test]
-    fn fitted_assignment_amplitudes_include_explicit_log_amplitude_1939() {
-        let (mut term, _target, rho) = small_two_atom_periodic_term();
-        term.atoms[0].log_amplitude = 2.0_f64.ln();
-        term.atoms[1].log_amplitude = 0.25_f64.ln();
+    fn fitted_assignment_amplitudes_equal_posterior_gates() {
+        let (term, _target, _rho_unused) = small_two_atom_periodic_term();
         let n = term.n_obs();
         let k = term.k_atoms();
         let amplitudes = term
-            .fitted_assignment_amplitudes(&rho)
-            .expect("fitted amplitudes derive from assignment and cone scale");
+            .fitted_assignment_amplitudes()
+            .expect("fitted amplitudes derive from posterior assignments");
         assert_eq!(amplitudes.dim(), (n, k));
         for row in 0..n {
             let a = term
                 .assignment
-                .try_assignments_row_for_rho(row, &rho)
+                .try_assignments_row(row)
                 .expect("assignment row resolves");
             for atom_idx in 0..k {
-                let expected = a[atom_idx] * term.atoms[atom_idx].log_amplitude.exp();
                 assert_eq!(
                     amplitudes[[row, atom_idx]],
-                    expected,
-                    "amplitude[{row},{atom_idx}] must equal gate times explicit cone scale"
+                    a[atom_idx],
+                    "amplitude[{row},{atom_idx}] must equal its posterior gate"
                 );
             }
         }
@@ -89,20 +73,18 @@ mod outer_gradient_error_classification_1451_tests {
     /// #1451 — the three numerical/linear-algebra failure sites inside the
     /// deflation path (`apply_cached_arrow_hessian`, the projected `h_span.eigh`,
     /// and `DeflatedArrowSolver::from_orthonormal_gauges`) must distinguish a
-    /// genuine near-singular conditioning trip (FD-eligible `IllConditioned`)
-    /// from an internal-invariant defect — a shape/dimension mismatch or a
-    /// non-finite intermediate — which MUST propagate (`InternalInvariant`, NOT
-    /// FD-eligible).
+    /// genuine near-singular conditioning trip (`IllConditioned`) from an
+    /// internal-invariant defect — a shape/dimension mismatch or a non-finite
+    /// intermediate (`InternalInvariant`). Both propagate if the projected
+    /// implicit solve cannot complete, but the typed diagnosis must stay exact.
     ///
     /// `OuterGradientError::classify_arrow_solver_error` is the helper all three
     /// sites route through. Before the #1451 fix every failure there was
     /// re-labelled `IllConditioned` (the original `conditioning_err`), so the
-    /// shape/non-finite cases below would have been FD-eligible — masking an
-    /// internal defect behind a plausible-but-wrong FD descent direction, exactly
-    /// the regression #1436 set out to eliminate. This test pins that a
-    /// shape/non-finite error classifies to `InternalInvariant` (so it
-    /// propagates) while a genuine finite, correctly-shaped near-singular failure
-    /// stays `IllConditioned` (so it keeps the #1273 FD fallback).
+    /// shape/non-finite cases below would have been misdiagnosed as numerical
+    /// conditioning. This test pins that a shape/non-finite error classifies to
+    /// `InternalInvariant` while a genuine finite, correctly-shaped
+    /// near-singular failure stays `IllConditioned`.
     #[test]
     fn classify_arrow_solver_error_routes_shape_and_nonfinite_to_internal_1451() {
         let conditioning = || OuterGradientError::IllConditioned {
@@ -110,26 +92,17 @@ mod outer_gradient_error_classification_1451_tests {
         };
 
         // Shape/dimension-mismatch markers emitted by the deflation helpers must
-        // classify as InternalInvariant and therefore be NOT FD-eligible.
+        // classify as InternalInvariant.
         let shape_messages = [
             "apply_cached_arrow_hessian: vector shapes (t=3, beta=2) != cache shapes (t=4, beta=2)",
             "DeflatedArrowSolver: gauge length 5 != cache full length 6",
             "DeflatedArrowSolver: solution length 5 != cache full length 6",
         ];
         for msg in shape_messages {
-            let classified =
-                OuterGradientError::classify_arrow_solver_error(msg, conditioning());
+            let classified = OuterGradientError::classify_arrow_solver_error(msg, conditioning());
             assert!(
                 matches!(classified, OuterGradientError::InternalInvariant { .. }),
                 "shape mismatch must classify to InternalInvariant (#1451); got {classified}"
-            );
-            assert!(
-                !classified.is_conditioning_recoverable(),
-                "a shape mismatch must NOT be conditioning-recoverable (#1451); got {classified}"
-            );
-            assert!(
-                !classified.admits_plain_solver_fallback(1.0),
-                "a shape mismatch must NOT admit the plain-solver fallback even at finite cost (#1451)"
             );
         }
 
@@ -139,42 +112,28 @@ mod outer_gradient_error_classification_1451_tests {
             "outer_gradient_arrow_solver: non-finite entry in projected gauge Hessian",
         ];
         for msg in nonfinite_messages {
-            let classified =
-                OuterGradientError::classify_arrow_solver_error(msg, conditioning());
+            let classified = OuterGradientError::classify_arrow_solver_error(msg, conditioning());
             assert!(
                 matches!(classified, OuterGradientError::InternalInvariant { .. }),
                 "non-finite intermediate must classify to InternalInvariant (#1451); \
                  got {classified}"
-            );
-            assert!(
-                !classified.is_conditioning_recoverable(),
-                "a non-finite intermediate must NOT be conditioning-recoverable (#1451); got {classified}"
             );
         }
 
         // A genuine near-singular linear-algebra failure on a finite, correctly
         // shaped input (back-solve / Cholesky/Woodbury factor that tripped on
         // rank-deficiency) is the legitimate #1273 conditioning case: it must
-        // KEEP IllConditioned and stay conditioning-recoverable.
+        // KEEP IllConditioned.
         let conditioning_messages = [
             "DeflatedArrowSolver: gauge Woodbury factor failed: matrix is not positive definite",
             "DeflatedArrowSolver: gauge back-solve: singular factor",
         ];
         for msg in conditioning_messages {
-            let classified =
-                OuterGradientError::classify_arrow_solver_error(msg, conditioning());
+            let classified = OuterGradientError::classify_arrow_solver_error(msg, conditioning());
             assert!(
                 matches!(classified, OuterGradientError::IllConditioned { .. }),
                 "a finite, correctly-shaped near-singular failure must KEEP \
                  IllConditioned (#1451 / #1273); got {classified}"
-            );
-            assert!(
-                classified.is_conditioning_recoverable(),
-                "a genuine conditioning failure must remain conditioning-recoverable (#1273); got {classified}"
-            );
-            assert!(
-                classified.admits_plain_solver_fallback(1.0),
-                "a genuine conditioning failure at finite cost must admit the plain-solver fallback (#1273)"
             );
         }
     }
@@ -272,7 +231,8 @@ mod softmax_majorizer_active_entry_1410_tests {
                 for jj in 0..k {
                     let got = super::softmax_dense_entropy_hessian_entry(a, kk, jj, m, scale);
                     assert_eq!(
-                        got, h_dense[[kk, jj]],
+                        got,
+                        h_dense[[kk, jj]],
                         "active dense entropy-Hessian entry ({kk},{jj}) must equal \
                          row_dense_hessian BIT-FOR-BIT (single-source #1410/#1418)"
                     );
@@ -304,7 +264,8 @@ mod softmax_majorizer_active_entry_1410_tests {
                         a, kk, w, m, scale, inv_tau,
                     );
                     assert_eq!(
-                        got, dense[[kk, kk]],
+                        got,
+                        dense[[kk, kk]],
                         "active majorizer logit-derivative ∂D_({kk},{kk})/∂z_{w} must equal \
                          row_psd_majorizer_logit_derivative diagonal BIT-FOR-BIT \
                          (single-source #1410/#1419/#1006)"
@@ -320,7 +281,8 @@ mod softmax_majorizer_active_entry_1410_tests {
 #[cfg(test)]
 mod exact_stationarity_solve_1418_tests {
     use super::*;
-    use crate::manifold::tests::gamma_fd_tiny_fixture;
+    use approx::assert_abs_diff_eq;
+    use crate::manifold::tests::{diagonal_latent_cache, gamma_fd_tiny_fixture};
     use ndarray::Array1;
 
     /// Build a converged tiny SAE state whose inner residual is genuinely
@@ -385,11 +347,9 @@ mod exact_stationarity_solve_1418_tests {
     /// `solve_exact_stationarity` returns the EXACT solve of `A x = rhs` (small
     /// `A`-residual), AND the surrogate solve `x_B = B⁻¹ rhs` leaves a LARGE
     /// `A`-residual — so the certificate is non-vacuous (`A ≠ B`) and the IFT
-    /// step genuinely inverts `A`. Before #1418 the implicit step used `x_B`
-    /// (the truncated `B⁻¹`-Neumann iterate), whose `A`-residual is the large
-    /// value asserted below: that code leaves `‖A x_B − rhs‖` far from zero (and
-    /// the Neumann variant diverges outright once `ρ(B⁻¹ΔC) ≥ 1`), so this test
-    /// fails before the fix and passes only when the solve targets the exact `A`.
+    /// step genuinely inverts `A`. The surrogate solve `x_B = B⁻¹ rhs` leaves
+    /// the large `A`-residual asserted below, so this test passes only when the
+    /// implicit solve targets the exact stationarity Jacobian.
     #[test]
     fn solve_exact_stationarity_inverts_a_not_b_1418() {
         let (term, target, rho, cache) = converged_state_with_residual();
@@ -411,7 +371,9 @@ mod exact_stationarity_solve_1418_tests {
         let exact_resid = a_residual_norm(&term, &rho, target.view(), &cache, &x, &rhs);
 
         // Surrogate solve x_B = B⁻¹ rhs (the pre-#1418 implicit step).
-        let x_b = solver.solve(rhs.t.view(), rhs.beta.view()).expect("B inverse");
+        let x_b = solver
+            .solve(rhs.t.view(), rhs.beta.view())
+            .expect("B inverse");
         let surrogate_resid = a_residual_norm(&term, &rho, target.view(), &cache, &x_b, &rhs);
 
         // 1) The exact solve drives the A-residual to ~0.
@@ -437,6 +399,209 @@ mod exact_stationarity_solve_1418_tests {
         assert!(
             exact_resid < 1.0e-3 * surrogate_resid,
             "exact A-solve residual {exact_resid:.3e} must be far below surrogate {surrogate_resid:.3e}"
+        );
+    }
+
+    /// #2253 production-wiring regression: the operator-generic core used by
+    /// `solve_exact_stationarity` must install the solver's closed-form gauge
+    /// stiffness on BOTH raw operators and invert `A_Q = A + κQQᵀ`, not raw
+    /// `A`. Deterministic diagonal `A` and `B` isolate that production seam from
+    /// stochastic inner fitting and its unrelated dictionary-collapse guards.
+    #[test]
+    fn solve_exact_stationarity_uses_solver_gauge_fix_2253() {
+        // B=diag(2,5), A=diag(3,7), q=e0, κ=5. The raw pencil is healthy, and
+        // the quotient pencil is A_Q=diag(8,7), B_Q=diag(7,5). A gauge-bearing
+        // rhs makes the solution of A_Q observably different from raw A⁻¹rhs.
+        let cache = diagonal_latent_cache(&[2.0_f64, 5.0]);
+        let gauge = Array1::from_vec(vec![1.0_f64, 0.0]);
+        let stiffness = 5.0;
+        let solver =
+            DeflatedArrowSolver::from_orthonormal_gauges(&cache, vec![gauge], stiffness)
+                .expect("gauge-fixed exact-stationarity preconditioner");
+        let rhs = SaeArrowVector {
+            t: Array1::from_vec(vec![4.0_f64, 6.0]),
+            beta: Array1::zeros(0),
+        };
+        let apply_raw_a = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            Ok(SaeArrowVector {
+                t: Array1::from_vec(vec![3.0 * v.t[0], 7.0 * v.t[1]]),
+                beta: Array1::zeros(0),
+            })
+        };
+        let apply_raw_b = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            Ok(SaeArrowVector {
+                t: Array1::from_vec(vec![2.0 * v.t[0], 5.0 * v.t[1]]),
+                beta: Array1::zeros(0),
+            })
+        };
+
+        let solved = solve_exact_stationarity_on_gauge_quotient(
+            &solver,
+            &rhs,
+            &apply_raw_a,
+            &apply_raw_b,
+        )
+        .expect("gauge-fixed exact stationarity solve");
+        let raw_ax = apply_raw_a(&solved).expect("raw A apply");
+        let raw_residual = SaeArrowVector {
+            t: &raw_ax.t - &rhs.t,
+            beta: &raw_ax.beta - &rhs.beta,
+        };
+        let mut gauge_fixed_ax = raw_ax;
+        solver
+            .add_gauge_stiffness(&solved, &mut gauge_fixed_ax)
+            .expect("κQQᵀ action");
+        let gauge_fixed_residual = SaeArrowVector {
+            t: &gauge_fixed_ax.t - &rhs.t,
+            beta: &gauge_fixed_ax.beta - &rhs.beta,
+        };
+        let rhs_norm = sae_norm(&rhs).max(1.0);
+        let fixed_norm = sae_norm(&gauge_fixed_residual);
+        let raw_norm = sae_norm(&raw_residual);
+        assert!(
+            fixed_norm <= 1.0e-6 * rhs_norm,
+            "solve_exact_stationarity must solve the gauge-fixed A_Q system: \
+             ‖A_Qx-rhs‖/‖rhs‖={:.3e}",
+            fixed_norm / rhs_norm
+        );
+        assert!(
+            raw_norm >= 1.0e-3 * rhs_norm,
+            "test must distinguish A_Q from raw A: raw residual was only {:.3e}",
+            raw_norm / rhs_norm
+        );
+    }
+
+    /// #2253: a near-zero Rayleigh quotient of the complete response is not by
+    /// itself a numerical null. Resolved positive and negative pencil components
+    /// can cancel exactly. The inverse-power discriminator must recognize the
+    /// resolved negative direction and keep the full finite response.
+    #[test]
+    fn ift_solve_keeps_resolved_indefinite_rayleigh_cancellation_2253() {
+        // B=I, A=diag(-1/2, 2), x=(2,1), rhs=A x=(-1,2). Although
+        // x^T A x = 0 exactly, both pencil eigenvalues are far above the
+        // sqrt(epsilon) identifiability floor in magnitude.
+        let cache = diagonal_latent_cache(&[1.0_f64, 1.0]);
+        let solver = DeflatedArrowSolver::plain(&cache);
+        let rhs = SaeArrowVector {
+            t: Array1::from_vec(vec![-1.0_f64, 2.0]),
+            beta: Array1::zeros(0),
+        };
+        let apply_raw_a = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            Ok(SaeArrowVector {
+                t: Array1::from_vec(vec![-0.5 * v.t[0], 2.0 * v.t[1]]),
+                beta: Array1::zeros(0),
+            })
+        };
+        let apply_raw_b = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            Ok(v.clone())
+        };
+
+        let solved = solve_exact_stationarity_on_gauge_quotient(
+            &solver,
+            &rhs,
+            &apply_raw_a,
+            &apply_raw_b,
+        )
+        .expect("resolved indefinite response");
+        assert_abs_diff_eq!(solved.t[0], 2.0, epsilon = 1.0e-10);
+        assert_abs_diff_eq!(solved.t[1], 1.0, epsilon = 1.0e-10);
+    }
+
+    /// #2080 defect 4 — with a SATURATED gate logit, the exact stationarity
+    /// Jacobian `A` develops a near-null pencil direction (data curvature
+    /// `∝ σ'(ℓ)² ≈ 0` against an O(1) majorizer entry in `B`), and the raw
+    /// GMRES solve of `A x = rhs` amplifies any rhs mass there by `1/μ` —
+    /// the objective↔gradient desync class (#931) that flipped the analytic
+    /// λ-gradient's sign. `solve_exact_stationarity` must DEFLATE it: the
+    /// returned solution's generalized Rayleigh quotient `xᵀAx/xᵀBx` must sit
+    /// at or above the identifiability floor. Non-vacuity is asserted first:
+    /// the UNDEFLATED solve must actually collapse below the floor on this
+    /// fixture, so the test can only pass through genuine deflation.
+    #[test]
+    fn ift_solve_deflates_saturated_gate_near_null_direction_2080() {
+        let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+        term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+        // Saturate atom 1's gate logits hard OFF: σ'(−40)² ≈ 1e-35 kills the
+        // data curvature along those logit coordinates while the assembled
+        // majorizer keeps an O(1) diagonal there.
+        for row in 0..term.n_obs() {
+            term.assignment.logits[[row, 1]] = -40.0;
+        }
+        rho.log_lambda_sparse = -1.0;
+        let (_value, _loss, cache) = term
+            .reml_criterion_with_cache(target.view(), &rho, None, 40, 0.4, 1.0e-6, 1.0e-6)
+            .expect("converged saturated-gate IBP cache");
+        let solver = DeflatedArrowSolver::plain(&cache);
+
+        // Deterministic rhs with mass on every coordinate (including the
+        // saturated logit slots).
+        let total_t = cache.delta_t_len();
+        let rhs = SaeArrowVector {
+            t: Array1::from_shape_fn(total_t, |i| 0.3 + 0.1 * ((i % 5) as f64) - 0.02 * i as f64),
+            beta: Array1::from_shape_fn(cache.k, |j| 0.2 - 0.05 * ((j % 3) as f64)),
+        };
+
+        let pencil_mu = |x: &SaeArrowVector| -> f64 {
+            let ax = term
+                .apply_exact_hessian(&rho, target.view(), &cache, x)
+                .expect("A matvec");
+            let bx =
+                apply_cached_arrow_hessian(&cache, x.t.view(), x.beta.view()).expect("B matvec");
+            sae_inner(x, &ax) / sae_inner(x, &bx)
+        };
+
+        // Non-vacuity: the raw (undeflated) exact solve is dominated by the
+        // saturated near-null direction.
+        let raw = solve_b_preconditioned_gmres_with(
+            &rhs,
+            |v| term.apply_exact_hessian(&rho, target.view(), &cache, v),
+            |vector| solver.solve(vector.t.view(), vector.beta.view()),
+        )
+        .expect("raw exact solve");
+        let raw_mu = pencil_mu(&raw);
+        assert!(
+            raw_mu > 0.0,
+            "fixture must be a stable near-null minimum, not a negative-curvature \
+             stationary point: raw pencil Rayleigh {raw_mu:.3e}"
+        );
+        assert!(
+            raw_mu < sae_ift_min_curvature_fraction(),
+            "fixture must exercise the defect: raw solve pencil Rayleigh {raw_mu:.3e} \
+             should collapse below the {:.1e} floor \
+             (saturated gate produced no near-null direction — strengthen the fixture)",
+            sae_ift_min_curvature_fraction()
+        );
+
+        // The production solve deflates: identifiable-curvature fraction is
+        // restored at or above the floor, and the solution is finite.
+        let deflated = term
+            .solve_exact_stationarity(&rho, target.view(), &cache, &solver, &rhs)
+            .expect("deflated exact stationarity solve");
+        assert!(
+            deflated
+                .t
+                .iter()
+                .chain(deflated.beta.iter())
+                .all(|v| v.is_finite()),
+            "deflated IFT solution must be finite"
+        );
+        let deflated_mu = pencil_mu(&deflated);
+        assert!(
+            deflated_mu >= sae_ift_min_curvature_fraction(),
+            "deflated solve must remove the unidentifiable component: pencil Rayleigh \
+             {deflated_mu:.3e} still below the {:.1e} floor",
+            sae_ift_min_curvature_fraction()
+        );
+        // Deflation only removes, never adds: the deflated solution is no
+        // larger than the raw one in the B-metric.
+        let b_norm = |x: &SaeArrowVector| -> f64 {
+            let bx =
+                apply_cached_arrow_hessian(&cache, x.t.view(), x.beta.view()).expect("B matvec");
+            sae_inner(x, &bx).max(0.0).sqrt()
+        };
+        assert!(
+            b_norm(&deflated) <= b_norm(&raw) * (1.0 + 1.0e-8),
+            "deflation must be a projection (B-norm non-increasing)"
         );
     }
 
@@ -604,7 +769,9 @@ mod exact_stationarity_solve_1418_tests {
 
         // Deterministic probe spanning the latent (t) and decoder (β) blocks.
         let v = SaeArrowVector {
-            t: Array1::from_shape_fn(total_t, |i| 0.37 + 0.11 * ((i % 4) as f64) - 0.017 * i as f64),
+            t: Array1::from_shape_fn(total_t, |i| {
+                0.37 + 0.11 * ((i % 4) as f64) - 0.017 * i as f64
+            }),
             beta: Array1::from_shape_fn(kdim, |j| 0.21 - 0.043 * ((j % 3) as f64)),
         };
         let v_flat = flatten_arrow_parts(v.t.view(), v.beta.view());
@@ -671,10 +838,7 @@ mod exact_stationarity_solve_1418_tests {
         // Operator/preconditioner consistency: stripping ΔC must round-trip
         // through the inner solver's exact inverse back to v.
         let (rt, rb) = cache
-            .full_inverse_apply(
-                (&ae.t - &dc_v.t).view(),
-                (&ae.beta - &dc_v.beta).view(),
-            )
+            .full_inverse_apply((&ae.t - &dc_v.t).view(), (&ae.beta - &dc_v.beta).view())
             .expect("round-trip inverse");
         let round_trip = {
             let mut s = 0.0_f64;
@@ -715,7 +879,10 @@ mod smoothness_dof_hutchinson_tests {
         let p = term.output_dim();
         if term.frames_active() {
             let ranks: Vec<usize> = term.atoms.iter().map(|a| a.border_frame_rank()).collect();
-            (term.factored_beta_offsets(), Box::new(move |k: usize| ranks[k]))
+            (
+                term.factored_beta_offsets(),
+                Box::new(move |k: usize| ranks[k]),
+            )
         } else {
             (term.beta_offsets(), Box::new(move |_k: usize| p))
         }
@@ -748,7 +915,13 @@ mod smoothness_dof_hutchinson_tests {
         let seed = 0xC0FFEE_1234;
         let est = term
             .decoder_smoothness_effective_dof_per_atom_hutchinson(
-                cache.k, &offsets, out_dim.as_ref(), &lambda, probes, seed, solve,
+                cache.k,
+                &offsets,
+                out_dim.as_ref(),
+                &lambda,
+                probes,
+                seed,
+                solve,
             )
             .expect("hutchinson per-atom smoothness edof");
 
@@ -782,7 +955,13 @@ mod smoothness_dof_hutchinson_tests {
         };
         let est2 = term
             .decoder_smoothness_effective_dof_per_atom_hutchinson(
-                cache.k, &offsets, out_dim.as_ref(), &lambda, probes, seed, solve2,
+                cache.k,
+                &offsets,
+                out_dim.as_ref(),
+                &lambda,
+                probes,
+                seed,
+                solve2,
             )
             .expect("hutchinson rerun");
         assert_eq!(
@@ -792,571 +971,7 @@ mod smoothness_dof_hutchinson_tests {
     }
 }
 
-// ============================================================================
-// #2022 STEP2 FD / behavior gate. Paste as a new submodule INTO
-// crates/gam-sae/src/manifold/construction_tests.rs (that file is already
-// #[cfg(test)]; this `mod` nests cleanly, mirroring its existing
-// `use crate::manifold::tests::small_two_atom_periodic_term;` submodules).
-//
-// Parallel-safe: exercises the retract+peel via `absorb_*` DIRECTLY (not the
-// GAM_SAE_QUOTIENT_SCALE env lever), so no process-global env mutation. Because
-// absorb sets s≠0 and the assembly's β a_phi × exp(s) is ALWAYS-ON, this covers
-// the FINDING-1 exp(s) gradient/loss consistency without the lever.
-// ============================================================================
-#[cfg(test)]
-mod step2_quotient_scale_tests {
-    use crate::manifold::SaeManifoldTerm;
-    use crate::manifold::tests::small_two_atom_periodic_term;
 
-    fn frob(b: &ndarray::Array2<f64>) -> f64 {
-        b.iter().map(|v| v * v).sum::<f64>().sqrt()
-    }
-
-    /// #2022 — the SCALE-gauge quotient (unit-Frobenius decoder + explicit
-    /// log-amplitude `s`) is exp(s)-consistent:
-    ///   (i)  peeling ‖B_k‖ into `s_k` preserves the reconstruction data-fit
-    ///        (the always-on `fill_decoded_* · exp(s)` from STEP1),
-    ///   (ii) every decoder is unit-Frobenius afterward and `s_k` is finite,
-    ///   (iii) FINDING-1: with `s≠0`, the assembled β Jacobian carries `exp(s)`
-    ///        (`a_phi × exp(s)`), so a Newton step assembles with finite deltas
-    ///        and a damped step does not blow up / materially increase the loss.
-    ///        A missing `exp(s)` on `a_phi` (the desync STEP2 fixes) misscales the
-    ///        β gradient/Hessian and breaks this.
-    #[test]
-    fn step2_amplitude_peel_is_exp_s_consistent() {
-        let (mut term, target, rho) = small_two_atom_periodic_term();
-        let loss0 = term.loss(target.view(), &rho).expect("baseline loss");
-
-        // Retract + peel each atom onto the unit sphere (scale → s). Same op the
-        // gated apply_newton_step performs; called directly for a lever-free,
-        // parallel-safe test.
-        for atom in term.atoms.iter_mut() {
-            atom.absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-        }
-
-        // (i) reconstruction data-fit preserved by the peel.
-        let loss_peeled = term.loss(target.view(), &rho).expect("peeled loss");
-        assert!(
-            (loss_peeled.data_fit - loss0.data_fit).abs()
-                <= 1e-9 * (1.0 + loss0.data_fit.abs()),
-            "peel must preserve reconstruction data-fit: {} vs {}",
-            loss0.data_fit,
-            loss_peeled.data_fit
-        );
-
-        // (ii) unit-Frobenius decoders + finite log-amplitude.
-        for atom in &term.atoms {
-            let nrm = frob(&atom.decoder_coefficients);
-            assert!(
-                (nrm - 1.0).abs() <= 1e-9,
-                "‖B_k‖ must be 1 after peel; got {nrm}"
-            );
-            assert!(
-                atom.log_amplitude.is_finite(),
-                "log_amplitude must be finite after peel"
-            );
-        }
-
-        // (iii) FINDING-1 consistency: assemble+solve a Newton step on the peeled
-        // (s≠0) state — the assembly must produce finite deltas, and a damped step
-        // must keep the loss finite without materially increasing it.
-        let (dt, db) = term
-            .solve_newton_step(target.view(), &rho, None, 0.0, 0.0)
-            .expect("newton step assembles on the exp(s)-scaled decoder");
-        assert!(
-            dt.iter().chain(db.iter()).all(|v| v.is_finite()),
-            "step deltas must be finite (exp(s) assembly well-formed)"
-        );
-        term.apply_newton_step(dt.view(), db.view(), 0.1)
-            .expect("apply damped newton step");
-        let loss_step = term.loss(target.view(), &rho).expect("post-step loss");
-        assert!(
-            loss_step.total().is_finite()
-                && loss_step.total() <= loss_peeled.total() * (1.0 + 1e-6) + 1e-6,
-            "a damped Newton step on the exp(s)-scaled decoder must not blow up / \
-             materially increase loss: {} -> {}",
-            loss_peeled.total(),
-            loss_step.total()
-        );
-    }
-
-    /// #2099 — collapse guards must measure the atom's physical contribution
-    /// scale `exp(s_k)‖B_k‖_F`, not the raw decoder norm alone. After the quotient
-    /// peels both decoders to unit Frobenius, `‖B_k‖` cannot distinguish a live atom
-    /// from one whose explicit log-amplitude has collapsed.
-    #[test]
-    fn quotient_collapse_scale_tracks_log_amplitude_not_unit_decoder_norm() {
-        let (mut term, _target, _rho) = small_two_atom_periodic_term();
-        for atom in term.atoms.iter_mut() {
-            atom.absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-        }
-        let live_scale = term.atoms[0].contribution_frobenius_scale();
-        term.atoms[1].log_amplitude = term.atoms[0].log_amplitude - 4.0_f64.ln();
-        let collapsed_scale = term.atoms[1].contribution_frobenius_scale();
-
-        assert!(
-            (frob(&term.atoms[0].decoder_coefficients) - 1.0).abs() <= 1e-9
-                && (frob(&term.atoms[1].decoder_coefficients) - 1.0).abs() <= 1e-9,
-            "fixture must exercise equal unit decoders"
-        );
-        assert!(
-            collapsed_scale < live_scale,
-            "physical scale must see the explicit-amplitude collapse: live={live_scale}, collapsed={collapsed_scale}"
-        );
-    }
-
-    /// #2022 gate (i) — lever DEFAULT-OFF ⇒ the step never peels ⇒ `s` stays 0 ⇒
-    /// bit-for-bit. Verified by construction: `absorb_*` is only invoked from the
-    /// step under the `quotient_scale` kwarg (default false) and from the gated
-    /// seed peel; with the kwarg unset a freshly-built term has every
-    /// `log_amplitude == 0.0`. (No env mutation here — parallel-safe.)
-    #[test]
-    fn step2_default_off_leaves_log_amplitude_zero() {
-        let (term, _target, _rho) = small_two_atom_periodic_term();
-        for atom in &term.atoms {
-            assert_eq!(
-                atom.log_amplitude, 0.0,
-                "default (lever off) must leave log_amplitude at 0 (bit-for-bit)"
-            );
-        }
-    }
-
-    /// #2022 FINDING-1 (rigorous) — the assembled β gradient carries exp(s):
-    /// gb == central-diff ∂(data_fit+smoothness)/∂β on the peeled (s≠0) state.
-    /// A missing exp(s) on a_phi would scale gb by exp(-s) vs the FD and fail.
-    /// Parallel-safe: drives the quotient via absorb_* directly (no kwarg/env).
-    #[test]
-    fn step2_beta_gradient_matches_central_diff_on_peeled_state() {
-        let (mut term, target, rho) = small_two_atom_periodic_term();
-        for atom in term.atoms.iter_mut() {
-            atom.absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-        }
-        let sys = term
-            .assemble_arrow_schur(target.view(), &rho, None)
-            .expect("assemble arrow-schur on peeled state");
-        assert_eq!(
-            sys.gb.len(),
-            term.beta_dim(),
-            "expected full-B gb layout (no frames) on the fixture"
-        );
-        let gb = sys.gb.clone();
-        let offsets = term.beta_offsets();
-        let p = term.output_dim();
-        // `sys.gb` is the β-gradient of the objective the STEP-2 inner Newton step
-        // descends. We FD the terms `gb` carries a NONZERO gradient for: the
-        // data-fit `Jᵀr` + smoothness `λ S B` (both carry the peel's `exp(s)` via
-        // `fill_decoded_row` / the cached `S`) and the #1026 decoder-repulsion force
-        // (frozen-gate `∂P_rep/∂B`, ~120× the data-fit leg here — omitting it made
-        // the historical `data_fit + smoothness` FD disagree at ~basis 0).
-        //
-        // The #1026/#1522 SEPARATION barrier `P_sep = −μ q w(c²) log(1−c²+ε)` is
-        // deliberately EXCLUDED from this FD objective. This fixture is p = 1
-        // (single output dim), and for rank-1 (p = 1) decoders the normalized cross
-        // `c²_jk = ‖B_jB_kᵀ‖²_F / (‖B_j‖²‖B_k‖²)` collapses to the ALGEBRAIC IDENTITY
-        // `1` (`‖B_jB_kᵀ‖²_F = ‖B_j‖²‖B_k‖²` exactly), independent of the decoder
-        // entries. So `∂c²/∂B ≡ 0` and the barrier's β-gradient is IDENTICALLY ZERO:
-        // `add_sae_separation_barrier` writes exactly 0 into `sys.gb` here (the
-        // `mb·inv − (c²/n_j²)B_j` factor cancels term-for-term), and `gb` correctly
-        // carries none of it. Its VALUE, though, is a ~1e7 constant
-        // (`−μq·log(1−c²+ε) = −μq·log ε`, `ε = 1e-6`); central-differencing that
-        // constant is catastrophic cancellation — fp wobble in `c²` at the ~1e-16
-        // level, amplified by `μq/ε`, injects a spurious ~40-magnitude "gradient"
-        // into a total-objective FD that `gb` (correctly) does not match. FDing the
-        // barrier-free objective — exactly the terms `gb` differentiates to a
-        // nonzero gradient, with the barrier's genuinely-zero contribution left
-        // out — is the consistent contract (no tolerance is loosened).
-        let objective = |t: &SaeManifoldTerm| -> f64 {
-            t.loss(target.view(), &rho).expect("loss").total() + t.decoder_repulsion_value(1.0)
-        };
-        let eps = 1e-6;
-        let mut checked = 0usize;
-        for k in 0..term.k_atoms() {
-            let m = term.atoms[k].basis_size();
-            for &(bc, oc) in &[(0usize, 0usize), (m.saturating_sub(1), 0usize)] {
-                if bc >= m {
-                    continue;
-                }
-                let idx = offsets[k] + bc * p + oc;
-                let orig = term.atoms[k].decoder_coefficients[[bc, oc]];
-                term.atoms[k].decoder_coefficients[[bc, oc]] = orig + eps;
-                let lp = objective(&term);
-                term.atoms[k].decoder_coefficients[[bc, oc]] = orig - eps;
-                let lm = objective(&term);
-                term.atoms[k].decoder_coefficients[[bc, oc]] = orig;
-                let fd = (lp - lm) / (2.0 * eps);
-                let g = gb[idx];
-                // Sign: gb = +∂(objective)/∂β (data-fit `Jᵀ(fitted−target)`
-                // + smoothness + decoder-repulsion force). If CI shows a uniform
-                // flip, compare to `-g` (1-char fix).
-                assert!(
-                    (fd - g).abs() <= 1e-4 * (1.0 + g.abs()),
-                    "β gradient exp(s)-consistency (atom {k}, basis {bc}, out {oc}): \
-                     FD {fd} vs gb {g}"
-                );
-                checked += 1;
-            }
-        }
-        assert!(checked >= 2, "must check at least two β entries; checked {checked}");
-    }
-
-    /// #2022 transport-peel — the no-refresh peel normalizes the decoder into
-    /// log_amplitude while leaving `smooth_penalty` BYTE-IDENTICAL. This is what
-    /// makes it safe at the transport/reparam sites, whose transported penalty
-    /// (`T⁻ᵀ S_old T⁻¹`, decoder-magnitude-independent) must survive the peel.
-    #[test]
-    fn step2_without_refresh_peel_keeps_smooth_penalty() {
-        let (mut term, _target, _rho) = small_two_atom_periodic_term();
-        // Non-unit decoder so the peel does real work.
-        for v in term.atoms[0].decoder_coefficients.iter_mut() {
-            *v *= 3.0;
-        }
-        let penalty_before = term.atoms[0].smooth_penalty.clone();
-        let s_before = term.atoms[0].log_amplitude;
-        let norm_before = term.atoms[0]
-            .decoder_coefficients
-            .iter()
-            .map(|v| v * v)
-            .sum::<f64>()
-            .sqrt();
-        term.atoms[0]
-            .absorb_decoder_norm_into_log_amplitude_without_refresh(f64::MIN_POSITIVE);
-        // smooth_penalty untouched (the refresh was skipped).
-        assert_eq!(
-            term.atoms[0].smooth_penalty, penalty_before,
-            "without_refresh peel must NOT change smooth_penalty"
-        );
-        // Decoder normalized; magnitude moved into log_amplitude.
-        let norm_after = term.atoms[0]
-            .decoder_coefficients
-            .iter()
-            .map(|v| v * v)
-            .sum::<f64>()
-            .sqrt();
-        assert!(
-            (norm_after - 1.0).abs() <= 1e-9,
-            "‖B‖ must be 1 after peel; got {norm_after}"
-        );
-        assert!(
-            (term.atoms[0].log_amplitude - (s_before + norm_before.ln())).abs() <= 1e-9,
-            "log_amplitude must gain ln‖B‖"
-        );
-    }
-}
-
-// ============================================================================
-// #2072 default-off LEVER-WIRING coverage. Both `quotient_scale` and
-// `data_row_reseed` are typed `pub(crate) bool` per-fit opt-ins that default
-// false (bit-inert). Their leaf producers are unit-tested, but the
-// behavior-changing DRIVER path each flag gates was never exercised. These
-// tests run the SAME driver op twice — flag OFF (default) then ON — and assert
-// the output differs in the exact way the flag is meant to change it, so a
-// driver that ignored the flag would fail. Parallel-safe (typed setters, no env).
-// ============================================================================
-#[cfg(test)]
-mod lever_wiring_2072_tests {
-    use crate::manifold::tests::small_two_atom_periodic_term;
-    use crate::manifold::{
-        sae_data_row_anchored_euclidean_coords, sae_pca_seed_initial_coords_with_pc_offset,
-        AssignmentMode, LatentManifold, SaeAssignment, SaeAtomBasisKind, SaeManifoldAtom,
-        SaeManifoldRho, SaeManifoldTerm,
-    };
-    use ndarray::{array, Array2, Array3};
-
-    fn frob(b: &Array2<f64>) -> f64 {
-        b.iter().map(|v| v * v).sum::<f64>().sqrt()
-    }
-
-    /// #2072 — `quotient_scale` DRIVER (the `if self.quotient_scale` arm of
-    /// `refit_decoder_least_squares_at_current_state`, construction.rs). The LSQ
-    /// refit always writes the ABSOLUTE decoder `B_abs`. With the lever OFF the
-    /// write stays that way (`log_amplitude == 0`, decoder magnitude untouched).
-    /// With the lever ON the driver resets `s = 0` then peels ‖B_k‖ into
-    /// `log_amplitude`, so every decoder is renormalized to unit Frobenius and
-    /// #1939 — the per-fit `cone_atom_recovery` opt-in must be carried across
-    /// clones (the stagewise driver clones the term for every birth candidate /
-    /// backfit, so a dropped field would silently disable recovery mid-fit — a hole
-    /// the flag-ON==flag-OFF no-op proof cannot catch, since both read `false`).
-    #[test]
-    fn clone_preserves_cone_atom_recovery() {
-        let (mut term, _target, _rho) = small_two_atom_periodic_term();
-        assert!(
-            !term.cone_atom_recovery(),
-            "cone_atom_recovery must default to off"
-        );
-        term.set_cone_atom_recovery(true);
-        let cloned = term.clone();
-        assert!(
-            cloned.cone_atom_recovery(),
-            "Clone must carry cone_atom_recovery — a dropped field silently disables \
-             recovery on every stagewise birth/backfit clone"
-        );
-    }
-
-    /// #2072 — `cone_atom_recovery` DRIVER (the
-    /// `if (self.cone_atom_recovery || self.quotient_scale)
-    ///     && self.retract_collapsed_decoders_in_loop() > 0` boundary arm at the
-    /// accepted OUTER-iterate seam, fit_drivers.rs). With a CO-VANISHED atom in the
-    /// dictionary the lever RECOVERS it: the collapsed decoder is retracted onto the
-    /// unit-Frobenius sphere (its magnitude folded into `log_amplitude`) and the
-    /// amplitudes re-solved. OFF short-circuits the `&&` (both flags false), so the
-    /// retraction helper is never even called and the collapsed decoder stays
-    /// collapsed. This runs the EXACT driver gate both ways on one collapsed fixture
-    /// and asserts the recovery fires in the intended direction ONLY when the lever
-    /// is ON — a driver that ignored the flag (or a clone that dropped it) fails.
-    #[test]
-    fn cone_atom_recovery_driver_recovers_covanished_decoder() {
-        // Shared 2-atom periodic fixture, then artificially CO-VANISH atom 0's
-        // decoder to ~1e-6 of its healthy peer: below the breach floor
-        // (SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO = 1e-3 · max‖B‖) yet far above the
-        // 1e-12 · max direction floor, so it is a RETRACTABLE collapse (not an
-        // unretractable literal zero).
-        fn make_collapsed() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
-            let (mut term, target, rho) = small_two_atom_periodic_term();
-            let collapsed = &term.atoms[0].decoder_coefficients * 1.0e-6;
-            term.atoms[0].decoder_coefficients.assign(&collapsed);
-            (term, target, rho)
-        }
-
-        // Healthy peer norm sets the breach floor the driver measures collapse
-        // against (the MAX survivor, gauge.rs).
-        let peer_norm = {
-            let (term, _t, _r) = make_collapsed();
-            frob(&term.atoms[1].decoder_coefficients)
-        };
-        let breach_floor = 1.0e-3 * peer_norm;
-
-        // OFF (default): the gate `(false || false) && …` short-circuits — the
-        // retraction helper is NEVER invoked, so atom 0 stays co-vanished.
-        let (mut off, off_target, off_rho) = make_collapsed();
-        assert!(
-            !off.cone_atom_recovery() && !off.quotient_scale(),
-            "both scale-gauge levers must default OFF"
-        );
-        if (off.cone_atom_recovery() || off.quotient_scale())
-            && off.retract_collapsed_decoders_in_loop() > 0
-        {
-            off.optimize_log_amplitudes_closed_form(off_target.view(), &off_rho)
-                .expect("amplitude solve (off path is unreachable, but must type-check)");
-        }
-        let off_norm = frob(&off.atoms[0].decoder_coefficients);
-        assert!(
-            off_norm < breach_floor,
-            "OFF: the co-vanished decoder must stay collapsed (‖B_0‖ = {off_norm:e} \
-             < breach floor {breach_floor:e})"
-        );
-
-        // ON: engage the lever — the SAME gate now retracts the co-vanished atom
-        // onto the unit-Frobenius sphere and re-solves the amplitudes.
-        let (mut on, on_target, on_rho) = make_collapsed();
-        on.set_cone_atom_recovery(true);
-        let recovered = (on.cone_atom_recovery() || on.quotient_scale())
-            && on.retract_collapsed_decoders_in_loop() > 0;
-        assert!(
-            recovered,
-            "ON: the co-vanished atom must be flagged as collapsed and retracted"
-        );
-        on.optimize_log_amplitudes_closed_form(on_target.view(), &on_rho)
-            .expect("amplitude solve (on)");
-        let on_norm = frob(&on.atoms[0].decoder_coefficients);
-        assert!(
-            (on_norm - 1.0).abs() <= 1e-9,
-            "ON: the recovered decoder must sit on the unit-Frobenius sphere; \
-             got ‖B_0‖ = {on_norm}"
-        );
-
-        // The lever produced a genuinely different, recovered decoder state — the
-        // collapsed norm was lifted by many orders of magnitude, not left inert.
-        assert!(
-            on_norm > off_norm * 1.0e3,
-            "ON must lift the co-vanished decoder far above the OFF (collapsed) \
-             norm; on = {on_norm:e}, off = {off_norm:e}"
-        );
-    }
-
-    /// `s_k = ln‖B_abs,k‖` — a PURE GAUGE move: the reconstruction
-    /// `a·exp(s)·Φ·B_unit == a·Φ·B_abs` is preserved to machine precision.
-    #[test]
-    fn quotient_scale_driver_peels_decoder_norm_and_preserves_reconstruction() {
-        // OFF (default).
-        let (mut off, target, rho) = small_two_atom_periodic_term();
-        off.refit_decoder_least_squares_at_current_state(target.view(), Some(&rho))
-            .expect("LSQ refit (lever off)");
-        let fitted_off = off
-            .try_fitted_for_rho(&rho)
-            .expect("reconstruction after off-refit");
-
-        // ON: identical fixture + refit, lever engaged.
-        let (mut on, _t, _r) = small_two_atom_periodic_term();
-        on.set_quotient_scale(true);
-        on.refit_decoder_least_squares_at_current_state(target.view(), Some(&rho))
-            .expect("LSQ refit (lever on)");
-        let fitted_on = on
-            .try_fitted_for_rho(&rho)
-            .expect("reconstruction after on-refit");
-
-        // (1) OFF keeps log_amplitude at 0 and leaves at least one non-unit decoder
-        //     (else the peel would be vacuous — this guards that the ON change is
-        //     the peel, not the solve).
-        let mut off_has_nonunit = false;
-        for atom in &off.atoms {
-            assert_eq!(atom.log_amplitude, 0.0, "off: log_amplitude must stay 0");
-            if (frob(&atom.decoder_coefficients) - 1.0).abs() > 1e-3 {
-                off_has_nonunit = true;
-            }
-        }
-        assert!(
-            off_has_nonunit,
-            "off: the LSQ solve must leave a non-unit decoder (else the peel is vacuous)"
-        );
-
-        // (2) ON renormalizes EVERY decoder to unit Frobenius with a finite
-        //     log_amplitude, and at least one amplitude actually moved off 0.
-        let mut on_amp_moved = false;
-        for atom in &on.atoms {
-            let nrm = frob(&atom.decoder_coefficients);
-            assert!(
-                (nrm - 1.0).abs() <= 1e-9,
-                "on: ‖B_k‖ must be 1 after the quotient peel; got {nrm}"
-            );
-            assert!(
-                atom.log_amplitude.is_finite(),
-                "on: log_amplitude must be finite after the peel"
-            );
-            if atom.log_amplitude.abs() > 1e-6 {
-                on_amp_moved = true;
-            }
-        }
-        assert!(
-            on_amp_moved,
-            "on: the peel must move a decoder magnitude into log_amplitude"
-        );
-
-        // (3) The peel is gauge-invariant: reconstruction preserved to machine tol.
-        assert_eq!(fitted_on.dim(), fitted_off.dim(), "recon shape preserved");
-        let max_gap = (&fitted_on - &fitted_off)
-            .iter()
-            .fold(0.0_f64, |m, d| m.max(d.abs()));
-        assert!(
-            max_gap <= 1e-9,
-            "quotient peel must preserve the reconstruction within tol; max gap {max_gap:e}"
-        );
-    }
-
-    /// A K=1 caller-managed FLAT (EuclideanPatch) term with n ≫ p. Zero decoder
-    /// ⇒ fitted = 0 ⇒ the reconstruction residual is `-target` (a real,
-    /// structured residual the reseed producers read). `p = 4`, `n = 8` ⇒
-    /// `pc_pairs = min(n, p)/2 = 2`, so any `pc_pair_offset ≥ 2` is an
-    /// exhausted-pool retry — the only regime the `data_row_reseed` lever gates.
-    fn small_flat_euclidean_term() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
-        let n = 8usize;
-        let p = 4usize;
-        let m = 2usize;
-        let phi = Array2::<f64>::ones((n, m));
-        let jet = Array3::<f64>::zeros((n, m, 1));
-        let decoder = Array2::<f64>::zeros((m, p));
-        let smooth = Array2::<f64>::eye(m);
-        let atom = SaeManifoldAtom::new(
-            "flat0",
-            SaeAtomBasisKind::EuclideanPatch,
-            1,
-            phi,
-            jet,
-            decoder,
-            smooth,
-        )
-        .unwrap();
-        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-            Array2::<f64>::zeros((n, 1)),
-            vec![Array2::<f64>::zeros((n, 1))],
-            vec![LatentManifold::Euclidean],
-            AssignmentMode::softmax(1.0),
-        )
-        .unwrap();
-        let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-        let mut target = Array2::<f64>::zeros((n, p));
-        for i in 0..n {
-            for j in 0..p {
-                target[[i, j]] = ((i * 7 + j) as f64).sin() + 0.25 * ((i + 3 * j) as f64).cos();
-            }
-        }
-        let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![0.0]]);
-        (term, target, rho)
-    }
-
-    /// #2072 — `data_row_reseed` DRIVER (the `if data_row_reseed && all_flat && …`
-    /// arm of `reseed_atoms_onto_distinct_residual_pcs`, fit_drivers.rs). On an
-    /// exhausted-pool retry (`offset ≥ pc_pairs`) over all-FLAT atoms the lever
-    /// routes the reseed from the ~p/2-capped PCA pool to the DATA-ROW-anchored
-    /// producer (unbounded n-row diversity). OFF stays on the PCA path. The test
-    /// runs the driver both ways and pins WHICH producer each path took.
-    #[test]
-    fn data_row_reseed_driver_routes_exhausted_pool_retry_to_data_row_anchor() {
-        let atoms = [0usize];
-        let offset = 7usize; // ≥ pc_pairs = 2 ⇒ exhausted-pool retry.
-
-        // OFF (default): PCA pool even on the exhausted-pool retry.
-        let (mut off, target, rho) = small_flat_euclidean_term();
-        off.reseed_atoms_onto_distinct_residual_pcs(&atoms, target.view(), &rho, offset)
-            .expect("reseed (lever off)");
-        let coords_off = off.assignment.coords[0].as_matrix();
-
-        // ON: same retry routed to the data-row-anchored producer.
-        let (mut on, _t, _r) = small_flat_euclidean_term();
-        on.set_data_row_reseed(true);
-        on.reseed_atoms_onto_distinct_residual_pcs(&atoms, target.view(), &rho, offset)
-            .expect("reseed (lever on)");
-        let coords_on = on.assignment.coords[0].as_matrix();
-
-        // The two producers write genuinely different seeds.
-        let max_diff = (&coords_on - &coords_off)
-            .iter()
-            .fold(0.0_f64, |m, d| m.max(d.abs()));
-        assert!(
-            max_diff > 1e-6,
-            "the lever must route to a different seed on the exhausted-pool retry; \
-             max |on - off| = {max_diff:e}"
-        );
-
-        // Pin WHICH producer each path took (non-vacuous): recompute both
-        // reference seeds from a fresh term at the driver's exact anchor/offset.
-        let (reference, _rt, _rr) = small_flat_euclidean_term();
-        let residual = reference
-            .reconstruction_residual(target.view(), &rho)
-            .expect("residual for reference seeds");
-        let n = reference.n_obs();
-        let dims = [1usize];
-        let kinds = [SaeAtomBasisKind::EuclideanPatch];
-        let pca =
-            sae_pca_seed_initial_coords_with_pc_offset(residual.view(), &kinds, &dims, offset)
-                .expect("pca reference seed");
-        // Driver anchor for slot 0: (0 + offset·atoms.len()) % n.
-        let anchor_rows = [(0usize + offset.wrapping_mul(atoms.len().max(1))) % n];
-        let data_row =
-            sae_data_row_anchored_euclidean_coords(residual.view(), &dims, &anchor_rows)
-                .expect("data-row reference seed");
-
-        for row in 0..n {
-            assert!(
-                (coords_off[[row, 0]] - pca[[0, row, 0]]).abs() <= 1e-12,
-                "off path must equal the PCA producer at row {row}"
-            );
-            assert!(
-                (coords_on[[row, 0]] - data_row[[0, row, 0]]).abs() <= 1e-12,
-                "on path must equal the data-row producer at row {row}"
-            );
-        }
-
-        // Guard the >1e-6 gap above: the two reference producers are distinct.
-        let mut ref_gap = 0.0_f64;
-        for row in 0..n {
-            ref_gap = ref_gap.max((pca[[0, row, 0]] - data_row[[0, row, 0]]).abs());
-        }
-        assert!(
-            ref_gap > 1e-6,
-            "the PCA and data-row producers must differ at this offset; gap {ref_gap:e}"
-        );
-    }
-}
 
 #[cfg(test)]
 mod shape_uncertainty_joint_recompute_tests {
@@ -1440,7 +1055,7 @@ mod shape_uncertainty_joint_recompute_tests {
         // fallback produces DIFFERS materially from the joint band. Compared
         // scale-free (both scale by the same dispersion), so the gap reflects the
         // dropped cross-atom / coordinate couplings, not the dispersion.
-        term.set_atom_inner_fits(target.view(), &rho, dispersion)
+        term.set_atom_inner_fits(target.view(), dispersion)
             .expect("inner fits harvested");
         let mut marginal = joint.clone();
         marginal.invalidate_bands_for_recompute();

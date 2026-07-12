@@ -126,7 +126,6 @@ pub(crate) fn materialize_bernoulli_marginal_slope<'a>(
     // flip the hint regardless of n to keep dense fallbacks blocked.
     let policy = resolved_resource_policy(
         config,
-        data,
         gam_runtime::resource::ProblemHints {
             marginal_slope_large_scale_active: true,
         },
@@ -213,7 +212,7 @@ pub(crate) fn materialize_bernoulli_marginal_slope<'a>(
         logslopespec,
         marginal_offset,
         logslope_offset,
-        frailty: config.frailty.clone().unwrap_or(FrailtySpec::None),
+        frailty: config.frailty.clone(),
         score_warp: routing.score_warp,
         link_dev: routing.link_dev,
         latent_z_policy: Default::default(),
@@ -230,7 +229,7 @@ pub(crate) fn materialize_bernoulli_marginal_slope<'a>(
                 // default for bernoulli marginal-slope — no flag to thread.
                 ..Default::default()
             },
-            kappa_options: SpatialLengthScaleOptimizationOptions::default(),
+            kappa_options: config.spatial_optimization.clone(),
             policy,
         }),
         inference_notes,

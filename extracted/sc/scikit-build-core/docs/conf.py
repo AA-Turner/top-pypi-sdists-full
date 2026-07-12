@@ -145,6 +145,12 @@ linkcheck_anchors_ignore = [
     "default-versioning-scheme",
     "git-archives",
 ]
+# Retry transient failures (slow hosts like docs.rapids.ai) before giving up.
+# The retry loop only re-tries links reported as "broken", so timeouts must be
+# reported as broken for the retries to apply to them.
+linkcheck_retries = 3
+linkcheck_timeout = 30
+linkcheck_report_timeouts_as_broken = True
 linkcheck_ignore = [
     # Rate limited
     r"https://github.com/?.*",
@@ -191,6 +197,7 @@ html_css_files = [
 # -- Extension configuration -------------------------------------------------
 myst_enable_extensions = [
     "alert",  # GitHub-style > [!NOTE] blockquote admonitions
+    "attrs_inline",  # {.class} on links/code, used by the projects grid
     "colon_fence",
     "substitution",
     "deflist",

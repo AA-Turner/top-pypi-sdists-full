@@ -23,17 +23,17 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: AclPolicy = ...,
-                    aclPolicyId: str = ...,
-                    requestId: str = ...,
+                    body: AclPolicy,
+                    aclPolicyId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> AclPolicyHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    requestId: str = ...,
+                    etag: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -43,8 +43,8 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAclPoliciesResponseHttpRequest: ...
                 def list_next(
@@ -56,9 +56,9 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AclPolicy = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: AclPolicy,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -67,13 +67,17 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                 @typing.type_check_only
                 class BackupsResource(googleapiclient.discovery.Resource):
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def export(
                         self,
                         *,
                         name: str,
-                        body: ExportBackupRequest = ...,
+                        body: ExportBackupRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -83,8 +87,8 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListBackupsResponseHttpRequest: ...
                     def list_next(
@@ -100,8 +104,8 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBackupCollectionsResponseHttpRequest: ...
                 def list_next(
@@ -127,10 +131,10 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListAuthTokensResponseHttpRequest: ...
                         def list_next(
@@ -143,15 +147,15 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         tokenAuthUser: str,
-                        body: AddAuthTokenRequest = ...,
+                        body: AddAuthTokenRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        force: bool = ...,
-                        requestId: str = ...,
+                        force: bool | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -161,10 +165,10 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListTokenAuthUsersResponseHttpRequest: ...
                     def list_next(
@@ -178,27 +182,27 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     cluster: str,
-                    body: AddTokenAuthUserRequest = ...,
+                    body: AddTokenAuthUserRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def backup(
-                    self,
-                    *,
-                    name: str,
-                    body: BackupClusterRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: BackupClusterRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: Cluster = ...,
-                    clusterId: str = ...,
-                    requestId: str = ...,
+                    body: Cluster,
+                    clusterId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -210,8 +214,8 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListClustersResponseHttpRequest: ...
                 def list_next(
@@ -223,16 +227,16 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Cluster = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Cluster,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rescheduleClusterMaintenance(
                     self,
                     *,
                     name: str,
-                    body: RescheduleClusterMaintenanceRequest = ...,
+                    body: RescheduleClusterMaintenanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def tokenAuthUsers(self) -> TokenAuthUsersResource: ...
@@ -243,8 +247,8 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Instance = ...,
-                    instanceId: str = ...,
+                    body: Instance,
+                    instanceId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -254,14 +258,14 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ExportInstanceRequest = ...,
+                    body: ExportInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def failover(
                     self,
                     *,
                     name: str,
-                    body: FailoverInstanceRequest = ...,
+                    body: FailoverInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -274,15 +278,15 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ImportInstanceRequest = ...,
+                    body: ImportInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListInstancesResponseHttpRequest: ...
                 def list_next(
@@ -294,22 +298,22 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Instance = ...,
-                    updateMask: str = ...,
+                    body: Instance,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rescheduleMaintenance(
                     self,
                     *,
                     name: str,
-                    body: RescheduleMaintenanceRequest = ...,
+                    body: RescheduleMaintenanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def upgrade(
                     self,
                     *,
                     name: str,
-                    body: UpgradeInstanceRequest = ...,
+                    body: UpgradeInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -328,10 +332,10 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -350,10 +354,10 @@ class CloudRedisResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

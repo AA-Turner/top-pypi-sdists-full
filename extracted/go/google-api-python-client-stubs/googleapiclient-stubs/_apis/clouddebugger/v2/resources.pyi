@@ -23,9 +23,9 @@ class CloudDebuggerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     debuggeeId: str,
-                    agentId: str = ...,
-                    successOnTimeout: bool = ...,
-                    waitToken: str = ...,
+                    agentId: str | None = ...,
+                    successOnTimeout: bool | None = ...,
+                    waitToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListActiveBreakpointsResponseHttpRequest: ...
                 def update(
@@ -33,12 +33,12 @@ class CloudDebuggerResource(googleapiclient.discovery.Resource):
                     *,
                     debuggeeId: str,
                     id: str,
-                    body: UpdateActiveBreakpointRequest = ...,
+                    body: UpdateActiveBreakpointRequest,
                     **kwargs: typing.Any,
                 ) -> UpdateActiveBreakpointResponseHttpRequest: ...
 
             def register(
-                self, *, body: RegisterDebuggeeRequest = ..., **kwargs: typing.Any
+                self, *, body: RegisterDebuggeeRequest, **kwargs: typing.Any
             ) -> RegisterDebuggeeResponseHttpRequest: ...
             def breakpoints(self) -> BreakpointsResource: ...
 
@@ -55,7 +55,7 @@ class CloudDebuggerResource(googleapiclient.discovery.Resource):
                     *,
                     debuggeeId: str,
                     breakpointId: str,
-                    clientVersion: str = ...,
+                    clientVersion: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
@@ -63,41 +63,43 @@ class CloudDebuggerResource(googleapiclient.discovery.Resource):
                     *,
                     debuggeeId: str,
                     breakpointId: str,
-                    clientVersion: str = ...,
+                    clientVersion: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GetBreakpointResponseHttpRequest: ...
                 def list(
                     self,
                     *,
                     debuggeeId: str,
-                    action_value: typing_extensions.Literal["CAPTURE", "LOG"] = ...,
-                    clientVersion: str = ...,
-                    includeAllUsers: bool = ...,
-                    includeInactive: bool = ...,
-                    stripResults: bool = ...,
-                    waitToken: str = ...,
+                    action_value: typing_extensions.Literal["CAPTURE", "LOG"]
+                    | None = ...,
+                    clientVersion: str | None = ...,
+                    includeAllUsers: bool | None = ...,
+                    includeInactive: bool | None = ...,
+                    stripResults: bool | None = ...,
+                    waitToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBreakpointsResponseHttpRequest: ...
                 def set(
                     self,
                     *,
                     debuggeeId: str,
-                    body: Breakpoint = ...,
+                    body: Breakpoint,
                     canaryOption: typing_extensions.Literal[
                         "CANARY_OPTION_UNSPECIFIED",
                         "CANARY_OPTION_TRY_ENABLE",
                         "CANARY_OPTION_TRY_DISABLE",
-                    ] = ...,
-                    clientVersion: str = ...,
+                    ]
+                    | None = ...,
+                    clientVersion: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> SetBreakpointResponseHttpRequest: ...
 
             def list(
                 self,
                 *,
-                clientVersion: str = ...,
-                includeInactive: bool = ...,
-                project: str = ...,
+                clientVersion: str | None = ...,
+                includeInactive: bool | None = ...,
+                project: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListDebuggeesResponseHttpRequest: ...
             def breakpoints(self) -> BreakpointsResource: ...

@@ -23,7 +23,7 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def delete(
@@ -36,10 +36,10 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -58,24 +58,24 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: Workstation = ...,
-                            validateOnly: bool = ...,
-                            workstationId: str = ...,
+                            body: Workstation,
+                            validateOnly: bool | None = ...,
+                            workstationId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def delete(
                             self,
                             *,
                             name: str,
-                            etag: str = ...,
-                            validateOnly: bool = ...,
+                            etag: str | None = ...,
+                            validateOnly: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def generateAccessToken(
                             self,
                             *,
                             workstation: str,
-                            body: GenerateAccessTokenRequest = ...,
+                            body: GenerateAccessTokenRequest,
                             **kwargs: typing.Any,
                         ) -> GenerateAccessTokenResponseHttpRequest: ...
                         def get(
@@ -85,16 +85,16 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             resource: str,
-                            options_requestedPolicyVersion: int = ...,
+                            options_requestedPolicyVersion: int | None = ...,
                             **kwargs: typing.Any,
                         ) -> PolicyHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListWorkstationsResponseHttpRequest: ...
                         def list_next(
@@ -106,8 +106,8 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListUsableWorkstationsResponseHttpRequest: ...
                         def listUsable_next(
@@ -119,45 +119,45 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: Workstation = ...,
-                            allowMissing: bool = ...,
-                            updateMask: str = ...,
-                            validateOnly: bool = ...,
+                            body: Workstation,
+                            allowMissing: bool | None = ...,
+                            updateMask: str | None = ...,
+                            validateOnly: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def pushCredentials(
                             self,
                             *,
                             workstation: str,
-                            body: PushCredentialsRequest = ...,
+                            body: PushCredentialsRequest,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def setIamPolicy(
                             self,
                             *,
                             resource: str,
-                            body: SetIamPolicyRequest = ...,
+                            body: SetIamPolicyRequest,
                             **kwargs: typing.Any,
                         ) -> PolicyHttpRequest: ...
                         def start(
                             self,
                             *,
                             name: str,
-                            body: StartWorkstationRequest = ...,
+                            body: StartWorkstationRequest,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def stop(
                             self,
                             *,
                             name: str,
-                            body: StopWorkstationRequest = ...,
+                            body: StopWorkstationRequest,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def testIamPermissions(
                             self,
                             *,
                             resource: str,
-                            body: TestIamPermissionsRequest = ...,
+                            body: TestIamPermissionsRequest,
                             **kwargs: typing.Any,
                         ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -165,18 +165,18 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: WorkstationConfig = ...,
-                        validateOnly: bool = ...,
-                        workstationConfigId: str = ...,
+                        body: WorkstationConfig,
+                        validateOnly: bool | None = ...,
+                        workstationConfigId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
-                        validateOnly: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -186,16 +186,16 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListWorkstationConfigsResponseHttpRequest: ...
                     def list_next(
@@ -207,8 +207,8 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListUsableWorkstationConfigsResponseHttpRequest: ...
                     def listUsable_next(
@@ -220,24 +220,24 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: WorkstationConfig = ...,
-                        allowMissing: bool = ...,
-                        updateMask: str = ...,
-                        validateOnly: bool = ...,
+                        body: WorkstationConfig,
+                        allowMissing: bool | None = ...,
+                        updateMask: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
                     def workstations(self) -> WorkstationsResource: ...
@@ -246,18 +246,18 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: WorkstationCluster = ...,
-                    validateOnly: bool = ...,
-                    workstationClusterId: str = ...,
+                    body: WorkstationCluster,
+                    validateOnly: bool | None = ...,
+                    workstationClusterId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    force: bool = ...,
-                    validateOnly: bool = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -267,9 +267,9 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListWorkstationClustersResponseHttpRequest: ...
                 def list_next(
@@ -281,10 +281,10 @@ class CloudWorkstationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: WorkstationCluster = ...,
-                    allowMissing: bool = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: WorkstationCluster,
+                    allowMissing: bool | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def workstationConfigs(self) -> WorkstationConfigsResource: ...

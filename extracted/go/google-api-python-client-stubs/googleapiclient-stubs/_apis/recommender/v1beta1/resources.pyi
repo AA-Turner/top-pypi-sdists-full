@@ -28,9 +28,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudRecommenderV1beta1ListInsightsResponseHttpRequest
@@ -47,7 +47,7 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1InsightHttpRequest: ...
 
@@ -58,9 +58,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommenderV1beta1InsightTypeConfig = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: GoogleCloudRecommenderV1beta1InsightTypeConfig,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommenderV1beta1InsightTypeConfigHttpRequest: ...
                 def insights(self) -> InsightsResource: ...
@@ -76,9 +76,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1ListRecommendationsResponseHttpRequest: ...
                     def list_next(
@@ -93,28 +93,28 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markDismissed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markFailed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markSucceeded(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
 
@@ -125,9 +125,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommenderV1beta1RecommenderConfig = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: GoogleCloudRecommenderV1beta1RecommenderConfig,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommenderV1beta1RecommenderConfigHttpRequest: ...
                 def recommendations(self) -> RecommendationsResource: ...
@@ -136,10 +136,10 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudLocationListLocationsResponseHttpRequest: ...
             def list_next(
@@ -167,9 +167,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudRecommenderV1beta1ListInsightsResponseHttpRequest
@@ -186,7 +186,7 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1InsightHttpRequest: ...
 
@@ -203,9 +203,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1ListRecommendationsResponseHttpRequest: ...
                     def list_next(
@@ -220,28 +220,28 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markDismissed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markFailed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markSucceeded(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
 
@@ -251,10 +251,10 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudLocationListLocationsResponseHttpRequest: ...
             def list_next(
@@ -270,7 +270,11 @@ class RecommenderResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class InsightTypesResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> GoogleCloudRecommenderV1beta1ListInsightTypesResponseHttpRequest: ...
         def list_next(
             self,
@@ -295,9 +299,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudRecommenderV1beta1ListInsightsResponseHttpRequest
@@ -314,7 +318,7 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1InsightHttpRequest: ...
 
@@ -325,9 +329,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommenderV1beta1InsightTypeConfig = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: GoogleCloudRecommenderV1beta1InsightTypeConfig,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommenderV1beta1InsightTypeConfigHttpRequest: ...
                 def insights(self) -> InsightsResource: ...
@@ -343,9 +347,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1ListRecommendationsResponseHttpRequest: ...
                     def list_next(
@@ -360,28 +364,28 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markDismissed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markFailed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markSucceeded(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
 
@@ -392,9 +396,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommenderV1beta1RecommenderConfig = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: GoogleCloudRecommenderV1beta1RecommenderConfig,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommenderV1beta1RecommenderConfigHttpRequest: ...
                 def recommendations(self) -> RecommendationsResource: ...
@@ -403,10 +407,10 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudLocationListLocationsResponseHttpRequest: ...
             def list_next(
@@ -434,9 +438,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudRecommenderV1beta1ListInsightsResponseHttpRequest
@@ -453,7 +457,7 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkInsightAcceptedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1InsightHttpRequest: ...
 
@@ -464,9 +468,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommenderV1beta1InsightTypeConfig = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: GoogleCloudRecommenderV1beta1InsightTypeConfig,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommenderV1beta1InsightTypeConfigHttpRequest: ...
                 def insights(self) -> InsightsResource: ...
@@ -482,9 +486,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1ListRecommendationsResponseHttpRequest: ...
                     def list_next(
@@ -499,28 +503,28 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationClaimedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markDismissed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationDismissedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markFailed(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationFailedRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
                     def markSucceeded(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest = ...,
+                        body: GoogleCloudRecommenderV1beta1MarkRecommendationSucceededRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommenderV1beta1RecommendationHttpRequest: ...
 
@@ -531,9 +535,9 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommenderV1beta1RecommenderConfig = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: GoogleCloudRecommenderV1beta1RecommenderConfig,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommenderV1beta1RecommenderConfigHttpRequest: ...
                 def recommendations(self) -> RecommendationsResource: ...
@@ -542,10 +546,10 @@ class RecommenderResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudLocationListLocationsResponseHttpRequest: ...
             def list_next(
@@ -561,7 +565,11 @@ class RecommenderResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class RecommendersResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> GoogleCloudRecommenderV1beta1ListRecommendersResponseHttpRequest: ...
         def list_next(
             self,

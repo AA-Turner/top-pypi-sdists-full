@@ -16,7 +16,11 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class AvailableProjectsResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListAvailableProjectsResponseHttpRequest: ...
         def list_next(
             self,
@@ -35,11 +39,7 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class ShaResource(googleapiclient.discovery.Resource):
                 def create(
-                    self,
-                    *,
-                    parent: str,
-                    body: ShaCertificate = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: ShaCertificate, **kwargs: typing.Any
                 ) -> ShaCertificateHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -49,7 +49,7 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 ) -> ListShaCertificatesResponseHttpRequest: ...
 
             def create(
-                self, *, parent: str, body: AndroidApp = ..., **kwargs: typing.Any
+                self, *, parent: str, body: AndroidApp, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -61,9 +61,9 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                showDeleted: bool = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                showDeleted: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAndroidAppsResponseHttpRequest: ...
             def list_next(
@@ -75,22 +75,18 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: AndroidApp = ...,
-                updateMask: str = ...,
+                body: AndroidApp,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AndroidAppHttpRequest: ...
             def remove(
-                self,
-                *,
-                name: str,
-                body: RemoveAndroidAppRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: RemoveAndroidAppRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def undelete(
                 self,
                 *,
                 name: str,
-                body: UndeleteAndroidAppRequest = ...,
+                body: UndeleteAndroidAppRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def sha(self) -> ShaResource: ...
@@ -101,8 +97,8 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAvailableLocationsResponseHttpRequest: ...
             def list_next(
@@ -117,14 +113,14 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: FinalizeDefaultLocationRequest = ...,
+                body: FinalizeDefaultLocationRequest,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
 
         @typing.type_check_only
         class IosAppsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: IosApp = ..., **kwargs: typing.Any
+                self, *, parent: str, body: IosApp, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> IosAppHttpRequest: ...
             def getConfig(
@@ -134,9 +130,9 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                showDeleted: bool = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                showDeleted: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> ListIosAppsResponseHttpRequest: ...
             def list_next(
@@ -148,29 +144,21 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: IosApp = ...,
-                updateMask: str = ...,
+                body: IosApp,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> IosAppHttpRequest: ...
             def remove(
-                self,
-                *,
-                name: str,
-                body: RemoveIosAppRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: RemoveIosAppRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def undelete(
-                self,
-                *,
-                name: str,
-                body: UndeleteIosAppRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: UndeleteIosAppRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
 
         @typing.type_check_only
         class WebAppsResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: WebApp = ..., **kwargs: typing.Any
+                self, *, parent: str, body: WebApp, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> WebAppHttpRequest: ...
             def getConfig(
@@ -180,9 +168,9 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                showDeleted: bool = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                showDeleted: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> ListWebAppsResponseHttpRequest: ...
             def list_next(
@@ -194,34 +182,22 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: WebApp = ...,
-                updateMask: str = ...,
+                body: WebApp,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> WebAppHttpRequest: ...
             def remove(
-                self,
-                *,
-                name: str,
-                body: RemoveWebAppRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: RemoveWebAppRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
             def undelete(
-                self,
-                *,
-                name: str,
-                body: UndeleteWebAppRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: UndeleteWebAppRequest, **kwargs: typing.Any
             ) -> OperationHttpRequest: ...
 
         def addFirebase(
-            self, *, project: str, body: AddFirebaseRequest = ..., **kwargs: typing.Any
+            self, *, project: str, body: AddFirebaseRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def addGoogleAnalytics(
-            self,
-            *,
-            parent: str,
-            body: AddGoogleAnalyticsRequest = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: AddGoogleAnalyticsRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def get(
             self, *, name: str, **kwargs: typing.Any
@@ -235,9 +211,9 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            showDeleted: bool = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            showDeleted: bool | None = ...,
             **kwargs: typing.Any,
         ) -> ListFirebaseProjectsResponseHttpRequest: ...
         def list_next(
@@ -249,25 +225,21 @@ class FirebaseManagementResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: FirebaseProject = ...,
-            updateMask: str = ...,
+            body: FirebaseProject,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> FirebaseProjectHttpRequest: ...
         def removeAnalytics(
-            self,
-            *,
-            parent: str,
-            body: RemoveAnalyticsRequest = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: RemoveAnalyticsRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def searchApps(
             self,
             *,
             parent: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            showDeleted: bool = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            showDeleted: bool | None = ...,
             **kwargs: typing.Any,
         ) -> SearchFirebaseAppsResponseHttpRequest: ...
         def searchApps_next(

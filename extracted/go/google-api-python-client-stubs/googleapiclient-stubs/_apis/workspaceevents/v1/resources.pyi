@@ -16,7 +16,7 @@ class WorkspaceEventsResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class MessageResource(googleapiclient.discovery.Resource):
         def stream(
-            self, *, body: SendMessageRequest = ..., **kwargs: typing.Any
+            self, *, body: SendMessageRequest, **kwargs: typing.Any
         ) -> StreamResponseHttpRequest: ...
 
     @typing.type_check_only
@@ -28,17 +28,17 @@ class WorkspaceEventsResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: Subscription = ...,
-            validateOnly: bool = ...,
+            body: Subscription,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def delete(
             self,
             *,
             name: str,
-            allowMissing: bool = ...,
-            etag: str = ...,
-            validateOnly: bool = ...,
+            allowMissing: bool | None = ...,
+            etag: str | None = ...,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def get(
@@ -47,9 +47,9 @@ class WorkspaceEventsResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListSubscriptionsResponseHttpRequest: ...
         def list_next(
@@ -61,16 +61,16 @@ class WorkspaceEventsResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: Subscription = ...,
-            updateMask: str = ...,
-            validateOnly: bool = ...,
+            body: Subscription,
+            updateMask: str | None = ...,
+            validateOnly: bool | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def reactivate(
             self,
             *,
             name: str,
-            body: ReactivateSubscriptionRequest = ...,
+            body: ReactivateSubscriptionRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
 
@@ -82,24 +82,24 @@ class WorkspaceEventsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: TaskPushNotificationConfig = ...,
-                configId: str = ...,
-                tenant: str = ...,
+                body: TaskPushNotificationConfig,
+                configId: str | None = ...,
+                tenant: str | None = ...,
                 **kwargs: typing.Any,
             ) -> TaskPushNotificationConfigHttpRequest: ...
             def delete(
-                self, *, name: str, tenant: str = ..., **kwargs: typing.Any
+                self, *, name: str, tenant: str | None = ..., **kwargs: typing.Any
             ) -> EmptyHttpRequest: ...
             def get(
-                self, *, name: str, tenant: str = ..., **kwargs: typing.Any
+                self, *, name: str, tenant: str | None = ..., **kwargs: typing.Any
             ) -> TaskPushNotificationConfigHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                tenant: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                tenant: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTaskPushNotificationConfigResponseHttpRequest: ...
             def list_next(
@@ -109,18 +109,18 @@ class WorkspaceEventsResource(googleapiclient.discovery.Resource):
             ) -> ListTaskPushNotificationConfigResponseHttpRequest | None: ...
 
         def cancel(
-            self, *, name: str, body: CancelTaskRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: CancelTaskRequest, **kwargs: typing.Any
         ) -> TaskHttpRequest: ...
         def get(
             self,
             *,
             name: str,
-            historyLength: int = ...,
-            tenant: str = ...,
+            historyLength: int | None = ...,
+            tenant: str | None = ...,
             **kwargs: typing.Any,
         ) -> TaskHttpRequest: ...
         def subscribe(
-            self, *, name: str, tenant: str = ..., **kwargs: typing.Any
+            self, *, name: str, tenant: str | None = ..., **kwargs: typing.Any
         ) -> StreamResponseHttpRequest: ...
         def pushNotificationConfigs(self) -> PushNotificationConfigsResource: ...
 

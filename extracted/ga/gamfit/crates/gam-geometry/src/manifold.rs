@@ -17,6 +17,29 @@ pub enum GeometryError {
     /// not silently fall back to a wrong default (e.g. a curved-manifold VJP
     /// for which no closed form is wired up yet).
     Unsupported(&'static str),
+    /// An iterative geometry primitive exhausted or stalled without satisfying
+    /// its analytic first-order certificate. The evidence is carried in the
+    /// error so callers can distinguish non-convergence from invalid geometry
+    /// and inspect the achieved residual rather than receiving a partial point.
+    NonConvergence {
+        context: &'static str,
+        iterations: usize,
+        residual: f64,
+        tolerance: f64,
+    },
+    /// A Karcher solve reached first-order stationarity on a positively curved
+    /// manifold, but the weighted support does not fit inside the analytic
+    /// strongly-convex ball that certifies this stationary point as the unique
+    /// global Fréchet mean. Returning the local basin would make the chart
+    /// origin depend on initialization; callers must instead provide an
+    /// explicit base point or better-localized data.
+    FrechetMeanNotGloballyCertified {
+        context: &'static str,
+        stationarity_residual: f64,
+        tolerance: f64,
+        support_radius: f64,
+        uniqueness_radius: f64,
+    },
 }
 
 impl fmt::Display for GeometryError {
@@ -30,6 +53,29 @@ impl fmt::Display for GeometryError {
             Self::InvalidPoint(message) => write!(f, "invalid manifold point: {message}"),
             Self::Singular(message) => write!(f, "singular geometry operation: {message}"),
             Self::Unsupported(message) => write!(f, "unsupported geometry operation: {message}"),
+            Self::NonConvergence {
+                context,
+                iterations,
+                residual,
+                tolerance,
+            } => write!(
+                f,
+                "{context} did not converge after {iterations} iterations: \
+                 stationarity residual {residual:.6e} exceeds tolerance {tolerance:.6e}"
+            ),
+            Self::FrechetMeanNotGloballyCertified {
+                context,
+                stationarity_residual,
+                tolerance,
+                support_radius,
+                uniqueness_radius,
+            } => write!(
+                f,
+                "{context} reached stationarity ({stationarity_residual:.6e} <= \
+                 {tolerance:.6e}) but its weighted support radius \
+                 {support_radius:.6e} is not below the global-uniqueness radius \
+                 {uniqueness_radius:.6e}"
+            ),
         }
     }
 }

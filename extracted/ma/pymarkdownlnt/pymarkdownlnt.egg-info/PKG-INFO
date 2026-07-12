@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymarkdownlnt
-Version: 0.9.38
+Version: 0.9.39
 Summary: A GitHub Flavored Markdown compliant Markdown linter.
 Home-page: https://github.com/jackdewinter/pymarkdown
 Author: Jack De Winter
@@ -25,7 +25,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: typing-extensions>=4.5.0
+Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: application-properties>=0.9.3
 Requires-Dist: application-file-scanner>=0.6.4
 Requires-Dist: columnar>=1.4.0

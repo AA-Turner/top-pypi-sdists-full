@@ -9,11 +9,7 @@
 //! These are the building blocks a library consumer needs to construct
 //! a `FitRequest::SurvivalLocationScale` without going through the CLI.
 
-use gam_terms::basis::{
-    BSplineBasisSpec, BSplineBoundaryConditions, BSplineIdentifiability, BSplineKnotSpec,
-    BasisMetadata, BasisOptions, Dense, KnotSource, OneDimensionalBoundary, build_bspline_basis_1d,
-    create_basis, evaluate_bspline_derivative_scalar,
-};
+use crate::probability::{normal_pdf, standard_normal_quantile};
 use crate::survival::location_scale::{
     DEFAULT_SURVIVAL_LOCATION_SCALE_DERIVATIVE_GUARD, ResidualDistribution,
     SurvivalCovariateTermBlockTemplate,
@@ -24,11 +20,17 @@ use crate::wiggle::{
     WiggleBlockConfig, append_selected_wiggle_penalty_orders, buildwiggle_block_input_from_seed,
     monotone_wiggle_basis_with_derivative_order, split_wiggle_penalty_orders,
 };
-use gam_terms::inference::formula_dsl::LinkWiggleFormulaSpec;
-use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix, SparseDesignMatrix, symmetrize_in_place};
-use crate::probability::{normal_pdf, standard_normal_quantile};
+use gam_linalg::matrix::{
+    DenseDesignMatrix, DesignMatrix, SparseDesignMatrix, symmetrize_in_place,
+};
 use gam_problem::outer_subsample::RowSet;
 use gam_problem::{InverseLink, StandardLink};
+use gam_terms::basis::{
+    BSplineBasisSpec, BSplineBoundaryConditions, BSplineIdentifiability, BSplineKnotSpec,
+    BasisMetadata, BasisOptions, Dense, KnotSource, OneDimensionalBoundary, build_bspline_basis_1d,
+    create_basis, evaluate_bspline_derivative_scalar,
+};
+use gam_terms::inference::formula_dsl::LinkWiggleFormulaSpec;
 use ndarray::{Array1, Array2, array, s};
 use rayon::prelude::*;
 
@@ -117,6 +119,33 @@ pub struct SurvivalBaselineConfig {
     pub shape: Option<f64>,
     pub rate: Option<f64>,
     pub makeham: Option<f64>,
+}
+
+/// Recover the fitted Weibull baseline from anchor-centered linear
+/// `[1, log(t)]` time-basis coefficients.
+///
+/// Centering at `anchor` makes the constant coefficient unidentified. The
+/// fitted model is therefore `shape * (log(t) - log(anchor))`: the identified
+/// shape is `beta[1]` and the identified scale is the anchor itself. Consumers
+/// must not reconstruct the scale from the stale constant coefficient.
+pub fn fitted_weibull_baseline_from_linear_time_beta(
+    beta: &Array1<f64>,
+    anchor: f64,
+) -> Option<SurvivalBaselineConfig> {
+    if beta.len() < 2 {
+        return None;
+    }
+    let shape = beta[1];
+    if !shape.is_finite() || shape <= 0.0 || !anchor.is_finite() || anchor <= 0.0 {
+        return None;
+    }
+    Some(SurvivalBaselineConfig {
+        target: SurvivalBaselineTarget::Weibull,
+        scale: Some(anchor),
+        shape: Some(shape),
+        rate: None,
+        makeham: None,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -792,7 +821,7 @@ where
 /// the same user closure back both the `cost_fn` and `eval_fn`, the θ→config
 /// conversion, and deriving the scalar `cost_fn` from the eval result — is
 /// identical, so it lives here once. The contract-specific axis is only which
-/// `HessianResult` the objective embeds, which the wrapper has already encoded
+/// `HessianValue` the objective embeds, which the wrapper has already encoded
 /// in the returned `OuterEval`, so this helper is contract-agnostic beyond the
 /// `contract` it forwards to [`run_baseline_theta_optimizer`].
 fn run_baseline_theta_optimizer_with_eval<F>(
@@ -821,7 +850,7 @@ where
                 theta.len()
             )));
         }
-        if let gam_problem::HessianResult::Analytic(ref h) = eval.hessian {
+        if let gam_problem::HessianValue::Dense(ref h) = eval.hessian {
             if h.nrows() != theta.len() || h.ncols() != theta.len() {
                 return Err(crate::model_types::EstimationError::InvalidInput(format!(
                     "{engine_context}: baseline Hessian dimension mismatch: got {}x{}, expected {}x{}",
@@ -861,7 +890,7 @@ pub fn optimize_survival_baseline_config_with_gradient_only<F>(
 where
     F: FnMut(&SurvivalBaselineConfig) -> Result<(f64, Array1<f64>), String>,
 {
-    use gam_problem::{HessianResult, OuterEval};
+    use gam_problem::{HessianValue, OuterEval};
     run_baseline_theta_optimizer_with_eval(
         initial,
         context,
@@ -871,7 +900,7 @@ where
             Ok(OuterEval {
                 cost,
                 gradient,
-                hessian: HessianResult::Unavailable,
+                hessian: HessianValue::Unavailable,
                 inner_beta_hint: None,
             })
         },
@@ -890,7 +919,7 @@ pub fn optimize_survival_baseline_config_with_gradient<F>(
 where
     F: FnMut(&SurvivalBaselineConfig) -> Result<(f64, Array1<f64>, Array2<f64>), String>,
 {
-    use gam_problem::{HessianResult, OuterEval};
+    use gam_problem::{HessianValue, OuterEval};
     run_baseline_theta_optimizer_with_eval(
         initial,
         context,
@@ -900,7 +929,7 @@ where
             Ok(OuterEval {
                 cost,
                 gradient,
-                hessian: HessianResult::Analytic(hessian),
+                hessian: HessianValue::Dense(hessian),
                 inner_beta_hint: None,
             })
         },
@@ -1927,10 +1956,7 @@ pub fn resolve_survival_transformation_time_anchor_value(
             "survival transformation time anchor requires non-empty exit times".to_string(),
         );
     }
-    let min_entry = age_entry
-        .iter()
-        .copied()
-        .fold(f64::INFINITY, f64::min);
+    let min_entry = age_entry.iter().copied().fold(f64::INFINITY, f64::min);
     if min_entry > SURVIVAL_DELAYED_ENTRY_THRESHOLD {
         Ok(robust_interior_exit_anchor(age_exit).max(SURVIVAL_TIME_FLOOR))
     } else {
@@ -3634,19 +3660,34 @@ mod tests {
         baseline_chain_rule_gradient, baseline_offset_theta_partials,
         build_survival_marginal_slope_baseline_offsets, build_survival_time_basis,
         build_survival_timewiggle_from_baseline, evaluate_survival_baseline,
-        evaluate_survival_marginal_slope_baseline, gompertz_cumulative_shape_derivative,
-        gompertz_cumulative_shape_second_derivative, gompertz_hazard_components,
-        marginal_slope_baseline_chain_rule_gradient, marginal_slope_baseline_chain_rule_hessian,
-        marginal_slope_baseline_offset_theta_partials,
+        evaluate_survival_marginal_slope_baseline, fitted_weibull_baseline_from_linear_time_beta,
+        gompertz_cumulative_shape_derivative, gompertz_cumulative_shape_second_derivative,
+        gompertz_hazard_components, marginal_slope_baseline_chain_rule_gradient,
+        marginal_slope_baseline_chain_rule_hessian, marginal_slope_baseline_offset_theta_partials,
         optimize_survival_baseline_config_with_gradient,
         optimize_survival_baseline_config_with_gradient_only,
         resolve_survival_marginal_slope_time_anchor_value, survival_baseline_config_from_theta,
         survival_baseline_theta_from_config,
     };
+    use crate::probability::normal_cdf;
     use crate::survival::{OffsetChannelCurvatures, OffsetChannelResiduals};
     use gam_terms::inference::formula_dsl::LinkWiggleFormulaSpec;
-    use crate::probability::normal_cdf;
     use ndarray::{Array1, Array2, array};
+
+    #[test]
+    fn fitted_weibull_baseline_uses_identified_anchor_and_slope() {
+        let fitted = fitted_weibull_baseline_from_linear_time_beta(&array![123.0, 1.75], 4.5)
+            .expect("valid Weibull baseline");
+        assert_eq!(fitted.target, SurvivalBaselineTarget::Weibull);
+        assert_eq!(fitted.scale, Some(4.5));
+        assert_eq!(fitted.shape, Some(1.75));
+        assert_eq!(fitted.rate, None);
+        assert_eq!(fitted.makeham, None);
+
+        assert!(fitted_weibull_baseline_from_linear_time_beta(&array![1.0], 4.5).is_none());
+        assert!(fitted_weibull_baseline_from_linear_time_beta(&array![0.0, 0.0], 4.5).is_none());
+        assert!(fitted_weibull_baseline_from_linear_time_beta(&array![0.0, 1.0], 0.0).is_none());
+    }
 
     #[test]
     fn survival_timewiggle_keeps_requested_order_one_penalty() {
@@ -3962,8 +4003,8 @@ mod tests {
         assert_eq!(s.nrows(), keep_cols.len());
         assert_eq!(s.ncols(), keep_cols.len());
 
-        let (evals, _) =
-            gam_linalg::faer_ndarray::FaerEigh::eigh(s, faer::Side::Lower).expect("eigh of penalty");
+        let (evals, _) = gam_linalg::faer_ndarray::FaerEigh::eigh(s, faer::Side::Lower)
+            .expect("eigh of penalty");
         let evals_slice = evals.as_slice().expect("contiguous eigenvalues");
         let max_abs = evals_slice
             .iter()

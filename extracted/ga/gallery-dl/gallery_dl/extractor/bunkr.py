@@ -264,7 +264,7 @@ class BunkrMediaExtractor(BunkrAlbumExtractor):
 
 class BunkrDirectLinkExtractor(BunkrMediaExtractor):
     subcategory = "direct-link"
-    pattern = r"https://cdn\d+\.bunkr\.ru()()(/.+)"
+    pattern = r"https://cdn\d*\.bunkr\.ru()()(/.+)"
     example = "https://cdn123.bunkr.ru/NAME-ID.EXT"
 
     def fetch_album(self, album_id):

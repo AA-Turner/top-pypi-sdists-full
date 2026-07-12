@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.4.8
+Version: 0.4.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -29,13 +29,19 @@ Project-URL: Repository, https://github.com/j178/prek
   <img width="600" alt="prek" src="https://raw.githubusercontent.com/j178/prek/master/docs/assets/logo.png" />
 </picture>
 
+<a href="https://trendshift.io/repositories/14578?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14578" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/14578" alt="j178%2Fprek | Trendshift" width="250" height="55"/></a>
+
 [![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)
 [![PyPI version](https://img.shields.io/pypi/v/prek.svg)](https://pypi.python.org/pypi/prek)
 [![codecov](https://codecov.io/github/j178/prek/graph/badge.svg?token=MP6TY24F43)](https://codecov.io/github/j178/prek)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/prek?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=BLUE&left_text=downloads%2Fmonth)](https://pepy.tech/projects/prek)
 [![Discord](https://img.shields.io/discord/1403581202102878289?logo=discord)](https://discord.gg/3NRJUqJz86)
 
+**[Installation](#installation) • [Quick start](#quick-start) • [Documentation](https://prek.j178.dev/)**
+
 </div>
+
+## About
 
 <!-- --8<-- [start: description] -->
 
@@ -64,14 +70,6 @@ Although prek is pretty new, it’s already powering real‑world projects like 
 
 <!-- --8<-- [end:features] -->
 
-## Table of contents
-
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Why prek?](#why-prek)
-- [Who is using prek?](#who-is-using-prek)
-- [Acknowledgements](#acknowledgements)
-
 ## Installation
 
 <details>
@@ -84,7 +82,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.4.8/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.4.9/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -94,7 +92,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.4.8/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.4.9/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -177,7 +175,7 @@ cargo binstall prek
 
 <!-- --8<-- [start: cargo-install] -->
 
-Build from source using Cargo (Rust 1.89+ is required):
+Build from source using Cargo (Rust 1.95+ is required):
 
 ```bash
 cargo install --locked prek

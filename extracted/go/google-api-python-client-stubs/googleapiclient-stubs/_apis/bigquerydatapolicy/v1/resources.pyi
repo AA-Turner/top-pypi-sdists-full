@@ -20,10 +20,10 @@ class BigQueryDataPolicyServiceResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class DataPoliciesResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: DataPolicy = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: DataPolicy, **kwargs: typing.Any
                 ) -> DataPolicyHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -32,16 +32,16 @@ class BigQueryDataPolicyServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDataPoliciesResponseHttpRequest: ...
                 def list_next(
@@ -53,30 +53,30 @@ class BigQueryDataPolicyServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: DataPolicy = ...,
-                    allowMissing: bool = ...,
-                    updateMask: str = ...,
+                    body: DataPolicy,
+                    allowMissing: bool | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> DataPolicyHttpRequest: ...
                 def rename(
                     self,
                     *,
                     name: str,
-                    body: RenameDataPolicyRequest = ...,
+                    body: RenameDataPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> DataPolicyHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 

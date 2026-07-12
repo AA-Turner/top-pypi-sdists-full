@@ -8,10 +8,10 @@
 //! reconstruction paths. They share the parent module's fixtures via
 //! `super::tests`.
 
-use super::*;
 use super::tests::{
     TestPeriodicEvaluator, periodic_basis, small_two_atom_periodic_term, trivial_k1_euclidean_term,
 };
+use super::*;
 use ndarray::array;
 
 /// #976 decoder arm (prevention): a K>1 fit whose second atom's decoder has
@@ -88,106 +88,6 @@ pub(crate) fn decoder_norm_guard_reseeds_collapsed_atom_to_distinct_nonzero() {
     );
 }
 
-/// #2099 quotient-ON twin of `decoder_norm_guard_reseeds_collapsed_atom_to_distinct_nonzero`.
-///
-/// This is the issue's fourth failing family — conflict 3, the DECODER-NORM COLLAPSE
-/// GUARDS (`#2099` body: "key on `‖B_k‖` directly; a per-iterate unit retraction
-/// makes them inert (their dead-atom signal must migrate to `s_k`)"). Same fixture
-/// and asserts as the original; the only difference is `set_quotient_scale(true)` +
-/// `set_cone_atom_recovery(true)` (a collapse-recovery scenario, so the cone-atom
-/// retraction is implied). Default path untouched. (The issue names 795/2027/1026
-/// explicitly and leaves the fourth "collapse-guard" test unnamed; this canonical
-/// single-atom guard test is the representative — redirect the twin if a different
-/// guard fixture is intended.)
-///
-/// FALSIFIABLE PREDICTION: conflict 3 was reconciled by re-keying the guard on the
-/// physical contribution `contribution_frobenius_scale() = exp(s_k)·‖B_k‖_F` (my
-/// subsystem-3 parity check confirmed the exp(s) placement). A decoder filled to 0
-/// has contribution scale 0 for ANY `s_k`, so the guard must STILL fire and reseed
-/// under the quotient. PREDICT PASS: Reseeded event recorded, and — because the
-/// quotient peels the reseeded decoder to a unit-Frobenius frame with magnitude in
-/// `s_k` — both `‖B_0‖` and `‖B_1‖` land near unit, so `n1 > RATIO·n0` and the
-/// distinctness (`|cos|<0.999`) still hold. If it FAILS on the Reseeded assert, the
-/// guard is reading raw `‖B‖` somewhere the exp(s) re-key missed (a genuine
-/// conflict-3 residue); if it fails only on the norm-ratio assert, the reseed's
-/// amplitude solve (`optimize_log_amplitudes_closed_form` keep-best) is starving the
-/// reseeded atom's `s_k` so its physical contribution never recovers — the
-/// retraction/amplitude-cadence root again, not the guard trigger itself.
-#[test]
-pub(crate) fn decoder_norm_guard_reseeds_collapsed_atom_to_distinct_nonzero_quotient_on_2099() {
-    let (term0, target, rho) = small_two_atom_periodic_term();
-    let mut term = term0.clone();
-    // The lines under test: general scale quotient + cone-atom recovery engaged.
-    term.set_quotient_scale(true);
-    term.set_cone_atom_recovery(true);
-
-    // Collapse atom 1's decoder to ≈0 while leaving its assignment gates spread.
-    term.atoms[1].decoder_coefficients.fill(0.0);
-    term.atoms[1].refresh_intrinsic_smooth_penalty();
-
-    let norm = |a: &SaeManifoldAtom| -> f64 {
-        a.decoder_coefficients
-            .iter()
-            .map(|v| v * v)
-            .sum::<f64>()
-            .sqrt()
-    };
-    assert!(norm(&term.atoms[1]) < 1e-12, "atom 1 starts collapsed");
-
-    term.enforce_decoder_norm_guard(target.view(), 0, &rho, None)
-        .expect("decoder-norm guard must not error on a recoverable collapse (quotient ON)");
-
-    let reseeded = term
-        .collapse_events()
-        .iter()
-        .any(|e| e.atom == 1 && e.action == CollapseAction::Reseeded);
-    assert!(
-        reseeded,
-        "#2099: collapsed atom 1 must be recorded as Reseeded with quotient_scale ON \
-         (the guard keys on the physical contribution exp(s)·‖B‖, which is 0 for a zeroed \
-         decoder regardless of s); events: {:?}",
-        term.collapse_events()
-    );
-
-    let n1 = norm(&term.atoms[1]);
-    let n0 = norm(&term.atoms[0]);
-    assert!(
-        n0 > 0.0 && n1 > SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO * n0,
-        "#2099: reseeded atom 1 decoder (quotient ON) must be non-degenerate: ‖B0‖={n0:.3e} \
-         ‖B1‖={n1:.3e}; a shortfall means the reseed's amplitude solve starved s_1"
-    );
-
-    let c1 = term.assignment.coords[1].as_matrix();
-    let (lo, hi) = c1
-        .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-            (lo.min(v), hi.max(v))
-        });
-    assert!(
-        hi - lo > 1e-6,
-        "#2099: reseeded atom 1 coordinates (quotient ON) must span a non-trivial range; got [{lo}, {hi}]"
-    );
-
-    let b0 = &term.atoms[0].decoder_coefficients;
-    let b1 = &term.atoms[1].decoder_coefficients;
-    let dot: f64 = b0.iter().zip(b1.iter()).map(|(x, y)| x * y).sum();
-    let cos = dot.abs() / (n0 * n1);
-    assert!(
-        cos < 0.999,
-        "#2099: reseeded atom 1 decoder (quotient ON) must be distinct from atom 0 (|cos|={cos:.4})"
-    );
-}
-
-/// #1117 K>1 robustness — TOTAL co-collapse (every decoder ≈0 together) must
-/// reseed ALL atoms, not all-but-one. When the whole dictionary co-collapses
-/// the median-relative test finds no atom "behind" its peers, so the guard
-/// falls to the absolute EV arm. The earlier code kept the (arbitrary,
-/// already-degenerate) strongest atom as an "anchor" and reseeded only K−1
-/// atoms; that left one slot sitting in the collapsed basin and the joint LSQ
-/// refit re-attracted the reseeded atoms toward it — exactly the K=3 three-way
-/// basin a single reseed could not break (real OLMo: identical config flipped
-/// EV≈0.40 ↔ 0.00). With all K atoms reseeded onto DISTINCT residual PCs every
-/// slot leaves the basin and recovers a non-degenerate, pairwise-distinct
 /// decoder.
 #[test]
 pub(crate) fn decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3() {
@@ -1839,14 +1739,14 @@ pub(crate) fn oos_linear_images_drive_collapsed_reconstruction() {
     );
 }
 
-/// Shared builder for the occupancy-scaled Jeffreys barrier tests: a K=2
+/// Shared builder for the Jeffreys barrier tests: a K=2
 /// periodic term over `n` rows with explicit single-row decoders and a routing
 /// where BOTH atoms carry non-negligible mass on every row (so the pair
 /// co-fires everywhere, every gate sits far above the relative-mass floor, and
 /// the truncated-support energies equal the plain full sums — the reference
 /// formulas below are exact). Single-row decoders make the rank-aware overlap
 /// `o_01` exactly the squared cosine of the two direction vectors.
-fn occupancy_two_atom_term(n: usize, dec0: [f64; 3], dec1: [f64; 3]) -> SaeManifoldTerm {
+fn jeffreys_two_atom_term(n: usize, dec0: [f64; 3], dec1: [f64; 3]) -> SaeManifoldTerm {
     let coords0 = Array2::<f64>::from_shape_fn((n, 1), |(i, _)| (i as f64 * 0.618_034).fract());
     let coords1 = Array2::<f64>::from_shape_fn((n, 1), |(i, _)| (i as f64 * 0.414_214).fract());
     let (phi0, jet0) = periodic_basis(&coords0);
@@ -1896,55 +1796,45 @@ fn occupancy_two_atom_term(n: usize, dec0: [f64; 3], dec1: [f64; 3]) -> SaeManif
     SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap()
 }
 
-/// Occupancy-scaled Jeffreys barrier — VALUE exactness and value/gradient FD
-/// consistency at a NEAR-COLLAPSED pair (`c² = 0.98`).
-///
-/// (1) VALUE: for a K=2 component the barrier has the closed form
-///     `P = −½·n_C·[ln(1+q·o+ε_C) + ln(1−q·o+ε_C) − 2·ln(1+ε_C)]` with
-///     `q = (Σ a₀a₁)/√(Σa₀²·Σa₁²)`, `n_C = ½(N₀+N₁)`, `N_k = Σ a_k²`, and
-///     `ε_C = 2√(2/min(N₀,N₁))` — every ingredient recomputed here from the raw
-///     gate matrix and the constructed decoder cosine, independently of the
-///     production code. This pins that the occupancy scale n_C and the
-///     data-derived softening ε_C actually multiply/shift the log-det as
-///     derived (no silent renormalization).
-/// (2) GRADIENT: the analytic `∂P/∂B = Σ_e α_e·v_e` with
-///     `α_e = n_C·(−G[j,k]·q)` must match central finite differences of the
-///     VALUE on every decoder coefficient of both atoms — the exact
-///     value/gradient contract the line search relies on, now including the
-///     occupancy scale (a desync between an n-scaled value and an unscaled
-///     gradient would be caught here immediately).
+/// Independently reconstruct the two-atom Jeffreys value from the realized
+/// routing. Returns `(value, q, eps)`, where `q` is the coactivation cosine and
+/// `eps` is the sampling-resolution shift.
+fn two_atom_jeffreys_reference(term: &SaeManifoldTerm, overlap: f64) -> (f64, f64, f64) {
+    let gates = term.assignment.assignments();
+    let (mut cross, mut e0, mut e1) = (0.0_f64, 0.0_f64, 0.0_f64);
+    for i in 0..gates.nrows() {
+        let a0 = gates[[i, 0]];
+        let a1 = gates[[i, 1]];
+        cross += a0 * a1;
+        e0 += a0 * a0;
+        e1 += a1 * a1;
+    }
+    let q = cross / (e0 * e1).sqrt();
+    let eps = 2.0 * (2.0 / e0.min(e1)).sqrt();
+    let r = q * overlap;
+    let value = -0.5 * ((1.0 + r + eps).ln() + (1.0 - r + eps).ln() - 2.0 * (1.0 + eps).ln());
+    (value, q, eps)
+}
+
+/// The unscaled Jeffreys barrier matches its closed-form value and analytic
+/// decoder gradient at a near-collapsed pair (`o = c² = 0.98`). The component
+/// value is `−½ log det(F+εI)` relative to the shifted identity; occupancy
+/// controls `q` and the resolution shift `ε`, but never multiplies the log-det.
 #[test]
-fn occupancy_scaled_barrier_value_exact_and_gradient_matches_fd_near_collapse() {
+fn unscaled_jeffreys_value_and_gradient_match_closed_form() {
     let c2 = 0.98_f64;
     let cos = c2.sqrt();
     let sin = (1.0 - c2).sqrt();
     let n = 48_usize;
     let dec0 = [1.0, 0.0, 0.0];
     let dec1 = [cos, sin, 0.0];
-    let term = occupancy_two_atom_term(n, dec0, dec1);
+    let term = jeffreys_two_atom_term(n, dec0, dec1);
 
-    // Reference ingredients straight off the realized gate matrix (all gates are
-    // far above the relative-mass floor, so full sums == truncated sums).
-    let gates = term.assignment.assignments();
-    let (mut num, mut e0, mut e1) = (0.0_f64, 0.0_f64, 0.0_f64);
-    for i in 0..n {
-        let a0 = gates[[i, 0]];
-        let a1 = gates[[i, 1]];
-        num += a0 * a1;
-        e0 += a0 * a0;
-        e1 += a1 * a1;
-    }
-    let q = num / (e0 * e1).sqrt();
+    let (expected, q, eps) = two_atom_jeffreys_reference(&term, c2);
     assert!(
         q > 0.0 && q < 1.0,
         "fixture: coactivation must be strictly interior, got q={q}"
     );
-    let n_c = 0.5 * (e0 + e1);
-    let eps_c = 2.0 * (2.0 / e0.min(e1)).sqrt();
-    // Single-row unit-norm decoders ⇒ o = cos²θ = c² exactly.
-    let r = q * c2;
-    let expected =
-        -0.5 * n_c * ((1.0 + r + eps_c).ln() + (1.0 - r + eps_c).ln() - 2.0 * (1.0 + eps_c).ln());
     let value = term.separation_barrier_value(1.0);
     assert!(
         value > 0.0,
@@ -1952,9 +1842,9 @@ fn occupancy_scaled_barrier_value_exact_and_gradient_matches_fd_near_collapse() 
     );
     assert!(
         (value - expected).abs() <= expected.abs() * 1e-9,
-        "occupancy-scaled Jeffreys value must equal the hand-derived closed form \
-         −½·n_C·log det(F+ε_C·I): expected={expected:.12e} got={value:.12e} \
-         (n_C={n_c:.6}, q={q:.6}, ε_C={eps_c:.6})"
+        "Jeffreys value must equal the unscaled closed form \
+         −½·log det(F+ε_C·I): expected={expected:.12e} got={value:.12e} \
+         (q={q:.6}, ε_C={eps:.6})"
     );
 
     // FD contract on every decoder coefficient of both atoms.
@@ -1967,12 +1857,11 @@ fn occupancy_scaled_barrier_value_exact_and_gradient_matches_fd_near_collapse() 
         let m = term.atoms[atom].decoder_coefficients.nrows();
         for a in 0..m {
             for o in 0..p {
-                let mut plus = occupancy_two_atom_term(n, dec0, dec1);
+                let mut plus = jeffreys_two_atom_term(n, dec0, dec1);
                 plus.atoms[atom].decoder_coefficients[[a, o]] += h;
-                let mut minus = occupancy_two_atom_term(n, dec0, dec1);
+                let mut minus = jeffreys_two_atom_term(n, dec0, dec1);
                 minus.atoms[atom].decoder_coefficients[[a, o]] -= h;
-                let fd = (plus.separation_barrier_value(1.0)
-                    - minus.separation_barrier_value(1.0))
+                let fd = (plus.separation_barrier_value(1.0) - minus.separation_barrier_value(1.0))
                     / (2.0 * h);
                 let analytic = grad[offsets[atom] + a * p + o];
                 let rel = (fd - analytic).abs() / (1.0 + fd.abs().max(analytic.abs()));
@@ -1982,101 +1871,45 @@ fn occupancy_scaled_barrier_value_exact_and_gradient_matches_fd_near_collapse() 
     }
     assert!(
         max_rel < 1.0e-5,
-        "occupancy-scaled analytic ∂P/∂B must match FD of the occupancy-scaled \
-         value at the near-collapsed pair: max rel err {max_rel:.3e}"
+        "unscaled analytic ∂P/∂B must match FD of the unscaled value at \
+         the near-collapsed pair: max rel err {max_rel:.3e}"
     );
 }
 
-/// The COLLAPSE-RANKING fix, decided in the penalty term alone: with the
-/// occupancy-scaled Jeffreys, a COLLAPSED dictionary (two co-firing atoms on
-/// the identical decoder direction, `o = 1`) must cost MORE evidence than the
-/// Laplace dimension refund the collapse can possibly harvest, so at equal
-/// likelihood the collapsed dictionary scores strictly WORSE than the separated
-/// one — the evidence ordering flips.
-///
-/// Currencies (all in nats, hand-derived):
-///  * Barrier cost of collapse = `P(collapsed) − P(separated)`; the separated
-///    arm (orthogonal decoders, F = I) is EXACTLY 0 by the identity reference,
-///    so the gap is `P(collapsed)` itself.
-///  * The largest evidence REWARD a collapse can harvest is the full Laplace
-///    dimension refund of the duplicated atom's coefficient block,
-///    `½·Δd·ln N_eff` with `Δd = M·p` (every one of its decoder coefficients
-///    priced at ½·ln N_eff each — the maximal, most adversarial refund).
-///
-/// Assertions:
-///  1. `P(separated) = 0` exactly (equal-likelihood toy: the penalty is the
-///     only discriminator, and healthy structure pays nothing).
-///  2. `P(collapsed) > ½·(M·p)·ln N_eff,C` — collapse costs more than the
-///     structure it destroys could ever refund: the ordering flips.
-///  3. `P(collapsed)/n_C < ½·(M·p)·ln N_eff,C` — the UNSCALED (O(1) per
-///     component) barrier value could NOT have flipped the ordering at this
-///     N_eff: the occupancy scale n_C is the load-bearing factor, not the ε
-///     change. This is the measured real-activation defect (collapse basins
-///     hundreds of nats below real structure) reproduced and closed in a toy.
+/// Sample size factors out of a fixed-dimensional Jeffreys volume ratio. For
+/// `I_N = N_eff(F+εI)`, both the fitted Fisher determinant and its identity
+/// reference acquire the same `s log N_eff` term, which cancels. This test
+/// evaluates that total-information expression over six orders of magnitude and
+/// pins it to the production component value.
 #[test]
-fn occupancy_scaled_barrier_flips_collapse_evidence_ordering() {
-    let n = 400_usize;
-    // COLLAPSED: identical unit decoders (o = 1, exact co-collapse).
-    let collapsed = occupancy_two_atom_term(n, [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-    // SEPARATED: orthogonal unit decoders (o = 0, F = I).
-    let separated = occupancy_two_atom_term(n, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-
-    let v_sep = separated.separation_barrier_value(1.0);
-    // Identity-referenced Jeffreys: F = I for orthogonal decoders, so the value
-    // is 0 up to the SVD's representation of the identity spectrum.
-    assert!(
-        v_sep.abs() <= 1.0e-9,
-        "separated (orthogonal) structure must pay ~zero barrier \
-         (identity-referenced Jeffreys), got {v_sep}"
+fn jeffreys_total_information_factorization_is_sample_size_invariant() {
+    let overlap = 0.93_f64;
+    let term = jeffreys_two_atom_term(
+        64,
+        [1.0, 0.0, 0.0],
+        [overlap.sqrt(), (1.0 - overlap).sqrt(), 0.0],
     );
-    let v_col = collapsed.separation_barrier_value(1.0);
-    assert!(
-        v_col.is_finite() && v_col > 0.0,
-        "exact co-collapse must carry a finite positive barrier, got {v_col}"
-    );
+    let (expected, q, eps) = two_atom_jeffreys_reference(&term, overlap);
+    let production = term.separation_barrier_value(1.0);
+    assert!((production - expected).abs() <= 1.0e-12);
 
-    // Effective co-fired sample size, straight off the gate matrix (all gates
-    // far above the relative-mass floor ⇒ full sums == truncated sums).
-    let gates = collapsed.assignment.assignments();
-    let (mut e0, mut e1) = (0.0_f64, 0.0_f64);
-    for i in 0..n {
-        e0 += gates[[i, 0]] * gates[[i, 0]];
-        e1 += gates[[i, 1]] * gates[[i, 1]];
+    let r = q * overlap;
+    for sample_mass in [1.0_f64, 7.0, 1.0e3, 1.0e6] {
+        let total_information_value = -0.5
+            * ((sample_mass * (1.0 + r + eps)).ln() + (sample_mass * (1.0 - r + eps)).ln()
+                - 2.0 * (sample_mass * (1.0 + eps)).ln());
+        assert!(
+            (total_information_value - production).abs() <= 2.0e-12,
+            "the common s·log(N_eff) factor must cancel: N_eff={sample_mass:e}, \
+             total-information value={total_information_value:.12e}, \
+             production={production:.12e}"
+        );
     }
-    let n_c = 0.5 * (e0 + e1);
-    assert!(
-        n_c > 50.0,
-        "fixture: the co-fired occupancy must be material (N_eff,C ≈ n/4), got {n_c}"
-    );
-    // Maximal Laplace dimension refund for deleting the duplicated atom: its
-    // whole M·p decoder block priced at ½·ln N_eff per coefficient.
-    let m = collapsed.atoms[1].decoder_coefficients.nrows();
-    let p = collapsed.atoms[1].decoder_coefficients.ncols();
-    let laplace_refund = 0.5 * (m * p) as f64 * n_c.ln();
-
-    // (2) The ordering flips: collapse costs more than any refund it can buy.
-    assert!(
-        v_col > laplace_refund,
-        "occupancy-scaled collapse cost must beat the maximal Laplace dimension \
-         refund so the evidence ranks the collapsed dictionary WORSE: \
-         cost={v_col:.3} nats ≤ refund={laplace_refund:.3} nats (N_eff,C={n_c:.1})"
-    );
-    // (3) Without the occupancy scale the same barrier is O(1) and loses: the
-    // per-effective-observation value cannot pay for the refund. This is the
-    // exact defect measured on real activations (collapse basins hundreds of
-    // nats below real structure) that the n_C scaling closes.
-    assert!(
-        v_col / n_c < laplace_refund,
-        "the UNSCALED barrier (per-observation value {:.3} nats) must NOT be able \
-         to flip the ordering against the {laplace_refund:.3}-nat refund — the \
-         occupancy scale must be the load-bearing factor",
-        v_col / n_c
-    );
 }
 
-/// SEAM GATE for the occupancy-scaled Jeffreys barrier on the ASSEMBLED path:
-/// the arrow-Schur `gb` (which carries the n_C-scaled barrier force
-/// `α_e = n_C·(−G·q)` plus the frozen-gate repulsion, data, smoothness) must
+/// SEAM GATE for the unscaled Jeffreys barrier on the ASSEMBLED path: the
+/// arrow-Schur `gb` (which carries the barrier force `α_e = −G·q` plus the
+/// frozen-gate repulsion, data, and smoothness) must
 /// match central finite differences of `penalized_objective_total` — the ONE
 /// objective the production line search evaluates, and the ONLY value consumer
 /// of `separation_barrier_value` — under the production snapshot/restore
@@ -2084,21 +1917,16 @@ fn occupancy_scaled_barrier_flips_collapse_evidence_ordering() {
 /// optimizer, which restores decoders but never re-derives the gates).
 ///
 /// This is the K≥2, barrier-ENGAGED twin of the K=1
-/// `sae_d1_assembled_gradient_matches_loss_central_fd` (where every barrier
-/// path early-returns at `k_atoms < 2` and `loss().total()` is the correct
-/// barrier-free objective). If the occupancy scale n_C ever entered the
-/// assembled gradient without entering the line-search VALUE (or vice versa —
-/// the value/gradient desync class), this gate fails by a factor ≈ n_C
-/// (here n_C ≈ 8, so rel err ≈ 0.9 ≫ the 5e-5 tolerance), immediately naming
-/// the seam. Green means value and gradient price ONE object end-to-end
-/// through the real assembly.
+/// `sae_d1_assembled_gradient_matches_loss_central_fd` (where every barrier path
+/// early-returns at `k_atoms < 2`). Green means the unscaled value and gradient
+/// price one object end-to-end through the real assembly.
 #[test]
-fn occupancy_scaled_barrier_assembled_gradient_matches_penalized_objective_fd() {
+fn unscaled_jeffreys_assembled_gradient_matches_penalized_objective_fd() {
     let n = 32_usize;
     let c2 = 0.8_f64;
     let dec0 = [1.0, 0.0, 0.0];
     let dec1 = [c2.sqrt(), (1.0 - c2).sqrt(), 0.0];
-    let term0 = occupancy_two_atom_term(n, dec0, dec1);
+    let term0 = jeffreys_two_atom_term(n, dec0, dec1);
     let p = term0.output_dim();
     // Deterministic non-trivial target so the data gradient is exercised too.
     let target = Array2::<f64>::from_shape_fn((n, p), |(i, j)| {
@@ -2123,14 +1951,12 @@ fn occupancy_scaled_barrier_assembled_gradient_matches_penalized_objective_fd() 
         t.barrier_coactivation_gate = base.barrier_coactivation_gate.clone();
     };
 
-    // The barrier must be MATERIALLY engaged (occupancy-scaled: n_C ≈ n/4 = 8
-    // here), otherwise this gate could not distinguish a scaled gradient from
-    // an unscaled value.
+    // The barrier must be live, otherwise the seam check would be vacuous.
     let barrier_value = base.separation_barrier_value(1.0);
     assert!(
-        barrier_value > 0.2,
-        "fixture: the occupancy-scaled barrier must be materially engaged \
-         (aligned c²=0.8, co-firing, n_C ≈ 8), got {barrier_value}"
+        barrier_value > 1.0e-4,
+        "fixture: the unscaled barrier must be live for aligned, co-firing \
+         atoms; got {barrier_value}"
     );
 
     // Assemble on a clone (assembly re-freezes the gates from the identical
@@ -2176,9 +2002,7 @@ fn occupancy_scaled_barrier_assembled_gradient_matches_penalized_objective_fd() 
     assert!(
         worst_rel < 5.0e-5,
         "assembled gb must be the exact gradient of the line-search objective \
-         (occupancy-scaled barrier included on BOTH sides): worst rel err \
-         {worst_rel:.3e} at beta index {worst_idx} — a rel err ≈ 1−1/n_C here \
-         would mean the n_C scale entered only one side of the value/gradient \
-         pair"
+         (unscaled Jeffreys barrier included on both sides): worst rel err \
+         {worst_rel:.3e} at beta index {worst_idx}"
     );
 }

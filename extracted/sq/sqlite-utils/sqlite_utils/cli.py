@@ -16,6 +16,7 @@ from sqlite_utils.db import (
     InvalidColumns,
     NoTable,
     NoView,
+    PrimaryKeyRequired,
     quote_identifier,
 )
 from sqlite_utils.plugins import ensure_plugins_loaded, pm, get_plugins
@@ -150,6 +151,17 @@ def load_extension_option(fn):
         "--load-extension",
         multiple=True,
         help="Path to SQLite extension, with optional :entrypoint",
+    )(fn)
+
+
+def functions_option(fn):
+    return click.option(
+        "--functions",
+        help=(
+            "Python code or a file path defining custom SQL functions; "
+            "can be used multiple times"
+        ),
+        multiple=True,
     )(fn)
 
 
@@ -680,6 +692,34 @@ def create_index(
     )
 
 
+@cli.command(name="drop-index")
+@click.argument(
+    "path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, allow_dash=False),
+    required=True,
+)
+@click.argument("table")
+@click.argument("index")
+@click.option("--ignore", help="Ignore if index does not exist", is_flag=True)
+@load_extension_option
+def drop_index(path, table, index, ignore, load_extension):
+    """
+    Drop an index by index name from the specified table
+
+    Example:
+
+    \b
+        sqlite-utils drop-index chickens.db chickens idx_chickens_name
+    """
+    db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
+    _load_extensions(db, load_extension)
+    try:
+        db.table(table).drop_index(index, ignore=ignore)
+    except OperationalError as ex:
+        raise click.ClickException(str(ex))
+
+
 @cli.command(name="enable-fts")
 @click.argument(
     "path",
@@ -706,7 +746,7 @@ def create_index(
 def enable_fts(
     path, table, column, fts4, fts5, tokenize, create_triggers, replace, load_extension
 ):
-    """Enable full-text search for specific table and columns"
+    """Enable full-text search for specific table and columns
 
     Example:
 
@@ -932,12 +972,18 @@ def insert_upsert_options(*, require_pk=False):
                     required=True,
                 ),
                 click.argument("table"),
-                click.argument("file", type=click.File("rb", lazy=True), required=True),
+                click.argument(
+                    "file", type=click.File("rb", lazy=True), required=False
+                ),
                 click.option(
                     "--pk",
                     help="Columns to use as the primary key, e.g. id",
                     multiple=True,
                     required=require_pk,
+                ),
+                click.option(
+                    "--code",
+                    help="Python code defining a rows() function or iterable of rows to insert",
                 ),
             )
             + _import_options
@@ -961,6 +1007,16 @@ def insert_upsert_options(*, require_pk=False):
                     multiple=True,
                     type=(str, str),
                     help="Default value that should be set for a column",
+                ),
+                click.option(
+                    "--type",
+                    "types",
+                    type=(
+                        str,
+                        click.Choice(list(VALID_COLUMN_TYPES), case_sensitive=False),
+                    ),
+                    multiple=True,
+                    help="Column types to use when creating the table",
                 ),
                 click.option(
                     "--no-detect-types",
@@ -1016,6 +1072,7 @@ def insert_upsert_implementation(
     truncate=False,
     not_null=None,
     default=None,
+    types=None,
     no_detect_types=False,
     analyze=False,
     load_extension=None,
@@ -1023,11 +1080,123 @@ def insert_upsert_implementation(
     bulk_sql=None,
     functions=None,
     strict=False,
+    code=None,
 ):
     db = sqlite_utils.Database(path)
     _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     _maybe_register_functions(db, functions)
+    column_type_overrides = {column: ctype.upper() for column, ctype in (types or [])}
+
+    def _insert_docs(docs, tracker=None):
+        extra_kwargs = {
+            "ignore": ignore,
+            "replace": replace,
+            "truncate": truncate,
+            "analyze": analyze,
+            "strict": strict,
+        }
+        if not_null:
+            extra_kwargs["not_null"] = set(not_null)
+        if default:
+            extra_kwargs["defaults"] = dict(default)
+        if column_type_overrides:
+            extra_kwargs["columns"] = column_type_overrides
+        if upsert:
+            extra_kwargs["upsert"] = upsert
+
+        # docs should all be dictionaries
+        docs = (verify_is_dict(doc) for doc in docs)
+
+        # Apply {"$base64": true, ...} decoding, if needed
+        docs = (decode_base64_values(doc) for doc in docs)
+
+        # For bulk_sql= we use cursor.executemany() instead
+        if bulk_sql:
+            if batch_size:
+                doc_chunks = chunks(docs, batch_size)
+            else:
+                doc_chunks = [docs]
+            for doc_chunk in doc_chunks:
+                with db.atomic():
+                    db.conn.cursor().executemany(bulk_sql, doc_chunk)
+            return
+
+        # table_names() rather than db.table(), which raises NoTable for
+        # views before the error handling below can deal with them
+        table_existed_before_insert = table in db.table_names()
+        try:
+            db.table(table).insert_all(
+                docs, pk=pk, batch_size=batch_size, alter=alter, **extra_kwargs
+            )
+        except (NoTable, InvalidColumns, PrimaryKeyRequired) as e:
+            raise click.ClickException(str(e))
+        except Exception as e:
+            if (
+                isinstance(e, OperationalError)
+                and e.args
+                and (
+                    "has no column named" in e.args[0] or "no such column" in e.args[0]
+                )
+            ):
+                raise click.ClickException(
+                    "{}\n\nTry using --alter to add additional columns".format(
+                        e.args[0]
+                    )
+                )
+            # If we can find sql= and parameters= arguments, show those
+            variables = _find_variables(e.__traceback__, ["sql", "parameters"])
+            if "sql" in variables and "parameters" in variables:
+                raise click.ClickException(
+                    "{}\n\nsql = {}\nparameters = {}".format(
+                        str(e), variables["sql"], variables["parameters"]
+                    )
+                )
+            else:
+                raise
+        # Apply detected types only to a table this command created -
+        # transforming a pre-existing table would rewrite its column types
+        # and corrupt values such as TEXT zip codes with leading zeros
+        if (
+            tracker is not None
+            and not table_existed_before_insert
+            and db.table(table).exists()
+        ):
+            detected_types = tracker.types
+            detected_types.update(column_type_overrides)
+            db.table(table).transform(types=detected_types)
+
+    if code is not None:
+        if file is not None:
+            raise click.ClickException("--code cannot be used with a FILE argument")
+        if any(
+            [
+                flatten,
+                nl,
+                csv,
+                tsv,
+                empty_null,
+                lines,
+                text,
+                convert,
+                sniff,
+                no_headers,
+                delimiter,
+                quotechar,
+                encoding,
+            ]
+        ):
+            raise click.ClickException(
+                "--code cannot be used with input format options"
+            )
+        _insert_docs(_rows_from_code(code))
+        return
+
+    if file is None:
+        raise click.ClickException(
+            "Provide either a FILE argument or --code to specify rows to insert"
+        )
+
     if (delimiter or quotechar or sniff or no_headers) and not tsv:
         csv = True
     if (nl + csv + tsv) >= 2:
@@ -1135,78 +1304,7 @@ def insert_upsert_implementation(
             else:
                 docs = (fn(doc) or doc for doc in docs)
 
-        extra_kwargs = {
-            "ignore": ignore,
-            "replace": replace,
-            "truncate": truncate,
-            "analyze": analyze,
-            "strict": strict,
-        }
-        if not_null:
-            extra_kwargs["not_null"] = set(not_null)
-        if default:
-            extra_kwargs["defaults"] = dict(default)
-        if upsert:
-            extra_kwargs["upsert"] = upsert
-
-        # docs should all be dictionaries
-        docs = (verify_is_dict(doc) for doc in docs)
-
-        # Apply {"$base64": true, ...} decoding, if needed
-        docs = (decode_base64_values(doc) for doc in docs)
-
-        # For bulk_sql= we use cursor.executemany() instead
-        if bulk_sql:
-            if batch_size:
-                doc_chunks = chunks(docs, batch_size)
-            else:
-                doc_chunks = [docs]
-            for doc_chunk in doc_chunks:
-                with db.atomic():
-                    db.conn.cursor().executemany(bulk_sql, doc_chunk)
-            return
-
-        # table_names() rather than db.table(), which raises NoTable for
-        # views before the error handling below can deal with them
-        table_existed_before_insert = table in db.table_names()
-        try:
-            db.table(table).insert_all(
-                docs, pk=pk, batch_size=batch_size, alter=alter, **extra_kwargs
-            )
-        except (NoTable, InvalidColumns) as e:
-            raise click.ClickException(str(e))
-        except Exception as e:
-            if (
-                isinstance(e, OperationalError)
-                and e.args
-                and (
-                    "has no column named" in e.args[0] or "no such column" in e.args[0]
-                )
-            ):
-                raise click.ClickException(
-                    "{}\n\nTry using --alter to add additional columns".format(
-                        e.args[0]
-                    )
-                )
-            # If we can find sql= and parameters= arguments, show those
-            variables = _find_variables(e.__traceback__, ["sql", "parameters"])
-            if "sql" in variables and "parameters" in variables:
-                raise click.ClickException(
-                    "{}\n\nsql = {}\nparameters = {}".format(
-                        str(e), variables["sql"], variables["parameters"]
-                    )
-                )
-            else:
-                raise
-        # Apply detected types only to a table this command created -
-        # transforming a pre-existing table would rewrite its column types
-        # and corrupt values such as TEXT zip codes with leading zeros
-        if (
-            tracker is not None
-            and not table_existed_before_insert
-            and db.table(table).exists()
-        ):
-            db.table(table).transform(types=tracker.types)
+        _insert_docs(docs, tracker=tracker)
 
         # Clean up open file-like objects
         if sniff_buffer:
@@ -1249,6 +1347,7 @@ def insert(
     table,
     file,
     pk,
+    code,
     flatten,
     nl,
     csv,
@@ -1275,6 +1374,7 @@ def insert(
     truncate,
     not_null,
     default,
+    types,
     strict,
 ):
     """
@@ -1292,6 +1392,9 @@ def insert(
     - Use --csv or --tsv for comma-separated or tab-separated input
     - Use --lines to write each incoming line to a column called "line"
     - Use --text to write the entire input to a column called "text"
+
+    Use --type column-name type to override the type automatically chosen
+    when the table is created.
 
     You can also use --convert to pass a fragment of Python code that will
     be used to convert each input.
@@ -1320,6 +1423,17 @@ def insert(
     \b
         echo 'A bunch of words' | sqlite-utils insert words.db words - \\
           --text --convert '({"word": w} for w in text.split())'
+
+    Instead of a FILE you can use --code to provide a block of Python code
+    that defines the rows to insert, as either a rows() function that yields
+    dictionaries or a "rows" iterable. --code can also be a path to a .py file:
+
+    \b
+        sqlite-utils insert data.db creatures --code '
+        def rows():
+            yield {"id": 1, "name": "Cleo"}
+            yield {"id": 2, "name": "Suna"}
+        ' --pk id
     """
     try:
         insert_upsert_implementation(
@@ -1354,19 +1468,22 @@ def insert(
             silent=silent,
             not_null=not_null,
             default=default,
+            types=types,
             strict=strict,
+            code=code,
         )
     except UnicodeDecodeError as ex:
         raise click.ClickException(UNICODE_ERROR.format(ex))
 
 
 @cli.command()
-@insert_upsert_options(require_pk=True)
+@insert_upsert_options()
 def upsert(
     path,
     table,
     file,
     pk,
+    code,
     flatten,
     nl,
     csv,
@@ -1386,6 +1503,7 @@ def upsert(
     alter,
     not_null,
     default,
+    types,
     no_detect_types,
     analyze,
     load_extension,
@@ -1396,6 +1514,11 @@ def upsert(
     Upsert records based on their primary key. Works like 'insert' but if
     an incoming record has a primary key that matches an existing record
     the existing record will be updated.
+
+    If the table already exists and has a primary key, --pk can be omitted.
+
+    Use --type column-name type to override the type automatically chosen
+    when the table is created.
 
     Example:
 
@@ -1431,11 +1554,13 @@ def upsert(
             upsert=True,
             not_null=not_null,
             default=default,
+            types=types,
             no_detect_types=no_detect_types,
             analyze=analyze,
             load_extension=load_extension,
             silent=silent,
             strict=strict,
+            code=code,
         )
     except UnicodeDecodeError as ex:
         raise click.ClickException(UNICODE_ERROR.format(ex))
@@ -1450,11 +1575,7 @@ def upsert(
 @click.argument("sql")
 @click.argument("file", type=click.File("rb"), required=True)
 @click.option("--batch-size", type=int, default=100, help="Commit every X records")
-@click.option(
-    "--functions",
-    help="Python code or file path defining custom SQL functions",
-    multiple=True,
-)
+@functions_option
 @import_options
 @load_extension_option
 def bulk(
@@ -1634,10 +1755,10 @@ def create_table(
         sqlite-utils create-table my.db people \\
             id integer \\
             name text \\
-            height float \\
+            height real \\
             photo blob --pk id
 
-    Valid column types are text, integer, float and blob.
+    Valid column types are text, integer, real, float and blob.
     """
     db = sqlite_utils.Database(path)
     _register_db_for_cleanup(db)
@@ -1860,11 +1981,7 @@ def drop_view(path, view, ignore, load_extension):
     type=(str, str),
     help="Named :parameters for SQL query",
 )
-@click.option(
-    "--functions",
-    help="Python code or file path defining custom SQL functions",
-    multiple=True,
-)
+@functions_option
 @load_extension_option
 def query(
     path,
@@ -1893,7 +2010,15 @@ def query(
         sqlite-utils data.db \\
             "select * from chickens where age > :age" \\
             -p age 1
+
+    Pass "-" as the SQL to read the query from standard input:
+
+    \b
+        echo "select * from chickens" | sqlite-utils data.db -
     """
+    if sql == "-":
+        # Read SQL from standard input
+        sql = sys.stdin.read()
     db = sqlite_utils.Database(path)
     _register_db_for_cleanup(db)
     for alias, attach_path in attach:
@@ -1929,11 +2054,7 @@ def query(
     nargs=-1,
 )
 @click.argument("sql")
-@click.option(
-    "--functions",
-    help="Python code or file path defining custom SQL functions",
-    multiple=True,
-)
+@functions_option
 @click.option(
     "--attach",
     type=(str, click.Path(file_okay=True, dir_okay=False, allow_dash=False)),
@@ -2597,6 +2718,11 @@ def schema(
     multiple=True,
     help="Drop foreign key constraint for this column",
 )
+@click.option(
+    "--strict/--no-strict",
+    default=None,
+    help="Enable or disable STRICT mode (default: preserve current mode)",
+)
 @click.option("--sql", is_flag=True, help="Output SQL without executing it")
 @load_extension_option
 def transform(
@@ -2614,6 +2740,7 @@ def transform(
     default_none,
     add_foreign_keys,
     drop_foreign_keys,
+    strict,
     sql,
     load_extension,
 ):
@@ -2675,6 +2802,7 @@ def transform(
             defaults=default_dict,
             drop_foreign_keys=drop_foreign_keys_value,
             add_foreign_keys=add_foreign_keys_value,
+            strict=strict,
         ):
             click.echo(line)
     else:
@@ -2688,6 +2816,7 @@ def transform(
             defaults=default_dict,
             drop_foreign_keys=drop_foreign_keys_value,
             add_foreign_keys=add_foreign_keys_value,
+            strict=strict,
         )
 
 
@@ -3047,6 +3176,12 @@ def _generate_convert_help():
 
     "value" is a variable with the column value to be converted.
 
+    CODE can also be a reference to a callable that takes the value, for example:
+
+    \b
+    sqlite-utils convert my.db mytable date r.parsedate
+    sqlite-utils convert my.db mytable data json.loads --import json
+
     Use "-" for CODE to read Python code from standard input.
 
     The following common operations are available as recipe functions:
@@ -3060,9 +3195,8 @@ def _generate_convert_help():
     ]
     for name in recipe_names:
         fn = getattr(recipes, name)
-        help += "\n\nr.{}{}\n\n\b{}".format(
-            name, str(inspect.signature(fn)), textwrap.dedent(fn.__doc__.rstrip())
-        )
+        doc = textwrap.dedent(fn.__doc__.rstrip()).replace("\b\n", "")
+        help += "\n\nr.{}{}\n\n\b{}".format(name, str(inspect.signature(fn)), doc)
     help += "\n\n"
     help += textwrap.dedent("""
     You can use these recipes like so:
@@ -3654,3 +3788,32 @@ def _maybe_register_functions(db, functions_list):
     for functions in functions_list:
         if isinstance(functions, str) and functions.strip():
             _register_functions(db, functions)
+
+
+def _rows_from_code(code):
+    # code may be a path to a .py file
+    if "\n" not in code and code.endswith(".py"):
+        try:
+            code = pathlib.Path(code).read_text()
+        except FileNotFoundError:
+            raise click.ClickException("File not found: {}".format(code))
+    namespace = {}
+    try:
+        exec(code, namespace)
+    except SyntaxError as ex:
+        raise click.ClickException("Error in --code: {}".format(ex))
+    rows = namespace.get("rows")
+    if callable(rows):
+        rows = rows()
+    if isinstance(rows, dict):
+        rows = [rows]
+    error = click.ClickException(
+        "--code must define a 'rows' function or iterable of rows to insert"
+    )
+    if rows is None or isinstance(rows, (str, bytes)):
+        raise error
+    try:
+        iter(rows)
+    except TypeError:
+        raise error
+    return rows

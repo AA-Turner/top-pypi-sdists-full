@@ -21,39 +21,43 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 resourceName: str,
-                body: ModifyContactGroupMembersRequest = ...,
+                body: ModifyContactGroupMembersRequest,
                 **kwargs: typing.Any,
             ) -> ModifyContactGroupMembersResponseHttpRequest: ...
 
         def batchGet(
             self,
             *,
-            groupFields: str = ...,
-            maxMembers: int = ...,
-            resourceNames: str | _list[str] = ...,
+            groupFields: str | None = ...,
+            maxMembers: int | None = ...,
+            resourceNames: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> BatchGetContactGroupsResponseHttpRequest: ...
         def create(
-            self, *, body: CreateContactGroupRequest = ..., **kwargs: typing.Any
+            self, *, body: CreateContactGroupRequest, **kwargs: typing.Any
         ) -> ContactGroupHttpRequest: ...
         def delete(
-            self, *, resourceName: str, deleteContacts: bool = ..., **kwargs: typing.Any
+            self,
+            *,
+            resourceName: str,
+            deleteContacts: bool | None = ...,
+            **kwargs: typing.Any,
         ) -> EmptyHttpRequest: ...
         def get(
             self,
             *,
             resourceName: str,
-            groupFields: str = ...,
-            maxMembers: int = ...,
+            groupFields: str | None = ...,
+            maxMembers: int | None = ...,
             **kwargs: typing.Any,
         ) -> ContactGroupHttpRequest: ...
         def list(
             self,
             *,
-            groupFields: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            syncToken: str = ...,
+            groupFields: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            syncToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListContactGroupsResponseHttpRequest: ...
         def list_next(
@@ -65,7 +69,7 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
             self,
             *,
             resourceName: str,
-            body: UpdateContactGroupRequest = ...,
+            body: UpdateContactGroupRequest,
             **kwargs: typing.Any,
         ) -> ContactGroupHttpRequest: ...
         def members(self) -> MembersResource: ...
@@ -76,16 +80,16 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
             self,
             *,
             resourceName: str,
-            body: CopyOtherContactToMyContactsGroupRequest = ...,
+            body: CopyOtherContactToMyContactsGroupRequest,
             **kwargs: typing.Any,
         ) -> PersonHttpRequest: ...
         def list(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            readMask: str = ...,
-            requestSyncToken: bool = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            readMask: str | None = ...,
+            requestSyncToken: bool | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -101,8 +105,9 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
-            syncToken: str = ...,
+            ]
+            | None = ...,
+            syncToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListOtherContactsResponseHttpRequest: ...
         def list_next(
@@ -113,9 +118,9 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
         def search(
             self,
             *,
-            pageSize: int = ...,
-            query: str = ...,
-            readMask: str = ...,
+            pageSize: int | None = ...,
+            query: str | None = ...,
+            readMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> SearchResponseHttpRequest: ...
 
@@ -127,17 +132,18 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 resourceName: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                personFields: str = ...,
-                requestMask_includeField: str = ...,
-                requestSyncToken: bool = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                personFields: str | None = ...,
+                requestMask_includeField: str | None = ...,
+                requestSyncToken: bool | None = ...,
                 sortOrder: typing_extensions.Literal[
                     "LAST_MODIFIED_ASCENDING",
                     "LAST_MODIFIED_DESCENDING",
                     "FIRST_NAME_ASCENDING",
                     "LAST_NAME_ASCENDING",
-                ] = ...,
+                ]
+                | None = ...,
                 sources: typing_extensions.Literal[
                     "READ_SOURCE_TYPE_UNSPECIFIED",
                     "READ_SOURCE_TYPE_PROFILE",
@@ -153,8 +159,9 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                         "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                         "READ_SOURCE_TYPE_OTHER_CONTACT",
                     ]
-                ] = ...,
-                syncToken: str = ...,
+                ]
+                | None = ...,
+                syncToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListConnectionsResponseHttpRequest: ...
             def list_next(
@@ -164,19 +171,19 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
             ) -> ListConnectionsResponseHttpRequest | None: ...
 
         def batchCreateContacts(
-            self, *, body: BatchCreateContactsRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchCreateContactsRequest, **kwargs: typing.Any
         ) -> BatchCreateContactsResponseHttpRequest: ...
         def batchDeleteContacts(
-            self, *, body: BatchDeleteContactsRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchDeleteContactsRequest, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def batchUpdateContacts(
-            self, *, body: BatchUpdateContactsRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchUpdateContactsRequest, **kwargs: typing.Any
         ) -> BatchUpdateContactsResponseHttpRequest: ...
         def createContact(
             self,
             *,
-            body: Person = ...,
-            personFields: str = ...,
+            body: Person,
+            personFields: str | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -192,7 +199,8 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> PersonHttpRequest: ...
         def deleteContact(
@@ -202,7 +210,7 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
             self,
             *,
             resourceName: str,
-            personFields: str = ...,
+            personFields: str | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -218,15 +226,16 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> DeleteContactPhotoResponseHttpRequest: ...
         def get(
             self,
             *,
             resourceName: str,
-            personFields: str = ...,
-            requestMask_includeField: str = ...,
+            personFields: str | None = ...,
+            requestMask_includeField: str | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -242,15 +251,16 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> PersonHttpRequest: ...
         def getBatchGet(
             self,
             *,
-            personFields: str = ...,
-            requestMask_includeField: str = ...,
-            resourceNames: str | _list[str] = ...,
+            personFields: str | None = ...,
+            requestMask_includeField: str | None = ...,
+            resourceNames: str | _list[str] | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -266,7 +276,8 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> GetPeopleResponseHttpRequest: ...
         def listDirectoryPeople(
@@ -281,11 +292,12 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "DIRECTORY_MERGE_SOURCE_TYPE_UNSPECIFIED",
                     "DIRECTORY_MERGE_SOURCE_TYPE_CONTACT",
                 ]
-            ] = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            readMask: str = ...,
-            requestSyncToken: bool = ...,
+            ]
+            | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            readMask: str | None = ...,
+            requestSyncToken: bool | None = ...,
             sources: typing_extensions.Literal[
                 "DIRECTORY_SOURCE_TYPE_UNSPECIFIED",
                 "DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT",
@@ -297,8 +309,9 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT",
                     "DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE",
                 ]
-            ] = ...,
-            syncToken: str = ...,
+            ]
+            | None = ...,
+            syncToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ListDirectoryPeopleResponseHttpRequest: ...
         def listDirectoryPeople_next(
@@ -309,9 +322,9 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
         def searchContacts(
             self,
             *,
-            pageSize: int = ...,
-            query: str = ...,
-            readMask: str = ...,
+            pageSize: int | None = ...,
+            query: str | None = ...,
+            readMask: str | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -327,7 +340,8 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> SearchResponseHttpRequest: ...
         def searchDirectoryPeople(
@@ -342,11 +356,12 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "DIRECTORY_MERGE_SOURCE_TYPE_UNSPECIFIED",
                     "DIRECTORY_MERGE_SOURCE_TYPE_CONTACT",
                 ]
-            ] = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            query: str = ...,
-            readMask: str = ...,
+            ]
+            | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            query: str | None = ...,
+            readMask: str | None = ...,
             sources: typing_extensions.Literal[
                 "DIRECTORY_SOURCE_TYPE_UNSPECIFIED",
                 "DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT",
@@ -358,7 +373,8 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT",
                     "DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE",
                 ]
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> SearchDirectoryPeopleResponseHttpRequest: ...
         def searchDirectoryPeople_next(
@@ -370,8 +386,8 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
             self,
             *,
             resourceName: str,
-            body: Person = ...,
-            personFields: str = ...,
+            body: Person,
+            personFields: str | None = ...,
             sources: typing_extensions.Literal[
                 "READ_SOURCE_TYPE_UNSPECIFIED",
                 "READ_SOURCE_TYPE_PROFILE",
@@ -387,15 +403,16 @@ class PeopleServiceResource(googleapiclient.discovery.Resource):
                     "READ_SOURCE_TYPE_DOMAIN_CONTACT",
                     "READ_SOURCE_TYPE_OTHER_CONTACT",
                 ]
-            ] = ...,
-            updatePersonFields: str = ...,
+            ]
+            | None = ...,
+            updatePersonFields: str | None = ...,
             **kwargs: typing.Any,
         ) -> PersonHttpRequest: ...
         def updateContactPhoto(
             self,
             *,
             resourceName: str,
-            body: UpdateContactPhotoRequest = ...,
+            body: UpdateContactPhotoRequest,
             **kwargs: typing.Any,
         ) -> UpdateContactPhotoResponseHttpRequest: ...
         def connections(self) -> ConnectionsResource: ...

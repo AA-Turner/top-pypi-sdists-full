@@ -25,13 +25,17 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ParameterVersion = ...,
-                        parameterVersionId: str = ...,
-                        requestId: str = ...,
+                        body: ParameterVersion,
+                        parameterVersionId: str | None = ...,
+                        requestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ParameterVersionHttpRequest: ...
                     def delete(
-                        self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        requestId: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def get(
                         self,
@@ -39,17 +43,18 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                         name: str,
                         view: typing_extensions.Literal[
                             "VIEW_UNSPECIFIED", "BASIC", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ParameterVersionHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListParameterVersionsResponseHttpRequest: ...
                     def list_next(
@@ -61,9 +66,9 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ParameterVersion = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
+                        body: ParameterVersion,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ParameterVersionHttpRequest: ...
                     def render(
@@ -74,13 +79,17 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Parameter = ...,
-                    parameterId: str = ...,
-                    requestId: str = ...,
+                    body: Parameter,
+                    parameterId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ParameterHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -89,10 +98,10 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListParametersResponseHttpRequest: ...
                 def list_next(
@@ -104,9 +113,9 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Parameter = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Parameter,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ParameterHttpRequest: ...
                 def versions(self) -> VersionsResource: ...
@@ -118,10 +127,10 @@ class ParameterManagerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

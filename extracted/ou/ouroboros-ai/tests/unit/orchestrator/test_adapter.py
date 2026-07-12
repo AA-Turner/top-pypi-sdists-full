@@ -803,6 +803,60 @@ class TestClaudeAgentAdapter:
         assert result.tool_name == "Edit"
         assert "Edit" in result.content
 
+    def test_convert_tool_message_preserves_tool_call_id(self) -> None:
+        """Claude ToolUseBlock ids survive for mutation/result correlation."""
+        adapter = ClaudeAgentAdapter(api_key="test")
+        mock_block = _create_mock_sdk_message(
+            "ToolUseBlock",
+            name="Edit",
+            id="toolu_edit_1",
+            input={"file_path": "src/app.py"},
+        )
+        mock_message = _create_mock_sdk_message("AssistantMessage", content=[mock_block])
+
+        result = adapter._convert_message(mock_message)
+
+        assert result.data["tool_call_id"] == "toolu_edit_1"
+        assert result.data["tool_input"] == {"file_path": "src/app.py"}
+
+    @pytest.mark.parametrize("is_error", [False, True])
+    def test_convert_tool_result_preserves_call_id_and_error_bit(self, is_error: bool) -> None:
+        """Claude ToolResultBlock success/failure remains machine-readable."""
+        adapter = ClaudeAgentAdapter(api_key="test")
+        mock_block = _create_mock_sdk_message(
+            "ToolResultBlock",
+            tool_use_id="toolu_edit_1",
+            content="updated" if not is_error else "edit failed",
+            is_error=is_error,
+        )
+        mock_message = _create_mock_sdk_message("UserMessage", content=[mock_block])
+
+        result = adapter._convert_message(mock_message)
+
+        assert result.type == "tool_result"
+        assert result.data["subtype"] == "tool_result"
+        assert result.data["tool_call_id"] == "toolu_edit_1"
+        assert result.data["is_error"] is is_error
+        assert result.data["tool_result"]["is_error"] is is_error
+        assert result.data["tool_result"]["meta"]["tool_call_id"] == "toolu_edit_1"
+
+    def test_convert_tool_result_without_error_bit_does_not_invent_success(self) -> None:
+        """Missing SDK status stays unknown so mutation evidence fails closed."""
+        adapter = ClaudeAgentAdapter(api_key="test")
+        mock_block = _create_mock_sdk_message(
+            "ToolResultBlock",
+            tool_use_id="toolu_edit_1",
+            content="unknown outcome",
+        )
+        mock_message = _create_mock_sdk_message("UserMessage", content=[mock_block])
+
+        result = adapter._convert_message(mock_message)
+
+        assert result.type == "tool_result"
+        assert result.data["tool_call_id"] == "toolu_edit_1"
+        assert "is_error" not in result.data
+        assert "tool_result" not in result.data
+
     def test_convert_result_message(self) -> None:
         """Test converting SDK result message."""
         adapter = ClaudeAgentAdapter(api_key="test")
@@ -819,6 +873,112 @@ class TestClaudeAgentAdapter:
         assert result.type == "result"
         assert result.content == "Task completed"
         assert result.data["subtype"] == "success"
+
+    def test_convert_result_message_surfaces_normalized_usage(self) -> None:
+        """ResultMessage usage + cost flow into data for per-AC token attribution."""
+        adapter = ClaudeAgentAdapter(api_key="test")
+
+        mock_message = _create_mock_sdk_message(
+            "ResultMessage",
+            result="done",
+            subtype="success",
+            usage={
+                "input_tokens": 120,
+                "output_tokens": 34,
+                "cache_read_input_tokens": 10,
+                "server_tool_use": {"web_search_requests": 0},  # non-scalar, dropped
+            },
+            total_cost_usd=0.0042,
+        )
+
+        result = adapter._convert_message(mock_message)
+
+        assert result.data["usage"] == {
+            "input_tokens": 120,
+            "output_tokens": 34,
+            "cache_read_input_tokens": 10,
+        }
+        assert result.data["total_cost_usd"] == 0.0042
+
+    def test_convert_result_message_omits_missing_usage(self) -> None:
+        """No usage/cost on the SDK message means no usage keys are emitted."""
+        adapter = ClaudeAgentAdapter(api_key="test")
+
+        mock_message = _create_mock_sdk_message(
+            "ResultMessage",
+            result="done",
+            subtype="success",
+        )
+
+        result = adapter._convert_message(mock_message)
+
+        assert "usage" not in result.data
+        assert "usage_invalid" not in result.data
+        assert "total_cost_usd" not in result.data
+
+    def test_convert_result_message_rejects_whole_malformed_usage(self) -> None:
+        """One malformed known counter invalidates the complete usage payload."""
+        adapter = ClaudeAgentAdapter(api_key="test")
+
+        mock_message = _create_mock_sdk_message(
+            "ResultMessage",
+            result="done",
+            subtype="success",
+            usage={
+                "input_tokens": "120",  # string → dropped
+                "output_tokens": float("nan"),  # non-finite → dropped
+                "total_tokens": True,  # bool → dropped
+                "cached_input_tokens": 7,
+            },
+            total_cost_usd=float("inf"),  # non-finite → dropped
+        )
+
+        result = adapter._convert_message(mock_message)
+
+        assert "usage" not in result.data
+        assert result.data["usage_invalid"] is True
+        assert "total_cost_usd" not in result.data
+
+    @pytest.mark.parametrize(
+        "invalid",
+        [-1, 10**10_000],
+        ids=["negative", "overflow"],
+    )
+    def test_convert_result_message_rejects_negative_or_overflowing_usage(
+        self,
+        invalid: int,
+    ) -> None:
+        adapter = ClaudeAgentAdapter(api_key="test")
+        mock_message = _create_mock_sdk_message(
+            "ResultMessage",
+            result="done",
+            subtype="success",
+            usage={"input_tokens": 10, "output_tokens": invalid},
+        )
+
+        result = adapter._convert_message(mock_message)
+
+        assert "usage" not in result.data
+        assert result.data["usage_invalid"] is True
+
+    def test_convert_result_message_usage_property_error_is_preserved_as_invalid(self) -> None:
+        class ExplodingUsage:
+            @property
+            def input_tokens(self):
+                raise RuntimeError("boom")
+
+        adapter = ClaudeAgentAdapter(api_key="test")
+        mock_message = _create_mock_sdk_message(
+            "ResultMessage",
+            result="done",
+            subtype="success",
+            usage=ExplodingUsage(),
+        )
+
+        result = adapter._convert_message(mock_message)
+
+        assert "usage" not in result.data
+        assert result.data["usage_invalid"] is True
 
     def test_convert_system_init_message(self) -> None:
         """Test converting SDK system init message."""
@@ -989,6 +1149,54 @@ class TestClaudeAgentAdapter:
             "Task completed",
         ]
         assert all(message.resume_handle == runtime_handle for message in task_result.messages)
+
+    @pytest.mark.asyncio
+    async def test_per_call_model_override_wins_over_constructor_pin(self) -> None:
+        """A per-call model routed by frugality tiering sets the SDK ``model``
+        option and overrides the constructor pin (RFC #1405 sibling)."""
+        adapter = ClaudeAgentAdapter(api_key="test", cwd="/tmp/project", model="pinned-sonnet")
+        options_sink: list[dict[str, Any]] = []
+
+        async def mock_query(*, prompt: str, options: Any):
+            yield _create_mock_sdk_message("ResultMessage", result="ok", subtype="success")
+
+        sdk_modules = _build_mock_claude_agent_sdk(query_impl=mock_query, options_sink=options_sink)
+        with patch.dict("sys.modules", sdk_modules):
+            _ = [message async for message in adapter.execute_task("hi", model="haiku-child")]
+
+        assert options_sink and options_sink[0]["model"] == "haiku-child"
+
+    @pytest.mark.asyncio
+    async def test_none_model_falls_back_to_constructor_pin(self) -> None:
+        """No per-call override → the constructor model is used, so existing call
+        sites (model=None default) are byte-identical."""
+        adapter = ClaudeAgentAdapter(api_key="test", cwd="/tmp/project", model="pinned-sonnet")
+        options_sink: list[dict[str, Any]] = []
+
+        async def mock_query(*, prompt: str, options: Any):
+            yield _create_mock_sdk_message("ResultMessage", result="ok", subtype="success")
+
+        sdk_modules = _build_mock_claude_agent_sdk(query_impl=mock_query, options_sink=options_sink)
+        with patch.dict("sys.modules", sdk_modules):
+            _ = [message async for message in adapter.execute_task("hi")]
+
+        assert options_sink and options_sink[0]["model"] == "pinned-sonnet"
+
+    @pytest.mark.asyncio
+    async def test_no_model_at_all_omits_model_option(self) -> None:
+        """Neither a constructor pin nor a per-call override → no ``model`` option
+        (SDK default), matching the pre-change ``if self._model:`` guard."""
+        adapter = ClaudeAgentAdapter(api_key="test", cwd="/tmp/project")
+        options_sink: list[dict[str, Any]] = []
+
+        async def mock_query(*, prompt: str, options: Any):
+            yield _create_mock_sdk_message("ResultMessage", result="ok", subtype="success")
+
+        sdk_modules = _build_mock_claude_agent_sdk(query_impl=mock_query, options_sink=options_sink)
+        with patch.dict("sys.modules", sdk_modules):
+            _ = [message async for message in adapter.execute_task("hi")]
+
+        assert options_sink and "model" not in options_sink[0]
 
     @pytest.mark.asyncio
     async def test_execute_task_to_result_failure(self) -> None:

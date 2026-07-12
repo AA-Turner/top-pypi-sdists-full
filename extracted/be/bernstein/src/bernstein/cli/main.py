@@ -103,6 +103,7 @@ from bernstein.cli.memory_cmd import memory_group
 from bernstein.cli.merge_cmd import merge_cmd
 from bernstein.cli.migrate_cmd import migrate_cmd
 from bernstein.cli.plan_archive_cmd import plan_ls, plan_show
+from bernstein.cli.plan_compile_cmd import plan_compile
 from bernstein.cli.plan_dag_cmd import plan_dag
 from bernstein.cli.plan_generate_cmd import plan_generate
 from bernstein.cli.plan_validate_cmd import validate_plan
@@ -870,6 +871,7 @@ cli.add_command(approve)
 cli.add_command(reject)
 cli.add_command(pending)
 plan.add_command(plan_generate)
+plan.add_command(plan_compile)
 plan.add_command(plan_ls)
 plan.add_command(plan_show)
 plan.add_command(plan_dag)
@@ -973,6 +975,10 @@ cli.add_command(skills_group)
 from bernstein.cli.commands.skills_catalog_cmd import catalog_group as _skills_catalog_group  # noqa: E402
 
 skills_group.add_command(_skills_catalog_group, "catalog")
+# Packaged agent-skill installs with chain-anchored receipts (issue #2369).
+from bernstein.cli.commands.skills_package_cmd import package_group as _skills_package_group  # noqa: E402
+
+skills_group.add_command(_skills_package_group, "package")
 # Skill usage provenance (issue #2301): install receipts + provenance graph.
 from bernstein.cli.commands.skill_cmd import skill_group as _skill_group  # noqa: E402
 
@@ -982,6 +988,10 @@ from bernstein.cli.commands.team_cmd import team_group as _team_group  # noqa: E
 
 cli.add_command(_team_group, "team")
 cli.add_command(test_cmd, "test")
+# Scoped dashboard tokens (issue #2366): issue/list/revoke under `auth`.
+from bernstein.cli.commands.dashboard_token_cmd import dashboard_token_group as _dashboard_token_group  # noqa: E402
+
+auth_group.add_command(_dashboard_token_group, "dashboard-token")
 cli.add_command(auth_group, "auth")
 cli.add_command(auth_login, "login")
 cli.add_command(evolve)
@@ -1173,6 +1183,11 @@ from bernstein.cli.commands.identity_cmd import identity_group  # noqa: E402
 
 cli.add_command(identity_group, "identity")
 
+# SPIFFE-compatible workload identity helpers (issue #2363).
+from bernstein.cli.commands.spiffe_cmd import spiffe_group  # noqa: E402
+
+cli.add_command(spiffe_group, "spiffe")
+
 # Delegation-receipt verification for the principal->orchestrator->sub-agent
 # chain (issue #2305).
 from bernstein.cli.commands.delegation_cmd import delegation_group  # noqa: E402
@@ -1233,7 +1248,23 @@ from bernstein.cli.commands.evidence_cmd import evidence_group  # noqa: E402
 
 cli.add_command(evidence_group, "evidence")
 
+# In-process verification gate driven by worker hooks: blocks a failing
+# completion or an out-of-scope write in-session, sealing gate receipts (#2360).
+from bernstein.cli.commands.hook_gate_cmd import hook_gate_group  # noqa: E402
+
+cli.add_command(hook_gate_group, "hook-gate")
+
 # Durable work ledger: resumable task-graph state anchored to a git ref (#2358).
 from bernstein.cli.commands.ledger_cmd import ledger_group  # noqa: E402
 
 cli.add_command(ledger_group, "ledger")
+
+# Detached run service: submit a goal, disconnect, reattach later (#2352).
+from bernstein.cli.commands.run_service_cmd import run_service_group  # noqa: E402
+
+cli.add_command(run_service_group, "run-service")
+
+# Tournament runs: parallel attempts selected by deterministic evaluators (#2353).
+from bernstein.cli.commands.tournament_cmd import tournament_group  # noqa: E402
+
+cli.add_command(tournament_group, "tournament")

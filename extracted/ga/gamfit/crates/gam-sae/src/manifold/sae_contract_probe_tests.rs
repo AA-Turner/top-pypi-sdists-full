@@ -253,26 +253,22 @@ pub(crate) fn euclidean_line_decoder_gradient_matches_penalized_objective_fd() {
     }
 }
 
-/// #1154 — the joint amortized-encoder + REML co-training fold (Design A).
+/// #1154 — amortized-encoder fidelity on a known manifold.
 ///
 /// On a synthetic 1D periodic manifold with KNOWN structure (the target is
 /// drawn from a true sine curve on the circle), after the inner `(t, β)`
 /// solve converges to stationarity:
 ///
-/// 1. the co-trained criterion is the exact REML criterion PLUS a
-///    non-negative, correctly-scaled amortized-encoder consistency penalty —
-///    so the fold is sound and the REML λ-coupling is untouched (the inner
-///    solve still produces the stationary point the criterion is read at);
-/// 2. the cheap one-mat-vec amortized encode is FAITHFUL: its reconstruction
+/// 1. the cheap one-mat-vec amortized encode is FAITHFUL: its reconstruction
 ///    matches the exact fitted reconstruction (the encode-by-inner-solve
 ///    truth) within a tight tolerance on the rows the certificate accepts —
 ///    proving the encoder recovers the same structure the exact path does,
 ///    at amortized cost; and
-/// 3. the encoder CERTIFIES coverage of the fitted dictionary (a strictly
-///    positive certified fraction), so the co-training signal rewards a real,
-///    measurable encoder-quality axis rather than a vacuous one.
+/// 2. the encoder CERTIFIES coverage of the fitted dictionary (a strictly
+///    positive certified fraction), so the diagnostic measures a real quality
+///    axis rather than a vacuous one.
 #[test]
-fn cotrained_criterion_folds_faithful_amortized_encoder_on_known_manifold() {
+fn amortized_encoder_is_faithful_on_known_manifold() {
     let n = 24usize;
     let p = 4usize;
     // A true circle coordinate per row, and a smooth periodic decoder, so the
@@ -314,8 +310,8 @@ fn cotrained_criterion_folds_faithful_amortized_encoder_on_known_manifold() {
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
     let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![1.0_f64.ln()]]);
 
-    // Converge the inner (t, β) solve to stationarity — the REML criterion
-    // and the co-training fold are both read at the converged dictionary.
+    // Converge the inner (t, β) solve to stationarity before reading the
+    // encoder-consistency diagnostic.
     // Full Newton steps (learning_rate = 1.0): the heavily-damped 0.1 step
     // cannot drive this well-conditioned planted-circle fit to the strict KKT
     // tolerance within the refine budget (it stalls at ‖g‖≈6e-3), so the
@@ -326,53 +322,29 @@ fn cotrained_criterion_folds_faithful_amortized_encoder_on_known_manifold() {
     term.run_joint_fit_arrow_schur(target.view(), &mut rho_fit, None, 12, 1.0, 1.0e-4, 1.0e-4)
         .expect("inner solve converges on the known periodic manifold");
 
-    // (1) Fold soundness: the co-trained criterion = REML + scaled, finite,
-    // non-negative consistency penalty.
-    let (reml, _loss) = term
-        .reml_criterion_with_refine_policy(
-            target.view(),
-            &rho_fit,
-            None,
-            25,
-            1.0,
-            1.0e-4,
-            1.0e-4,
-            true,
-        )
-        .expect("REML criterion evaluates");
-    let (cotrained, _loss2, consistency) = term
-        .reml_criterion_cotrained(target.view(), &rho_fit, None, 64, 1.0, 1.0e-4, 1.0e-4)
-        .expect("co-trained criterion evaluates");
-    assert!(
-        cotrained.is_finite() && reml.is_finite(),
-        "both criteria must be finite: cotrained={cotrained}, reml={reml}"
-    );
-    assert!(
-        cotrained >= reml - 1.0e-9,
-        "co-trained criterion must add a NON-NEGATIVE consistency penalty: \
-         cotrained={cotrained} < reml={reml}"
-    );
+    let consistency = term
+        .amortized_encoder_consistency(target.view(), &rho_fit)
+        .expect("encoder consistency evaluates at the fitted dictionary");
     assert!(
         consistency.recon_consistency >= 0.0 && consistency.recon_consistency.is_finite(),
         "recon consistency must be a finite non-negative gap, got {}",
         consistency.recon_consistency
     );
     assert!(
-        (0.0..=1.0).contains(&consistency.uncertified_fraction),
-        "uncertified fraction must be a probability, got {}",
-        consistency.uncertified_fraction
+        (0.0..=1.0).contains(&consistency.unconverged_fraction),
+        "unconverged fraction must be a probability, got {}",
+        consistency.unconverged_fraction
     );
 
-    // (3) The encoder must certify real coverage of the fitted dictionary —
-    // not a vacuous all-uncertified fraction.
+    // The joint encoder must converge on real rows of the fitted dictionary.
     assert!(
-        consistency.uncertified_fraction < 1.0,
-        "the amortized encoder must certify at least some rows of a \
-         well-conditioned periodic dictionary; uncertified_fraction={}",
-        consistency.uncertified_fraction
+        consistency.unconverged_fraction < 1.0,
+        "the joint encoder must converge on at least some rows of a \
+         well-conditioned periodic dictionary; unconverged_fraction={}",
+        consistency.unconverged_fraction
     );
 
-    // (2) Faithfulness: on the rows the certificate accepts, the cheap
+    // Faithfulness: on the rows the certificate accepts, the cheap
     // one-mat-vec amortized encode recovers the SAME latent coordinate the
     // EXACT encode-by-inner-solve (the certified cold chart-center Newton
     // probe) produces. This is the encoder-fidelity question Design A makes —
@@ -383,13 +355,13 @@ fn cotrained_criterion_folds_faithful_amortized_encoder_on_known_manifold() {
     // smoothing bias — comparing against it would conflate encoder fidelity
     // with the smoother. We therefore compare the two PER-ROW encodes, decoded
     // through the SAME basis, exactly as the held-out arm below does.)
-    let amplitudes = term.fitted_assignment_amplitudes(&rho_fit).unwrap();
+    let amplitudes = term.fitted_assignment_amplitudes().unwrap();
     let encodes = term
         .amortized_encode_target(target.view(), amplitudes.view())
         .expect("amortized encode runs");
     let atom0 = &term.atoms[0];
     let evaluator = atom0.basis_evaluator.as_ref().unwrap();
-    let (phi_hat, _j) = evaluator.evaluate(encodes[0].coords.view()).unwrap();
+    let (phi_hat, _j) = evaluator.evaluate(encodes.coords[0].view()).unwrap();
     let decoded_hat = phi_hat.dot(&atom0.decoder_coefficients); // (n × p)
 
     // The exact per-row encode the sequential path would use as its teacher:
@@ -410,7 +382,7 @@ fn cotrained_criterion_folds_faithful_amortized_encoder_on_known_manifold() {
     let mut certified_rows = 0usize;
     let mut max_certified_gap = 0.0_f64;
     for row in 0..n {
-        if !encodes[0].certified[row] {
+        if !encodes.converged[row] {
             continue;
         }
         let z = amplitudes[[row, 0]];
@@ -634,22 +606,24 @@ fn sae_isometry_assembled_curvature_is_decoder_scale_invariant() {
     }
 }
 
-/// #795 — the end-to-end joint `(t, β)` fit with the isometry gauge ENABLED must
-/// CONVERGE at every decoder scale, not just hold the scale-invariance property of
-/// a single assembled step.
+/// #2099 — the end-to-end joint `(t, β)` fit with the dimensionless isometry
+/// gauge is equivariant under a change of physical output units.
 ///
-/// This is the user-visible symptom the issue reports: with the un-normalized
-/// ‖B‖⁴ curvature, a large planted decoder makes the isometry Gauss-Newton block
-/// dominate the well-conditioned data-fit block by orders of magnitude, the
-/// arrow-Schur row blocks lose positive-definiteness, and the proximal ridge
-/// escalates to its 1e15 saturation without ever taking a productive Newton step —
-/// the fit stalls far from stationarity. With the `1/gbar²` fold the isometry
-/// block tracks the (scale-free) gradient, so the same handful of full-Newton
-/// steps reach the planted circle at λ=1 AND at λ=25. We assert a finite converged
-/// loss and a SCALE-INVARIANT reconstruction error (the fit recovers the same
-/// circle regardless of decoder magnitude) across scales.
+/// Changing output units by `c` sends the target and decoder to `c Z` and `c B`,
+/// while the residual covariance becomes `c² Σ`. The shared likelihood/gauge
+/// precision is therefore `W/c²`: it cancels the decoder scale in both the GLS
+/// residual and the isometry pullback. Decoder smoothness precision and the
+/// solver-only decoder ridge carry inverse-output-squared units and likewise
+/// scale by `1/c²`; the coordinate prior and coordinate ridge are dimensionless
+/// and stay fixed. Under that complete physical-unit change, the reconstruction
+/// `f/c` and the full, unnormalised penalized criterion must agree with the
+/// unit-scale fit. Requiring each penalized optimum to have nearly zero data
+/// residual was invalid: nonzero smoothness/isometry deliberately trade data fit
+/// for regularity, and absolute planted-circle recovery is already owned by
+/// `sae_single_planted_circle_embedded_isometry_fit_converges_795` below.
 #[test]
-fn sae_isometry_joint_fit_converges_across_decoder_scales() {
+fn sae_isometry_joint_fit_is_physical_coscale_invariant_2099() {
+    use gam_problem::RowMetric;
     use gam_terms::analytic_penalties::{
         AnalyticPenaltyKind, AnalyticPenaltyRegistry, IsometryPenalty, PsiSlice,
     };
@@ -663,10 +637,15 @@ fn sae_isometry_joint_fit_converges_across_decoder_scales() {
         scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
     });
 
-    // Returns the converged relative reconstruction error ‖Φ(t̂)·B̂ − target‖/‖target‖
-    // for a joint fit run with the isometry gauge ON at the given decoder scale.
-    let converged_recon_rel = |lambda: f64| -> f64 {
-        let decoder = &base_decoder * lambda;
+    struct ScaleFit {
+        normalized_reconstruction: Array2<f64>,
+        criterion: f64,
+        components: [f64; 7],
+    }
+
+    let fit_at_scale = |physical_scale: f64| -> ScaleFit {
+        let scale_sq = physical_scale * physical_scale;
+        let decoder = &base_decoder * physical_scale;
         let atom = SaeManifoldAtom::new(
             "iso_converge",
             SaeAtomBasisKind::Periodic,
@@ -687,12 +666,29 @@ fn sae_isometry_joint_fit_converges_across_decoder_scales() {
         )
         .unwrap();
         let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        // Residual covariance transforms as Σ -> c²Σ, so its precision factor
+        // transforms as U -> U/c. The identical RowMetric also supplies the
+        // isometry pullback, making (cJ)'(W/c²)(cJ) exactly invariant.
+        let metric_factor = Array2::from_shape_fn((n, p * p), |(_, flat)| {
+            let output = flat / p;
+            let probe = flat % p;
+            if output == probe {
+                physical_scale.recip()
+            } else {
+                0.0
+            }
+        });
+        term.set_row_metric(
+            RowMetric::behavioral_fisher(Arc::new(metric_factor), p, p)
+                .expect("physical-unit precision metric is valid"),
+        )
+        .expect("physical-unit precision metric matches the output dimension");
 
         let mut registry = AnalyticPenaltyRegistry::new();
         registry.push(AnalyticPenaltyKind::Isometry(Arc::new(
             IsometryPenalty::new_euclidean(PsiSlice::full(n, Some(1)), 1),
         )));
-        let mut rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![1.0_f64.ln()]]);
+        let mut rho = SaeManifoldRho::new(0.0, (0.8_f64 / scale_sq).ln(), vec![array![0.0]]);
 
         let loss = term
             .run_joint_fit_arrow_schur(
@@ -702,43 +698,109 @@ fn sae_isometry_joint_fit_converges_across_decoder_scales() {
                 12,
                 1.0,
                 1.0e-4,
-                1.0e-4,
+                1.0e-4 / scale_sq,
             )
             .expect("joint fit with isometry gauge ON must converge at every decoder scale");
         assert!(
             loss.total().is_finite(),
-            "converged loss must be finite at λ={lambda}, got {}",
+            "converged loss must be finite at c={physical_scale}, got {}",
             loss.total()
         );
 
         let recon = term
             .try_fitted_for_rho(&rho)
             .expect("fitted reconstruction exists");
-        let mut num = 0.0_f64;
-        let mut den = 0.0_f64;
-        for (r, t) in recon.iter().zip(target.iter()) {
-            num += (r - t) * (r - t);
-            den += t * t;
+        let criterion = term
+            .penalized_objective_total(target.view(), &rho, Some(&registry), 1.0)
+            .expect("co-scaled penalized criterion is defined");
+        assert!(
+            criterion.is_finite(),
+            "penalized criterion must be finite at c={physical_scale}, got {criterion}"
+        );
+        let scored_loss = term
+            .loss_scaled(target.view(), &rho, 1.0)
+            .expect("co-scaled loss breakdown is defined");
+        let analytic = term
+            .analytic_penalty_value_total(&registry, 1.0)
+            .expect("co-scaled analytic-penalty value is defined");
+        let repulsion = term.decoder_repulsion_value(1.0);
+        let separation = term.separation_barrier_value(1.0);
+        ScaleFit {
+            normalized_reconstruction: recon.mapv(|value| value / physical_scale),
+            criterion,
+            components: [
+                scored_loss.data_fit,
+                scored_loss.assignment_sparsity,
+                scored_loss.smoothness,
+                scored_loss.ard,
+                analytic,
+                repulsion,
+                separation,
+            ],
         }
-        (num / den).sqrt()
     };
 
-    let base = converged_recon_rel(1.0);
+    let base = fit_at_scale(1.0);
+    let base_image_norm_sq = base
+        .normalized_reconstruction
+        .iter()
+        .map(|value| value * value)
+        .sum::<f64>();
     assert!(
-        base < 1.0e-3,
-        "the joint fit must recover the planted circle at unit scale; rel recon {base:.3e}"
+        base_image_norm_sq.is_finite() && base_image_norm_sq > 0.0,
+        "unit-scale fitted image must be finite and nonzero"
     );
-    // The un-normalized curvature would make the larger-decoder fits stall (the
-    // ridge saturates and the recon error stays O(1)); the fix keeps the recovered
-    // circle scale-invariant.
-    for &lambda in &[5.0_f64, 25.0] {
-        let scaled = converged_recon_rel(lambda);
-        assert!(
-            scaled < 1.0e-3,
-            "joint fit with isometry ON must converge to the planted circle at \
-             λ={lambda} (rel recon {scaled:.3e}); a non-converging fit is the #795 \
-             ridge-saturation symptom of the un-normalized ‖B‖⁴ curvature."
+    for &physical_scale in &[5.0_f64, 25.0] {
+        let scaled = fit_at_scale(physical_scale);
+        let image_defect = base
+            .normalized_reconstruction
+            .iter()
+            .zip(scaled.normalized_reconstruction.iter())
+            .map(|(unit, rescaled)| {
+                let delta = unit - rescaled;
+                delta * delta
+            })
+            .sum::<f64>()
+            .sqrt()
+            / base_image_norm_sq.sqrt();
+        let criterion_defect = (scaled.criterion - base.criterion).abs()
+            / (1.0 + scaled.criterion.abs().max(base.criterion.abs()));
+        eprintln!(
+            "[#2099 fit co-scale] c={physical_scale}: image_defect={image_defect:.3e} \
+             criterion_defect={criterion_defect:.3e}; components \
+             [data,assignment,smooth,ard,analytic,repulsion,separation] base={:?} scaled={:?}",
+            base.components, scaled.components,
         );
+        assert!(
+            image_defect < 1.0e-3,
+            "normalized fitted reconstruction changed under physical co-scale c={physical_scale}: \
+             relative image defect {image_defect:.3e}"
+        );
+        assert!(
+            criterion_defect < 1.0e-3,
+            "penalized criterion changed under physical co-scale c={physical_scale}: \
+             relative criterion defect {criterion_defect:.3e}"
+        );
+        let component_names = [
+            "data",
+            "assignment",
+            "smooth",
+            "ard",
+            "analytic",
+            "repulsion",
+            "separation",
+        ];
+        for (idx, name) in component_names.into_iter().enumerate() {
+            let unit = base.components[idx];
+            let rescaled = scaled.components[idx];
+            let defect = (rescaled - unit).abs() / (1.0 + rescaled.abs().max(unit.abs()));
+            assert!(
+                defect < 1.0e-3,
+                "{name} criterion component changed under physical co-scale \
+                 c={physical_scale}: unit={unit:.8e}, rescaled={rescaled:.8e}, \
+                 relative defect={defect:.3e}"
+            );
+        }
     }
 }
 
@@ -831,95 +893,6 @@ fn sae_single_planted_circle_embedded_isometry_fit_converges_795() {
     );
 }
 
-/// #2099 quotient-ON twin of `sae_single_planted_circle_embedded_isometry_fit_converges_795`.
-///
-/// Identical fixture, penalty registry, ρ, and bar as the original — the ONLY
-/// difference is `term.set_quotient_scale(true)`, so this measures whether the
-/// scale quotient (unit-Frobenius `B` + explicit `s_k`, engaging the breach-gated
-/// accepted-iterate retraction) regresses the #795 isometry-gauged single-circle
-/// fit. Default path untouched.
-///
-/// FALSIFIABLE PREDICTION (the reason this twin exists, per my #2099 subsystem-1
-/// audit): the `IsometryPenalty` is ALREADY scale-invariant on HEAD — value,
-/// gradient, and the `‖B‖⁴` Gauss-Newton curvature all penalize the gbar-double-
-/// normalized residual `R_n = g_n/gbar − g_ref/gref_bar` (#795), so `∂P_iso/∂s_k ≡ 0`
-/// and pinning `‖B‖=1` cannot change the isometry energy or its step. THEREFORE
-/// this twin should PASS (rel_recon < 0.4, same as OFF). If it FAILS, the isometry
-/// penalty is NOT the culprit the issue text names — the regression is purely
-/// trajectory-level: the accepted-iterate `retract_collapsed_decoders_in_loop`
-/// mis-firing on a healthy (non-collapsed) K=1 atom, or the keep-best amplitude
-/// VarPro (`optimize_log_amplitudes_closed_form`) reverting a peel the retraction
-/// applied, desyncing `(B, s)` across the boundary and nudging the fit off the
-/// isometry basin. A ridge-saturation stall symptom here would confirm the cadence,
-/// not the `‖B‖⁴` curvature, as the root.
-#[test]
-fn sae_single_planted_circle_embedded_isometry_fit_converges_795_quotient_on_2099() {
-    use super::tests::{
-        PlantedCircleAssignmentMode, planted_circle_embedded, planted_circle_seed_term,
-    };
-    use gam_terms::analytic_penalties::{
-        AnalyticPenaltyKind, AnalyticPenaltyRegistry, IsometryPenalty, PsiSlice,
-    };
-
-    let n = 200usize;
-    let d_embed = 12usize;
-    let sigma = 0.02_f64;
-    let z = planted_circle_embedded(n, d_embed, sigma);
-
-    let (mut term, _seed_dispersion) =
-        planted_circle_seed_term(z.view(), PlantedCircleAssignmentMode::Softmax);
-    // The one line under test: general scale quotient engaged.
-    term.set_quotient_scale(true);
-
-    let mut registry = AnalyticPenaltyRegistry::new();
-    registry.push(AnalyticPenaltyKind::Isometry(Arc::new(
-        IsometryPenalty::new_euclidean(PsiSlice::full(n, Some(1)), 1),
-    )));
-
-    let mut rho = SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![array![0.0_f64]]);
-
-    let loss = term
-        .run_joint_fit_arrow_schur(
-            z.view(),
-            &mut rho,
-            Some(&registry),
-            25,
-            0.04,
-            1.0e-6,
-            1.0e-6,
-        )
-        .expect(
-            "#2099: single planted circle with quotient_scale ON must converge through the \
-             arrow-Schur joint fit (isometry penalty is scale-invariant, so the quotient must \
-             not saturate the proximal ridge)",
-        );
-    assert!(
-        loss.total().is_finite(),
-        "#2099: converged loss on the embedded planted circle (quotient ON) must be finite, got {}",
-        loss.total()
-    );
-
-    let fitted = term.fitted();
-    assert!(
-        fitted.iter().all(|v| v.is_finite()),
-        "#2099: fitted reconstruction (quotient ON) must be finite"
-    );
-
-    let mut num = 0.0_f64;
-    let mut den = 0.0_f64;
-    for (r, t) in fitted.iter().zip(z.iter()) {
-        num += (r - t) * (r - t);
-        den += t * t;
-    }
-    let rel_recon = (num / den.max(1.0e-300)).sqrt();
-    assert!(
-        rel_recon < 0.4,
-        "#2099: the isometry-gauged joint fit with quotient_scale ON must recover the embedded \
-         planted circle (rel recon {rel_recon:.3e}); the isometry penalty is scale-invariant so \
-         a stall here is the retraction/amplitude-cadence trajectory root, not the ‖B‖⁴ curvature"
-    );
-}
-
 /// #2226 — `reml_criterion` must RANK the K=1 planted-circle inner fixed point
 /// (return a finite Laplace value), not hard-refuse it. The inner solve reaches
 /// its numerical fixed point where the objective can no longer decrease, but the
@@ -975,33 +948,22 @@ fn sae_k1_circle_reml_criterion_ranks_fixed_point_2226() {
     );
 }
 
-/// #1206 — the gradient lane's `(cost, gradient)` pair must be SELF-CONSISTENT
-/// for the outer BFGS Armijo line search. The amortized-encoder consistency
-/// fold `c(ρ)` (#1154) has no analytic gradient (under Design A the exact
-/// outer derivative is the REML λ-gradient `∇f` only), so it MUST NOT enter
-/// the cost the gradient lane (`eval` / `OuterEvalOrder::ValueAndGradient`)
-/// returns alongside `∇f` — otherwise BFGS minimizes `f+c` while believing the
-/// gradient is `∇(f+c)`, which is the objective↔gradient desync bug class
-/// (#931). The fold is a DERIVATIVE-FREE ranking regularizer carried ONLY by
-/// the value-probe lane (`eval_cost`), whose cost is never paired with a
-/// gradient.
-///
-/// This test pins the corrected split:
-/// - the value-probe lane carries a strictly positive fold over bare REML
-///   (the encoder has some inconsistency on this fixture), and
-/// - the gradient lane's cost EQUALS bare REML (it does NOT carry the fold),
-///   so it sits a full fold below the value lane and its (cost, ∇f) pair is
-///   self-consistent.
+/// #1206 — ranking and gradient lanes must optimize one coherent criterion.
+/// The amortized-encoder consistency diagnostic `c(ρ)` has no analytic
+/// derivative, so it cannot rank `f+c` while BFGS descends `f`: the selected fit
+/// would not be stationary for its selection criterion. Both lanes therefore
+/// report their matched pure-REML value, while encoder consistency and the
+/// fitted-data collapse ledger remain read-only diagnostics.
 #[test]
-fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
+fn ranking_and_gradient_lanes_match_bare_reml() {
     let mut objective = warmstart_test_objective_with_evaluator();
     let rho_flat = objective.current_rho.to_flat();
 
-    // Value-probe lane: the cheap derivative-free comparand the cascade uses
-    // for seed validation / cross-seed ranking. Carries the consistency fold.
+    // Value-probe lane: the comparand the cascade uses for seed validation and
+    // cross-seed ranking.
     let value_lane = objective
         .eval_cost(&rho_flat)
-        .expect("value-probe lane evaluates the co-trained cost");
+        .expect("value-probe lane evaluates pure REML");
 
     // Gradient lane: the cost an ACCEPTED iterate reports, paired with the
     // analytic ∇f the BFGS Armijo test consumes. A fresh objective so the two
@@ -1020,20 +982,18 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
     // The amortized warm-start fires on this fixture (the basin-warmup fix lets the
     // Kantorovich gate certify unit-amplitude rows), so it shifts the inner-coord
     // seed of the value/gradient lanes. To keep the lane-vs-bare comparisons an
-    // ISOLATION of the consistency fold (not warm-start drift), each bare reference
+    // isolation of objective plumbing (not warm-start drift), each bare reference
     // below is warm-started identically — the SAME `warm_start_latents_from_amortized_encoder`
     // call the objective's `eval`/`eval_cost` apply — so the only remaining
-    // difference between a lane and its matched bare is the fold itself.
+    // difference between a lane and its matched bare is the objective plumbing.
 
     // Bare REML for the VALUE lane, computed on the SAME probe refine policy
-    // (`refine_progress_extension = false`) the value lane uses, plus the
-    // collapse barrier it also keeps — so the only difference from the value
-    // lane is the consistency fold.
+    // (`refine_progress_extension = false`) the value lane uses.
     let bare_value = {
         let mut probe = warmstart_test_objective_with_evaluator();
         let target = probe.target.clone();
         let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
-        // Warm-start identically to the value lane so the fold is isolated.
+        // Warm-start identically to the value lane.
         probe
             .term
             .warm_start_latents_from_amortized_encoder(target.view(), &rho_state)
@@ -1051,22 +1011,20 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
                 false,
             )
             .expect("bare value-lane REML criterion evaluates");
-        probe
-            .add_fit_data_collapse_penalty(reml, &rho_state)
-            .expect("collapse penalty evaluates")
+        reml
     };
-    let value_fold = value_lane - bare_value;
+    let value_vs_bare = (value_lane - bare_value).abs();
     assert!(
-        value_fold > 1.0e-12,
-        "the value-probe lane carries the co-training fold (positive penalty \
-         over bare REML): value_lane={value_lane}, bare={bare_value}, \
-         fold={value_fold}"
+        value_vs_bare < 1.0e-9,
+        "the ranking lane must report bare REML so selection and descent share \
+         one criterion: value_lane={value_lane}, bare={bare_value}, \
+         diff={value_vs_bare}"
     );
 
     // Bare REML for the GRADIENT lane, computed on the SAME full-refine path
     // (`reml_criterion_with_cache`, i.e. `refine_progress_extension = true`)
-    // the gradient lane uses, plus the collapse barrier. The gradient lane
-    // must EQUAL this (it carries NO consistency fold), so its (cost, ∇f) pair
+    // the gradient lane uses. The gradient lane must EQUAL this (it carries NO
+    // consistency or collapse fold), so its (cost, ∇f) pair
     // describes one function — the #1206 contract for BFGS Armijo. (The
     // gradient-lane and value-lane bares may differ by the refine policy, so
     // each lane is checked against its OWN matched bare.)
@@ -1074,7 +1032,7 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
         let mut probe = warmstart_test_objective_with_evaluator();
         let target = probe.target.clone();
         let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
-        // Warm-start identically to the gradient lane so the fold is isolated.
+        // Warm-start identically to the gradient lane.
         probe
             .term
             .warm_start_latents_from_amortized_encoder(target.view(), &rho_state)
@@ -1091,9 +1049,7 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
                 probe.ridge_beta,
             )
             .expect("bare gradient-lane REML criterion evaluates");
-        probe
-            .add_fit_data_collapse_penalty(reml, &rho_state)
-            .expect("collapse penalty evaluates")
+        reml
     };
     let gradient_vs_bare = (gradient_lane - bare_grad).abs();
     assert!(
@@ -1801,6 +1757,71 @@ pub(crate) fn deflated_solver_matches_dense_quotient_pseudoinverse_on_near_null_
     assert_abs_diff_eq!(stiffened[1], 0.5, epsilon = 1.0e-12);
 }
 
+/// #2253 mechanism regression: `DeflatedArrowSolver` preconditions with
+/// `(B + κ Q Qᵀ)⁻¹`, so an exact-stationarity Krylov operator must apply the
+/// matching `A + κ Q Qᵀ`. Leaving `A` raw makes a gauge-bearing right-hand side
+/// inconsistent and the original-residual certificate correctly refuses it.
+#[test]
+pub(crate) fn gauge_fixed_krylov_operator_matches_deflated_preconditioner_2253() {
+    let cache = diagonal_latent_cache(&[2.0_f64, 1.0e-14]);
+    let gauge = array![0.0_f64, 1.0];
+    let stiffness = 2.0;
+    let solver = DeflatedArrowSolver::from_orthonormal_gauges(&cache, vec![gauge], stiffness)
+        .expect("deflated solver");
+    let rhs = SaeArrowVector {
+        t: array![4.0_f64, 1.0],
+        beta: Array1::zeros(0),
+    };
+    let raw_a = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+        Ok(SaeArrowVector {
+            t: array![2.0 * v.t[0], 0.0],
+            beta: Array1::zeros(0),
+        })
+    };
+
+    // Raw A has the exact null q=e1 while rhs has q-mass, so A x = rhs is
+    // inconsistent. A residual-checked solver must refuse it rather than return
+    // the old CG path's arbitrary last iterate.
+    let raw = solve_b_preconditioned_gmres_with(
+        &rhs,
+        |v| raw_a(v),
+        |vector| solver.solve(vector.t.view(), vector.beta.view()),
+    );
+    assert!(
+        raw.is_err(),
+        "raw A with rhs mass on its exact gauge null must not pass the residual certificate"
+    );
+
+    // The quotient operator uses the SAME κQQᵀ term as the preconditioner.
+    // It is diag(2,2), so the exact gauge-fixed solution is (2, 1/2).
+    let solved = solve_b_preconditioned_gmres_with(
+        &rhs,
+        |v| {
+            let mut out = raw_a(v)?;
+            solver.add_gauge_stiffness(v, &mut out)?;
+            Ok(out)
+        },
+        |vector| solver.solve(vector.t.view(), vector.beta.view()),
+    )
+    .expect("gauge-fixed exact-stationarity solve");
+    assert_abs_diff_eq!(solved.t[0], 2.0, epsilon = 1.0e-12);
+    assert_abs_diff_eq!(solved.t[1], 0.5, epsilon = 1.0e-12);
+
+    let mut applied = raw_a(&solved).expect("raw A apply");
+    solver
+        .add_gauge_stiffness(&solved, &mut applied)
+        .expect("gauge stiffness apply");
+    let residual = SaeArrowVector {
+        t: &applied.t - &rhs.t,
+        beta: &applied.beta - &rhs.beta,
+    };
+    assert!(
+        sae_norm(&residual) <= 1.0e-12 * sae_norm(&rhs).max(1.0),
+        "gauge-fixed operator and inverse must satisfy the original residual; got {:.3e}",
+        sae_norm(&residual)
+    );
+}
+
 #[test]
 pub(crate) fn pca_seed_handles_huge_equal_finite_columns_without_mean_overflow() {
     let z = array![[1.0e308_f64, 1.0e308], [1.0e308, 1.0e308]];
@@ -1917,7 +1938,7 @@ fn jumprelu_hdiag_third_derivative_matches_central_difference_1415() {
         logits.clone(),
         coords,
         manifolds,
-        AssignmentMode::jumprelu(temperature, threshold),
+        AssignmentMode::threshold_gate(temperature, threshold),
     )
     .expect("valid JumpReLU assignment");
     let term = SaeManifoldTerm::new(atoms, assignment).unwrap();

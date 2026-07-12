@@ -21,8 +21,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListConstraintsResponseHttpRequest: ...
             def list_next(
@@ -37,11 +37,11 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudOrgpolicyV2Policy = ...,
+                body: GoogleCloudOrgpolicyV2Policy,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2PolicyHttpRequest: ...
             def delete(
-                self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
             ) -> GoogleProtobufEmptyHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -53,8 +53,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListPoliciesResponseHttpRequest: ...
             def list_next(
@@ -66,8 +66,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudOrgpolicyV2Policy = ...,
-                updateMask: str = ...,
+                body: GoogleCloudOrgpolicyV2Policy,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2PolicyHttpRequest: ...
 
@@ -82,8 +82,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListConstraintsResponseHttpRequest: ...
             def list_next(
@@ -98,7 +98,7 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudOrgpolicyV2CustomConstraint = ...,
+                body: GoogleCloudOrgpolicyV2CustomConstraint,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2CustomConstraintHttpRequest: ...
             def delete(
@@ -111,8 +111,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListCustomConstraintsResponseHttpRequest: ...
             def list_next(
@@ -126,7 +126,7 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudOrgpolicyV2CustomConstraint = ...,
+                body: GoogleCloudOrgpolicyV2CustomConstraint,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2CustomConstraintHttpRequest: ...
 
@@ -136,11 +136,11 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudOrgpolicyV2Policy = ...,
+                body: GoogleCloudOrgpolicyV2Policy,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2PolicyHttpRequest: ...
             def delete(
-                self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
             ) -> GoogleProtobufEmptyHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -152,8 +152,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListPoliciesResponseHttpRequest: ...
             def list_next(
@@ -165,8 +165,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudOrgpolicyV2Policy = ...,
-                updateMask: str = ...,
+                body: GoogleCloudOrgpolicyV2Policy,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2PolicyHttpRequest: ...
 
@@ -182,8 +182,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListConstraintsResponseHttpRequest: ...
             def list_next(
@@ -198,11 +198,11 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudOrgpolicyV2Policy = ...,
+                body: GoogleCloudOrgpolicyV2Policy,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2PolicyHttpRequest: ...
             def delete(
-                self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
             ) -> GoogleProtobufEmptyHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -214,8 +214,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2ListPoliciesResponseHttpRequest: ...
             def list_next(
@@ -227,8 +227,8 @@ class OrgPolicyAPIResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudOrgpolicyV2Policy = ...,
-                updateMask: str = ...,
+                body: GoogleCloudOrgpolicyV2Policy,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudOrgpolicyV2PolicyHttpRequest: ...
 

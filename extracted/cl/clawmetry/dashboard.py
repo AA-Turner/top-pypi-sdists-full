@@ -259,7 +259,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.553"
+__version__ = "0.12.554"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -14931,6 +14931,22 @@ _THREAT_SIGNATURES = [
             r"(?:bank|paypal|stripe\.com/dashboard|console\.aws|portal\.azure)",
             r"(?:admin|phpmyadmin|wp-admin|cpanel)",
             r"file:///etc/",
+        ],
+    },
+    {
+        "id": "SEC-016",
+        "severity": "high",
+        "description": "Prompt injection attempt in external content",
+        "tool_types": ["READ", "BROWSER", "SEARCH"],
+        "patterns": [
+            r"ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions",
+            r"disregard\s+(?:all\s+)?(?:previous|prior|above)\s+instructions",
+            r"forget\s+(?:all\s+)?(?:your\s+)?(?:previous|prior|above)\s+instructions",
+            r"override\s+(?:your\s+)?(?:system\s+prompt|instructions|directives)",
+            r"you\s+are\s+now\s+(?:a\s+)?(?:DAN|uncensored|unrestricted|jailbroken)",
+            r"\bdo\s+anything\s+now\b",
+            r"act\s+as\s+if\s+you\s+have\s+no\s+restrictions",
+            r"new\s+instructions?[:]\s*(?:you|your|from\s+now)",
         ],
     },
 ]

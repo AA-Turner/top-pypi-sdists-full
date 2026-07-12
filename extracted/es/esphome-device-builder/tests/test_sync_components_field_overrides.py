@@ -161,3 +161,37 @@ def test_shipped_catalog_logger_baud_rate_is_combobox() -> None:
     labels = [o["label"] for o in baud["options"]]
     assert "0 (disable logging)" in labels
     assert {"2400", "115200", "921600"} <= {o["value"] for o in baud["options"]}
+
+
+def test_web_server_sorting_groups_override_gates_on_version_3() -> None:
+    """``web_server.sorting_groups`` hides unless the sibling ``version`` is 3."""
+    override = _FIELD_OVERRIDES.get(("web_server", "sorting_groups"))
+    assert override is not None, "missing web_server.sorting_groups override"
+    assert override["depends_on"] == "version"
+    # Both YAML scalar shapes: ``version: 3`` and ``version: "3"``.
+    assert override["depends_on_value_any"] == [3, "3"]
+    # Merge-only: everything else stays schema-derived.
+    assert {"type", "required", "advanced", "config_entries"}.isdisjoint(override)
+
+
+def test_shipped_catalog_web_server_sorting_groups_is_version_gated() -> None:
+    """The generated web_server body carries the version-3 gate."""
+    body = orjson.loads((_OUTPUT_BODIES_DIR / "web_server.json").read_bytes())
+    groups = next(e for e in body["config_entries"] if e["key"] == "sorting_groups")
+    assert groups["depends_on"] == "version"
+    assert groups["depends_on_value_any"] == [3, "3"]
+
+
+def test_web_server_version_override_promotes_to_main_form() -> None:
+    """``web_server.version`` picks the UI flavor, so it stays off Advanced."""
+    override = _FIELD_OVERRIDES.get(("web_server", "version"))
+    assert override is not None, "missing web_server.version override"
+    assert override == {"advanced": False}
+
+
+def test_shipped_catalog_web_server_version_is_main_form() -> None:
+    """The generated web_server body keeps ``version`` off Advanced with its enum intact."""
+    body = orjson.loads((_OUTPUT_BODIES_DIR / "web_server.json").read_bytes())
+    version = next(e for e in body["config_entries"] if e["key"] == "version")
+    assert not version.get("advanced")
+    assert [o["value"] for o in version["options"]] == ["1", "2", "3"]

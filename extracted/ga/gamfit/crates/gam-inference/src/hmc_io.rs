@@ -135,7 +135,7 @@ const AUTOCOVARIANCE_FLOOR: f64 = 1e-16;
 ///
 /// This is the standard split-chain formulation (no rank normalization).
 /// Returns (max_rhat, min_ess) across dimensions.
-fn compute_split_rhat_and_ess(samples: &Array3<f64>) -> (f64, f64) {
+pub(crate) fn compute_split_rhat_and_ess(samples: &Array3<f64>) -> (f64, f64) {
     let n_chains = samples.shape()[0];
     let n_samples = samples.shape()[1];
     let dim = samples.shape()[2];
@@ -771,7 +771,11 @@ impl NutsPosterior {
 
         let mut firth_logdet = 0.0;
         if self.firth_enabled {
-            match firth_jeffreys_logp_and_grad(self.nuts_family, &self.data, &eta) {
+            match firth_jeffreys_logp_and_grad(
+                &self.nuts_family.likelihood_spec(),
+                &self.data,
+                &eta,
+            ) {
                 Ok((value, grad_beta_firth)) => {
                     firth_logdet = value;
                     grad_ll_beta += &grad_beta_firth;
@@ -949,8 +953,14 @@ fn validate_binary_responses(
 /// HMC uses the same `FirthDenseOperator` as the REML exact-gradient path.
 /// The operator owns the reduced identifiable Fisher factorization, the
 /// Jeffreys log-determinant, and the analytic β-gradient.
+///
+/// Takes the full `LikelihoodSpec` — not a `NutsFamily` — because the
+/// Jeffreys determinant is built from the *inverse link's* Fisher-weight
+/// jet: at η = 0 the logit weight is 1/4 while probit's is 2/π, so
+/// collapsing every binomial link to logit produces the wrong determinant
+/// and gradient for probit / cloglog / adaptive (SAS, mixture) links.
 fn firth_jeffreys_logp_and_grad(
-    family: NutsFamily,
+    likelihood: &LikelihoodSpec,
     data: &SharedData,
     eta: &Array1<f64>,
 ) -> Result<(f64, Array1<f64>), HmcError> {
@@ -966,19 +976,17 @@ fn firth_jeffreys_logp_and_grad(
     if data.dim == 0 || data.n_samples == 0 {
         return Ok((0.0, Array1::zeros(data.dim)));
     }
-    validate_firth_support(family, true)?;
+    validate_firth_likelihood_support(likelihood, true)?;
     if data.weights.iter().all(|w| *w == 0.0) {
         return Ok((0.0, Array1::zeros(data.dim)));
     }
 
     let jeffreys_link =
-        likelihood_spec_jeffreys_link(&family.likelihood_spec()).ok_or_else(|| {
-            HmcError::FirthUnsupported {
-                reason: format!(
-                    "Firth Jeffreys term has no Fisher-weight jet for {}",
-                    family.likelihood_spec().pretty_name()
-                ),
-            }
+        likelihood_spec_jeffreys_link(likelihood).ok_or_else(|| HmcError::FirthUnsupported {
+            reason: format!(
+                "Firth Jeffreys term has no Fisher-weight jet for {}",
+                likelihood.pretty_name()
+            ),
         })?;
     let op = if data.weights.iter().all(|&w| w == 1.0) {
         FirthDenseOperator::build_for_link(&jeffreys_link, data.x.as_ref(), eta)
@@ -1381,14 +1389,22 @@ fn probit_logp_and_grad_into(
 /// gradient_i = w_i · [y_i · exp(η_i)·exp(−exp(η_i)) / (1−exp(−exp(η_i))) − (1−y_i)·exp(η_i)]
 #[inline]
 fn cloglog_bernoulli_logp_and_residual(eta: f64, y: f64) -> Result<(f64, f64), EstimationError> {
-    if !(eta.is_finite() && (-700.0..=700.0).contains(&eta)) {
-        gam_problem::bail_invalid_estim!(
-            "cloglog eta must be finite and within [-700, 700]; got {eta}"
-        );
+    if !eta.is_finite() {
+        gam_problem::bail_invalid_estim!("cloglog eta must be finite; got {eta}");
     }
     let exp_eta = eta.exp();
-    // log_mu = log(1 - exp(-exp_eta)); exp_eta > 0 on the guarded domain, so this is
-    // exactly the canonical cancellation-free log1mexp (single source of truth).
+    // Deep left tail: exp(η) underflows to zero below η ≈ −745, but the exact
+    // limits are log μ = log(1 − exp(−e^η)) → η and d(log μ)/dη → 1, so the
+    // valid finite log-density is preserved instead of degenerating to
+    // log(0) = −∞. (Previously any η outside an arbitrary ±700 window was
+    // declared impossible, truncating the sampled posterior.)
+    if exp_eta == 0.0 {
+        let ll_i = y * eta; // (1 − y)·(−exp_eta) is exactly 0 here
+        let residual_i = y; // grad_log_mu → 1, (1 − y)·exp_eta → 0
+        return Ok((ll_i, residual_i));
+    }
+    // log_mu = log(1 - exp(-exp_eta)); exp_eta > 0 here, so this is exactly
+    // the canonical cancellation-free log1mexp (single source of truth).
     let log_mu = crate::probability::log1mexp_positive(exp_eta);
     let log_one_minus_mu = -exp_eta;
     let grad_log_mu = (eta - exp_eta - log_mu).exp();
@@ -1410,10 +1426,7 @@ fn cloglog_logp_and_grad_into(
     use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
     let n = data.n_samples;
     assert_eq!(residual.len(), n);
-    if eta
-        .iter()
-        .any(|&eta_i| !(eta_i.is_finite() && (-700.0..=700.0).contains(&eta_i)))
-    {
+    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
         return (f64::NEG_INFINITY, Array1::zeros(data.dim));
     }
     let ll: f64 = residual
@@ -1431,6 +1444,12 @@ fn cloglog_logp_and_grad_into(
         })
         .sum();
 
+    // A finite η can still exhaust binary64 (y = 0 with exp(η) overflowing):
+    // that is a genuine log-density underflow, rejected as −∞ with a zero
+    // gradient — not an a-priori support window.
+    if !ll.is_finite() {
+        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
+    }
     let grad_ll = fast_atv(data.x.as_ref(), &*residual);
     (ll, grad_ll)
 }
@@ -1487,10 +1506,12 @@ fn gaussian_logp_and_grad_into(
 fn poisson_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
     use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
     let n = data.n_samples;
-    if eta
-        .iter()
-        .any(|&eta_i| !(eta_i.is_finite() && (-700.0..=700.0).contains(&eta_i)))
-    {
+    // Only non-finite η invalidates the target. Any finite η has a valid
+    // log-density (e.g. y = 0, η = −701 gives ℓ = −exp(−701) ≈ 0); the old
+    // ±700 window declared such points impossible and truncated the
+    // posterior. Genuine binary64 exhaustion (exp(η) overflowing against a
+    // positive count) is caught after the sum below.
+    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
         return (f64::NEG_INFINITY, Array1::zeros(data.dim));
     }
     let mut residual = Array1::<f64>::zeros(n);
@@ -1509,6 +1530,9 @@ fn poisson_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Arra
         })
         .sum();
 
+    if !ll.is_finite() {
+        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
+    }
     let grad_ll = fast_atv(&data.x, &residual);
     (ll, grad_ll)
 }
@@ -1526,10 +1550,10 @@ fn tweedie_log_quasilogp_and_grad(
     if !is_valid_tweedie_power(p) {
         return (f64::NAN, Array1::from_elem(data.dim, f64::NAN));
     }
-    if eta
-        .iter()
-        .any(|&eta_i| !(eta_i.is_finite() && (-700.0..=700.0).contains(&eta_i)))
-    {
+    // Finite η is always in-support for the quasi-likelihood; the old ±700
+    // window artificially truncated the posterior. Binary64 exhaustion is
+    // caught after the sum.
+    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
         return (f64::NEG_INFINITY, Array1::zeros(data.dim));
     }
     let inv_phi = data.dispersion.inv_phi();
@@ -1550,6 +1574,9 @@ fn tweedie_log_quasilogp_and_grad(
         })
         .sum();
 
+    if !ll.is_finite() {
+        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
+    }
     let grad_ll = fast_atv(&data.x, &residual);
     (ll, grad_ll)
 }
@@ -1562,9 +1589,7 @@ fn negative_binomial_log_logp_and_grad(
     use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
     let n = data.n_samples;
     if !(theta.is_finite() && theta > 0.0)
-        || eta
-            .iter()
-            .any(|&eta_i| !(eta_i.is_finite() && (-700.0..=700.0).contains(&eta_i)))
+        || eta.iter().any(|&eta_i| !eta_i.is_finite())
         || data
             .y
             .iter()
@@ -1599,6 +1624,9 @@ fn negative_binomial_log_logp_and_grad(
         })
         .sum();
 
+    if !ll.is_finite() {
+        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
+    }
     let grad_ll = fast_atv(&data.x, &residual);
     (ll, grad_ll)
 }
@@ -1606,10 +1634,7 @@ fn negative_binomial_log_logp_and_grad(
 fn gamma_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
     use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
     let n = data.n_samples;
-    if eta
-        .iter()
-        .any(|&eta_i| !(eta_i.is_finite() && (-700.0..=700.0).contains(&eta_i)))
-    {
+    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
         return (f64::NEG_INFINITY, Array1::zeros(data.dim));
     }
     let shape = data.gamma_shape.max(1e-10);
@@ -1640,6 +1665,9 @@ fn gamma_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1
         })
         .sum();
 
+    if !ll.is_finite() {
+        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
+    }
     let grad_ll = fast_atv(&data.x, &residual);
     (ll, grad_ll)
 }
@@ -1648,12 +1676,12 @@ fn gamma_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1
 mod tests {
     use super::{
         FamilyNutsInputs, GlmFlatInputs, JointBetaRhoInputs, JointBetaRhoPosterior,
-        LinkWigglePosterior, LinkWiggleSplineArtifacts, NutsConfig, NutsFamily, NutsPosterior,
-        SharedData, cloglog_bernoulli_logp_and_residual, firth_jeffreys_logp_and_grad,
-        joint_family_logp_and_grad, laplace_directional_cubic_diagnostic,
-        laplace_skewness_threshold, laplace_trustworthiness_from_skewness,
-        run_joint_beta_rho_sampling, run_logit_polya_gamma_gibbs,
-        run_nuts_sampling_flattened_family,
+        LinkWiggleFamilyParams, LinkWigglePosterior, LinkWiggleSplineArtifacts, NutsConfig,
+        NutsFamily, NutsPosterior, NutsResult, SharedData, cloglog_bernoulli_logp_and_residual,
+        firth_jeffreys_logp_and_grad, joint_family_logp_and_grad,
+        laplace_directional_cubic_diagnostic, laplace_skewness_threshold,
+        laplace_trustworthiness_from_skewness, run_joint_beta_rho_sampling,
+        run_logit_polya_gamma_gibbs, run_nuts_sampling_flattened_family,
     };
     use gam_linalg::matrix::DesignMatrix;
     use gam_models::survival::{PenaltyBlocks, SurvivalMonotonicityPenalty, SurvivalSpec};
@@ -1669,6 +1697,23 @@ mod tests {
     use general_mcmc::generic_hmc::HamiltonianTarget;
     use ndarray::{Array1, Array2, array};
     use std::sync::Arc;
+
+    #[test]
+    fn posterior_interval_uses_shared_linear_quantiles() {
+        let result = NutsResult {
+            samples: array![[0.0], [1.0], [2.0], [3.0]],
+            posterior_mean: array![1.5],
+            posterior_std: array![1.0],
+            rhat: 1.0,
+            ess: 4.0,
+            converged: true,
+        };
+
+        let (lower, upper) = result.posterior_interval_of(|row| row[0], 25.0, 75.0);
+
+        assert!((lower - 0.75).abs() < 1e-12, "lower = {lower}");
+        assert!((upper - 2.25).abs() < 1e-12, "upper = {upper}");
+    }
 
     impl NutsPosterior {
         /// Test-only allocation wrapper around `compute_logp_and_grad_nd_into`.
@@ -1772,6 +1817,7 @@ mod tests {
                 coefficient_influence: None,
                 weighted_gram: None,
                 bias_correction_beta: None,
+                bias_correction_jacobian: None,
             }),
             None,
         );
@@ -1916,6 +1962,92 @@ mod tests {
     }
 
     #[test]
+    fn finite_eta_beyond_the_old_support_window_keeps_its_valid_log_density() {
+        // A Poisson row with y = 0 at η = −701 has log-likelihood
+        // −exp(−701) ≈ 0 — a perfectly valid, essentially maximal density.
+        // The old hard-coded ±700 window declared it impossible (−∞),
+        // truncating the sampled posterior at an arbitrary boundary.
+        let data = SharedData {
+            x: Arc::new(array![[1.0]]),
+            y: Arc::new(array![0.0]),
+            weights: Arc::new(array![1.0]),
+            mode: Arc::new(array![0.0]),
+            offset: None,
+            gamma_shape: 1.0,
+            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            n_samples: 1,
+            dim: 1,
+        };
+        let eta = array![-701.0];
+        let (ll, grad) = super::poisson_log_logp_and_grad(&data, &eta);
+        assert!(
+            ll.is_finite() && ll.abs() < 1e-300,
+            "Poisson y=0, eta=-701 must keep its ~0 log-density, got {ll}"
+        );
+        assert!(grad[0].is_finite());
+
+        // Deep cloglog left tail: exp(η) underflows below η ≈ −745, but the
+        // exact limits are log μ → η and d(log μ)/dη → 1.
+        let (ll_tail, res_tail) =
+            cloglog_bernoulli_logp_and_residual(-750.0, 1.0).expect("finite eta is valid");
+        assert!(
+            (ll_tail - (-750.0)).abs() < 1e-9,
+            "cloglog log-density must approach eta in the deep left tail, got {ll_tail}"
+        );
+        assert!((res_tail - 1.0).abs() < 1e-9, "residual limit is 1");
+
+        // Genuine binary64 exhaustion (y > 0 against an overflowing mean) is
+        // still rejected as −∞ with a zero gradient.
+        let data_pos = SharedData {
+            y: Arc::new(array![3.0]),
+            ..data
+        };
+        let (ll_of, grad_of) = super::poisson_log_logp_and_grad(&data_pos, &array![710.0]);
+        assert_eq!(ll_of, f64::NEG_INFINITY);
+        assert_eq!(grad_of[0], 0.0);
+    }
+
+    /// #2245 finding 16: saved-model sampling must reconstruct the fitted
+    /// *weighted* likelihood, not a unit-weight one. The intercept-only
+    /// Bernoulli with `(y, w) = (1, 100), (0, 1)` has weighted score
+    /// `dℓ/dη = 100·(1 − μ) − 1·μ = 100 − 101·μ`, which vanishes at
+    /// `μ = 100/101`, i.e. the weighted mode `η* = log 100`. Reconstructing the
+    /// target with `weights = ones` (the historical bug) instead centres it at
+    /// `η = 0`. Pinning the weighted kernel here guards the `saved_prior_weights`
+    /// plumbing in `sample.rs` against a silent regression to the unweighted
+    /// posterior.
+    #[test]
+    fn weighted_bernoulli_target_is_centered_at_the_weighted_mode() {
+        let data = SharedData {
+            x: Arc::new(array![[1.0], [1.0]]),
+            y: Arc::new(array![1.0, 0.0]),
+            weights: Arc::new(array![100.0, 1.0]),
+            mode: Arc::new(array![0.0]),
+            offset: None,
+            gamma_shape: 1.0,
+            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            n_samples: 2,
+            dim: 1,
+        };
+        // At the weighted MLE η* = log 100 the score is (numerically) zero.
+        let eta_star = 100.0_f64.ln();
+        let (_, grad_star) = super::logit_logp_and_grad(&data, &array![eta_star, eta_star]);
+        assert!(
+            grad_star[0].abs() < 1e-9,
+            "weighted Bernoulli score must vanish at log 100, got {}",
+            grad_star[0]
+        );
+        // At the *unweighted* mode η = 0 the weighted score is 100 − 101·0.5 =
+        // 49.5 ≫ 0: the unit-weight reconstruction targets the wrong posterior.
+        let (_, grad_zero) = super::logit_logp_and_grad(&data, &array![0.0, 0.0]);
+        assert!(
+            (grad_zero[0] - 49.5).abs() < 1e-9,
+            "unit-weight point must carry a large positive weighted score, got {}",
+            grad_zero[0]
+        );
+    }
+
+    #[test]
     fn link_wiggle_posterior_whitening_uses_supplied_explicit_joint_hessian() {
         let x = array![[1.0], [1.0], [1.0]];
         let y = array![0.0, 1.0, 1.0];
@@ -1935,14 +2067,14 @@ mod tests {
             x.view(),
             y.view(),
             weights.view(),
+            None,
             penalty_base.view(),
             penalty_link.view(),
             mode_beta.view(),
             mode_theta.view(),
             hessian.view(),
             spline,
-            NutsFamily::BinomialLogit,
-            1.0,
+            LinkWiggleFamilyParams::BinomialLogit,
         )
         .expect("link-wiggle posterior should accept explicit SPD joint Hessian");
 
@@ -1981,14 +2113,14 @@ mod tests {
             x.view(),
             y.view(),
             weights.view(),
+            None,
             penalty_base.view(),
             penalty_link.view(),
             mode_beta.view(),
             mode_theta.view(),
             hessian.view(),
             spline,
-            NutsFamily::BinomialCLogLog,
-            1.0,
+            LinkWiggleFamilyParams::BinomialCLogLog,
         )
         .expect("cloglog link-wiggle posterior");
 
@@ -2277,11 +2409,29 @@ mod tests {
         };
 
         let (value, grad) =
-            firth_jeffreys_logp_and_grad(NutsFamily::BinomialLogit, &data, &eta).expect("firth");
+            firth_jeffreys_logp_and_grad(&NutsFamily::BinomialLogit.likelihood_spec(), &data, &eta)
+                .expect("firth");
 
         assert!(value.is_finite());
         assert_eq!(grad.len(), x.ncols());
         assert!(grad.iter().all(|v| v.is_finite()));
+
+        // The Jeffreys term is link-general: at the same eta the probit
+        // Fisher weight differs from logit (2/pi vs 1/4 at eta = 0), so the
+        // determinants must differ — a hard-coded logit correction would
+        // make these equal (finding 19, #2245).
+        let (value_probit, grad_probit) = firth_jeffreys_logp_and_grad(
+            &NutsFamily::BinomialProbit.likelihood_spec(),
+            &data,
+            &eta,
+        )
+        .expect("probit firth");
+        assert!(value_probit.is_finite());
+        assert!(
+            (value_probit - value).abs() > 1e-6,
+            "probit and logit Jeffreys log-determinants must differ: {value_probit} vs {value}"
+        );
+        assert!(grad_probit.iter().all(|v| v.is_finite()));
     }
 
     #[test]
@@ -2755,6 +2905,8 @@ mod tests {
                 link: InverseLink::Standard(StandardLink::Log),
             },
             gamma_shape: None,
+            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            offset: None,
             mode: mode.view(),
             hessian: hessian.view(),
             penalty_roots: vec![CanonicalPenalty::from_dense_root(
@@ -2806,6 +2958,8 @@ mod tests {
                 link: InverseLink::Standard(StandardLink::Identity),
             },
             None,
+            gam_solve::model_types::Dispersion::Known(1.0),
+            None,
             RhoPrior::Flat,
             false,
         )
@@ -2851,6 +3005,8 @@ mod tests {
                 link: InverseLink::Standard(StandardLink::Identity),
             },
             None,
+            gam_solve::model_types::Dispersion::Known(1.0),
+            None,
             prior.clone(),
             false,
         )
@@ -2867,6 +3023,8 @@ mod tests {
                 response: ResponseFamily::Gaussian,
                 link: InverseLink::Standard(StandardLink::Identity),
             },
+            None,
+            gam_solve::model_types::Dispersion::Known(1.0),
             None,
             prior,
             false,
@@ -2886,6 +3044,48 @@ mod tests {
                 grad_b[i]
             );
         }
+    }
+
+    #[test]
+    fn joint_hmc_target_retains_fit_dispersion_and_offset() {
+        // A Gaussian fit with sigma^2 = 4 and a fixed offset of 1.5: the joint
+        // target at beta = 0 must be -0.5 * (1/phi) * (y - offset)^2. The old
+        // target hard-coded phi = 1 and eta = X beta, i.e. -0.5 * y^2 — four
+        // times the likelihood curvature at a shifted center (finding 18,
+        // #2245). No penalties / flat prior isolate the likelihood term.
+        let x = array![[1.0]];
+        let y = array![2.0];
+        let w = array![1.0];
+        let mode = array![0.0];
+        let hessian = array![[1.0]];
+        let offset = array![1.5];
+        let target = JointBetaRhoPosterior::new(
+            x.view(),
+            y.view(),
+            w.view(),
+            mode.view(),
+            hessian.view(),
+            Vec::new(),
+            Array1::<f64>::zeros(0).view(),
+            LikelihoodSpec {
+                response: ResponseFamily::Gaussian,
+                link: InverseLink::Standard(StandardLink::Identity),
+            },
+            None,
+            gam_solve::model_types::Dispersion::Estimated(4.0),
+            Some(offset.view()),
+            RhoPrior::Flat,
+            false,
+        )
+        .expect("joint target");
+
+        let params = array![0.0];
+        let (logp, _) = target.compute_joint_logp_and_grad(&params);
+        let expected = -0.5 * (1.0 / 4.0) * (2.0_f64 - 1.5).powi(2);
+        assert!(
+            (logp - expected).abs() < 1e-12,
+            "joint target must keep phi and offset: logp = {logp}, expected {expected}"
+        );
     }
 
     #[test]
@@ -3021,6 +3221,8 @@ mod tests {
                 response: ResponseFamily::Gaussian,
                 link: InverseLink::Standard(StandardLink::Identity),
             },
+            None,
+            gam_solve::model_types::Dispersion::Known(1.0),
             None,
             RhoPrior::Flat,
             false,
@@ -4399,14 +4601,11 @@ impl NutsResult {
             return (0.0, 0.0);
         }
         let mut values: Vec<f64> = (0..n).map(|i| f(self.samples.row(i))).collect();
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-        let lower_idx = ((lower_pct / 100.0) * n as f64).floor() as usize;
-        let upper_idx = ((upper_pct / 100.0) * n as f64).ceil() as usize;
+        values.sort_by(f64::total_cmp);
 
         (
-            values[lower_idx.min(n.saturating_sub(1))],
-            values[upper_idx.min(n.saturating_sub(1))],
+            gam_math::quantile::quantile_from_sorted(&values, lower_pct / 100.0),
+            gam_math::quantile::quantile_from_sorted(&values, upper_pct / 100.0),
         )
     }
 }
@@ -5495,6 +5694,119 @@ pub struct LinkWiggleSplineArtifacts {
     pub degree: usize,
 }
 
+/// Per-family likelihood parameters for the link-wiggle joint target.
+///
+/// The historical single `scale: f64` slot was ambiguous: for Tweedie the
+/// caller supplied the fitted *dispersion* φ while the target consumed the
+/// same scalar as the variance *power* p, and the quasi-likelihood dropped
+/// its 1/φ factor entirely — a different posterior, not an approximation
+/// (finding 15, #2245). Each family now names exactly the parameters its
+/// log-likelihood needs, so a mis-wiring is a type error.
+#[derive(Clone, Copy, Debug)]
+pub enum LinkWiggleFamilyParams {
+    /// Profiled Gaussian with residual standard deviation σ.
+    Gaussian {
+        sigma: f64,
+    },
+    BinomialLogit,
+    BinomialProbit,
+    BinomialCLogLog,
+    PoissonLog,
+    /// Tweedie quasi-likelihood: variance power `p ∈ (1, 2)` and dispersion
+    /// `φ > 0` (the 1/φ factor scales both the log-likelihood and score,
+    /// matching the flat NUTS path's `data.dispersion` handling).
+    TweedieLog {
+        power: f64,
+        phi: f64,
+    },
+    /// Negative binomial with overdispersion θ > 0.
+    NegativeBinomialLog {
+        theta: f64,
+    },
+    /// Gamma with shape k = 1/φ.
+    GammaLog {
+        shape: f64,
+    },
+}
+
+impl LinkWiggleFamilyParams {
+    /// The response-family tag this parameter set belongs to.
+    fn nuts_family(self) -> NutsFamily {
+        match self {
+            Self::Gaussian { .. } => NutsFamily::Gaussian,
+            Self::BinomialLogit => NutsFamily::BinomialLogit,
+            Self::BinomialProbit => NutsFamily::BinomialProbit,
+            Self::BinomialCLogLog => NutsFamily::BinomialCLogLog,
+            Self::PoissonLog => NutsFamily::PoissonLog,
+            Self::TweedieLog { .. } => NutsFamily::TweedieLog,
+            Self::NegativeBinomialLog { .. } => NutsFamily::NegativeBinomialLog,
+            Self::GammaLog { .. } => NutsFamily::GammaLog,
+        }
+    }
+
+    /// Coefficient-covariance scale `cov_scale` (#679/#680 invariant): `σ²`
+    /// for profiled Gaussian, `1.0` for every family whose working weight
+    /// already carries the dispersion (Gamma/Tweedie/NB) and for the
+    /// unit-scale families.
+    fn cov_scale(self) -> f64 {
+        match self {
+            Self::Gaussian { sigma } => sigma * sigma,
+            _ => 1.0,
+        }
+    }
+
+    /// Validate the family parameters once at construction so an invalid
+    /// payload is a hard error rather than a silent `-inf` target.
+    fn validate(self) -> Result<(), HmcError> {
+        match self {
+            Self::TweedieLog { power, phi } => {
+                if !is_valid_tweedie_power(power) {
+                    return Err(HmcError::InvalidConfig {
+                        reason: format!(
+                            "Tweedie variance power must be finite and strictly between 1 and 2; got {power}"
+                        ),
+                    });
+                }
+                if !(phi.is_finite() && phi > 0.0) {
+                    return Err(HmcError::InvalidConfig {
+                        reason: format!(
+                            "Tweedie dispersion phi must be finite and positive; got {phi}"
+                        ),
+                    });
+                }
+            }
+            Self::NegativeBinomialLog { theta } => {
+                if !(theta.is_finite() && theta > 0.0) {
+                    return Err(HmcError::InvalidConfig {
+                        reason: format!(
+                            "negative-binomial theta must be finite and positive; got {theta}"
+                        ),
+                    });
+                }
+            }
+            Self::Gaussian { sigma } => {
+                if !(sigma.is_finite() && sigma > 0.0) {
+                    return Err(HmcError::InvalidConfig {
+                        reason: format!("Gaussian sigma must be finite and positive; got {sigma}"),
+                    });
+                }
+            }
+            Self::GammaLog { shape } => {
+                if !(shape.is_finite() && shape > 0.0) {
+                    return Err(HmcError::InvalidConfig {
+                        reason: format!("Gamma shape must be finite and positive; got {shape}"),
+                    });
+                }
+            }
+            Self::BinomialLogit
+            | Self::BinomialProbit
+            | Self::BinomialCLogLog
+            | Self::PoissonLog => {}
+        }
+        Ok(())
+    }
+}
+
 /// Whitened log-posterior target for joint (β_eta, β_wiggle) with analytical gradients.
 #[derive(Clone)]
 pub struct LinkWigglePosterior {
@@ -5502,6 +5814,9 @@ pub struct LinkWigglePosterior {
     x: Arc<Array2<f64>>,
     y: Arc<Array1<f64>>,
     weights: Arc<Array1<f64>>,
+    /// Fixed fit-time additive offset on the base linear predictor
+    /// (q₀ = Xβ + offset), or `None` for an offset-free fit.
+    offset: Option<Arc<Array1<f64>>>,
     /// Penalty for main coefficients (p_main × p_main)
     penalty_base: Arc<Array2<f64>>,
     /// Penalty for wiggle coefficients (p_wiggle × p_wiggle)
@@ -5516,9 +5831,8 @@ pub struct LinkWigglePosterior {
     p_base: usize,
     p_link: usize,
     n_samples: usize,
-    nuts_family: NutsFamily,
-    /// Family-specific noise parameter: Gaussian sigma or Gamma shape.
-    scale: f64,
+    /// Typed per-family likelihood parameters (see [`LinkWiggleFamilyParams`]).
+    family: LinkWiggleFamilyParams,
     /// Coefficient-covariance scale `cov_scale` (#679/#680 invariant): the
     /// `Vb = cov_scale·H⁻¹` multiplier driving both the whitening
     /// (`L Lᵀ = cov_scale·H⁻¹`) and the target penalty weight
@@ -5543,14 +5857,14 @@ impl LinkWigglePosterior {
         x: ArrayView2<f64>,
         y: ArrayView1<f64>,
         weights: ArrayView1<f64>,
+        offset: Option<ArrayView1<f64>>,
         penalty_base: ArrayView2<f64>,
         penalty_link: ArrayView2<f64>,
         mode_beta: ArrayView1<f64>,
         mode_theta: ArrayView1<f64>,
         hessian: ArrayView2<f64>,
         spline: LinkWiggleSplineArtifacts,
-        nuts_family: NutsFamily,
-        scale: f64,
+        family: LinkWiggleFamilyParams,
     ) -> Result<Self, String> {
         let n_samples = x.nrows();
         let p_base = x.ncols();
@@ -5568,6 +5882,26 @@ impl LinkWigglePosterior {
             }
             .into());
         }
+        family.validate().map_err(String::from)?;
+        if let Some(offset) = offset.as_ref() {
+            if offset.len() != n_samples {
+                return Err(HmcError::DimensionMismatch {
+                    reason: format!(
+                        "link-wiggle NUTS offset length {} does not match {} observations",
+                        offset.len(),
+                        n_samples
+                    ),
+                }
+                .into());
+            }
+            if !offset.iter().all(|v| v.is_finite()) {
+                return Err(HmcError::NonFiniteState {
+                    reason: "link-wiggle NUTS offset contains NaN or Inf values".to_string(),
+                }
+                .into());
+            }
+        }
+        let nuts_family = family.nuts_family();
         if nuts_family.likelihood_spec().is_binomial() {
             validate_binary_responses("binomial link-wiggle NUTS", &y, &weights)
                 .map_err(String::from)?;
@@ -5577,17 +5911,12 @@ impl LinkWigglePosterior {
                 .map_err(String::from)?;
         }
         // Whitening metric `L Lᵀ = cov_scale · H⁻¹` (#679/#680 invariant), so
-        // scale `L` by `√cov_scale`. For the link-wiggle joint target `scale`
-        // is σ (Gaussian), so the profiled-Gaussian covariance scale is
-        // `cov_scale = σ²`. Every other family folds its dispersion into the
-        // working weight / the `shape`/`theta` already inside its
-        // log-likelihood, so `cov_scale = 1` and this is a no-op. The previous
-        // Gamma branch scaled `L` by `1/√shape = √φ`, mis-preconditioning the
-        // sampler against `φ·H⁻¹` instead of the correct `H⁻¹` (#680).
-        let cov_scale = match nuts_family {
-            NutsFamily::Gaussian => scale * scale,
-            _ => 1.0,
-        };
+        // scale `L` by `√cov_scale`: `σ²` for the profiled Gaussian, `1.0`
+        // for every family that folds its dispersion into the working weight
+        // / the `shape`/`theta` already inside its log-likelihood. The
+        // pre-#680 Gamma branch scaled `L` by `1/√shape = √φ`,
+        // mis-preconditioning the sampler against `φ·H⁻¹` instead of `H⁻¹`.
+        let cov_scale = family.cov_scale();
         let whitening = hessian_whitening_transform(
             hessian,
             dim,
@@ -5600,6 +5929,7 @@ impl LinkWigglePosterior {
             x: Arc::new(x.to_owned()),
             y: Arc::new(y.to_owned()),
             weights: Arc::new(weights.to_owned()),
+            offset: offset.map(|o| Arc::new(o.to_owned())),
             penalty_base: Arc::new(penalty_base.to_owned()),
             penalty_link: Arc::new(penalty_link.to_owned()),
             mode_beta: Arc::new(mode_beta.to_owned()),
@@ -5610,8 +5940,7 @@ impl LinkWigglePosterior {
             p_base,
             p_link,
             n_samples,
-            nuts_family,
-            scale,
+            family,
             cov_scale,
         })
     }
@@ -5709,16 +6038,19 @@ impl LinkWigglePosterior {
         let beta = q.slice(ndarray::s![0..self.p_base]).to_owned();
         let theta = q.slice(ndarray::s![self.p_base..]).to_owned();
 
-        // Compute η = q₀ + B(q₀)·θ where q₀ = X·β
-        let u = gam_linalg::faer_ndarray::fast_av(self.x.as_ref(), &beta);
+        // Compute η = q₀ + B(q₀)·θ where q₀ = X·β (+ fixed fit-time offset)
+        let mut u = gam_linalg::faer_ndarray::fast_av(self.x.as_ref(), &beta);
+        if let Some(offset) = self.offset.as_ref() {
+            u += offset.as_ref();
+        }
         let (bwiggle, eta) = self.evaluate_link(&u, &theta);
 
         // Log-likelihood and residuals via family dispatch
         let ll;
         let mut residual = Array1::<f64>::zeros(self.n_samples);
-        match self.nuts_family {
-            NutsFamily::Gaussian => {
-                let inv_scale_sq = 1.0 / (self.scale * self.scale).max(1e-10);
+        match self.family {
+            LinkWiggleFamilyParams::Gaussian { sigma } => {
+                let inv_scale_sq = 1.0 / (sigma * sigma).max(1e-10);
                 let mut ll_acc = 0.0;
                 for i in 0..self.n_samples {
                     let r = self.y[i] - eta[i];
@@ -5728,7 +6060,7 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
-            NutsFamily::BinomialLogit => {
+            LinkWiggleFamilyParams::BinomialLogit => {
                 let mut ll_acc = 0.0;
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
@@ -5739,7 +6071,7 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
-            NutsFamily::BinomialProbit => {
+            LinkWiggleFamilyParams::BinomialProbit => {
                 let mut ll_acc = 0.0;
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
@@ -5754,11 +6086,11 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
-            NutsFamily::BinomialCLogLog => {
+            LinkWiggleFamilyParams::BinomialCLogLog => {
                 let mut ll_acc = 0.0;
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
-                    if !(eta_i.is_finite() && (-700.0..=700.0).contains(&eta_i)) {
+                    if !eta_i.is_finite() {
                         grad.fill(0.0);
                         return f64::NEG_INFINITY;
                     }
@@ -5775,11 +6107,16 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
-            NutsFamily::PoissonLog => {
+            LinkWiggleFamilyParams::PoissonLog => {
                 let mut ll_acc = 0.0;
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
-                    if !(eta_i.is_finite() && (-30.0..=30.0).contains(&eta_i)) {
+                    // Only non-finite η invalidates the target: any finite η
+                    // has a valid Poisson log-density (the old ±30 window
+                    // declared e.g. y = 0, η = −31 impossible, pinning the
+                    // sampled posterior to an arbitrary boundary). Genuine
+                    // binary64 exhaustion is caught after the family match.
+                    if !eta_i.is_finite() {
                         grad.fill(0.0);
                         return f64::NEG_INFINITY;
                     }
@@ -5790,41 +6127,34 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
-            NutsFamily::TweedieLog => {
+            LinkWiggleFamilyParams::TweedieLog { power: p, phi } => {
+                // Tweedie quasi-log-likelihood on the log link, per-row
+                // ℓᵢ = (wᵢ/φ)·(yᵢ·μ^{1−p}/(1−p) − μ^{2−p}/(2−p)); the 1/φ
+                // factor scales both the value and the score exactly as the
+                // flat NUTS path's `data.dispersion` does. `p` and `φ` are
+                // validated at construction (finding 15, #2245).
+                let inv_phi = 1.0 / phi;
                 let mut ll_acc = 0.0;
-                // Family mapping: Tweedie scale carries payload p; phi is not stored here.
-                // Invalid p makes the link-wiggle target invalid instead of defaulting.
-                if !is_valid_tweedie_power(self.scale) {
-                    grad.fill(0.0);
-                    return f64::NEG_INFINITY;
-                }
-                let p = self.scale;
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
-                    if !(eta_i.is_finite() && (-30.0..=30.0).contains(&eta_i)) {
+                    if !eta_i.is_finite() {
                         grad.fill(0.0);
                         return f64::NEG_INFINITY;
                     }
                     let (y_i, w_i) = (self.y[i], self.weights[i]);
                     let mu = eta_i.exp().max(1e-300);
-                    ll_acc +=
-                        w_i * (y_i * mu.powf(1.0 - p) / (1.0 - p) - mu.powf(2.0 - p) / (2.0 - p));
-                    residual[i] = w_i * (y_i - mu) * mu.powf(1.0 - p);
+                    ll_acc += w_i
+                        * inv_phi
+                        * (y_i * mu.powf(1.0 - p) / (1.0 - p) - mu.powf(2.0 - p) / (2.0 - p));
+                    residual[i] = w_i * inv_phi * (y_i - mu) * mu.powf(1.0 - p);
                 }
                 ll = ll_acc;
             }
-            NutsFamily::NegativeBinomialLog => {
+            LinkWiggleFamilyParams::NegativeBinomialLog { theta } => {
                 let mut ll_acc = 0.0;
-                // Family mapping: NegativeBinomial scale carries payload theta.
-                // Invalid theta makes the link-wiggle target invalid instead of clamping.
-                if !(self.scale.is_finite() && self.scale > 0.0) {
-                    grad.fill(0.0);
-                    return f64::NEG_INFINITY;
-                }
-                let theta = self.scale;
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
-                    if !(eta_i.is_finite() && (-30.0..=30.0).contains(&eta_i)) {
+                    if !eta_i.is_finite() {
                         grad.fill(0.0);
                         return f64::NEG_INFINITY;
                     }
@@ -5846,12 +6176,11 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
-            NutsFamily::GammaLog => {
+            LinkWiggleFamilyParams::GammaLog { shape } => {
                 let mut ll_acc = 0.0;
-                let shape = self.scale.max(1e-10);
                 for i in 0..self.n_samples {
                     let eta_i = eta[i];
-                    if !(eta_i.is_finite() && (-30.0..=30.0).contains(&eta_i)) {
+                    if !eta_i.is_finite() {
                         grad.fill(0.0);
                         return f64::NEG_INFINITY;
                     }
@@ -5862,6 +6191,14 @@ impl LinkWigglePosterior {
                 }
                 ll = ll_acc;
             }
+        }
+
+        // A finite η can still exhaust binary64 (overflowing exp against a
+        // positive response): genuine log-density underflow is rejected as −∞
+        // with a zero gradient — never via an a-priori η support window.
+        if !ll.is_finite() {
+            grad.fill(0.0);
+            return f64::NEG_INFINITY;
         }
 
         // Penalty weight = 1/cov_scale (#679/#680 invariant), matching the
@@ -5937,14 +6274,14 @@ pub fn run_link_wiggle_nuts_sampling(
     x: ArrayView2<f64>,
     y: ArrayView1<f64>,
     weights: ArrayView1<f64>,
+    offset: Option<ArrayView1<f64>>,
     penalty_base: ArrayView2<f64>,
     penalty_link: ArrayView2<f64>,
     mode_beta: ArrayView1<f64>,
     mode_theta: ArrayView1<f64>,
     hessian: ArrayView2<f64>,
     spline: LinkWiggleSplineArtifacts,
-    nuts_family: NutsFamily,
-    scale: f64,
+    family: LinkWiggleFamilyParams,
     config: &NutsConfig,
 ) -> Result<NutsResult, String> {
     validate_nuts_config(config).map_err(String::from)?;
@@ -5953,14 +6290,14 @@ pub fn run_link_wiggle_nuts_sampling(
         x,
         y,
         weights,
+        offset,
         penalty_base,
         penalty_link,
         mode_beta,
         mode_theta,
         hessian,
         spline,
-        nuts_family,
-        scale,
+        family,
     )?;
     let chol = target.chol().clone();
     let mode_arr = target.mode_joint();
@@ -6727,12 +7064,33 @@ impl JointBetaRhoPosterior {
         rho_mode: ArrayView1<f64>,
         likelihood: LikelihoodSpec,
         gamma_shape: Option<f64>,
+        dispersion: gam_solve::model_types::Dispersion,
+        offset: Option<ArrayView1<f64>>,
         rho_prior: RhoPrior,
         firth_enabled: bool,
     ) -> Result<Self, String> {
         let n_samples = x.nrows();
         let n_beta = x.ncols();
         let n_rho = penalty_canonical.len();
+
+        if let Some(offset) = offset.as_ref() {
+            if offset.len() != n_samples {
+                return Err(HmcError::DimensionMismatch {
+                    reason: format!(
+                        "Joint HMC offset length {} does not match {} observations",
+                        offset.len(),
+                        n_samples
+                    ),
+                }
+                .into());
+            }
+            if !offset.iter().all(|v| v.is_finite()) {
+                return Err(HmcError::NonFiniteState {
+                    reason: "Joint HMC offset contains NaN or Inf values".to_string(),
+                }
+                .into());
+            }
+        }
 
         if rho_mode.len() != n_rho {
             return Err(HmcError::DimensionMismatch {
@@ -6826,13 +7184,17 @@ impl JointBetaRhoPosterior {
             y: Arc::new(y.to_owned()),
             weights: Arc::new(weights.to_owned()),
             mode: Arc::new(mode.to_owned()),
-            offset: None,
+            // The fit's offset and dispersion are fixed likelihood state: the
+            // joint target must retain both or it samples a different model —
+            // hard-coding φ = 1 gave a Gaussian fit with σ² = 4 four times its
+            // true likelihood curvature, and dropping the offset shifted every
+            // offset model's posterior (finding 18, #2245). The family kernels
+            // read `data.dispersion` (Gaussian 1/φ scaling, Tweedie 1/φ
+            // quasi-weight); families whose working weight already carries the
+            // dispersion pass `Known(1.0)` from the caller.
+            offset: offset.map(|o| Arc::new(o.to_owned())),
             gamma_shape: gamma_shape.unwrap_or(1.0),
-            // Joint (β, ρ) HMC keeps the likelihood on its native scale;
-            // dispersion enters via the per-family scale parameter, not
-            // via the whitening transform here. `Known(1.0)` matches the
-            // pre-refactor behaviour for this code path.
-            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            dispersion,
             n_samples,
             dim: n_beta,
         };
@@ -6970,8 +7332,11 @@ impl JointBetaRhoPosterior {
         // Un-whiten: β = μ + L z
         let beta = self.data.mode.as_ref() + &self.chol.dot(&z);
 
-        // η = X β
-        let eta = gam_linalg::faer_ndarray::fast_av(self.data.x.as_ref(), &beta);
+        // η = X β (+ fixed fit-time offset)
+        let mut eta = gam_linalg::faer_ndarray::fast_av(self.data.x.as_ref(), &beta);
+        if let Some(offset) = self.data.offset.as_ref() {
+            eta += offset.as_ref();
+        }
 
         // ---- Log-likelihood ℓ(y|β) and ∇_β ℓ ----
         let step_likelihood = LikelihoodSpec {
@@ -6997,7 +7362,12 @@ impl JointBetaRhoPosterior {
 
         let mut firth_logdet = 0.0;
         if self.firth_enabled {
-            match firth_jeffreys_logp_and_grad(NutsFamily::BinomialLogit, &self.data, &eta) {
+            // The Jeffreys determinant must use the *sampled* inverse link's
+            // Fisher-weight jet — the same `step_likelihood` (with the current
+            // adaptive link parameters) the log-likelihood above was evaluated
+            // under. Hard-coding logit gave probit/cloglog/SAS/mixture targets
+            // the wrong determinant and gradient (finding 19, #2245).
+            match firth_jeffreys_logp_and_grad(&step_likelihood, &self.data, &eta) {
                 Ok((value, grad_beta_firth)) => {
                     firth_logdet = value;
                     grad_ll_beta += &grad_beta_firth;
@@ -7230,6 +7600,16 @@ pub struct JointBetaRhoInputs<'a> {
     pub weights: ArrayView1<'a, f64>,
     pub likelihood: LikelihoodSpec,
     pub gamma_shape: Option<f64>,
+    /// Fitted dispersion φ, exactly as the flat NUTS path carries it: the
+    /// estimated σ² for a profiled Gaussian and the Tweedie φ; `Known(1.0)`
+    /// for families whose working weight already folds the dispersion in.
+    /// The joint target is the fitted model's posterior only if this matches
+    /// the fit.
+    pub dispersion: gam_solve::model_types::Dispersion,
+    /// Fixed additive offset on the linear predictor (η = Xβ + offset), or
+    /// `None` for an offset-free fit. Dropping a fit-time offset shifts the
+    /// sampled posterior of every offset model.
+    pub offset: Option<ArrayView1<'a, f64>>,
     pub mode: ArrayView1<'a, f64>,
     pub hessian: ArrayView2<'a, f64>,
     pub penalty_roots: Vec<CanonicalPenalty>,
@@ -7276,6 +7656,8 @@ pub fn run_joint_beta_rho_sampling(
         inputs.rho_mode,
         inputs.likelihood.clone(),
         inputs.gamma_shape,
+        inputs.dispersion,
+        inputs.offset,
         inputs.rho_prior.clone(),
         inputs.firth_bias_reduction,
     )?;

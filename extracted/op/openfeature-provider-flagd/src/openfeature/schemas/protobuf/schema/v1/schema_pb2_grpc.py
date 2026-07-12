@@ -5,7 +5,7 @@ import warnings
 
 from openfeature.schemas.protobuf.schema.v1 import schema_pb2 as openfeature_dot_schemas_dot_protobuf_dot_schema_dot_v1_dot_schema__pb2
 
-GRPC_GENERATED_VERSION = '1.81.0'
+GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

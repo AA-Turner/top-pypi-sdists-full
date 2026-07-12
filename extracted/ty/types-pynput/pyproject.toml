@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pynput"
-version = "1.8.1.20260603"
+version = "1.8.1.20260712"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pynput"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.410
+* [mypy](https://github.com/python/mypy/) 2.2.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`da65515fd167da571636aedd519fb1a843f7c6bf`](https://github.com/python/typeshed/commit/da65515fd167da571636aedd519fb1a843f7c6bf).
+[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

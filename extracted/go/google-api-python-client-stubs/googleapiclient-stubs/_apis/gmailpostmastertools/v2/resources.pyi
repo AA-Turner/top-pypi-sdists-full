@@ -16,7 +16,7 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class DomainStatsResource(googleapiclient.discovery.Resource):
         def batchQuery(
-            self, *, body: BatchQueryDomainStatsRequest = ..., **kwargs: typing.Any
+            self, *, body: BatchQueryDomainStatsRequest, **kwargs: typing.Any
         ) -> BatchQueryDomainStatsResponseHttpRequest: ...
 
     @typing.type_check_only
@@ -27,7 +27,7 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: QueryDomainStatsRequest = ...,
+                body: QueryDomainStatsRequest,
                 **kwargs: typing.Any,
             ) -> QueryDomainStatsResponseHttpRequest: ...
             def query_next(
@@ -39,11 +39,7 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class UsersResource(googleapiclient.discovery.Resource):
             def create(
-                self,
-                *,
-                parent: str,
-                body: CreateUserRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: CreateUserRequest, **kwargs: typing.Any
             ) -> UserHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -53,8 +49,8 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListUsersResponseHttpRequest: ...
             def list_next(
@@ -66,13 +62,13 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: User = ...,
-                updateMask: str = ...,
+                body: User,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> UserHttpRequest: ...
 
         def create(
-            self, *, body: CreateDomainRequest = ..., **kwargs: typing.Any
+            self, *, body: CreateDomainRequest, **kwargs: typing.Any
         ) -> DomainHttpRequest: ...
         def delete(self, *, name: str, **kwargs: typing.Any) -> EmptyHttpRequest: ...
         def get(self, *, name: str, **kwargs: typing.Any) -> DomainHttpRequest: ...
@@ -85,11 +81,16 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
             name: str,
             verificationMethod: typing_extensions.Literal[
                 "DOMAIN_VERIFICATION_METHOD_UNSPECIFIED", "TXT", "CNAME"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> DomainVerificationTokenHttpRequest: ...
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListDomainsResponseHttpRequest: ...
         def list_next(
             self,
@@ -97,7 +98,7 @@ class PostmasterToolsResource(googleapiclient.discovery.Resource):
             previous_response: ListDomainsResponse,
         ) -> ListDomainsResponseHttpRequest | None: ...
         def verify(
-            self, *, name: str, body: VerifyDomainRequest = ..., **kwargs: typing.Any
+            self, *, name: str, body: VerifyDomainRequest, **kwargs: typing.Any
         ) -> VerifyDomainResponseHttpRequest: ...
         def domainStats(self) -> DomainStatsResource: ...
         def users(self) -> UsersResource: ...

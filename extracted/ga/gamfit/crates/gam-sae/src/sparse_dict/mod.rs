@@ -36,6 +36,7 @@ mod coordinate;
 mod scoring;
 #[cfg(target_os = "linux")]
 mod scoring_gpu;
+mod split_lr_fdr;
 mod stream;
 mod update;
 
@@ -43,15 +44,15 @@ mod update;
 mod tests;
 
 pub use block::{
-    BlockSparseConfig, BlockSparseFit, block_gates, block_projections_row,
-    block_sparse_dictionary_block_coords, block_sparse_dictionary_lift_block,
-    block_sparse_dictionary_project_residual, block_sparse_dictionary_transform,
-    fit_block_sparse_dictionary, reconstruct_block_sparse_rows, reconstruct_row, route_row_blocks,
-    row_loss,
+    BlockSparseConfig, BlockSparseConvergence, BlockSparseFit, BlockSparseFitError, block_gates,
+    block_projections_row, block_sparse_dictionary_block_coords,
+    block_sparse_dictionary_lift_block, block_sparse_dictionary_project_residual,
+    block_sparse_dictionary_transform, fit_block_sparse_dictionary, reconstruct_block_sparse_rows,
+    reconstruct_row, route_row_blocks, row_loss,
 };
 pub use block_chart::{
     BlockChartComposeConfig, BlockChartComposeResult, BlockChartRecord, BlockSeedManifest,
-    BlockSeedManifestConfig, BlockSeedRecord, ChartEvidence, MdlFeaturizerRow,
+    BlockSeedManifestConfig, BlockSeedRecord, CHART_FDR_ALPHA, ChartEvidence, MdlFeaturizerRow,
     block_sparse_dictionary_firings, block_sparse_dictionary_seed_manifest,
     compose_block_coordinate_charts,
 };
@@ -64,23 +65,27 @@ pub use block_stream::{
     BlockEpochStats, BlockShardStats, BlockSparseStreamArtifact, BlockSparseStreamState,
 };
 pub use codes::SparseCode;
-pub use cofit::{
-    CofitConfig, CofitReport, CofitRound, cofit_block_and_curved,
-};
+pub use cofit::{CofitConfig, CofitReport, CofitRound, cofit_block_and_curved};
 pub use coordinate::{
     BlockCoordinateReport, BlockMeasureCoordinateReport, FiringCoordinate, MeasureSpikeCoordinate,
     MeasureValuedCode, block_firing_coordinates, block_measure_valued_codes,
-    explained_variance_from_reconstruction, harmonic_firing_coordinates,
-    harmonic_measure_coordinates, recover_measure_from_code, reconstruct_measure_valued_rows,
-    reconstruct_single_coordinate_rows,
+    block_route_firing_coordinates, explained_variance_from_reconstruction,
+    harmonic_firing_coordinates, harmonic_measure_coordinates, harmonic_route_firing_coordinates,
+    reconstruct_measure_valued_rows, reconstruct_single_coordinate_rows, recover_measure_from_code,
 };
 pub use scoring::{ScoreRoutePath, ScoreRouteResult, ScoreRouteStats, TileScorer, top_s_online};
 #[cfg(target_os = "linux")]
 pub use scoring_gpu::{
     DEVICE_SCORE_BLOCK_MIN_ELEMS, ScoreBlockPath, score_block_cpu, score_block_required,
 };
+pub use split_lr_fdr::{
+    FdrCertificate, crossfit_ui_log_evalue, family_fdr_certificate, shell_vs_ring_log_evalue,
+};
 pub use stream::{EpochStats, ShardStats, SparseDictArtifact, SparseDictStreamState};
-pub use update::DecoderSolveStats;
+pub use update::{
+    DecoderSolveStats, LinearBlockRemlStats, SparseDictionaryError, linear_block_reml_stats,
+    linear_shared_rho_fs_step,
+};
 
 use ndarray::{Array2, ArrayView2};
 
@@ -117,7 +122,7 @@ pub struct SparseDictConfig {
     /// Per-fit score routing residency contract. `Required` is fail-closed: a
     /// high-`K` route that cannot run on the CUDA score-block path returns an
     /// error instead of silently scoring on the CPU.
-    pub score_mode: gam_gpu::GpuMode,
+    pub score_mode: gam_gpu::GpuPolicy,
 }
 
 impl SparseDictConfig {
@@ -142,7 +147,7 @@ impl Default for SparseDictConfig {
             code_ridge: 1.0e-6,
             decoder_ridge: 1.0e-6,
             tolerance: 1.0e-6,
-            score_mode: gam_gpu::GpuMode::Auto,
+            score_mode: gam_gpu::GpuPolicy::Auto,
         }
     }
 }
@@ -166,14 +171,62 @@ pub struct SparseDictFit {
     pub explained_variance: f64,
     /// Number of epochs actually run.
     pub epochs: usize,
-    /// Whether the EV-improvement tolerance was reached.
-    pub converged: bool,
+    /// Inner-alternation and outer-REML fixed-point certificate. A
+    /// [`SparseDictFit`] is constructed only when every residual below is at or
+    /// below its matching tolerance.
+    pub convergence: SparseDictConvergence,
     /// Active budget `s` actually used (`min(active, K)`).
     pub active: usize,
     /// Aggregate CPU/GPU scoring counters over every route pass in the fit.
     pub score_route_stats: ScoreRouteStats,
     /// Decoder refresh percolation/CG certificate from the final MOD update.
     pub decoder_solve_stats: DecoderSolveStats,
+}
+
+/// Checkable convergence evidence attached to every [`SparseDictFit`].
+#[derive(Clone, Copy, Debug)]
+pub struct SparseDictConvergence {
+    /// Absolute held-in EV change over the final inner alternation.
+    pub inner_ev_residual: f64,
+    /// Configured inner EV tolerance.
+    pub inner_tolerance: f64,
+    /// Gauge-invariant decoder displacement under one full inner update map.
+    pub decoder_residual: f64,
+    /// Full-map, gauge-invariant decoder fixed-point threshold.
+    pub decoder_tolerance: f64,
+    /// Relative sparse-code/reconstruction displacement under one full inner map.
+    pub routing_residual: f64,
+    /// Full-map routing fixed-point threshold.
+    pub routing_tolerance: f64,
+    /// REML fixed-point residual `|ρ_new - ρ| / ρ`.
+    pub outer_rho_residual: f64,
+    /// Estimator-derived REML fixed-point tolerance.
+    pub outer_tolerance: f64,
+    /// Evidence-selected shared ridge.
+    pub selected_rho: f64,
+    /// Full inner fits evaluated by the outer REML schedule.
+    pub outer_iterations: usize,
+}
+
+impl SparseDictConvergence {
+    /// A certificate whose every residual is exactly zero against a positive
+    /// tolerance — i.e. a trivially converged fixed point. Used to mint
+    /// [`SparseDictFit`] values from fixed, hand-authored routings (downstream
+    /// consumers read the routing, not the fixed-point history).
+    pub fn trivially_converged() -> Self {
+        Self {
+            inner_ev_residual: 0.0,
+            inner_tolerance: 1e-6,
+            decoder_residual: 0.0,
+            decoder_tolerance: 1e-6,
+            routing_residual: 0.0,
+            routing_tolerance: 1e-6,
+            outer_rho_residual: 0.0,
+            outer_tolerance: 1e-6,
+            selected_rho: f64::INFINITY,
+            outer_iterations: 0,
+        }
+    }
 }
 
 impl SparseDictFit {
@@ -254,7 +307,7 @@ pub fn sparse_dictionary_transform(
         active,
         score_tile,
         code_ridge,
-        gam_gpu::gpu_mode(),
+        gam_gpu::global_policy(),
     )?;
     Ok((transform.indices, transform.codes))
 }
@@ -262,7 +315,7 @@ pub fn sparse_dictionary_transform(
 /// Out-of-sample encode with an explicit score routing mode and route counters.
 ///
 /// This is the Rust-native high-`K` T1 transform surface: callers that require
-/// GPU scoring pass [`gam_gpu::GpuMode::Required`] and inspect
+/// GPU scoring pass [`gam_gpu::GpuPolicy::Required`] and inspect
 /// [`SparseDictTransform::score_route_stats`] to verify device engagement.
 pub fn sparse_dictionary_transform_with_mode(
     x: ArrayView2<'_, f32>,
@@ -270,7 +323,7 @@ pub fn sparse_dictionary_transform_with_mode(
     active: usize,
     score_tile: usize,
     code_ridge: f32,
-    score_mode: gam_gpu::GpuMode,
+    score_mode: gam_gpu::GpuPolicy,
 ) -> Result<SparseDictTransform, String> {
     let k = decoder.nrows();
     if k == 0 {
@@ -310,9 +363,14 @@ pub fn sparse_dictionary_transform_with_mode(
 /// This is the public entry of the collapsed linear lane. It never forms a
 /// dense `N×K` object: scoring is tiled, routing is fixed-width sparse, and the
 /// decoder is refreshed from accumulated sparse normal equations.
+///
+/// The two ridge fields must name one shared starting value. That value is only
+/// the warm start for the evidence-selected shared `ρ`; every public fit runs the
+/// outer REML fixed-point schedule and returns only after both inner and outer
+/// certificates are satisfied.
 pub fn fit_sparse_dictionary(
     x: ArrayView2<'_, f32>,
     config: &SparseDictConfig,
-) -> Result<SparseDictFit, String> {
-    update::run(x, config)
+) -> Result<SparseDictFit, SparseDictionaryError> {
+    update::run_linear_reml_schedule(x, config)
 }

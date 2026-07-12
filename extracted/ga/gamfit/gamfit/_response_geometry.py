@@ -8,7 +8,7 @@ model.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from ._binding import rust_module
 from ._exceptions import map_exception
@@ -362,7 +362,7 @@ class ResponseGeometryModel:
     base_point: Any
     coordinates: str
     reference: int = -1
-    training_table_kind: str | None = None
+    training_table_kind: str = "unknown"
     shared_tangent_fit: SharedGaussianRemlTangentFit | None = None
     # Curvature-as-estimand summary (only populated for constant_curvature
     # geometries): κ̂, its profile-likelihood CI, geometry verdict, and the Wilks

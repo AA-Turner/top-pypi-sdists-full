@@ -21,8 +21,7 @@ pub(crate) use gam::solver::estimate::{
 };
 
 pub(crate) use gam::linalg::faer_ndarray::{
-    FaerCholesky, FaerSvd, array2_to_matmut, factorize_symmetricwith_fallback, fast_ata, fast_atb,
-    fast_xt_diag_x,
+    FaerCholesky, array2_to_matmut, factorize_symmetricwith_fallback, fast_xt_diag_x,
 };
 
 pub(crate) use gam::families::bms::BernoulliMarginalSlopeFitResult;
@@ -55,15 +54,19 @@ pub(crate) use gam::solver::gaussian_reml::{
 pub(crate) use gam::geometry::manifold::GeometryError as EngineGeometryError;
 
 pub(crate) use gam::geometry::poincare::{
-    conformal_factor as poincare_conformal_factor_impl, exp_map as poincare_exp_map_impl,
-    exp_origin as poincare_exp_origin_impl, from_lorentz as poincare_from_lorentz_impl,
-    log_map as poincare_log_map_impl, log_origin as poincare_log_origin_impl,
+    conformal_factor as poincare_conformal_factor_impl,
+    distance_batch as poincare_distance_batch_impl, exp_map as poincare_exp_map_impl,
+    exp_map_batch as poincare_exp_map_batch_impl, exp_origin as poincare_exp_origin_impl,
+    from_lorentz as poincare_from_lorentz_impl, log_map as poincare_log_map_impl,
+    log_map_batch as poincare_log_map_batch_impl, log_origin as poincare_log_origin_impl,
     lorentz_decode_backward as poincare_lorentz_decode_backward_impl,
     lorentz_decode_forward as poincare_lorentz_decode_forward_impl,
     lorentz_exp_origin as poincare_lorentz_exp_origin_impl,
-    lorentz_log_origin as poincare_lorentz_log_origin_impl, mobius_add as poincare_mobius_add_impl,
-    poincare_distance as poincare_distance_impl,
+    lorentz_log_origin as poincare_lorentz_log_origin_impl,
+    metric_tensor_batch as poincare_metric_tensor_batch_impl,
+    mobius_add as poincare_mobius_add_impl, poincare_distance as poincare_distance_impl,
     project_into_ball as poincare_project_into_ball_impl,
+    project_into_ball_batch as poincare_project_into_ball_batch_impl,
     tangent_decode_backward as poincare_tangent_decode_backward_impl,
     tangent_decode_forward as poincare_tangent_decode_forward_impl,
     to_lorentz as poincare_to_lorentz_impl,
@@ -100,9 +103,12 @@ pub(crate) use gam::inference::model_payload_builders::{
 pub(crate) use gam_predict::posterior_bands::{self, PosteriorPredictBandsPayload};
 
 pub(crate) use gam_predict::FittedModelPredictExt;
-pub(crate) use gam_predict::input::build_predict_input_for_model;
+pub(crate) use gam_predict::input::{
+    build_predict_input_for_model, build_transformation_normal_observed_scores,
+};
 
 pub(crate) use gam::geometry::sae_routing::apply_anchor_rule as sae_apply_anchor_rule_impl;
+pub(crate) use gam::geometry::sae_routing::assign_ema_update as sae_assign_ema_update_impl;
 pub(crate) use gam::geometry::sae_routing::direction_cluster_anchor as sae_direction_cluster_anchor_impl;
 pub(crate) use gam::geometry::sae_routing::duchon_centers_nd as sae_duchon_centers_nd_impl;
 pub(crate) use gam::geometry::sae_routing::matching_pursuit_commit as sae_matching_pursuit_commit_impl;
@@ -141,14 +147,14 @@ pub(crate) use gam::terms::basis::{
     OneDimensionalBoundary, OperatorPenaltySpec, PeriodicBSplineBasisSpec, SpatialIdentifiability,
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
     SplineScratch, auto_centers_1d_equal_mass, auto_knot_vector_1d_quantile,
-    bspline_tensor_first_derivative, build_duchon_basis, build_duchon_basis_mixed_periodicity_auto,
-    build_duchon_operator_penalty_matrices, build_matern_basis, build_matern_basis_literal_aniso,
-    build_periodic_bspline_basis_1d, build_spherical_spline_basis, build_thin_plate_penalty_matrix,
-    create_basis, create_cyclic_difference_penalty_matrix, create_difference_penalty_matrix,
-    duchon_cubic_default, duchon_nullspace_dimension, duchon_polynomial_first_derivative_nd,
-    duchon_pure_kernel_amplification, duchon_radial_first_derivative_nd,
-    duchon_sae_atom_basis_with_jet, evaluate_bspline_basis_scalar,
-    matern_input_location_hessian_nd, matern_input_location_jet_nd,
+    bspline_derivative_penalty_matrix, bspline_tensor_first_derivative, build_duchon_basis,
+    build_duchon_basis_mixed_periodicity_auto, build_duchon_operator_penalty_matrices,
+    build_matern_basis, build_matern_basis_literal_aniso, build_periodic_bspline_basis_1d,
+    build_spherical_spline_basis, build_thin_plate_penalty_matrix, create_basis,
+    cyclic_bspline_derivative_penalty_matrix, duchon_cubic_default,
+    duchon_polynomial_first_derivative_nd, duchon_pure_kernel_amplification,
+    duchon_radial_first_derivative_nd, duchon_sae_atom_basis_with_jet,
+    evaluate_bspline_basis_scalar, matern_input_location_hessian_nd, matern_input_location_jet_nd,
     matern_radial_first_derivative_nd, monomial_exponents, periodic_bspline_first_derivative_nd,
     resolve_duchon_orders, select_spherical_farthest_point_centers, sphere_first_derivative_nd,
     spherical_spline_design_jet,
@@ -168,8 +174,8 @@ pub(crate) use gam::terms::decoders::interchange_decoder::{
 pub(crate) use gam::terms::latent::{AuxPriorFamily, aux_prior_targets};
 
 pub(crate) use gam::terms::dictionary::{
-    LinearDictionaryAssignment, LinearDictionaryConfig, fit_linear_dictionary,
-    linear_dictionary_transform,
+    LinearDictionaryAssignment, LinearDictionaryConfig, LinearDictionaryError,
+    fit_linear_dictionary, linear_dictionary_transform,
 };
 
 pub(crate) use gam::terms::sae::sparse_dict::{
@@ -183,11 +189,13 @@ pub(crate) use gam::terms::sae::sparse_dict::{
 };
 
 pub(crate) use gam::terms::sae::manifold::{
-    AssignmentMode, CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,
-    GumbelTemperatureSchedule, PeriodicHarmonicEvaluator, SPHERE_CHART_PENALTY_DIAGONAL,
-    SaeAtomBasisKind, SaeBasisEvaluator, SaeBasisSecondJet, SaeManifoldRho, ScheduleKind,
-    SphereChartEvaluator, TorusHarmonicEvaluator, sphere_chart_basis_jet,
-    term_from_padded_blocks_with_mode,
+    GumbelTemperatureSchedule, SPHERE_CHART_PENALTY_DIAGONAL, SaeAtomBasisKind,
+    SaeFisherRowMetricRequest, SaeFitAssignmentKind, SaeFitSeedReport, SaeFitSeedRequest,
+    SaeManifoldRho, SaeMinimalSeedReport, SaeMinimalSeedRequest, SaeStagewiseSeedReport,
+    SaeStagewiseSeedRequest, ScheduleKind, build_sae_basis_evaluators, build_sae_fisher_row_metric,
+    build_sae_fit_seed, build_sae_minimal_seed, build_sae_stagewise_seed,
+    sae_atom_basis_kind_from_str, sae_atom_basis_kind_name, sae_pick_duchon_center_indices,
+    sae_torus_axis_basis_size, sphere_chart_basis_jet,
 };
 
 pub(crate) use gam::terms::decoders::skip_transcoder::{
@@ -218,7 +226,7 @@ pub(crate) use gam::families::fit_orchestration::{
 };
 
 pub(crate) use ndarray::{
-    Array1, Array2, Array3, Array4, ArrayView1, ArrayView2, ArrayView3, ArrayView4, Axis, IxDyn, s,
+    Array1, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, ArrayView4, Axis, IxDyn, s,
 };
 
 pub(crate) use numpy::{
@@ -230,7 +238,7 @@ pub(crate) use pyo3::IntoPyObjectExt;
 
 pub(crate) type PyObject = pyo3::Py<pyo3::PyAny>;
 
-pub(crate) use pyo3::exceptions::{PyKeyError, PyNotImplementedError, PyTypeError, PyValueError};
+pub(crate) use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
 
 pub(crate) use pyo3::prelude::*;
 
@@ -240,8 +248,6 @@ pub(crate) use serde::de::{MapAccess, Visitor};
 
 pub(crate) use serde::{Deserialize, Serialize};
 
-pub(crate) use std::cmp::Ordering;
-
 pub(crate) use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub(crate) use std::fmt;
@@ -249,5 +255,3 @@ pub(crate) use std::fmt;
 pub(crate) use std::panic::{AssertUnwindSafe, catch_unwind};
 
 pub(crate) use std::sync::Arc;
-
-pub(crate) use std::sync::{Mutex, OnceLock};

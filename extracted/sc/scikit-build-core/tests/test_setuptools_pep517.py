@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 import setuptools
+import setuptools.command.sdist
 from conftest import VEnv
 from packaging.version import Version
 
@@ -27,6 +28,12 @@ except ImportError:  # pragma: no cover - setuptools-scm < 10 or missing depende
 pytestmark = pytest.mark.setuptools
 setuptools_version = Version(importlib.metadata.version("setuptools"))
 build_editable = getattr(setuptools_build_meta, "build_editable", None)
+
+# sdist consults build sub-commands' get_source_files() only since
+# setuptools 62.4; older versions won't pick up CMakeLists.txt.
+SDIST_USES_SUBCOMMAND_SOURCES = hasattr(
+    setuptools.command.sdist.sdist, "_add_defaults_build_sub_commands"
+)
 
 
 @dataclass(frozen=True)
@@ -105,28 +112,31 @@ def test_pep517_sdist(tmp_path: Path):
     assert sdist == dist / out
     cmake_example = sdist.name[:13]
 
+    expected = [
+        "PKG-INFO",
+        "src",
+        "src/cmake_example.egg-info",
+        "src/cmake_example.egg-info/PKG-INFO",
+        "src/cmake_example.egg-info/SOURCES.txt",
+        "src/cmake_example.egg-info/dependency_links.txt",
+        "src/cmake_example.egg-info/not-zip-safe",
+        "src/cmake_example.egg-info/requires.txt",
+        "src/cmake_example.egg-info/top_level.txt",
+        "pyproject.toml",
+        "setup.cfg",
+        "setup.py",
+        "LICENSE",
+    ]
+    if SDIST_USES_SUBCOMMAND_SOURCES:
+        expected.append("CMakeLists.txt")
+        # Opted in via sdist.include in the package's pyproject.toml.
+        expected.append("src/main.c")
+
     with tarfile.open(sdist) as f:
         file_names = set(f.getnames())
-        assert file_names == {
-            f"{cmake_example}-0.0.1/{x}"
-            for x in (
-                # TODO: "CMakeLists.txt",
-                "PKG-INFO",
-                "src",
-                "src/cmake_example.egg-info",
-                "src/cmake_example.egg-info/PKG-INFO",
-                "src/cmake_example.egg-info/SOURCES.txt",
-                "src/cmake_example.egg-info/dependency_links.txt",
-                "src/cmake_example.egg-info/not-zip-safe",
-                "src/cmake_example.egg-info/requires.txt",
-                "src/cmake_example.egg-info/top_level.txt",
-                "pyproject.toml",
-                "setup.cfg",
-                "setup.py",
-                "LICENSE",
-                # TODO: "src/main.c",
-            )
-        } | {f"{cmake_example}-0.0.1"}
+        assert file_names == {f"{cmake_example}-0.0.1/{x}" for x in expected} | {
+            f"{cmake_example}-0.0.1"
+        }
         pkg_info = f.extractfile(f"{cmake_example}-0.0.1/PKG-INFO")
         assert pkg_info
         pkg_info_contents = set(pkg_info.read().decode().strip().splitlines())
@@ -210,6 +220,64 @@ def test_pep517_editable(virtualenv, tmp_path: Path):
 @pytest.mark.compile
 @pytest.mark.configure
 @pytest.mark.broken_on_urct
+@pytest.mark.skipif(
+    build_editable is None, reason="Requires setuptools editable support"
+)
+# _LinkTree emits an InformationOnly note about the aux dir on exit.
+@pytest.mark.filterwarnings("ignore:Editable installation")
+@pytest.mark.parametrize(
+    "config_settings",
+    [{"editable-mode": "strict"}, {"editable_mode": "strict"}],
+    ids=["dash", "underscore"],
+)
+@pytest.mark.parametrize("package", ["simple_setuptools_ext"], indirect=True)
+def test_pep517_editable_strict(virtualenv, package, config_settings, tmp_path: Path):
+    # Strict mode (pip install -e . --config-settings editable_mode=strict) uses
+    # setuptools' _LinkTree: unmapped build_lib outputs are copied into the
+    # persistent aux dir, so the CMake artifact must NOT touch the source tree.
+    assert build_editable is not None
+    dist = tmp_path / "dist"
+    out = build_editable(str(dist), config_settings=config_settings)
+    (wheel,) = dist.glob("cmake_example-0.0.1-0.editable-*.whl")
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
+    assert wheel == dist / out
+
+    with zipfile.ZipFile(wheel) as zf:
+        file_names = {Path(n).parts[0] for n in zf.namelist()}
+
+    assert file_names == {
+        "__editable__.cmake_example-0.0.1.pth",
+        "cmake_example-0.0.1.dist-info",
+    }
+
+    # The strict link tree lives in build/__editable__.<name>-<tag>/ and must
+    # hold the compiled extension.
+    (aux_dir,) = package.workdir.glob("build/__editable__.cmake_example-*")
+    assert any(p.suffix in {".so", ".pyd", ".dylib"} for p in aux_dir.rglob("*"))
+
+    # The key win over setuptools' build_ext: the source tree stays clean.
+    src_dir = package.workdir / "src"
+    assert not any(p.suffix in {".so", ".pyd", ".dylib"} for p in src_dir.rglob("*"))
+
+    virtualenv.install(wheel)
+
+    module_dir = virtualenv.execute(
+        "import pathlib, cmake_example; print(pathlib.Path(cmake_example.__file__).resolve().parent)"
+    )
+    assert Path(module_dir).resolve() == aux_dir.resolve()
+
+    version = virtualenv.execute(
+        "import cmake_example; print(cmake_example.__version__)"
+    )
+    assert version.strip() == "0.0.1"
+
+    add = virtualenv.execute("import cmake_example; print(cmake_example.add(1, 2))")
+    assert add.strip() == "3"
+
+
+@pytest.mark.compile
+@pytest.mark.configure
+@pytest.mark.broken_on_urct
 @pytest.mark.parametrize("package", ["simple_setuptools_ext"], indirect=True)
 def test_build_ext_inplace_without_editable_mode(package):
     # A direct "setup.py build_ext --inplace" involves no editable wheel, so it
@@ -263,25 +331,27 @@ def test_toml_sdist(tmp_path: Path):
     assert sdist == dist / out
     cmake_example = sdist.name[:13]
 
+    expected = [
+        "PKG-INFO",
+        "src",
+        "src/cmake_example.egg-info",
+        "src/cmake_example.egg-info/PKG-INFO",
+        "src/cmake_example.egg-info/SOURCES.txt",
+        "src/cmake_example.egg-info/dependency_links.txt",
+        "src/cmake_example.egg-info/top_level.txt",
+        "pyproject.toml",
+        "setup.cfg",
+        "LICENSE",
+        # TODO: "src/main.c",
+    ]
+    if SDIST_USES_SUBCOMMAND_SOURCES:
+        expected.append("CMakeLists.txt")
+
     with tarfile.open(sdist) as f:
         file_names = set(f.getnames())
-        assert file_names == {
-            f"{cmake_example}-0.0.1/{x}"
-            for x in (
-                # TODO: "CMakeLists.txt",
-                "PKG-INFO",
-                "src",
-                "src/cmake_example.egg-info",
-                "src/cmake_example.egg-info/PKG-INFO",
-                "src/cmake_example.egg-info/SOURCES.txt",
-                "src/cmake_example.egg-info/dependency_links.txt",
-                "src/cmake_example.egg-info/top_level.txt",
-                "pyproject.toml",
-                "setup.cfg",
-                "LICENSE",
-                # TODO: "src/main.c",
-            )
-        } | {f"{cmake_example}-0.0.1"}
+        assert file_names == {f"{cmake_example}-0.0.1/{x}" for x in expected} | {
+            f"{cmake_example}-0.0.1"
+        }
         pkg_info = f.extractfile(f"{cmake_example}-0.0.1/PKG-INFO")
         assert pkg_info
         pkg_info_contents = set(pkg_info.read().decode().strip().splitlines())
@@ -611,13 +681,104 @@ def test_editable_install_dir_honors_per_package_dir(tmp_path, monkeypatch):
     cmd = build_cmake.BuildCMake(dist)
     cmd.initialize_options()
     cmd.build_lib = str(tmp_path / "build")
-    cmd.editable_mode = True
+    cmd._editable_mode = build_cmake._EditableMode.LENIENT
 
     install_dir = cmd._get_install_dir()
     # samefile compares stat identity, immune to Windows 8.3 short-name
     # aliasing (RUNNER~1 vs runneradmin) that resolve() misses on cygwin.
     assert install_dir.is_absolute()
     assert install_dir.samefile(tmp_path / "src" / "wrapper_example")
+
+
+def test_finalize_options_honors_directly_set_editable_mode():
+    # editable_wheel's SubCommand protocol sets cmd.editable_mode = True
+    # directly on build sub-commands before finalize_options runs; build_ext's
+    # own flags (editable_mode/inplace both False here) must not clobber it.
+    dist = setuptools.Distribution({"name": "cmake-example", "version": "0.0.1"})
+    cmd = build_cmake.BuildCMake(dist)
+    cmd.initialize_options()
+    cmd.editable_mode = True
+
+    cmd.finalize_options()
+
+    assert cmd.editable_mode is True
+    # No editable_wheel command object with mode="strict", so LENIENT.
+    assert cmd._editable_mode is build_cmake._EditableMode.LENIENT
+
+
+def test_get_source_files_finds_configured_cmakelists(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "sub" / "deps").mkdir(parents=True)
+    (tmp_path / "sub" / "CMakeLists.txt").touch()
+    # The entry-point pattern is anchored, so nested ones don't match.
+    (tmp_path / "sub" / "deps" / "CMakeLists.txt").touch()
+
+    dist = setuptools.Distribution({"name": "cmake-example", "version": "0.0.1"})
+    cmd = build_cmake.BuildCMake(dist)
+    cmd.initialize_options()
+    cmd.source_dir = "sub"
+
+    assert cmd.get_source_files() == ["sub/CMakeLists.txt"]
+
+
+def test_get_source_files_empty_when_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    dist = setuptools.Distribution({"name": "cmake-example", "version": "0.0.1"})
+    cmd = build_cmake.BuildCMake(dist)
+    cmd.initialize_options()
+    cmd.source_dir = "sub"  # never created
+
+    assert cmd.get_source_files() == []
+
+
+def test_get_source_files_honors_sdist_include_exclude(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "CMakeLists.txt").touch()
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "main.c").touch()
+    (src / "vendored.c").touch()
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent(
+            """\
+            [tool.scikit-build]
+            sdist.inclusion-mode = "explicit"
+            sdist.include = ["src/*.c"]
+            sdist.exclude = ["src/vendored.c"]
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    dist = setuptools.Distribution({"name": "cmake-example", "version": "0.0.1"})
+    cmd = build_cmake.BuildCMake(dist)
+    cmd.initialize_options()
+    cmd.source_dir = "."
+
+    assert cmd.get_source_files() == ["CMakeLists.txt", "src/main.c"]
+
+
+def test_get_source_files_requires_explicit_inclusion_mode(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "CMakeLists.txt").touch()
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent(
+            """\
+            [tool.scikit-build]
+            sdist.include = ["src/*.c"]
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    dist = setuptools.Distribution({"name": "cmake-example", "version": "0.0.1"})
+    cmd = build_cmake.BuildCMake(dist)
+    cmd.initialize_options()
+    cmd.source_dir = "."
+
+    with pytest.raises(SetupError, match=r"inclusion-mode = .explicit."):
+        cmd.get_source_files()
 
 
 def test_validate_settings_editable_mode_only_required_for_pep660():
@@ -682,6 +843,42 @@ def test_load_settings_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     assert build_cmake._load_settings().wheel.cmake is False
     assert build_cmake._load_settings(state="wheel").wheel.cmake is False
     assert build_cmake._load_settings(state="editable").wheel.cmake is True
+
+
+@pytest.mark.skipif(
+    build_editable is None, reason="Requires setuptools editable support"
+)
+def test_build_editable_threads_config_settings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    # A config-setting like `pip install -e . -C editable.mode=inplace` must be
+    # visible to build_cmake, not only to the metadata/validation hook. Without
+    # threading, the build half loads default settings and rejects the install.
+    import setuptools.build_meta
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.scikit-build]\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    captured: dict[str, str] = {}
+
+    def fake_build_editable(
+        _wheel_directory: str,
+        _config_settings: dict[str, str | list[str]] | None = None,
+        _metadata_directory: str | None = None,
+    ) -> str:
+        settings = build_cmake._load_settings(state="editable")
+        captured["mode"] = settings.editable.mode
+        # Must not raise "requires editable.mode = 'inplace'".
+        build_cmake._validate_settings(settings, pep660_editable=True)
+        return "wheel"
+
+    monkeypatch.setattr(setuptools.build_meta, "build_editable", fake_build_editable)
+
+    assert build_editable is not None
+    result = build_editable(str(tmp_path), {"editable.mode": "inplace"})
+    assert result == "wheel"
+    assert captured["mode"] == "inplace"
 
 
 def test_wrapper_forwards_manifest_hook(

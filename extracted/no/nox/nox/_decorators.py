@@ -14,11 +14,14 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {"copy", "functools", "inspect", "types"}
+
 import copy
 import functools
 import inspect
 import types
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -28,22 +31,11 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=Callable[..., Any])
 
-__all__ = ["Call", "Func", "FunctionDecorator", "_copy_func"]
+__all__ = ["Call", "Func", "_copy_func"]
 
 
 def __dir__() -> list[str]:
     return __all__
-
-
-class FunctionDecorator:
-    """This is a function decorator."""
-
-    def __new__(  # noqa: PYI034
-        cls: Any, func: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> FunctionDecorator:
-        self = super().__new__(cls)
-        functools.update_wrapper(self, func)
-        return cast("FunctionDecorator", self)
 
 
 def _copy_func(src: T, name: str | None = None) -> T:
@@ -62,8 +54,15 @@ def _copy_func(src: T, name: str | None = None) -> T:
     return cast("T", dst)
 
 
-class Func(FunctionDecorator):
+class Func:
     """This is a function decorator that adds additional Nox-specific metadata."""
+
+    def __new__(  # noqa: PYI034
+        cls, func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Func:
+        self = super().__new__(cls)
+        functools.update_wrapper(self, func)
+        return self
 
     def __init__(
         self,

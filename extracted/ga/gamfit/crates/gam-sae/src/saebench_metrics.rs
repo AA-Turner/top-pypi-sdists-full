@@ -7,6 +7,8 @@
 //! single audited definition with the steering code instead of reimplementing
 //! math in Python notebooks.
 
+use crate::null_battery::{NullKind, NullSummary, Tail, summarize_null_distribution};
+
 /// One row in the chart-interpretability evaluation: a recovered coordinate,
 /// its ground-truth cyclic label, and the posterior/evidence weight assigned to
 /// that row.
@@ -20,15 +22,229 @@ pub struct ChartInterpObservation {
     pub weight: f64,
 }
 
-/// Weighted circular-correlation report for chart interpretability.
+/// Exact statistic calibrated by every chart-interpretability report.
+///
+/// Naming this in the type and persisted artifact prevents an empirical p-value
+/// for a different chart claim (for example, an EV gap or cyclic adjacency)
+/// from being paired with this score (#2250).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChartInterpStatistic {
+    OrientationQuotientedWeightedPhaseLock,
+}
+
+impl ChartInterpStatistic {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::OrientationQuotientedWeightedPhaseLock => {
+                "orientation_quotiented_weighted_phase_lock_v1"
+            }
+        }
+    }
+}
+
+/// Coordinate readout applied identically to the observed data and every null
+/// surrogate before the phase-lock statistic is evaluated.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChartInterpReadout {
+    /// Angle in the leading two-PC plane of cyclic-label mean activations.
+    TokenMeanPcaPlaneV1,
+    /// Coordinate returned by a fitted chart model.
+    FittedChartCoordinateV1,
+}
+
+impl ChartInterpReadout {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "token_mean_pca_plane_v1" => Ok(Self::TokenMeanPcaPlaneV1),
+            "fitted_chart_coordinate_v1" => Ok(Self::FittedChartCoordinateV1),
+            other => Err(format!(
+                "chart_interp: unsupported readout {other:?}; expected token_mean_pca_plane_v1 or fitted_chart_coordinate_v1"
+            )),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::TokenMeanPcaPlaneV1 => "token_mean_pca_plane_v1",
+            Self::FittedChartCoordinateV1 => "fitted_chart_coordinate_v1",
+        }
+    }
+}
+
+/// How one complete null observation ledger is produced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChartInterpNullDrawPolicy {
+    /// Regenerate the declared surrogate and repeat the explicitly declared
+    /// coordinate readout before evaluating the statistic.
+    RegenerateSurrogateAndRepeatReadout,
+}
+
+impl ChartInterpNullDrawPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::RegenerateSurrogateAndRepeatReadout => {
+                "regenerate_surrogate_and_repeat_declared_readout_each_draw"
+            }
+        }
+    }
+}
+
+/// Closed chart-null protocols understood by the scorer.
+///
+/// A protocol owns its native [`NullKind`] and draw policy. Callers therefore
+/// cannot label arbitrary rows "matched spectrum" while separately selecting a
+/// contradictory policy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChartInterpNullProtocol {
+    MatchedSpectrumGaussianV1,
+}
+
+impl ChartInterpNullProtocol {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "matched_spectrum_gaussian_v1" => Ok(Self::MatchedSpectrumGaussianV1),
+            other => Err(format!(
+                "chart_interp: unsupported null protocol {other:?}; expected matched_spectrum_gaussian_v1"
+            )),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MatchedSpectrumGaussianV1 => "matched_spectrum_gaussian_v1",
+        }
+    }
+
+    pub fn null_kind(self) -> NullKind {
+        match self {
+            Self::MatchedSpectrumGaussianV1 => NullKind::MatchedSpectrumGaussian,
+        }
+    }
+
+    pub fn draw_policy(self) -> ChartInterpNullDrawPolicy {
+        match self {
+            Self::MatchedSpectrumGaussianV1 => {
+                ChartInterpNullDrawPolicy::RegenerateSurrogateAndRepeatReadout
+            }
+        }
+    }
+}
+
+/// Complete null calibration input. There is intentionally no constructor from
+/// scalar statistics: the scorer accepts full per-draw observation ledgers and
+/// recomputes [`ChartInterpStatistic`] itself.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartInterpNullCalibration {
+    protocol: ChartInterpNullProtocol,
+    readout: ChartInterpReadout,
+    seed: u64,
+    expected_draws: usize,
+    observation_draws: Vec<Vec<ChartInterpObservation>>,
+}
+
+impl ChartInterpNullCalibration {
+    pub fn new(
+        protocol: ChartInterpNullProtocol,
+        readout: ChartInterpReadout,
+        seed: u64,
+        expected_draws: usize,
+        observation_draws: Vec<Vec<ChartInterpObservation>>,
+    ) -> Result<Self, String> {
+        if expected_draws == 0 {
+            return Err("chart_interp: null calibration requires at least one draw".into());
+        }
+        if observation_draws.len() != expected_draws {
+            return Err(format!(
+                "chart_interp: null protocol declares {expected_draws} draws but artifact contains {} complete observation ledgers",
+                observation_draws.len()
+            ));
+        }
+        Ok(Self {
+            protocol,
+            readout,
+            seed,
+            expected_draws,
+            observation_draws,
+        })
+    }
+
+    pub fn protocol(&self) -> ChartInterpNullProtocol {
+        self.protocol
+    }
+
+    pub fn readout(&self) -> ChartInterpReadout {
+        self.readout
+    }
+
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    pub fn expected_draws(&self) -> usize {
+        self.expected_draws
+    }
+
+    pub fn observation_draws(&self) -> &[Vec<ChartInterpObservation>] {
+        &self.observation_draws
+    }
+}
+
+/// Observed value of [`ChartInterpStatistic`].
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ChartInterpReport {
+pub struct ChartInterpStatisticValue {
     /// Orientation-quotiented weighted cyclic phase-lock score in `[0, 1]`.
     pub circular_correlation: f64,
     /// Signed correlation before orientation is quotiented out.
     pub signed_circular_correlation: f64,
     /// Sum of accepted observation weights.
     pub effective_weight: f64,
+}
+
+/// Provenance and native null-battery distribution for a chart statistic.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartInterpNullCalibrationReport {
+    /// The statistic recomputed for the observation and every null draw.
+    pub statistic: ChartInterpStatistic,
+    /// Closed surrogate-generation protocol.
+    pub protocol: ChartInterpNullProtocol,
+    /// Coordinate readout repeated for observed and null data.
+    pub readout: ChartInterpReadout,
+    /// Native null kind fixed by [`Self::protocol`].
+    pub null_kind: NullKind,
+    /// Per-draw generation/readout policy fixed by [`Self::protocol`].
+    pub draw_policy: ChartInterpNullDrawPolicy,
+    /// Seed from which draw-index-specific surrogates were generated.
+    pub seed: u64,
+    /// Native null distribution, including kind, tail, summary, Monte Carlo
+    /// uncertainty, extreme count, and every statistic sample in draw order.
+    pub null_distribution: NullSummary,
+}
+
+/// Evidential decision after null calibration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChartInterpVerdict {
+    Pass,
+    NullCompatible,
+}
+
+impl ChartInterpVerdict {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pass => "pass",
+            Self::NullCompatible => "null_compatible",
+        }
+    }
+}
+
+/// Null-calibrated chart-interpretability artifact.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartInterpReport {
+    pub statistic: ChartInterpStatistic,
+    pub observed: ChartInterpStatisticValue,
+    pub calibration: ChartInterpNullCalibrationReport,
+    /// Significance level used for the evidential verdict.
+    pub significance_level: f64,
+    pub verdict: ChartInterpVerdict,
 }
 
 /// One dose-response calibration point along a steered arc.
@@ -52,10 +268,10 @@ pub struct DoseResponseCalibrationReport {
     pub slope_through_origin: f64,
     /// Weighted R² of that no-intercept calibration fit.
     pub r2_through_origin: f64,
-    /// Weighted mean of `measured_nats / arc_length` for non-zero arcs.
-    pub mean_measured_nats_per_arc: f64,
-    /// Weighted coefficient of variation of `measured_nats / arc_length`.
-    pub cv_measured_nats_per_arc: f64,
+    /// Weighted mean of `measured_nats / arc_length²` for non-zero arcs.
+    pub mean_measured_nats_per_arc_squared: f64,
+    /// Weighted coefficient of variation of `measured_nats / arc_length²`.
+    pub cv_measured_nats_per_arc_squared: f64,
     /// Sum of accepted observation weights.
     pub effective_weight: f64,
 }
@@ -74,11 +290,102 @@ pub struct CoordinatePosterior {
     pub precision_weight: f64,
 }
 
-/// Score chart-coordinate interpretability against cyclic labels.
+/// Score chart-coordinate interpretability against cyclic labels and an explicit
+/// matched-spectrum null distribution.
+///
+/// Every null draw is a complete observation ledger produced by the same chart
+/// fit/readout protocol on one matched-spectrum surrogate. The exact
+/// orientation-quotiented statistic used for the observed ledger is recomputed
+/// for every null ledger. Requiring the draws here makes it impossible for the
+/// public scorer to present a large circular correlation as evidence without
+/// calibrating that same number against its matched null (#2250).
 pub fn chart_interp_score(
     observations: &[ChartInterpObservation],
+    null_calibration: &ChartInterpNullCalibration,
+    significance_level: f64,
 ) -> Result<ChartInterpReport, String> {
-    let weight_sum = validate_weights(observations.iter().map(|o| o.weight), "chart_interp")?;
+    if !(significance_level.is_finite() && significance_level > 0.0 && significance_level < 1.0) {
+        return Err(format!(
+            "chart_interp: significance_level must be finite and in (0, 1), got {significance_level}"
+        ));
+    }
+    let (circular_correlation, signed_circular_correlation, weight_sum) =
+        chart_correlation(observations, "chart_interp observed")?;
+    let mut null_statistics = Vec::with_capacity(null_calibration.expected_draws());
+    for (draw_idx, draw) in null_calibration.observation_draws().iter().enumerate() {
+        validate_null_ledger_alignment(observations, draw, draw_idx)?;
+        let (null_statistic, _, _) =
+            chart_correlation(draw, &format!("chart_interp null draw {draw_idx}"))?;
+        null_statistics.push(null_statistic);
+    }
+    let statistic = ChartInterpStatistic::OrientationQuotientedWeightedPhaseLock;
+    let protocol = null_calibration.protocol();
+    let null_distribution = summarize_null_distribution(
+        protocol.null_kind(),
+        circular_correlation,
+        null_statistics,
+        Tail::Larger,
+    )?;
+    let verdict = if null_distribution.p_value <= significance_level {
+        ChartInterpVerdict::Pass
+    } else {
+        ChartInterpVerdict::NullCompatible
+    };
+    Ok(ChartInterpReport {
+        statistic,
+        observed: ChartInterpStatisticValue {
+            circular_correlation,
+            signed_circular_correlation,
+            effective_weight: weight_sum,
+        },
+        calibration: ChartInterpNullCalibrationReport {
+            statistic,
+            protocol,
+            readout: null_calibration.readout(),
+            null_kind: protocol.null_kind(),
+            draw_policy: protocol.draw_policy(),
+            seed: null_calibration.seed(),
+            null_distribution,
+        },
+        significance_level,
+        verdict,
+    })
+}
+
+fn validate_null_ledger_alignment(
+    observed: &[ChartInterpObservation],
+    null_draw: &[ChartInterpObservation],
+    draw_idx: usize,
+) -> Result<(), String> {
+    if null_draw.len() != observed.len() {
+        return Err(format!(
+            "chart_interp null draw {draw_idx} has {} rows but observed ledger has {}; the generation/readout protocol requires the same labeled rows",
+            null_draw.len(),
+            observed.len()
+        ));
+    }
+    for (row, (observed_row, null_row)) in observed.iter().zip(null_draw).enumerate() {
+        if wrap_turns(observed_row.label_turns) != wrap_turns(null_row.label_turns) {
+            return Err(format!(
+                "chart_interp null draw {draw_idx} changes label_turns at row {row}; matched-spectrum draws must score the identical labeled ledger"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn chart_correlation(
+    observations: &[ChartInterpObservation],
+    context: &str,
+) -> Result<(f64, f64, f64), String> {
+    let weight_sum = validate_weights(observations.iter().map(|o| o.weight), context)?;
+    for (row, observation) in observations.iter().enumerate() {
+        if !(observation.recovered_turns.is_finite() && observation.label_turns.is_finite()) {
+            return Err(format!(
+                "{context}: recovered_turns and label_turns must be finite at row {row}"
+            ));
+        }
+    }
     let same = weighted_phase_lock(
         observations.iter().map(|o| {
             (
@@ -98,11 +405,11 @@ pub fn chart_interp_score(
         weight_sum,
     );
     let signed = if same >= reversed { same } else { -reversed };
-    Ok(ChartInterpReport {
-        circular_correlation: same.max(reversed).min(1.0),
-        signed_circular_correlation: signed.clamp(-1.0, 1.0),
-        effective_weight: weight_sum,
-    })
+    Ok((
+        same.max(reversed).min(1.0),
+        signed.clamp(-1.0, 1.0),
+        weight_sum,
+    ))
 }
 
 /// Fit the dose-response calibration ledger.
@@ -134,7 +441,7 @@ pub fn dose_response_calibration(
         xy += obs.weight * obs.predicted_nats * obs.measured_nats;
         y2 += obs.weight * obs.measured_nats * obs.measured_nats;
         if obs.arc_length > 0.0 {
-            let rate = obs.measured_nats / obs.arc_length;
+            let rate = obs.measured_nats / (obs.arc_length * obs.arc_length);
             rate_w += obs.weight;
             rate_sum += obs.weight * rate;
         }
@@ -153,7 +460,7 @@ pub fn dose_response_calibration(
     let mean_rate = rate_sum / rate_w;
     let rate_var = observations.iter().fold(0.0, |acc, obs| {
         if obs.arc_length > 0.0 {
-            let residual = obs.measured_nats / obs.arc_length - mean_rate;
+            let residual = obs.measured_nats / (obs.arc_length * obs.arc_length) - mean_rate;
             acc + obs.weight * residual * residual
         } else {
             acc
@@ -167,8 +474,8 @@ pub fn dose_response_calibration(
     Ok(DoseResponseCalibrationReport {
         slope_through_origin: slope,
         r2_through_origin: (1.0 - sse / y2).clamp(0.0, 1.0),
-        mean_measured_nats_per_arc: mean_rate,
-        cv_measured_nats_per_arc: cv,
+        mean_measured_nats_per_arc_squared: mean_rate,
+        cv_measured_nats_per_arc_squared: cv,
         effective_weight: weight_sum,
     })
 }
@@ -192,6 +499,27 @@ pub fn coordinate_posterior_from_precision(
     for (i, &m) in mean.iter().enumerate() {
         if !m.is_finite() {
             return Err(format!("coordinate_posterior: mean[{i}] is not finite"));
+        }
+    }
+    let max_abs = precision_row_major
+        .iter()
+        .copied()
+        .map(f64::abs)
+        .fold(0.0_f64, f64::max);
+    if !max_abs.is_finite() {
+        return Err("coordinate_posterior: precision block contains a non-finite entry".into());
+    }
+    let symmetry_tol = f64::EPSILON * d.max(1) as f64 * max_abs.max(1.0);
+    for row in 0..d {
+        for col in 0..row {
+            let lower = precision_row_major[row * d + col];
+            let upper = precision_row_major[col * d + row];
+            if (lower - upper).abs() > symmetry_tol {
+                return Err(format!(
+                    "coordinate_posterior: precision block is not symmetric at ({row}, {col}): \
+                     {lower} versus {upper} (tolerance {symmetry_tol:e})"
+                ));
+            }
         }
     }
     let chol = cholesky_lower(precision_row_major, d)?;

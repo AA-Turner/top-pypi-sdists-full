@@ -25,7 +25,7 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudRecommendationengineV1beta1CatalogItem = ...,
+                        body: GoogleCloudRecommendationengineV1beta1CatalogItem,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudRecommendationengineV1beta1CatalogItemHttpRequest
@@ -42,16 +42,16 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudRecommendationengineV1beta1ImportCatalogItemsRequest = ...,
+                        body: GoogleCloudRecommendationengineV1beta1ImportCatalogItemsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudRecommendationengineV1beta1ListCatalogItemsResponseHttpRequest: ...
                     def list_next(
@@ -66,8 +66,8 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudRecommendationengineV1beta1CatalogItem = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudRecommendationengineV1beta1CatalogItem,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudRecommendationengineV1beta1CatalogItemHttpRequest
@@ -84,10 +84,10 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -104,7 +104,7 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudRecommendationengineV1beta1PredictRequest = ...,
+                            body: GoogleCloudRecommendationengineV1beta1PredictRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudRecommendationengineV1beta1PredictResponseHttpRequest: ...
                         def predict_next(
@@ -124,7 +124,7 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudRecommendationengineV1beta1CreatePredictionApiKeyRegistrationRequest = ...,
+                            body: GoogleCloudRecommendationengineV1beta1CreatePredictionApiKeyRegistrationRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudRecommendationengineV1beta1PredictionApiKeyRegistrationHttpRequest: ...
                         def delete(
@@ -134,8 +134,8 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudRecommendationengineV1beta1ListPredictionApiKeyRegistrationsResponseHttpRequest: ...
                         def list_next(
@@ -153,25 +153,25 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            ets: str = ...,
-                            uri: str = ...,
-                            userEvent: str = ...,
+                            ets: str | None = ...,
+                            uri: str | None = ...,
+                            userEvent: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleApiHttpBodyHttpRequest: ...
                         def import_(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudRecommendationengineV1beta1ImportUserEventsRequest = ...,
+                            body: GoogleCloudRecommendationengineV1beta1ImportUserEventsRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudRecommendationengineV1beta1ListUserEventsResponseHttpRequest: ...
                         def list_next(
@@ -186,21 +186,21 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudRecommendationengineV1beta1PurgeUserEventsRequest = ...,
+                            body: GoogleCloudRecommendationengineV1beta1PurgeUserEventsRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def rejoin(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudRecommendationengineV1beta1RejoinUserEventsRequest = ...,
+                            body: GoogleCloudRecommendationengineV1beta1RejoinUserEventsRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def write(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudRecommendationengineV1beta1UserEvent = ...,
+                            body: GoogleCloudRecommendationengineV1beta1UserEvent,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudRecommendationengineV1beta1UserEventHttpRequest
@@ -222,10 +222,10 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -238,8 +238,8 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommendationengineV1beta1ListCatalogsResponseHttpRequest: ...
                 def list_next(
@@ -254,8 +254,8 @@ class RecommendationsAIResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudRecommendationengineV1beta1Catalog = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudRecommendationengineV1beta1Catalog,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudRecommendationengineV1beta1CatalogHttpRequest: ...
                 def catalogItems(self) -> CatalogItemsResource: ...

@@ -29,8 +29,8 @@
 //! Hessian structure for a fixed row set; subsampling reduces the row
 //! set itself for the family-specific row-trace path.
 
-use crate::custom_family::{CustomFamilyBlockPsiDerivative, ParameterBlockSpec};
 use crate::cubic_cell_kernel::{self, DenestedPartitionCell, LocalSpanCubic};
+use crate::custom_family::{CustomFamilyBlockPsiDerivative, ParameterBlockSpec};
 use crate::outer_subsample::{OuterScoreSubsample, WeightedOuterRow};
 use gam_math::jet_partitions::MultiDirJet;
 use ndarray::{Array1, Array2, Axis};
@@ -55,8 +55,7 @@ pub fn make_beta_seed_validator(
     pending: &std::cell::RefCell<Option<Array1<f64>>>,
 ) -> impl FnMut(
     &Array1<f64>,
-)
-    -> Result<gam_solve::rho_optimizer::SeedOutcome, crate::model_types::EstimationError>
+) -> Result<gam_solve::rho_optimizer::SeedOutcome, crate::model_types::EstimationError>
 + '_ {
     move |beta: &Array1<f64>| {
         bail_if_cached_beta_non_finite(beta)?;
@@ -111,10 +110,7 @@ pub fn probit_frailty_scale(gaussian_frailty_sd: Option<f64>) -> f64 {
     if sigma <= 0.0 {
         1.0
     } else {
-        crate::survival::lognormal_kernel::ProbitFrailtyScaleJet::from_log_sigma(
-            sigma.ln(),
-        )
-        .s
+        crate::survival::lognormal_kernel::ProbitFrailtyScaleJet::from_log_sigma(sigma.ln()).s
     }
 }
 
@@ -126,9 +122,7 @@ pub(crate) fn probit_frailty_scale_multi_dir_jet(
     second_masks: &[usize],
 ) -> Result<MultiDirJet, String> {
     let sigma = gaussian_frailty_sd.ok_or_else(|| missing_sigma_message.to_string())?;
-    let jet = crate::survival::lognormal_kernel::ProbitFrailtyScaleJet::from_log_sigma(
-        sigma.ln(),
-    );
+    let jet = crate::survival::lognormal_kernel::ProbitFrailtyScaleJet::from_log_sigma(sigma.ln());
     let mut coeffs = Vec::with_capacity(1 + first_masks.len() + second_masks.len());
     coeffs.push((0usize, jet.s));
     coeffs.extend(first_masks.iter().copied().map(|mask| (mask, jet.ds)));
@@ -1083,6 +1077,18 @@ pub fn maybe_install_auto_outer_subsample(
     if options.outer_score_subsample.is_some() || !options.auto_outer_subsample {
         return None;
     }
+    // Establish that this problem will actually use a row sample before
+    // advancing the pilot counter.  The exact-polish lifecycle treats a zero
+    // counter as proof that no approximate derivative measure ran; counting a
+    // small-n no-op here would otherwise force a redundant second optimization.
+    let auto_options = AutoOuterSubsampleOptions {
+        min_n_for_auto,
+        min_k,
+        min_k_floor,
+        outer_work_per_k_unit: outer_work_per_k_unit.max(1),
+        ..AutoOuterSubsampleOptions::default()
+    };
+    let choice = auto_options.target_k_detailed(z.len())?;
     let phase_idx = {
         let mut guard = last_rho
             .lock()
@@ -1103,12 +1109,27 @@ pub fn maybe_install_auto_outer_subsample(
             *guard = Some(Array1::from(outer_rho_key.to_vec()));
             phase_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
         } else {
-            phase_counter
-                .load(std::sync::atomic::Ordering::SeqCst)
-                .saturating_sub(1)
+            let current = phase_counter.load(std::sync::atomic::Ordering::SeqCst);
+            // The generic runner can promote an early-stopped pilot directly
+            // to `phase1_budget` while remaining at the same rho checkpoint.
+            // Preserve that exact-phase marker; subtract one only while the
+            // counter still denotes an ordinary repeated Phase-1 evaluation.
+            if current >= phase1_budget {
+                current
+            } else {
+                current.saturating_sub(1)
+            }
         }
     };
     if phase_idx >= phase1_budget {
+        // Mark the exact phase explicitly. A raw counter equal to the budget
+        // can also mean "the last sampled evaluation just completed"; the
+        // post-budget sentinel lets the generic runner distinguish that state
+        // from a full-data evaluation that has already occurred.
+        phase_counter.fetch_max(
+            phase1_budget.saturating_add(1),
+            std::sync::atomic::Ordering::SeqCst,
+        );
         if phase_idx == phase1_budget {
             log::info!(
                 "[{family_label} auto-subsample] Phase 1 budget exhausted after {} evals; \
@@ -1118,25 +1139,6 @@ pub fn maybe_install_auto_outer_subsample(
         }
         return None;
     }
-    // Honour the family's per-K-unit work cost. Constructing
-    // `AutoOuterSubsampleOptions::default()` here would silently reset
-    // `outer_work_per_k_unit` to 1, making the work-budget cap
-    // (`K_work = AUTO_OUTER_WORK_BUDGET / outer_work_per_k_unit`)
-    // never bind, and letting the noise-only rule pick K ≈ 0.10·n —
-    // which at large-scale n=195_780 is K≈19_578 instead of the survival
-    // family's intended K≈2_000. That ~9× inflation drove the
-    // documented 8h large-scale hang (exit 137 from resource exhaustion).
-    let auto_options = AutoOuterSubsampleOptions {
-        min_n_for_auto,
-        min_k,
-        min_k_floor,
-        outer_work_per_k_unit: outer_work_per_k_unit.max(1),
-        ..AutoOuterSubsampleOptions::default()
-    };
-    // Compute the K choice up-front so the log surfaces both the
-    // noise-only target and the work-cap target even when stratification
-    // ceil overshoots the picked K.
-    let choice = auto_options.target_k_detailed(z.len())?;
     let mask = auto_outer_score_subsample(z, stratum_secondary, &auto_options)?;
     let n_full = mask.n_full;
     let k = mask.len();
@@ -1485,13 +1487,13 @@ pub trait MarginalSlopePsiFamily: Send + Sync {
     /// First-order joint-ψ terms for the σ-auxiliary parameter.
     fn sigma_first_order_terms(
         &self,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiTerms>, String>;
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiTerms>, String>;
 
     /// First-order joint-ψ terms for a non-σ derivative axis `psi_index`.
     fn psi_first_order_terms(
         &self,
         psi_index: usize,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiTerms>, String>;
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiTerms>, String>;
 
     /// Batched first-order joint-ψ terms over all derivative axes (used by the
     /// outer score sweep). Returns `Ok(None)` when the batched fast path is
@@ -1499,7 +1501,7 @@ pub trait MarginalSlopePsiFamily: Send + Sync {
     /// per-axis evaluation.
     fn psi_first_order_terms_all(
         &self,
-    ) -> Result<Option<Vec<crate::custom_family::ExactNewtonJointPsiTerms>>, String>;
+    ) -> Result<Option<Vec<gam_problem::ExactNewtonJointPsiTerms>>, String>;
 
     /// Whether the σ-aux second-order branch should treat `(psi_i, psi_j)` as a
     /// pure-σ pair (dispatching to [`sigma_second_order_terms`](Self::sigma_second_order_terms)).
@@ -1510,21 +1512,21 @@ pub trait MarginalSlopePsiFamily: Send + Sync {
     /// Second-order joint-ψ terms for a pure σ / σ pair.
     fn sigma_second_order_terms(
         &self,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderTerms>, String>;
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderTerms>, String>;
 
     /// Per-family policy for a mixed σ / non-σ second-order pair: one family
     /// rejects it (no cross auxiliary terms available), the other returns
     /// `Ok(None)`.
     fn mixed_sigma_aux_second_order(
         &self,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderTerms>, String>;
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderTerms>, String>;
 
     /// Second-order joint-ψ terms for a non-σ derivative-axis pair.
     fn psi_second_order_terms(
         &self,
         psi_i: usize,
         psi_j: usize,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderTerms>, String>;
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderTerms>, String>;
 
     /// Direction-contracted second-order ψ terms over the non-σ derivative
     /// axes (#740). `alpha_psi` is the full ψ-block weight vector; the
@@ -1541,8 +1543,7 @@ pub trait MarginalSlopePsiFamily: Send + Sync {
     fn psi_second_order_terms_contracted(
         &self,
         _: &[f64],
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderContracted>, String>
-    {
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderContracted>, String> {
         // Default implementation ignores this parameter.
         Ok(None)
     }
@@ -1578,13 +1579,13 @@ impl<F: MarginalSlopePsiFamily> MarginalSlopeExactNewtonPsiWorkspace<F> {
     }
 }
 
-impl<F: MarginalSlopePsiFamily> crate::custom_family::ExactNewtonJointPsiWorkspace
+impl<F: MarginalSlopePsiFamily> gam_problem::ExactNewtonJointPsiWorkspace
     for MarginalSlopeExactNewtonPsiWorkspace<F>
 {
     fn first_order_terms(
         &self,
         psi_index: usize,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiTerms>, String> {
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiTerms>, String> {
         if self.family.is_sigma_aux(psi_index) {
             return self.family.sigma_first_order_terms();
         }
@@ -1593,7 +1594,7 @@ impl<F: MarginalSlopePsiFamily> crate::custom_family::ExactNewtonJointPsiWorkspa
 
     fn first_order_terms_all(
         &self,
-    ) -> Result<Option<Vec<crate::custom_family::ExactNewtonJointPsiTerms>>, String> {
+    ) -> Result<Option<Vec<gam_problem::ExactNewtonJointPsiTerms>>, String> {
         self.family.psi_first_order_terms_all()
     }
 
@@ -1601,7 +1602,7 @@ impl<F: MarginalSlopePsiFamily> crate::custom_family::ExactNewtonJointPsiWorkspa
         &self,
         psi_i: usize,
         psi_j: usize,
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderTerms>, String> {
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderTerms>, String> {
         if self.family.is_sigma_aux(psi_i) || self.family.is_sigma_aux(psi_j) {
             if self.family.both_sigma_aux_second_order(psi_i, psi_j) {
                 return self.family.sigma_second_order_terms();
@@ -1614,8 +1615,7 @@ impl<F: MarginalSlopePsiFamily> crate::custom_family::ExactNewtonJointPsiWorkspa
     fn second_order_terms_contracted(
         &self,
         alpha_psi: &[f64],
-    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderContracted>, String>
-    {
+    ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderContracted>, String> {
         // The σ-auxiliary axes do not participate in the family's combined
         // non-σ row stream (their second-order terms come from a separate
         // σ/σ and mixed-σ path with no directional row kernel). If any
@@ -2045,6 +2045,103 @@ mod tests {
         assert!(
             rel_err < 0.02,
             "HT weight sum {weight_sum:.3} should ≈ n_full={n}, rel_err={rel_err:.4}"
+        );
+    }
+
+    #[test]
+    fn sampled_outer_schedule_promotes_same_checkpoint_to_exact_measure_979() {
+        let options = crate::custom_family::BlockwiseFitOptions::default();
+        let phase_counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let last_rho = Arc::new(std::sync::Mutex::new(None));
+        let phase_budget = 12;
+        let rho = [0.25, -0.5];
+
+        // A small problem never installs a sample and therefore must not ask
+        // the generic runner for a redundant exact-polish solve.
+        let small_z: Vec<f64> = (0..1_000).map(|i| i as f64).collect();
+        assert!(
+            maybe_install_auto_outer_subsample(
+                &options,
+                &small_z,
+                None,
+                &rho,
+                &phase_counter,
+                &last_rho,
+                phase_budget,
+                "test-small",
+                1,
+                30_000,
+                10_000,
+                1_000,
+            )
+            .is_none()
+        );
+        let schedule = crate::custom_family::OuterDerivativePilotSchedule::new(
+            Arc::clone(&phase_counter),
+            phase_budget,
+        );
+        assert!(!schedule.enter_exact_phase());
+        assert_eq!(phase_counter.load(std::sync::atomic::Ordering::SeqCst), 0);
+
+        // Once a large problem actually installs its sampled measure, the
+        // transition is single-shot and the SAME checkpoint rho immediately
+        // evaluates on full data (no one-evaluation sampled leak into polish).
+        let large_z: Vec<f64> = (0..40_000).map(|i| (i as f64).sin()).collect();
+        assert!(
+            maybe_install_auto_outer_subsample(
+                &options,
+                &large_z,
+                None,
+                &rho,
+                &phase_counter,
+                &last_rho,
+                phase_budget,
+                "test-large",
+                1,
+                30_000,
+                10_000,
+                1_000,
+            )
+            .is_some()
+        );
+        assert!(schedule.enter_exact_phase());
+        assert!(!schedule.enter_exact_phase());
+        assert_eq!(
+            phase_counter.load(std::sync::atomic::Ordering::SeqCst),
+            phase_budget + 1
+        );
+
+        // Exact boundary regression: `counter == budget` is still the state
+        // immediately after the last sampled point, not proof that a full-data
+        // derivative has run. It must request one exact-polish continuation.
+        let boundary_counter = Arc::new(std::sync::atomic::AtomicUsize::new(phase_budget));
+        let boundary_schedule = crate::custom_family::OuterDerivativePilotSchedule::new(
+            Arc::clone(&boundary_counter),
+            phase_budget,
+        );
+        assert!(boundary_schedule.enter_exact_phase());
+        assert_eq!(
+            boundary_counter.load(std::sync::atomic::Ordering::SeqCst),
+            phase_budget + 1
+        );
+        assert!(!boundary_schedule.enter_exact_phase());
+        assert!(
+            maybe_install_auto_outer_subsample(
+                &options,
+                &large_z,
+                None,
+                &rho,
+                &phase_counter,
+                &last_rho,
+                phase_budget,
+                "test-large",
+                1,
+                30_000,
+                10_000,
+                1_000,
+            )
+            .is_none(),
+            "the first exact-polish evaluation at the pilot checkpoint must use full data",
         );
     }
 

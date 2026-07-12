@@ -18,10 +18,10 @@ class AdExchangeBuyerResource(googleapiclient.discovery.Resource):
         def get(self, *, id: int, **kwargs: typing.Any) -> AccountHttpRequest: ...
         def list(self, **kwargs: typing.Any) -> AccountsListHttpRequest: ...
         def patch(
-            self, *, id: int, body: Account = ..., **kwargs: typing.Any
+            self, *, id: int, body: Account, **kwargs: typing.Any
         ) -> AccountHttpRequest: ...
         def update(
-            self, *, id: int, body: Account = ..., **kwargs: typing.Any
+            self, *, id: int, body: Account, **kwargs: typing.Any
         ) -> AccountHttpRequest: ...
 
     @typing.type_check_only
@@ -30,16 +30,17 @@ class AdExchangeBuyerResource(googleapiclient.discovery.Resource):
             self, *, accountId: int, buyerCreativeId: str, **kwargs: typing.Any
         ) -> CreativeHttpRequest: ...
         def insert(
-            self, *, body: Creative = ..., **kwargs: typing.Any
+            self, *, body: Creative, **kwargs: typing.Any
         ) -> CreativeHttpRequest: ...
         def list(
             self,
             *,
-            maxResults: int = ...,
-            pageToken: str = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
             statusFilter: typing_extensions.Literal[
                 "approved", "disapproved", "not_checked"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> CreativesListHttpRequest: ...
         def list_next(

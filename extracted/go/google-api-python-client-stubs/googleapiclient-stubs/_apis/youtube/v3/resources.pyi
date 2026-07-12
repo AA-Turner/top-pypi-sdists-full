@@ -16,11 +16,7 @@ class YouTubeResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class AbuseReportsResource(googleapiclient.discovery.Resource):
         def insert(
-            self,
-            *,
-            part: str | _list[str],
-            body: AbuseReport = ...,
-            **kwargs: typing.Any,
+            self, *, part: str | _list[str], body: AbuseReport, **kwargs: typing.Any
         ) -> AbuseReportHttpRequest: ...
 
     @typing.type_check_only
@@ -29,14 +25,14 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            channelId: str = ...,
-            home: bool = ...,
-            maxResults: int = ...,
-            mine: bool = ...,
-            pageToken: str = ...,
-            publishedAfter: str = ...,
-            publishedBefore: str = ...,
-            regionCode: str = ...,
+            channelId: str | None = ...,
+            home: bool | None = ...,
+            maxResults: int | None = ...,
+            mine: bool | None = ...,
+            pageToken: str | None = ...,
+            publishedAfter: str | None = ...,
+            publishedBefore: str | None = ...,
+            regionCode: str | None = ...,
             **kwargs: typing.Any,
         ) -> ActivityListResponseHttpRequest: ...
         def list_next(
@@ -51,38 +47,38 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             id: str,
-            onBehalfOf: str = ...,
-            onBehalfOfContentOwner: str = ...,
+            onBehalfOf: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def download(
             self,
             *,
             id: str,
-            onBehalfOf: str = ...,
-            onBehalfOfContentOwner: str = ...,
-            tfmt: str = ...,
-            tlang: str = ...,
+            onBehalfOf: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            tfmt: str | None = ...,
+            tlang: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def download_media(
             self,
             *,
             id: str,
-            onBehalfOf: str = ...,
-            onBehalfOfContentOwner: str = ...,
-            tfmt: str = ...,
-            tlang: str = ...,
+            onBehalfOf: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            tfmt: str | None = ...,
+            tlang: str | None = ...,
             **kwargs: typing.Any,
         ) -> BytesHttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: Caption = ...,
-            onBehalfOf: str = ...,
-            onBehalfOfContentOwner: str = ...,
-            sync: bool = ...,
+            body: Caption,
+            onBehalfOf: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            sync: bool | None = ...,
             **kwargs: typing.Any,
         ) -> CaptionHttpRequest: ...
         def list(
@@ -90,19 +86,19 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             *,
             part: str | _list[str],
             videoId: str,
-            id: str | _list[str] = ...,
-            onBehalfOf: str = ...,
-            onBehalfOfContentOwner: str = ...,
+            id: str | _list[str] | None = ...,
+            onBehalfOf: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> CaptionListResponseHttpRequest: ...
         def update(
             self,
             *,
             part: str | _list[str],
-            body: Caption = ...,
-            onBehalfOf: str = ...,
-            onBehalfOfContentOwner: str = ...,
-            sync: bool = ...,
+            body: Caption,
+            onBehalfOf: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            sync: bool | None = ...,
             **kwargs: typing.Any,
         ) -> CaptionHttpRequest: ...
 
@@ -111,44 +107,48 @@ class YouTubeResource(googleapiclient.discovery.Resource):
         def insert(
             self,
             *,
-            body: ChannelBannerResource = ...,
-            channelId: str = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: ChannelBannerResource,
+            channelId: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> ChannelBannerResourceHttpRequest: ...
 
     @typing.type_check_only
     class ChannelSectionsResource(googleapiclient.discovery.Resource):
         def delete(
-            self, *, id: str, onBehalfOfContentOwner: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            id: str,
+            onBehalfOfContentOwner: str | None = ...,
+            **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: ChannelSection = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: ChannelSection,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> ChannelSectionHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            channelId: str = ...,
-            hl: str = ...,
-            id: str | _list[str] = ...,
-            mine: bool = ...,
-            onBehalfOfContentOwner: str = ...,
+            channelId: str | None = ...,
+            hl: str | None = ...,
+            id: str | _list[str] | None = ...,
+            mine: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> ChannelSectionListResponseHttpRequest: ...
         def update(
             self,
             *,
             part: str | _list[str],
-            body: ChannelSection = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: ChannelSection,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> ChannelSectionHttpRequest: ...
 
@@ -158,17 +158,17 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            categoryId: str = ...,
-            forHandle: str = ...,
-            forUsername: str = ...,
-            hl: str = ...,
-            id: str | _list[str] = ...,
-            managedByMe: bool = ...,
-            maxResults: int = ...,
-            mine: bool = ...,
-            mySubscribers: bool = ...,
-            onBehalfOfContentOwner: str = ...,
-            pageToken: str = ...,
+            categoryId: str | None = ...,
+            forHandle: str | None = ...,
+            forUsername: str | None = ...,
+            hl: str | None = ...,
+            id: str | _list[str] | None = ...,
+            managedByMe: bool | None = ...,
+            maxResults: int | None = ...,
+            mine: bool | None = ...,
+            mySubscribers: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> ChannelListResponseHttpRequest: ...
         def list_next(
@@ -180,41 +180,38 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            body: Channel = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: Channel,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> ChannelHttpRequest: ...
 
     @typing.type_check_only
     class CommentThreadsResource(googleapiclient.discovery.Resource):
         def insert(
-            self,
-            *,
-            part: str | _list[str],
-            body: CommentThread = ...,
-            **kwargs: typing.Any,
+            self, *, part: str | _list[str], body: CommentThread, **kwargs: typing.Any
         ) -> CommentThreadHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            allThreadsRelatedToChannelId: str = ...,
-            channelId: str = ...,
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
+            allThreadsRelatedToChannelId: str | None = ...,
+            channelId: str | None = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
             moderationStatus: typing_extensions.Literal[
                 "published", "heldForReview", "likelySpam", "rejected"
-            ] = ...,
-            order: typing_extensions.Literal[
-                "orderUnspecified", "time", "relevance"
-            ] = ...,
-            pageToken: str = ...,
-            postId: str = ...,
-            searchTerms: str = ...,
+            ]
+            | None = ...,
+            order: typing_extensions.Literal["orderUnspecified", "time", "relevance"]
+            | None = ...,
+            pageToken: str | None = ...,
+            postId: str | None = ...,
+            searchTerms: str | None = ...,
             textFormat: typing_extensions.Literal[
                 "textFormatUnspecified", "html", "plainText"
-            ] = ...,
-            videoId: str = ...,
+            ]
+            | None = ...,
+            videoId: str | None = ...,
             **kwargs: typing.Any,
         ) -> CommentThreadListResponseHttpRequest: ...
         def list_next(
@@ -229,19 +226,20 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self, *, id: str, **kwargs: typing.Any
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
-            self, *, part: str | _list[str], body: Comment = ..., **kwargs: typing.Any
+            self, *, part: str | _list[str], body: Comment, **kwargs: typing.Any
         ) -> CommentHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
-            pageToken: str = ...,
-            parentId: str = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            parentId: str | None = ...,
             textFormat: typing_extensions.Literal[
                 "textFormatUnspecified", "html", "plainText"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> CommentListResponseHttpRequest: ...
         def list_next(
@@ -259,23 +257,23 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             moderationStatus: typing_extensions.Literal[
                 "published", "heldForReview", "likelySpam", "rejected"
             ],
-            banAuthor: bool = ...,
+            banAuthor: bool | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def update(
-            self, *, part: str | _list[str], body: Comment = ..., **kwargs: typing.Any
+            self, *, part: str | _list[str], body: Comment, **kwargs: typing.Any
         ) -> CommentHttpRequest: ...
 
     @typing.type_check_only
     class I18nLanguagesResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, part: str | _list[str], hl: str = ..., **kwargs: typing.Any
+            self, *, part: str | _list[str], hl: str | None = ..., **kwargs: typing.Any
         ) -> I18nLanguageListResponseHttpRequest: ...
 
     @typing.type_check_only
     class I18nRegionsResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, part: str | _list[str], hl: str = ..., **kwargs: typing.Any
+            self, *, part: str | _list[str], hl: str | None = ..., **kwargs: typing.Any
         ) -> I18nRegionListResponseHttpRequest: ...
 
     @typing.type_check_only
@@ -285,36 +283,36 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             *,
             id: str,
             part: str | _list[str],
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            streamId: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            streamId: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveBroadcastHttpRequest: ...
         def delete(
             self,
             *,
             id: str,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: LiveBroadcast = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: LiveBroadcast,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveBroadcastHttpRequest: ...
         def insertCuepoint(
             self,
             *,
-            body: Cuepoint = ...,
-            id: str = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            part: str | _list[str] = ...,
+            body: Cuepoint,
+            id: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            part: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> CuepointHttpRequest: ...
         def list(
@@ -327,16 +325,18 @@ class YouTubeResource(googleapiclient.discovery.Resource):
                 "active",
                 "upcoming",
                 "completed",
-            ] = ...,
+            ]
+            | None = ...,
             broadcastType: typing_extensions.Literal[
                 "broadcastTypeFilterUnspecified", "all", "event", "persistent"
-            ] = ...,
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
-            mine: bool = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            pageToken: str = ...,
+            ]
+            | None = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
+            mine: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveBroadcastListResponseHttpRequest: ...
         def list_next(
@@ -352,17 +352,17 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             ],
             id: str,
             part: str | _list[str],
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveBroadcastHttpRequest: ...
         def update(
             self,
             *,
             part: str | _list[str],
-            body: LiveBroadcast = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: LiveBroadcast,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveBroadcastHttpRequest: ...
 
@@ -372,11 +372,7 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self, *, id: str, **kwargs: typing.Any
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
-            self,
-            *,
-            part: str | _list[str],
-            body: LiveChatBan = ...,
-            **kwargs: typing.Any,
+            self, *, part: str | _list[str], body: LiveChatBan, **kwargs: typing.Any
         ) -> LiveChatBanHttpRequest: ...
 
     @typing.type_check_only
@@ -385,21 +381,17 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self, *, id: str, **kwargs: typing.Any
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
-            self,
-            *,
-            part: str | _list[str],
-            body: LiveChatMessage = ...,
-            **kwargs: typing.Any,
+            self, *, part: str | _list[str], body: LiveChatMessage, **kwargs: typing.Any
         ) -> LiveChatMessageHttpRequest: ...
         def list(
             self,
             *,
             liveChatId: str,
             part: str | _list[str],
-            hl: str = ...,
-            maxResults: int = ...,
-            pageToken: str = ...,
-            profileImageSize: int = ...,
+            hl: str | None = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
+            profileImageSize: int | None = ...,
             **kwargs: typing.Any,
         ) -> LiveChatMessageListResponseHttpRequest: ...
         def list_next(
@@ -410,8 +402,9 @@ class YouTubeResource(googleapiclient.discovery.Resource):
         def transition(
             self,
             *,
-            id: str = ...,
-            status: typing_extensions.Literal["statusUnspecified", "closed"] = ...,
+            id: str | None = ...,
+            status: typing_extensions.Literal["statusUnspecified", "closed"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> LiveChatMessageHttpRequest: ...
 
@@ -424,7 +417,7 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            body: LiveChatModerator = ...,
+            body: LiveChatModerator,
             **kwargs: typing.Any,
         ) -> LiveChatModeratorHttpRequest: ...
         def list(
@@ -432,8 +425,8 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             *,
             liveChatId: str,
             part: str | _list[str],
-            maxResults: int = ...,
-            pageToken: str = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveChatModeratorListResponseHttpRequest: ...
         def list_next(
@@ -448,29 +441,29 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             id: str,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: LiveStream = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: LiveStream,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveStreamHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
-            mine: bool = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            pageToken: str = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
+            mine: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveStreamListResponseHttpRequest: ...
         def list_next(
@@ -482,9 +475,9 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            body: LiveStream = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: LiveStream,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> LiveStreamHttpRequest: ...
 
@@ -494,13 +487,14 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            filterByMemberChannelId: str = ...,
-            hasAccessToLevel: str = ...,
-            maxResults: int = ...,
+            filterByMemberChannelId: str | None = ...,
+            hasAccessToLevel: str | None = ...,
+            maxResults: int | None = ...,
             mode: typing_extensions.Literal[
                 "listMembersModeUnknown", "updates", "all_current"
-            ] = ...,
-            pageToken: str = ...,
+            ]
+            | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> MemberListResponseHttpRequest: ...
         def list_next(
@@ -520,28 +514,28 @@ class YouTubeResource(googleapiclient.discovery.Resource):
         def delete(
             self,
             *,
-            id: str = ...,
-            onBehalfOfContentOwner: str = ...,
+            id: str | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
-            body: PlaylistImage = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            part: str | _list[str] = ...,
+            body: PlaylistImage,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            part: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistImageHttpRequest: ...
         def list(
             self,
             *,
-            maxResults: int = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            pageToken: str = ...,
-            parent: str = ...,
-            part: str | _list[str] = ...,
+            maxResults: int | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
+            part: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistImageListResponseHttpRequest: ...
         def list_next(
@@ -552,35 +546,39 @@ class YouTubeResource(googleapiclient.discovery.Resource):
         def update(
             self,
             *,
-            body: PlaylistImage = ...,
-            onBehalfOfContentOwner: str = ...,
-            part: str | _list[str] = ...,
+            body: PlaylistImage,
+            onBehalfOfContentOwner: str | None = ...,
+            part: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistImageHttpRequest: ...
 
     @typing.type_check_only
     class PlaylistItemsResource(googleapiclient.discovery.Resource):
         def delete(
-            self, *, id: str, onBehalfOfContentOwner: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            id: str,
+            onBehalfOfContentOwner: str | None = ...,
+            **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: PlaylistItem = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: PlaylistItem,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistItemHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
-            onBehalfOfContentOwner: str = ...,
-            pageToken: str = ...,
-            playlistId: str = ...,
-            videoId: str = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            pageToken: str | None = ...,
+            playlistId: str | None = ...,
+            videoId: str | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistItemListResponseHttpRequest: ...
         def list_next(
@@ -592,37 +590,41 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            body: PlaylistItem = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: PlaylistItem,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistItemHttpRequest: ...
 
     @typing.type_check_only
     class PlaylistsResource(googleapiclient.discovery.Resource):
         def delete(
-            self, *, id: str, onBehalfOfContentOwner: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            id: str,
+            onBehalfOfContentOwner: str | None = ...,
+            **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: Playlist = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: Playlist,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            channelId: str = ...,
-            hl: str = ...,
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
-            mine: bool = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            pageToken: str = ...,
+            channelId: str | None = ...,
+            hl: str | None = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
+            mine: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistListResponseHttpRequest: ...
         def list_next(
@@ -634,8 +636,8 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            body: Playlist = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: Playlist,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> PlaylistHttpRequest: ...
 
@@ -645,20 +647,22 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            channelId: str = ...,
+            channelId: str | None = ...,
             channelType: typing_extensions.Literal[
                 "channelTypeUnspecified", "any", "show"
-            ] = ...,
+            ]
+            | None = ...,
             eventType: typing_extensions.Literal[
                 "none", "upcoming", "live", "completed"
-            ] = ...,
-            forContentOwner: bool = ...,
-            forDeveloper: bool = ...,
-            forMine: bool = ...,
-            location: str = ...,
-            locationRadius: str = ...,
-            maxResults: int = ...,
-            onBehalfOfContentOwner: str = ...,
+            ]
+            | None = ...,
+            forContentOwner: bool | None = ...,
+            forDeveloper: bool | None = ...,
+            forMine: bool | None = ...,
+            location: str | None = ...,
+            locationRadius: str | None = ...,
+            maxResults: int | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
             order: typing_extensions.Literal[
                 "searchSortUnspecified",
                 "date",
@@ -667,42 +671,50 @@ class YouTubeResource(googleapiclient.discovery.Resource):
                 "relevance",
                 "title",
                 "videoCount",
-            ] = ...,
-            pageToken: str = ...,
-            publishedAfter: str = ...,
-            publishedBefore: str = ...,
-            q: str = ...,
-            regionCode: str = ...,
-            relevanceLanguage: str = ...,
+            ]
+            | None = ...,
+            pageToken: str | None = ...,
+            publishedAfter: str | None = ...,
+            publishedBefore: str | None = ...,
+            q: str | None = ...,
+            regionCode: str | None = ...,
+            relevanceLanguage: str | None = ...,
             safeSearch: typing_extensions.Literal[
                 "safeSearchSettingUnspecified", "none", "moderate", "strict"
-            ] = ...,
-            topicId: str = ...,
-            type: str | _list[str] = ...,
+            ]
+            | None = ...,
+            topicId: str | None = ...,
+            type: str | _list[str] | None = ...,
             videoCaption: typing_extensions.Literal[
                 "videoCaptionUnspecified", "any", "closedCaption", "none"
-            ] = ...,
-            videoCategoryId: str = ...,
-            videoDefinition: typing_extensions.Literal["any", "standard", "high"] = ...,
-            videoDimension: typing_extensions.Literal["any", "2d", "3d"] = ...,
+            ]
+            | None = ...,
+            videoCategoryId: str | None = ...,
+            videoDefinition: typing_extensions.Literal["any", "standard", "high"]
+            | None = ...,
+            videoDimension: typing_extensions.Literal["any", "2d", "3d"] | None = ...,
             videoDuration: typing_extensions.Literal[
                 "videoDurationUnspecified", "any", "short", "medium", "long"
-            ] = ...,
+            ]
+            | None = ...,
             videoEmbeddable: typing_extensions.Literal[
                 "videoEmbeddableUnspecified", "any", "true"
-            ] = ...,
-            videoLicense: typing_extensions.Literal[
-                "any", "youtube", "creativeCommon"
-            ] = ...,
+            ]
+            | None = ...,
+            videoLicense: typing_extensions.Literal["any", "youtube", "creativeCommon"]
+            | None = ...,
             videoPaidProductPlacement: typing_extensions.Literal[
                 "videoPaidProductPlacementUnspecified", "any", "true"
-            ] = ...,
+            ]
+            | None = ...,
             videoSyndicated: typing_extensions.Literal[
                 "videoSyndicatedUnspecified", "any", "true"
-            ] = ...,
+            ]
+            | None = ...,
             videoType: typing_extensions.Literal[
                 "videoTypeUnspecified", "any", "movie", "episode"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> SearchListResponseHttpRequest: ...
         def list_next(
@@ -717,29 +729,26 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self, *, id: str, **kwargs: typing.Any
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
-            self,
-            *,
-            part: str | _list[str],
-            body: Subscription = ...,
-            **kwargs: typing.Any,
+            self, *, part: str | _list[str], body: Subscription, **kwargs: typing.Any
         ) -> SubscriptionHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            channelId: str = ...,
-            forChannelId: str = ...,
-            id: str | _list[str] = ...,
-            maxResults: int = ...,
-            mine: bool = ...,
-            myRecentSubscribers: bool = ...,
-            mySubscribers: bool = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            channelId: str | None = ...,
+            forChannelId: str | None = ...,
+            id: str | _list[str] | None = ...,
+            maxResults: int | None = ...,
+            mine: bool | None = ...,
+            myRecentSubscribers: bool | None = ...,
+            mySubscribers: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             order: typing_extensions.Literal[
                 "subscriptionOrderUnspecified", "relevance", "unread", "alphabetical"
-            ] = ...,
-            pageToken: str = ...,
+            ]
+            | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> SubscriptionListResponseHttpRequest: ...
         def list_next(
@@ -754,9 +763,9 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            hl: str = ...,
-            maxResults: int = ...,
-            pageToken: str = ...,
+            hl: str | None = ...,
+            maxResults: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> SuperChatEventListResponseHttpRequest: ...
         def list_next(
@@ -771,9 +780,9 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            body: TestItem = ...,
-            externalChannelId: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
+            body: TestItem,
+            externalChannelId: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
             **kwargs: typing.Any,
         ) -> TestItemHttpRequest: ...
 
@@ -786,35 +795,36 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             type: typing_extensions.Literal[
                 "linkUnspecified", "channelToStoreLink", "channelToAffiliateProgramLink"
             ],
-            externalChannelId: str = ...,
-            part: str | _list[str] = ...,
+            externalChannelId: str | None = ...,
+            part: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: ThirdPartyLink = ...,
-            externalChannelId: str = ...,
+            body: ThirdPartyLink,
+            externalChannelId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ThirdPartyLinkHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            externalChannelId: str = ...,
-            linkingToken: str = ...,
+            externalChannelId: str | None = ...,
+            linkingToken: str | None = ...,
             type: typing_extensions.Literal[
                 "linkUnspecified", "channelToStoreLink", "channelToAffiliateProgramLink"
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> ThirdPartyLinkListResponseHttpRequest: ...
         def update(
             self,
             *,
             part: str | _list[str],
-            body: ThirdPartyLink = ...,
-            externalChannelId: str = ...,
+            body: ThirdPartyLink,
+            externalChannelId: str | None = ...,
             **kwargs: typing.Any,
         ) -> ThirdPartyLinkHttpRequest: ...
 
@@ -824,14 +834,14 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             videoId: str,
-            onBehalfOfContentOwner: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> ThumbnailSetResponseHttpRequest: ...
 
     @typing.type_check_only
     class VideoAbuseReportReasonsResource(googleapiclient.discovery.Resource):
         def list(
-            self, *, part: str | _list[str], hl: str = ..., **kwargs: typing.Any
+            self, *, part: str | _list[str], hl: str | None = ..., **kwargs: typing.Any
         ) -> VideoAbuseReportReasonListResponseHttpRequest: ...
 
     @typing.type_check_only
@@ -840,16 +850,16 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             part: str | _list[str],
-            hl: str = ...,
-            id: str | _list[str] = ...,
-            regionCode: str = ...,
+            hl: str | None = ...,
+            id: str | _list[str] | None = ...,
+            regionCode: str | None = ...,
             **kwargs: typing.Any,
         ) -> VideoCategoryListResponseHttpRequest: ...
 
     @typing.type_check_only
     class VideoTrainabilityResource(googleapiclient.discovery.Resource):
         def get(
-            self, *, id: str = ..., **kwargs: typing.Any
+            self, *, id: str | None = ..., **kwargs: typing.Any
         ) -> VideoTrainabilityHttpRequest: ...
 
     @typing.type_check_only
@@ -857,49 +867,54 @@ class YouTubeResource(googleapiclient.discovery.Resource):
         def batchGetStats(
             self,
             *,
-            id: str | _list[str] = ...,
-            onBehalfOfContentOwner: str = ...,
-            part: str | _list[str] = ...,
+            id: str | _list[str] | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            part: str | _list[str] | None = ...,
             **kwargs: typing.Any,
         ) -> BatchGetStatsResponseHttpRequest: ...
         def delete(
-            self, *, id: str, onBehalfOfContentOwner: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            id: str,
+            onBehalfOfContentOwner: str | None = ...,
+            **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def getRating(
             self,
             *,
             id: str | _list[str],
-            onBehalfOfContentOwner: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> VideoGetRatingResponseHttpRequest: ...
         def insert(
             self,
             *,
             part: str | _list[str],
-            body: Video = ...,
-            autoLevels: bool = ...,
-            notifySubscribers: bool = ...,
-            onBehalfOfContentOwner: str = ...,
-            onBehalfOfContentOwnerChannel: str = ...,
-            stabilize: bool = ...,
+            body: Video,
+            autoLevels: bool | None = ...,
+            notifySubscribers: bool | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            onBehalfOfContentOwnerChannel: str | None = ...,
+            stabilize: bool | None = ...,
             **kwargs: typing.Any,
         ) -> VideoHttpRequest: ...
         def list(
             self,
             *,
             part: str | _list[str],
-            chart: typing_extensions.Literal["chartUnspecified", "mostPopular"] = ...,
-            hl: str = ...,
-            id: str | _list[str] = ...,
-            locale: str = ...,
-            maxHeight: int = ...,
-            maxResults: int = ...,
-            maxWidth: int = ...,
-            myRating: typing_extensions.Literal["none", "like", "dislike"] = ...,
-            onBehalfOfContentOwner: str = ...,
-            pageToken: str = ...,
-            regionCode: str = ...,
-            videoCategoryId: str = ...,
+            chart: typing_extensions.Literal["chartUnspecified", "mostPopular"]
+            | None = ...,
+            hl: str | None = ...,
+            id: str | _list[str] | None = ...,
+            locale: str | None = ...,
+            maxHeight: int | None = ...,
+            maxResults: int | None = ...,
+            maxWidth: int | None = ...,
+            myRating: typing_extensions.Literal["none", "like", "dislike"] | None = ...,
+            onBehalfOfContentOwner: str | None = ...,
+            pageToken: str | None = ...,
+            regionCode: str | None = ...,
+            videoCategoryId: str | None = ...,
             **kwargs: typing.Any,
         ) -> VideoListResponseHttpRequest: ...
         def list_next(
@@ -917,16 +932,16 @@ class YouTubeResource(googleapiclient.discovery.Resource):
         def reportAbuse(
             self,
             *,
-            body: VideoAbuseReport = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: VideoAbuseReport,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def update(
             self,
             *,
             part: str | _list[str],
-            body: Video = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: Video,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> VideoHttpRequest: ...
 
@@ -936,15 +951,15 @@ class YouTubeResource(googleapiclient.discovery.Resource):
             self,
             *,
             channelId: str,
-            body: InvideoBranding = ...,
-            onBehalfOfContentOwner: str = ...,
+            body: InvideoBranding,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
         def unset(
             self,
             *,
             channelId: str,
-            onBehalfOfContentOwner: str = ...,
+            onBehalfOfContentOwner: str | None = ...,
             **kwargs: typing.Any,
         ) -> googleapiclient.http.HttpRequest: ...
 
@@ -959,12 +974,12 @@ class YouTubeResource(googleapiclient.discovery.Resource):
                     def stream(
                         self,
                         *,
-                        hl: str = ...,
-                        liveChatId: str = ...,
-                        maxResults: int = ...,
-                        pageToken: str = ...,
-                        part: str | _list[str] = ...,
-                        profileImageSize: int = ...,
+                        hl: str | None = ...,
+                        liveChatId: str | None = ...,
+                        maxResults: int | None = ...,
+                        pageToken: str | None = ...,
+                        part: str | _list[str] | None = ...,
+                        profileImageSize: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> LiveChatMessageListResponseHttpRequest: ...
                     def stream_next(

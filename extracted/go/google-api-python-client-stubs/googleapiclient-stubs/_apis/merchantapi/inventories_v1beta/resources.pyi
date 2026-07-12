@@ -23,18 +23,14 @@ class MerchantResource(googleapiclient.discovery.Resource):
                     self, *, name: str, **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def insert(
-                    self,
-                    *,
-                    parent: str,
-                    body: LocalInventory = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: LocalInventory, **kwargs: typing.Any
                 ) -> LocalInventoryHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListLocalInventoriesResponseHttpRequest: ...
                 def list_next(
@@ -49,18 +45,14 @@ class MerchantResource(googleapiclient.discovery.Resource):
                     self, *, name: str, **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def insert(
-                    self,
-                    *,
-                    parent: str,
-                    body: RegionalInventory = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: RegionalInventory, **kwargs: typing.Any
                 ) -> RegionalInventoryHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListRegionalInventoriesResponseHttpRequest: ...
                 def list_next(

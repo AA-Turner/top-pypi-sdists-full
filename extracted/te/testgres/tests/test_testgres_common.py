@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .helpers.global_data import OsOpsDescrs
+from .helpers.global_data import OsOpsDescr
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
@@ -16,6 +18,9 @@ from src.utils import get_pg_version2
 from src.utils import file_tail
 from src.utils import get_bin_path2
 from src.utils import execute_utility2
+from src.defaults import default_username
+from src.defaults import default_username2
+from src.config import testgres_config as tconf
 from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
@@ -71,6 +76,25 @@ def removing(os_ops: OsOperations, f):
 
 
 class TestTestgresCommon:
+    sm_os_ops_descrs: typing.List[OsOpsDescr] = [
+        OsOpsDescrs.sm_local_os_ops_descr,
+        OsOpsDescrs.sm_remote_os_ops_descr
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                descr,
+                id=descr.sign,
+            )
+            for descr in sm_os_ops_descrs
+        ],
+    )
+    def os_ops_descr(self, request: pytest.FixtureRequest) -> OsOpsDescr:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert isinstance(request.param, OsOpsDescr)
+        return request.param
+
     sm_node_svcs: typing.List[PostgresNodeService] = [
         PostgresNodeServices.sm_local,
         PostgresNodeServices.sm_local2,
@@ -96,7 +120,7 @@ class TestTestgresCommon:
         # Author: Mark G.
         assert v.major == 1
         assert v.minor == 14
-        assert v.micro == 4
+        assert v.micro == 5
 
         assert str(v) == testgres_version
         return
@@ -132,6 +156,37 @@ class TestTestgresCommon:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
+
+    def test_default_username(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        assert default_username(os_ops) == os_ops.get_user()
+        assert default_username(os_ops) == os_ops.username
+
+        assert default_username() == tconf.os_ops.username
+        assert default_username() == tconf.os_ops.get_user()
+        return
+
+    def test_default_username2(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        assert default_username2(os_ops) == os_ops.get_user()
+        assert default_username2(os_ops) == os_ops.username
+        return
 
     def test_node_constructor__default(self):
         node = PostgresNode()
@@ -190,6 +245,10 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
+        return
+
+    def test_custom_init__hba(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
             node.init(
@@ -202,8 +261,24 @@ class TestTestgresCommon:
             # check number of lines
             assert (len(lines) >= 6)
 
+            # Normalize function: turns a string into a list of pure words
+            def normalize_line(line_str):
+                return line_str.strip().split()
+
+            # We collect a list of rules that already exist in the file (in the form of word lists)
+            existing_normalized = []
+            for s in lines:
+                s_clean = s.strip()
+                if s_clean and not s_clean.startswith("#"):
+                    existing_normalized.append(normalize_line(s_clean))
+                continue
+
             # there should be no trust entries at all
-            assert not (any('trust' in s for s in lines))
+            for s in lines:
+                if len(s) > 0 and s[0] in ["host", "local"]:
+                    assert s[-1] == "reject"
+                continue
+            return
 
     def test_double_init(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1783,9 +1858,9 @@ class TestTestgresCommon:
             with removing(node_svc.os_ops, node1.dump(format=dump_fmt)) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node3:
                     if dump_fmt == enums.DumpFormat.Directory:
-                        assert (os.path.isdir(dump))
+                        assert (node_svc.os_ops.isdir(dump))
                     else:
-                        assert (os.path.isfile(dump))
+                        assert (node_svc.os_ops.isfile(dump))
                     # restore dump
                     node3.restore(filename=dump)
                     res = node3.execute(query_select)
@@ -1801,7 +1876,7 @@ class TestTestgresCommon:
             # Test dump with --schema-only option
             with removing(node_svc.os_ops, node1.dump(options=['--schema-only'])) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node2:
-                    assert (os.path.isfile(dump))
+                    assert (node_svc.os_ops.isfile(dump))
                     # restore schema-only dump
                     node2.restore(filename=dump)
 
@@ -2680,6 +2755,7 @@ where c.relname=%s;"""
         )
 
         assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is not None
         assert node_app.port_manager is node_svc.port_manager
         assert type(node_app.nodes_to_cleanup) is list
         assert len(node_app.nodes_to_cleanup) == 0
@@ -2753,6 +2829,7 @@ where c.relname=%s;"""
                 assert not node._should_free_port
                 break
         finally:
+            assert node_app.port_manager is not None
             while len(ports) > 0:
                 node_app.port_manager.release_port(ports.pop())
 
@@ -2809,6 +2886,8 @@ where c.relname=%s;"""
 
             logging.info("Node is started ...")
             node.slow_start()
+
+            assert node.status() == NodeStatus.Running
         return
 
     @staticmethod

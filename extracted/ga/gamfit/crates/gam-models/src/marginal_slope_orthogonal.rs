@@ -48,26 +48,27 @@ use gam_linalg::matrix::FactorizedSystem;
 use gam_terms::smooth::build_term_collection_design;
 use ndarray::{Array1, Array2, ArrayView2};
 
-/// Baseline fixed (NOT REML-learned) log-λ for the influence-absorber block's
-/// ridge.
+/// Floor for the influence-absorber ridge's REML seed.
 ///
-/// The §3 absorbed block `+Z_infl·γ` is an estimating-equation correction, not a
-/// new outcome surface. Its ridge therefore has to live on the same O(n) scale as
-/// the likelihood curvature; otherwise, as n grows, an O(1) ridge makes the
-/// absorber effectively unpenalized and it can fit genuine β(x) signal.  Keep the
-/// historical constant as the lower bound and use [`influence_absorber_log_lambda`]
-/// at call sites that know the training-row count.
-pub(crate) const INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA: f64 = 0.0;
+/// The §3 absorbed block `+Z_infl·γ` is an estimating-equation correction, not
+/// a new outcome surface, so its identity penalty is *seeded* on the
+/// likelihood-curvature scale rather than at the generic ρ₀ = 0 smooth seed.
+/// The log-λ itself is REML-learned like every other precision (SPEC:
+/// shrinkage is explicit or REML-selected, never a pinned magic constant);
+/// this floor only keeps the seed sane for degenerate row counts.
+pub(crate) const INFLUENCE_ABSORBER_SEED_FLOOR_LOG_LAMBDA: f64 = 0.0;
 
-/// Fixed absorber ridge for `n_rows` observations.
+/// REML seed for the absorber ridge with `n_rows` observations.
 ///
-/// Penalizing γ by roughly one unit per observation keeps the absorber a nuisance
-/// leakage correction rather than a competing flexible target surface, while the
-/// residualized columns still contribute when their score improvement is O(n).
+/// Seeding γ's penalty at roughly one unit per observation starts the absorber
+/// as a nuisance leakage correction rather than a competing flexible target
+/// surface; the outer REML then moves λ wherever the evidence puts it (large λ
+/// recovers the null correction, small λ engages a data-supported correction —
+/// the residualized columns carry no marginal-span signal by construction).
 pub(crate) fn influence_absorber_log_lambda(n_rows: usize) -> f64 {
     (n_rows.max(1) as f64)
         .ln()
-        .max(INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA)
+        .max(INFLUENCE_ABSORBER_SEED_FLOOR_LOG_LAMBDA)
 }
 
 /// Per-row, per-θ₁ score-influence Jacobian `∂z/∂θ₁` for a fitted CTN, plus the
@@ -208,14 +209,19 @@ pub fn score_influence_jacobian(
     let upper_floor = family.response_upper_floor_offset();
     let median = family.response_median();
 
-    // Floor on φ(z): at the PIT clip the score saturates at a fixed extreme
-    // quantile, so φ(z) is bounded below by φ(Φ⁻¹(clip_eps)). Clamping the
-    // ∂z = ∂u/φ(z) denominator there keeps a saturated row's influence bounded
-    // rather than infinite — the same bound the PIT clip already imposes on z.
-    let pdf_z_floor = normal_pdf(
-        standard_normal_quantile(TRANSFORMATION_SCORE_PIT_CLIP_EPS)
-            .map_err(|e| format!("score_influence_jacobian: clip quantile failed: {e}"))?,
-    );
+    // Saturation boundaries of the PIT score. `transformation_normal_pit_score`
+    // returns Φ⁻¹(u.clamp(clip_eps, 1−clip_eps)), so whenever the raw PIT
+    // probability lies at-or-beyond a clip boundary the emitted z is EXACTLY
+    // the boundary quantile and is locally constant in θ₁. The Jacobian of
+    // that clamped function is identically zero there — reporting the interior
+    // density-ratio chain (as this routine once did, with a floored φ(z))
+    // would differentiate a different function from the one whose value is
+    // consumed downstream. Computing the boundaries with the same quantile
+    // kernel the score uses makes the saturation test exact.
+    let z_saturated_lo = standard_normal_quantile(TRANSFORMATION_SCORE_PIT_CLIP_EPS)
+        .map_err(|e| format!("score_influence_jacobian: clip quantile failed: {e}"))?;
+    let z_saturated_hi = standard_normal_quantile(1.0 - TRANSFORMATION_SCORE_PIT_CLIP_EPS)
+        .map_err(|e| format!("score_influence_jacobian: clip quantile failed: {e}"))?;
 
     let mut columns = Array2::<f64>::zeros((n, p1));
     let mut z_scores = Array1::<f64>::zeros(n);
@@ -267,11 +273,17 @@ pub fn score_influence_jacobian(
             .map_err(|e| format!("score_influence_jacobian: PIT score failed at row {i}: {e}"))?;
         z_scores[i] = z;
 
-        // The ∂u/∂θ chain is evaluated at the SAME (clipped) operating point z
-        // represents: u_pit = Φ(z) exactly inverts z = Φ⁻¹(u_clamped), so the
-        // derivative coefficient and the reported score stay self-consistent
-        // without recomputing the (less stable) direct ratio. The endpoint
-        // φ/D ratios below are the analytic derivatives of that ratio.
+        // At (or beyond) a clip boundary the score is the constant boundary
+        // quantile: ∂z/∂θ₁ ≡ 0. The row was zero-initialized; skip the chain.
+        if z <= z_saturated_lo || z >= z_saturated_hi {
+            continue;
+        }
+
+        // Interior row: z = Φ⁻¹(u) with u strictly inside the clip band, so
+        // u_pit = Φ(z) exactly inverts the score and the derivative
+        // coefficient and the reported score stay self-consistent without
+        // recomputing the (less stable) direct ratio. The endpoint φ/D ratios
+        // below are the analytic derivatives of that ratio.
         //
         // Compute log(D) = log(Φ(U)−Φ(L)) in log-space to avoid catastrophic
         // cancellation when L and U both sit deep in the same tail (e.g. L=5,
@@ -316,17 +328,15 @@ pub fn score_influence_jacobian(
         const LOG_SQRT_2PI: f64 = 0.918_938_533_204_672_7;
         let log_phi = |x: f64| -0.5 * x * x - LOG_SQRT_2PI;
 
-        // φ at h/L/U. The chain ∂u/∂θ uses φ at the *unclamped* h when
-        // h is inside [L,U]; at the boundary (h clamped) φ(h)·∂h is the limiting
-        // contribution and the clamp keeps it finite.
-        let h_clamped = h.clamp(l, u);
-        let c_h = (log_phi(h_clamped) - log_denom).exp();
+        // φ at h/L/U. An interior z implies the raw PIT probability was strictly
+        // inside (0, 1), so h is strictly inside (L, U) here.
+        let c_h = (log_phi(h) - log_denom).exp();
         let c_l = (log_phi(l) - log_denom).exp();
         let c_u = (log_phi(u) - log_denom).exp();
 
-        // ∂z = ∂u / φ(z). Where the score saturates (|z| large), φ(z) underflows;
-        // the `pdf_z_floor` clamp keeps a saturated row's influence bounded.
-        let pdf_z = normal_pdf(z).max(pdf_z_floor);
+        // ∂z = ∂u / φ(z). Interior z is bounded by the clip quantiles, so
+        // φ(z) ≥ φ(Φ⁻¹(clip_eps)) > 0 — no floor is needed.
+        let pdf_z = normal_pdf(z);
 
         let mut row = columns.row_mut(i);
         for k in 0..p_resp {

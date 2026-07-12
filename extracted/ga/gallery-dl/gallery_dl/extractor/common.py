@@ -277,7 +277,7 @@ class Extractor():
             headers.setdefault("Sec-Fetch-Dest", "empty")
             headers.setdefault("Sec-Fetch-Mode", "cors")
             headers.setdefault("Sec-Fetch-Site", "same-site")
-        else:
+        elif headers is None:
             kwargs["headers"] = {
                 "Referer": self.root + "/",
                 "Origin" : self.root,
@@ -285,6 +285,8 @@ class Extractor():
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-site",
             }
+        else:
+            del kwargs["headers"]
         response = self.request(url, **kwargs)
 
         try:

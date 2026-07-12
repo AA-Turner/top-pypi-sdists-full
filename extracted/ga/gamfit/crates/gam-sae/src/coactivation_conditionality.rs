@@ -14,9 +14,9 @@
 //! Discrete context labels are accepted only by the diagnostic naming helper at
 //! the bottom of the module. They are not part of the conditionality metric.
 
+use crate::null_battery::ClaimNullCalibration;
 use gam_solve::row_sampling_measure::{DesignedRowSample, MeasureProvenance, RowSamplingMeasure};
 use gam_terms::basis::{BasisOptions, Dense, KnotSource, create_basis};
-use crate::null_battery::ClaimNullCalibration;
 use ndarray::{Array1, ArrayView2};
 use std::collections::BTreeMap;
 
@@ -285,9 +285,8 @@ pub fn estimate_on_rows_with_nulls(
         nulls,
         spike_in_roc,
     )?;
-    report.null_calibration = Some(
-        crate::null_battery::ClaimNullCalibration::from_calibrated_roc(calibrated),
-    );
+    report.null_calibration =
+        Some(crate::null_battery::ClaimNullCalibration::from_calibrated_roc(calibrated));
     Ok(report)
 }
 
@@ -299,7 +298,9 @@ fn selected_pair_matrix(
     let mut out = ndarray::Array2::<f64>::zeros((rows.len(), 2));
     for (slot, &row) in rows.iter().enumerate() {
         if row >= gate_i.len() || row >= gate_j.len() {
-            return Err(format!("selected_pair_matrix: sampled row {row} out of range"));
+            return Err(format!(
+                "selected_pair_matrix: sampled row {row} out of range"
+            ));
         }
         out[[slot, 0]] = gate_i[row];
         out[[slot, 1]] = gate_j[row];
@@ -769,6 +770,10 @@ fn fit_varying_coefficient_gam(
         }
     }
     let penalty_beta = difference_penalty(beta_cols, config.penalty_order)?;
+    // D_m has `beta_cols - m` independent rows, hence rank(D_m^T D_m) is
+    // exactly `beta_cols - m`. Reading non-zero diagonal entries instead counts
+    // every coefficient touched by the difference operator and overstates rank.
+    let penalty_rank = beta_cols - config.penalty_order;
     let mut penalty = vec![vec![0.0_f64; design_cols]; design_cols];
     for r in 0..beta_cols {
         for c in 0..beta_cols {
@@ -777,11 +782,24 @@ fn fit_varying_coefficient_gam(
     }
     let y: Vec<f64> = rows.iter().map(|&row| gate_j[row]).collect();
     let fit_for_log_lambda = |log_lambda: f64| -> Result<PenalizedFit, String> {
-        penalized_gaussian_fit(&design, &y, likelihood_weights, &penalty, log_lambda)
+        penalized_gaussian_fit(
+            &design,
+            &y,
+            likelihood_weights,
+            &penalty,
+            penalty_rank,
+            log_lambda,
+        )
     };
     let selected_log_smoothing = minimize_reml_log_smoothing(fit_for_log_lambda)?;
-    let final_fit =
-        penalized_gaussian_fit(&design, &y, likelihood_weights, &penalty, selected_log_smoothing)?;
+    let final_fit = penalized_gaussian_fit(
+        &design,
+        &y,
+        likelihood_weights,
+        &penalty,
+        penalty_rank,
+        selected_log_smoothing,
+    )?;
     let mut coefficients = vec![0.0_f64; beta_cols];
     coefficients.copy_from_slice(&final_fit.coef[1..]);
     let mut beta_at_rows = Vec::with_capacity(n);
@@ -839,6 +857,7 @@ fn penalized_gaussian_fit(
     y: &[f64],
     weights: &[f64],
     penalty: &[Vec<f64>],
+    penalty_rank: usize,
     log_lambda: f64,
 ) -> Result<PenalizedFit, String> {
     let n = design.len();
@@ -883,8 +902,12 @@ fn penalized_gaussian_fit(
         let solved = cholesky_solve(&factor, &rhs);
         effective_degrees += solved[col];
     }
-    let penalty_rank = penalty_rank_from_diagonal(penalty);
-    let df = (n as f64 - effective_degrees).max(MIN_RESIDUAL_DF);
+    // Frequency/HT weights define the likelihood mass represented by this
+    // sample. The residual degrees of freedom must live on that same measure;
+    // using the selected row count mixed a full-corpus weighted SSE with
+    // selected-sample df and changed the criterion under a common weight scale.
+    let likelihood_mass: f64 = weights.iter().sum();
+    let df = (likelihood_mass - effective_degrees).max(MIN_RESIDUAL_DF);
     let logdet = cholesky_logdet(&factor);
     let reml_score = logdet - penalty_rank as f64 * log_lambda + df * (penalized_sse / df).ln();
     Ok(PenalizedFit {
@@ -930,7 +953,11 @@ where
     golden_section_minimize(&mut evaluate, left, right)
 }
 
-fn golden_section_minimize<F>(evaluate: &mut F, mut left: f64, mut right: f64) -> Result<f64, String>
+fn golden_section_minimize<F>(
+    evaluate: &mut F,
+    mut left: f64,
+    mut right: f64,
+) -> Result<f64, String>
 where
     F: FnMut(f64) -> Result<PenalizedFit, String>,
 {
@@ -1000,20 +1027,6 @@ fn difference_coefficients(order: usize) -> Vec<f64> {
         coeff = next;
     }
     coeff
-}
-
-fn penalty_rank_from_diagonal(penalty: &[Vec<f64>]) -> usize {
-    let diag_max = penalty
-        .iter()
-        .enumerate()
-        .map(|(idx, row)| row[idx].abs())
-        .fold(0.0_f64, f64::max);
-    let floor = f64::EPSILON * penalty.len().max(1) as f64 * diag_max.max(1.0);
-    penalty
-        .iter()
-        .enumerate()
-        .filter(|(idx, row)| row[*idx].abs() > floor)
-        .count()
 }
 
 fn diagnose_context_labels(
@@ -1091,7 +1104,9 @@ fn residualize_gate(
     for row in 0..n {
         let y = gate[row];
         if !y.is_finite() {
-            return Err(format!("residualize_gate: row {row} has non-finite gate {y}"));
+            return Err(format!(
+                "residualize_gate: row {row} has non-finite gate {y}"
+            ));
         }
         let w = weights[row];
         for a in 0..cols {
@@ -1343,8 +1358,8 @@ mod tests {
         }
         let rows: Vec<usize> = (0..n).collect();
         let weights = vec![1.0_f64; n];
-        let influence = coupling_influence_values(&gate_i, &gate_j, &rows, &weights)
-            .expect("influence values");
+        let influence =
+            coupling_influence_values(&gate_i, &gate_j, &rows, &weights).expect("influence values");
         let certificate = influence.certificate();
         let direct = direct_exponential_tilt_radius_to_kill(
             certificate.rho,
@@ -1419,11 +1434,7 @@ mod tests {
         let jackknife_rms = (jackknife_sse / n as f64).sqrt();
         println!(
             "case=weighted_corr_if rho={:.6e} max_closed_form_diff={:.6e} mean_psi={:.6e} max_jackknife_diff={:.6e} jackknife_rms={:.6e}",
-            influence.rho,
-            max_closed_form_diff,
-            weighted_mean,
-            max_jackknife_diff,
-            jackknife_rms
+            influence.rho, max_closed_form_diff, weighted_mean, max_jackknife_diff, jackknife_rms
         );
         // Exact checks: the closed-form influence recomputed independently must
         // match the returned psi to machine precision, and every influence
@@ -1483,8 +1494,7 @@ mod tests {
             let a = if active_i[row] { 1.0 } else { 0.0 };
             let b = if active_j[row] { 1.0 } else { 0.0 };
             // Exact closed form: psi_i = 1_{g_i}(1_{g_j} - pi) / E[1_{g_i}].
-            let closed_form =
-                a * (b - influence.conditional_probability) / influence.active_mass_i;
+            let closed_form = a * (b - influence.conditional_probability) / influence.active_mass_i;
             max_closed_form_diff =
                 max_closed_form_diff.max((closed_form - influence.psi[slot]).abs());
             weighted_mean += influence.normalized_weights[slot] * influence.psi[slot];
@@ -1555,7 +1565,8 @@ mod tests {
         }
         if !(denom > 0.0) {
             return Err(
-                "conditional_probability_excluding: zero active mass in retained sample".to_string(),
+                "conditional_probability_excluding: zero active mass in retained sample"
+                    .to_string(),
             );
         }
         Ok(numer / denom)

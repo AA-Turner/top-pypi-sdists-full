@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: victron_mqtt
-Version: 2026.7.2
+Version: 2026.7.3
 Summary: Python library for communicating with Victron Venus OS MQTT interface
 Project-URL: Documentation, https://github.com/tomer-w/victron_mqtt#readme
 Project-URL: Issues, https://github.com/tomer-w/victron_mqtt/issues
@@ -11,11 +11,13 @@ License-File: LICENSE
 Keywords: mqtt,venus os,victron
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.13
-Requires-Dist: paho-mqtt>=1.6.1
+Requires-Python: >=3.11
+Requires-Dist: paho-mqtt>=2.0
 Description-Content-Type: text/markdown
 
 # victron_mqtt

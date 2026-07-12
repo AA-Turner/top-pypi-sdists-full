@@ -6,6 +6,7 @@ This module contains handlers for seed execution:
 """
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 import inspect
 import os
@@ -64,6 +65,7 @@ from ouroboros.orchestrator.adapter import (
     DELEGATED_PARENT_TRANSCRIPT_PATH_ARG,
     RuntimeHandle,
 )
+from ouroboros.orchestrator.model_routing import tier_from_model_tier_arg
 from ouroboros.orchestrator.runner import OrchestratorRunner
 from ouroboros.orchestrator.session import SessionRepository, SessionStatus
 from ouroboros.persistence.checkpoint import CheckpointStore
@@ -88,6 +90,28 @@ def _resolve_execution_model(runtime_backend: str | None) -> str | None:
     if runtime_backend == "claude":
         return DEFAULT_SONNET_MODEL
     return None
+
+
+def _resolve_model_tier_request(
+    arguments: Mapping[str, Any],
+    *,
+    is_resume: bool,
+) -> tuple[str, str | None, str | None]:
+    """Resolve public value, runner override, and delegated round-trip value.
+
+    A fresh omitted request uses the public ``medium`` default and must therefore
+    pin the run's base tier to ``standard``. An omitted resume is different: it
+    means restore the persisted routing contract, so neither the runner nor a
+    delegated plugin payload may materialize a new explicit ``medium`` override.
+    """
+    requested = arguments.get("model_tier")
+    effective = requested if isinstance(requested, str) and requested else "medium"
+    should_override = requested is not None or not is_resume
+    return (
+        effective,
+        tier_from_model_tier_arg(effective) if should_override else None,
+        effective if should_override else None,
+    )
 
 
 def _parse_seed_yaml_for_execution_mode(
@@ -188,7 +212,15 @@ async def _validate_plugin_resume_acceptance_contract(
     session_id: str | None,
     tool_name: str,
 ) -> Result[None, MCPToolError]:
-    """Reject plugin resumes whose persisted contract requires fat-harness."""
+    """Reject plugin resumes the delegated child cannot safely restore.
+
+    Plugin dispatch can start a fresh child, but it does not instantiate the
+    in-process runner that validates and restores the immutable execution
+    contract (Seed semantics, backend, workspace, constructor model, and routing
+    policy). Allowing any existing session through this branch would let a new
+    payload silently replace those identities. Keep the older fat-harness errors
+    specific, then fail closed for every other plugin resume as well.
+    """
     if not session_id:
         return Result.ok(None)
 
@@ -224,7 +256,15 @@ async def _validate_plugin_resume_acceptance_contract(
                     tool_name=tool_name,
                 )
             )
-        return Result.ok(None)
+        return Result.err(
+            MCPToolError(
+                "OpenCode plugin dispatch cannot safely resume an existing execute_seed "
+                "session because the delegated child cannot restore and verify the "
+                "session's immutable execution contract (Seed, backend, workspace, and "
+                "model routing). Resume without plugin dispatch or start a new session.",
+                tool_name=tool_name,
+            )
+        )
     finally:
         if owns_store:
             await store.close()
@@ -510,9 +550,12 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                 MCPToolParameter(
                     name="model_tier",
                     type=ToolInputType.STRING,
-                    description="Model tier to use (small, medium, large). Default: medium",
+                    description=(
+                        "Model-tier routing: small/medium/large → frugal/standard/frontier "
+                        "execution tier (decomposed children run one tier below; retries "
+                        "escalate). Default: medium"
+                    ),
                     required=False,
-                    default="medium",
                     enum=("small", "medium", "large"),
                 ),
                 MCPToolParameter(
@@ -582,7 +625,12 @@ class ExecuteSeedHandler(BridgeAwareMixin):
         session_id = arguments.get("session_id")
         is_resume = bool(session_id)
         session_id = session_id or session_id_override
-        model_tier = arguments.get("model_tier", "medium")
+        model_tier, base_model_tier_override, delegated_model_tier = _resolve_model_tier_request(
+            arguments, is_resume=is_resume
+        )
+        # ``medium`` is the public response/default value, not an explicit resume
+        # override. Preserve a session's resolved routing contract unless the
+        # caller actually supplied model_tier on this invocation.
         max_iterations = arguments.get("max_iterations", 10)
         if not is_resume and session_id is None:
             session_id = f"orch_{uuid4().hex[:12]}"
@@ -651,6 +699,10 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                 get_auto_evaluate_enabled(),
                 arguments.get("auto_evaluate"),
             )
+            _effective_tier, _runner_tier, delegated_model_tier = _resolve_model_tier_request(
+                arguments,
+                is_resume=is_resume,
+            )
             payload = build_execute_subagent(
                 seed_content=seed_content,
                 session_id=session_id,
@@ -659,7 +711,7 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                 max_iterations=max_iterations,
                 skip_qa=arguments.get("skip_qa", False),
                 auto_evaluate=auto_evaluate,
-                model_tier=model_tier,
+                model_tier=delegated_model_tier,
                 max_parallel_workers=max_parallel_workers,
             )
             # Preserve public response shape (#442): consumers expect
@@ -832,6 +884,9 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                     checkpoint_store=checkpoint_store,
                     max_parallel_workers=max_parallel_workers,
                     fat_harness_mode=fat_harness_mode,
+                    # Drive model-tier routing from the MCP model_tier arg
+                    # (small/medium/large → frugal/standard/frontier top-level tier).
+                    base_model_tier=base_model_tier_override,
                 )
 
                 skip_qa = arguments.get("skip_qa", False)
@@ -1593,6 +1648,9 @@ class StartExecuteSeedHandler:
                 get_auto_evaluate_enabled(),
                 arguments.get("auto_evaluate"),
             )
+            _effective_tier, _runner_tier, delegated_model_tier = _resolve_model_tier_request(
+                arguments, is_resume=is_resume
+            )
             payload = build_execute_subagent(
                 seed_content=seed_content,
                 session_id=plugin_session_id,
@@ -1601,7 +1659,7 @@ class StartExecuteSeedHandler:
                 max_iterations=arguments.get("max_iterations", 10),
                 skip_qa=arguments.get("skip_qa", False),
                 auto_evaluate=auto_evaluate,
-                model_tier=arguments.get("model_tier", "medium"),
+                model_tier=delegated_model_tier,
                 max_parallel_workers=max_parallel_workers,
             )
 

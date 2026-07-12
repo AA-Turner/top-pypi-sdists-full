@@ -43,6 +43,8 @@ __all__ = [
     "iter_catalogue_regions",
     "load_showcase_appspec",
     "render_catalogue_region",
+    "render_region_by_name",
+    "showcase_region_names",
 ]
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -62,7 +64,9 @@ _HM_MOVED = {"tokens.css": "tokens/tokens.css"}
 # metrics.css / dashboard-card.css); dropped from the catalogue sources.
 _CSS_SOURCES = (
     "tokens.css",
-    "dz.css",
+    # dz.css deleted (improve cycle 250, 2026-07-10) — its htmx-indicator rules
+    # were duplicates of HM components/htmx-states.css, which is already
+    # concatenated below via the HM components glob.
     # components/regions.css deleted (HM-sitespec 1C, 2026-07-09) — it was a
     # rules-free tombstone index; every region family lives in the HM dist.
 )
@@ -277,6 +281,29 @@ def generate_catalogue_markdown() -> str:
     # Exactly one trailing newline so the committed page matches generator output
     # (the end-of-file-fixer pre-commit hook strips extra blank lines otherwise).
     return "\n".join(parts).rstrip("\n") + "\n"
+
+
+def showcase_region_names() -> list[str]:
+    """Names of the renderable showcase regions (the `component-vision` targets)."""
+    appspec = load_showcase_appspec()
+    return sorted(
+        ir.name
+        for ir, _ in iter_catalogue_regions(appspec)
+        if CATALOGUE_MANIFEST.get(ir.name) is not None
+    )
+
+
+def render_region_by_name(name: str) -> str:
+    """Render one showcase region to HTML by name. Raises KeyError if unknown."""
+    appspec = load_showcase_appspec()
+    for ir_region, ctx_region in iter_catalogue_regions(appspec):
+        if ir_region.name != name:
+            continue
+        entry = CATALOGUE_MANIFEST.get(name)
+        if entry is not None:
+            return render_catalogue_region(appspec, ir_region, ctx_region, entry)
+        break
+    raise KeyError(f"unknown showcase region {name!r}; have: {showcase_region_names()}")
 
 
 def generate_catalogue_css() -> str:

@@ -18,7 +18,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class LfpInventoriesResource(googleapiclient.discovery.Resource):
             def insert(
-                self, *, parent: str, body: LfpInventory = ..., **kwargs: typing.Any
+                self, *, parent: str, body: LfpInventory, **kwargs: typing.Any
             ) -> LfpInventoryHttpRequest: ...
 
         @typing.type_check_only
@@ -30,7 +30,7 @@ class MerchantResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class LfpSalesResource(googleapiclient.discovery.Resource):
             def insert(
-                self, *, parent: str, body: LfpSale = ..., **kwargs: typing.Any
+                self, *, parent: str, body: LfpSale, **kwargs: typing.Any
             ) -> LfpSaleHttpRequest: ...
 
         @typing.type_check_only
@@ -42,15 +42,15 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self, *, name: str, **kwargs: typing.Any
             ) -> LfpStoreHttpRequest: ...
             def insert(
-                self, *, parent: str, body: LfpStore = ..., **kwargs: typing.Any
+                self, *, parent: str, body: LfpStore, **kwargs: typing.Any
             ) -> LfpStoreHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                targetAccount: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                targetAccount: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLfpStoresResponseHttpRequest: ...
             def list_next(

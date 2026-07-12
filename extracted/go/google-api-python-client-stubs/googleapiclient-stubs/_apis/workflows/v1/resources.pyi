@@ -29,10 +29,10 @@ class WorkflowsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -47,24 +47,28 @@ class WorkflowsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Workflow = ...,
-                    workflowId: str = ...,
+                    body: Workflow,
+                    workflowId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def get(
-                    self, *, name: str, revisionId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    revisionId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> WorkflowHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListWorkflowsResponseHttpRequest: ...
                 def list_next(
@@ -76,8 +80,8 @@ class WorkflowsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListWorkflowRevisionsResponseHttpRequest: ...
                 def listRevisions_next(
@@ -89,8 +93,8 @@ class WorkflowsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Workflow = ...,
-                    updateMask: str = ...,
+                    body: Workflow,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
@@ -101,10 +105,10 @@ class WorkflowsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

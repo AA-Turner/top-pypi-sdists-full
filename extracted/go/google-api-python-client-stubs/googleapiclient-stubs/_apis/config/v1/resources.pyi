@@ -28,8 +28,8 @@ class ConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDeploymentGroupRevisionsResponseHttpRequest: ...
                     def list_next(
@@ -42,9 +42,9 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: DeploymentGroup = ...,
-                    deploymentGroupId: str = ...,
-                    requestId: str = ...,
+                    body: DeploymentGroup,
+                    deploymentGroupId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -56,16 +56,17 @@ class ConfigResource(googleapiclient.discovery.Resource):
                         "FAIL_IF_ANY_REFERENCES_EXIST",
                         "FAIL_IF_METADATA_REFERENCES_EXIST",
                         "IGNORE_DEPLOYMENT_REFERENCES",
-                    ] = ...,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    ]
+                    | None = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def deprovision(
                     self,
                     *,
                     name: str,
-                    body: DeprovisionDeploymentGroupRequest = ...,
+                    body: DeprovisionDeploymentGroupRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -75,10 +76,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDeploymentGroupsResponseHttpRequest: ...
                 def list_next(
@@ -90,16 +91,16 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: DeploymentGroup = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: DeploymentGroup,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def provision(
                     self,
                     *,
                     name: str,
-                    body: ProvisionDeploymentGroupRequest = ...,
+                    body: ProvisionDeploymentGroupRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def revisions(self) -> RevisionsResource: ...
@@ -117,10 +118,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListResourcesResponseHttpRequest: ...
                         def list_next(
@@ -133,7 +134,7 @@ class ConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ExportRevisionStatefileRequest = ...,
+                        body: ExportRevisionStatefileRequest,
                         **kwargs: typing.Any,
                     ) -> StatefileHttpRequest: ...
                     def get(
@@ -143,10 +144,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListRevisionsResponseHttpRequest: ...
                     def list_next(
@@ -160,9 +161,9 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Deployment = ...,
-                    deploymentId: str = ...,
-                    requestId: str = ...,
+                    body: Deployment,
+                    deploymentId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -171,16 +172,17 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     name: str,
                     deletePolicy: typing_extensions.Literal[
                         "DELETE_POLICY_UNSPECIFIED", "DELETE", "ABANDON"
-                    ] = ...,
-                    force: bool = ...,
-                    requestId: str = ...,
+                    ]
+                    | None = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def deleteState(
                     self,
                     *,
                     name: str,
-                    body: DeleteStatefileRequest = ...,
+                    body: DeleteStatefileRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def exportLock(
@@ -190,7 +192,7 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ExportDeploymentStatefileRequest = ...,
+                    body: ExportDeploymentStatefileRequest,
                     **kwargs: typing.Any,
                 ) -> StatefileHttpRequest: ...
                 def get(
@@ -200,24 +202,24 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def importState(
                     self,
                     *,
                     parent: str,
-                    body: ImportStatefileRequest = ...,
+                    body: ImportStatefileRequest,
                     **kwargs: typing.Any,
                 ) -> StatefileHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDeploymentsResponseHttpRequest: ...
                 def list_next(
@@ -229,37 +231,37 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: LockDeploymentRequest = ...,
+                    body: LockDeploymentRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: Deployment = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: Deployment,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def unlock(
                     self,
                     *,
                     name: str,
-                    body: UnlockDeploymentRequest = ...,
+                    body: UnlockDeploymentRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def revisions(self) -> RevisionsResource: ...
@@ -270,7 +272,7 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -283,10 +285,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -306,10 +308,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListResourceChangesResponseHttpRequest: ...
                     def list_next(
@@ -327,10 +329,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListResourceDriftsResponseHttpRequest: ...
                     def list_next(
@@ -343,19 +345,23 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Preview = ...,
-                    previewId: str = ...,
-                    requestId: str = ...,
+                    body: Preview,
+                    previewId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def export(
                     self,
                     *,
                     parent: str,
-                    body: ExportPreviewResultRequest = ...,
+                    body: ExportPreviewResultRequest,
                     **kwargs: typing.Any,
                 ) -> ExportPreviewResultResponseHttpRequest: ...
                 def get(
@@ -365,10 +371,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPreviewsResponseHttpRequest: ...
                 def list_next(
@@ -388,10 +394,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListTerraformVersionsResponseHttpRequest: ...
                 def list_next(
@@ -410,10 +416,10 @@ class ConfigResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
@@ -425,8 +431,8 @@ class ConfigResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: AutoMigrationConfig = ...,
-                updateMask: str = ...,
+                body: AutoMigrationConfig,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def deploymentGroups(self) -> DeploymentGroupsResource: ...

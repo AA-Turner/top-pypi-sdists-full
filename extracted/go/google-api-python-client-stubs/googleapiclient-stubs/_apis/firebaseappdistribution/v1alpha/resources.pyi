@@ -32,7 +32,7 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                     *,
                     mobilesdkAppId: str,
                     releaseId: str,
-                    body: GoogleFirebaseAppdistroV1alphaCreateReleaseNotesRequest = ...,
+                    body: GoogleFirebaseAppdistroV1alphaCreateReleaseNotesRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleFirebaseAppdistroV1alphaCreateReleaseNotesResponseHttpRequest
@@ -43,7 +43,7 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                 *,
                 mobilesdkAppId: str,
                 releaseId: str,
-                body: GoogleFirebaseAppdistroV1alphaEnableAccessOnReleaseRequest = ...,
+                body: GoogleFirebaseAppdistroV1alphaEnableAccessOnReleaseRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleFirebaseAppdistroV1alphaEnableAccessOnReleaseResponseHttpRequest
@@ -53,7 +53,11 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class TestersResource(googleapiclient.discovery.Resource):
             def getTesterUdids(
-                self, *, mobilesdkAppId: str, project: str = ..., **kwargs: typing.Any
+                self,
+                *,
+                mobilesdkAppId: str,
+                project: str | None = ...,
+                **kwargs: typing.Any,
             ) -> GoogleFirebaseAppdistroV1alphaGetTesterUdidsResponseHttpRequest: ...
 
         @typing.type_check_only
@@ -66,9 +70,8 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
             self,
             *,
             mobilesdkAppId: str,
-            appView: typing_extensions.Literal[
-                "APP_VIEW_UNSPECIFIED", "BASIC", "FULL"
-            ] = ...,
+            appView: typing_extensions.Literal["APP_VIEW_UNSPECIFIED", "BASIC", "FULL"]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleFirebaseAppdistroV1alphaAppHttpRequest: ...
         def getJwt(
@@ -94,8 +97,8 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleFirebaseAppdistroV1alphaReleaseTest = ...,
-                        releaseTestId: str = ...,
+                        body: GoogleFirebaseAppdistroV1alphaReleaseTest,
+                        releaseTestId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleFirebaseAppdistroV1alphaReleaseTestHttpRequest: ...
                     def get(
@@ -105,13 +108,14 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "RELEASE_TEST_VIEW_UNSPECIFIED",
                             "RELEASE_TEST_VIEW_BASIC",
                             "RELEASE_TEST_VIEW_FULL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleFirebaseAppdistroV1alphaListReleaseTestsResponseHttpRequest: ...
                     def list_next(
@@ -131,21 +135,21 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleFirebaseAppdistroV1alphaBatchDeleteTestCasesRequest = ...,
+                    body: GoogleFirebaseAppdistroV1alphaBatchDeleteTestCasesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def batchUpdate(
                     self,
                     *,
                     parent: str,
-                    body: GoogleFirebaseAppdistroV1alphaBatchUpdateTestCasesRequest = ...,
+                    body: GoogleFirebaseAppdistroV1alphaBatchUpdateTestCasesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppdistroV1alphaBatchUpdateTestCasesResponseHttpRequest: ...
                 def clearTestCaseCache(
                     self,
                     *,
                     testCase: str,
-                    body: GoogleFirebaseAppdistroV1alphaClearTestCaseCacheRequest = ...,
+                    body: GoogleFirebaseAppdistroV1alphaClearTestCaseCacheRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleFirebaseAppdistroV1alphaClearTestCaseCacheResponseHttpRequest
@@ -154,8 +158,8 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleFirebaseAppdistroV1alphaTestCase = ...,
-                    testCaseId: str = ...,
+                    body: GoogleFirebaseAppdistroV1alphaTestCase,
+                    testCaseId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppdistroV1alphaTestCaseHttpRequest: ...
                 def delete(
@@ -168,8 +172,8 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppdistroV1alphaListTestCasesResponseHttpRequest: ...
                 def list_next(
@@ -184,8 +188,8 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppdistroV1alphaTestCase = ...,
-                    allowMissing: bool = ...,
+                    body: GoogleFirebaseAppdistroV1alphaTestCase,
+                    allowMissing: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppdistroV1alphaTestCaseHttpRequest: ...
 
@@ -196,8 +200,8 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleFirebaseAppdistroV1alphaTestConfig = ...,
-                updateMask: str = ...,
+                body: GoogleFirebaseAppdistroV1alphaTestConfig,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppdistroV1alphaTestConfigHttpRequest: ...
             def releases(self) -> ReleasesResource: ...
@@ -206,7 +210,11 @@ class FirebaseAppDistributionResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class TestersResource(googleapiclient.discovery.Resource):
             def getUdids(
-                self, *, project: str, mobilesdkAppId: str = ..., **kwargs: typing.Any
+                self,
+                *,
+                project: str,
+                mobilesdkAppId: str | None = ...,
+                **kwargs: typing.Any,
             ) -> GoogleFirebaseAppdistroV1alphaGetTesterUdidsResponseHttpRequest: ...
 
         def getTestQuota(

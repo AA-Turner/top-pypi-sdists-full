@@ -14,7 +14,10 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {"ast", "itertools", "nox._resolver", "nox.sessions", "operator"}
+
 import ast
+import functools
 import itertools
 import operator
 from collections.abc import Mapping
@@ -79,18 +82,20 @@ class Manifest:
                 self.add_session(session)
 
     def __contains__(self, needle: str | SessionRunner) -> bool:
-        if needle in self._queue or needle in self._consumed:
-            return True
-        for session in self._queue + self._consumed:
-            if session.name == needle or needle in session.signatures:
-                return True
-        return False
+        return (
+            needle in self._queue
+            or needle in self._consumed
+            or any(
+                session.name == needle or needle in session.signatures
+                for session in itertools.chain(self._queue, self._consumed)
+            )
+        )
 
     def __iter__(self) -> Manifest:
         return self
 
     def __getitem__(self, key: str) -> SessionRunner:
-        for session in self._queue + self._consumed:
+        for session in itertools.chain(self._queue, self._consumed):
             if session.name == key or key in session.signatures:
                 return session
         raise KeyError(key)
@@ -101,7 +106,7 @@ class Manifest:
         Raises:
             StopIteration: If the queue has been entirely consumed.
         """
-        if not len(self._queue):
+        if not self._queue:
             raise StopIteration
         session = self._queue.pop(0)
         self._consumed.append(session)
@@ -264,6 +269,14 @@ class Manifest:
             for session in sessions_by_id.values()
         }
 
+        # Sessions without any signatures (e.g. the placeholder session created
+        # when a parametrized session has an empty list of parameters) are not
+        # in ``sessions_by_id``, so add any missing queued sessions to the graph.
+        for session in self._queue:
+            dependency_graph.setdefault(
+                session, session.get_direct_dependencies(sessions_by_id)
+            )
+
         # Resolve the dependency graph.
         root = cast("SessionRunner", object())  # sentinel
         try:
@@ -384,9 +397,6 @@ class Manifest:
         # Return the list of sessions.
         return sessions
 
-    def next(self) -> SessionRunner:
-        return next(self)
-
     def notify(
         self, session: str | SessionRunner, posargs: Iterable[str] | None = None
     ) -> bool:
@@ -466,14 +476,16 @@ def _normalized_session_match(session_name: str, session: SessionRunner) -> bool
     """Checks if session_name matches session."""
     if session_name == session.name or session_name in session.signatures:
         return True
+    normalized_name = _normalize_arg(session_name)
     for name in session.signatures:
-        equal_rep = _normalize_arg(session_name) == _normalize_arg(name)
+        equal_rep = normalized_name == _normalize_arg(name)
         if equal_rep:
             return True
     # Exhausted
     return False
 
 
+@functools.cache
 def _normalize_arg(arg: str) -> str:
     """Normalize arg for comparison."""
     try:

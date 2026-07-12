@@ -17,6 +17,7 @@
 #[cfg(test)]
 mod design_assembly_constraint_tests {
     use super::*;
+    use super::test_support::SingleBlockExactJointDesignCacheTestExt;
     // The bespoke basis spec types this fixture builds designs from. `CenterStrategy`
     // and `MaternIdentifiability` already arrive via `super::*` (the drivers'
     // explicit `gam_terms::basis` import), so re-listing them here would collide
@@ -1042,14 +1043,15 @@ fn build_smooth_design_rejectsmultiaxis_spatial_shape_constraints() {
     let err = build_smooth_design(data.view(), &terms).expect_err("shape should be rejected");
     match err {
         BasisError::InvalidInput(msg) => {
-            assert!(msg.contains("requires exactly 1 feature axis"));
+            assert!(msg.contains("unsupported"));
+            assert!(msg.contains("tps_shape"));
         }
         other => panic!("unexpected error: {other:?}"),
     }
 }
 
 #[test]
-fn build_smooth_design_accepts_monotone_thin_plate_1dwith_linear_constraints() {
+fn build_smooth_design_rejects_uncertified_monotone_thin_plate_1d() {
     // 1D TPS with `num_centers = 4` requests exactly 4 centers. The
     // polynomial nullspace is represented by separate columns, not by
     // hidden extra knots.
@@ -1071,15 +1073,15 @@ fn build_smooth_design_accepts_monotone_thin_plate_1dwith_linear_constraints() {
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
     }];
-    let sd = build_smooth_design(data.view(), &terms).unwrap_or_else(|e| panic!("{} failed: {:?}", "shape-constrained thin-plate", e));
-    assert!(sd.coefficient_lower_bounds.is_none());
-    let lin = sd
-        .linear_constraints
-        .as_ref()
-        .unwrap_or_else(|| panic!("{} failed", "linear constraints should be generated"));
-    assert!(lin.a.nrows() > 0);
-    assert_eq!(lin.a.ncols(), sd.total_smooth_cols());
-    assert_eq!(lin.b.len(), lin.a.nrows());
+    let err = build_smooth_design(data.view(), &terms)
+        .expect_err("a radial basis without a spanwise certificate must be rejected");
+    match err {
+        BasisError::InvalidInput(msg) => {
+            assert!(msg.contains("unsupported"));
+            assert!(msg.contains("mono_tps"));
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
@@ -1207,7 +1209,7 @@ fn freeze_term_collection_handles_thin_plate_auto_promotion_to_duchon() {
 }
 
 #[test]
-fn build_smooth_design_accepts_monotone_matern_1dwith_linear_constraints() {
+fn build_smooth_design_rejects_uncertified_monotone_matern_1d() {
     let data = array![[0.0], [0.2], [0.4], [0.6], [0.8], [1.0]];
     let terms = vec![SmoothTermSpec {
         name: "mono_matern".to_string(),
@@ -1229,19 +1231,19 @@ fn build_smooth_design_accepts_monotone_matern_1dwith_linear_constraints() {
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
     }];
-    let sd = build_smooth_design(data.view(), &terms).unwrap_or_else(|e| panic!("{} failed: {:?}", "shape-constrained Matérn", e));
-    assert!(sd.coefficient_lower_bounds.is_none());
-    let lin = sd
-        .linear_constraints
-        .as_ref()
-        .unwrap_or_else(|| panic!("{} failed", "linear constraints should be generated"));
-    assert!(lin.a.nrows() > 0);
-    assert_eq!(lin.a.ncols(), sd.total_smooth_cols());
-    assert_eq!(lin.b.len(), lin.a.nrows());
+    let err = build_smooth_design(data.view(), &terms)
+        .expect_err("a radial basis without a spanwise certificate must be rejected");
+    match err {
+        BasisError::InvalidInput(msg) => {
+            assert!(msg.contains("unsupported"));
+            assert!(msg.contains("mono_matern"));
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
-fn build_smooth_design_accepts_monotone_duchon_1dwith_linear_constraints() {
+fn build_smooth_design_rejects_uncertified_monotone_duchon_1d() {
     let data = array![[0.0], [0.2], [0.4], [0.6], [0.8], [1.0]];
     let terms = vec![SmoothTermSpec {
         name: "mono_duchon".to_string(),
@@ -1264,15 +1266,15 @@ fn build_smooth_design_accepts_monotone_duchon_1dwith_linear_constraints() {
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
     }];
-    let sd = build_smooth_design(data.view(), &terms).unwrap_or_else(|e| panic!("{} failed: {:?}", "shape-constrained Duchon", e));
-    assert!(sd.coefficient_lower_bounds.is_none());
-    let lin = sd
-        .linear_constraints
-        .as_ref()
-        .unwrap_or_else(|| panic!("{} failed", "linear constraints should be generated"));
-    assert!(lin.a.nrows() > 0);
-    assert_eq!(lin.a.ncols(), sd.total_smooth_cols());
-    assert_eq!(lin.b.len(), lin.a.nrows());
+    let err = build_smooth_design(data.view(), &terms)
+        .expect_err("a radial basis without a spanwise certificate must be rejected");
+    match err {
+        BasisError::InvalidInput(msg) => {
+            assert!(msg.contains("unsupported"));
+            assert!(msg.contains("mono_duchon"));
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
@@ -1307,6 +1309,99 @@ fn build_smooth_design_accepts_monotone_bsplinewith_bounds() {
     assert!(lb[0].is_infinite() && lb[0].is_sign_negative());
     for j in 1..lb.len() {
         assert_eq!(lb[j], 0.0);
+    }
+}
+
+#[test]
+fn build_smooth_design_rejects_bspline_charts_without_raw_open_controls() {
+    let data = array![[0.0], [0.2], [0.4], [0.6], [0.8], [1.0]];
+    let cases = vec![
+        (
+            "periodic_knots",
+            BSplineBasisSpec {
+                degree: 3,
+                penalty_order: 2,
+                knotspec: BSplineKnotSpec::PeriodicUniform {
+                    data_range: (0.0, 1.0),
+                    num_basis: 7,
+                },
+                double_penalty: false,
+                identifiability: BSplineIdentifiability::None,
+                boundary: OneDimensionalBoundary::Open,
+                boundary_conditions: BSplineBoundaryConditions::default(),
+            },
+        ),
+        (
+            "natural_cubic",
+            BSplineBasisSpec {
+                degree: 3,
+                penalty_order: 2,
+                knotspec: BSplineKnotSpec::NaturalCubicRegression {
+                    knots: array![0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+                },
+                double_penalty: false,
+                identifiability: BSplineIdentifiability::None,
+                boundary: OneDimensionalBoundary::Open,
+                boundary_conditions: BSplineBoundaryConditions::default(),
+            },
+        ),
+        (
+            "cyclic_boundary",
+            BSplineBasisSpec {
+                degree: 3,
+                penalty_order: 2,
+                knotspec: BSplineKnotSpec::Generate {
+                    data_range: (0.0, 1.0),
+                    num_internal_knots: 3,
+                },
+                double_penalty: false,
+                identifiability: BSplineIdentifiability::None,
+                boundary: OneDimensionalBoundary::Cyclic {
+                    start: 0.0,
+                    end: 1.0,
+                },
+                boundary_conditions: BSplineBoundaryConditions::default(),
+            },
+        ),
+        (
+            "endpoint_transform",
+            BSplineBasisSpec {
+                degree: 3,
+                penalty_order: 2,
+                knotspec: BSplineKnotSpec::Generate {
+                    data_range: (0.0, 1.0),
+                    num_internal_knots: 3,
+                },
+                double_penalty: false,
+                identifiability: BSplineIdentifiability::None,
+                boundary: OneDimensionalBoundary::Open,
+                boundary_conditions: BSplineBoundaryConditions {
+                    left: BSplineEndpointBoundaryCondition::Clamped,
+                    right: BSplineEndpointBoundaryCondition::Free,
+                },
+            },
+        ),
+    ];
+
+    for (label, spec) in cases {
+        let terms = vec![SmoothTermSpec {
+            name: label.to_string(),
+            basis: SmoothBasisSpec::BSpline1D {
+                feature_col: 0,
+                spec,
+            },
+            shape: ShapeConstraint::MonotoneIncreasing,
+            joint_null_rotation: None,
+        }];
+        let err = build_smooth_design(data.view(), &terms)
+            .expect_err("a transformed/cyclic coefficient chart must be rejected");
+        match err {
+            BasisError::InvalidInput(msg) => {
+                assert!(msg.contains("unsupported"), "{label}: {msg}");
+                assert!(msg.contains(label), "{label}: {msg}");
+            }
+            other => panic!("{label}: unexpected error: {other:?}"),
+        }
     }
 }
 
@@ -3341,11 +3436,11 @@ pub(super) fn run_two_block_exact_joint_optimize(
                     eval_mode,
                     gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
                 ) {
-                    gam_problem::HessianResult::Analytic(Array2::zeros((
+                    gam_problem::HessianValue::Dense(Array2::zeros((
                         theta_dim, theta_dim,
                     )))
                 } else {
-                    gam_problem::HessianResult::Unavailable
+                    gam_problem::HessianValue::Unavailable
                 },
             ))
         },
@@ -3361,6 +3456,7 @@ pub(super) fn run_two_block_exact_joint_optimize(
                 psi_indices: None,
                 inner_hessian_scale: None,
                 logdet_enclosure_gap: None,
+                consecutive_restored_incumbents: None,
             })
         },
         |_beta: &Array1<f64>| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
@@ -4075,15 +4171,7 @@ fn exact_spatial_joint_engine_aniso_iso_parity_1d() {
             rho_dim,
             &kappa_options,
         )
-        .map(|(outcome, _timing)| match outcome {
-            SpatialJointOutcome::Optimized {
-                theta_star,
-                final_value,
-            } => (theta_star, final_value),
-            SpatialJointOutcome::NonConverged { final_value, .. } => panic!(
-                "exact joint spatial optimization did not converge (final_value={final_value})"
-            ),
-        })
+        .map(|(theta_star, final_value, _timing)| (theta_star, final_value))
         .unwrap_or_else(|e| panic!("{} failed: {:?}", "exact joint spatial optimization", e))
     };
 
@@ -4340,7 +4428,7 @@ fn psi_gram_tensor_lane_matches_streamed_reml_cost_and_gradient() {
                     theta: &Array1<f64>,
                     with_hessian: bool|
      -> (f64, Array1<f64>, Option<Array2<f64>>) {
-        use gam_problem::HessianResult;
+        use gam_problem::HessianValue;
         cache.ensure_theta(theta).unwrap_or_else(|e| panic!("{} failed: {:?}", "ensure_theta", e));
         let hyper_dirs = try_build_spatial_log_kappa_hyper_dirs(
             data.view(),
@@ -4369,7 +4457,7 @@ fn psi_gram_tensor_lane_matches_streamed_reml_cost_and_gradient() {
         .unwrap_or_else(|e| panic!("{} failed: {:?}", "evaluate_with_order", e));
         let hess_mat = if with_hessian {
             match hess {
-                HessianResult::Analytic(h) => Some(h),
+                HessianValue::Dense(h) => Some(h),
                 _ => None,
             }
         } else {
@@ -6480,11 +6568,11 @@ fn exact_joint_two_block_no_spatial_fast_path_returns_fully_frozen_specs() {
                     eval_mode,
                     gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
                 ) {
-                    gam_problem::HessianResult::Analytic(Array2::zeros((
+                    gam_problem::HessianValue::Dense(Array2::zeros((
                         theta_dim, theta_dim,
                     )))
                 } else {
-                    gam_problem::HessianResult::Unavailable
+                    gam_problem::HessianValue::Unavailable
                 },
             ))
         },
@@ -6500,6 +6588,7 @@ fn exact_joint_two_block_no_spatial_fast_path_returns_fully_frozen_specs() {
                 psi_indices: None,
                 inner_hessian_scale: None,
                 logdet_enclosure_gap: None,
+                consecutive_restored_incumbents: None,
             })
         },
         |_beta: &Array1<f64>| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
@@ -6771,7 +6860,7 @@ fn two_block_exact_joint_design_cache_clears_memo_on_theta_change() {
     let eval = (
         2.25,
         Array1::<f64>::ones(theta0.len()),
-        gam_problem::HessianResult::Analytic(Array2::<f64>::eye(theta0.len())),
+        gam_problem::HessianValue::Dense(Array2::<f64>::eye(theta0.len())),
     );
     cache.store_eval(eval.clone());
     let cached_eval = cache.memoized_eval(&theta0).unwrap_or_else(|| panic!("{} failed", "cached eval"));
@@ -6887,7 +6976,7 @@ fn single_block_exact_joint_design_cache_clears_memo_on_theta_change() {
     let eval = (
         0.5,
         Array1::<f64>::ones(theta0.len()),
-        gam_problem::HessianResult::Analytic(Array2::<f64>::eye(theta0.len())),
+        gam_problem::HessianValue::Dense(Array2::<f64>::eye(theta0.len())),
     );
     cache.store_eval_at(&theta0, eval.clone());
     let cached_eval = cache.memoized_eval(&theta0).unwrap_or_else(|| panic!("{} failed", "cached eval"));
@@ -6997,7 +7086,7 @@ fn single_block_latent_coord_design_cache_invalidates_memo_on_outer_iter_advance
     let eval = (
         1.25_f64,
         Array1::<f64>::from_elem(theta.len(), 0.5),
-        gam_problem::HessianResult::Analytic(Array2::<f64>::eye(theta.len())),
+        gam_problem::HessianValue::Dense(Array2::<f64>::eye(theta.len())),
     );
     cache.store_eval(eval.clone());
 

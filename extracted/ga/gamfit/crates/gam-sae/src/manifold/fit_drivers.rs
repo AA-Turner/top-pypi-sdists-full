@@ -1,4 +1,6 @@
 use super::*;
+use crate::chart_coordinate_solve::PeriodicCurveExtrema;
+use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, escalate_ridge};
 
 /// Maximum number of LM ridge-escalation attempts before declaring the per-row
 /// Hessian unfactorable.
@@ -11,6 +13,47 @@ const SAE_MANIFOLD_ROW_RIDGE_MAX_ATTEMPTS: usize = 12;
 /// knob — it only fences the division against a vanishing denominator at f64
 /// resolution.
 const ARD_SPREAD_FLOOR: f64 = 1.0e-12;
+
+/// Why one bounded joint-fit chunk returned. Ordinary fits may use the two
+/// heuristic exits; evidence is certified only by [`Self::NoStrictDecrease`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum JointFitTermination {
+    Frozen,
+    Heuristic,
+    NoStrictDecrease,
+    IterationGrantExhausted,
+}
+
+struct JointFitOutcome {
+    loss: SaeManifoldLoss,
+    termination: JointFitTermination,
+    state_moved: bool,
+}
+
+pub(crate) struct EvidenceJointFitOutcome {
+    pub(crate) loss: SaeManifoldLoss,
+    /// A whole evidence-only re-entry started at the current state and found no
+    /// strict objective decrease, with no temperature/polish state transition.
+    pub(crate) fixed_point: bool,
+}
+
+/// Put one softmax-logit row in the reference-logit chart used by the joint
+/// solver. Kept row-local so Newton's disjoint row update can canonicalize in
+/// the same worker instead of making another serial `N × K` pass.
+#[inline]
+fn canonicalize_softmax_logit_row(logits: &mut [f64]) {
+    match logits.len() {
+        0 => {}
+        1 => logits[0] = 0.0,
+        k => {
+            let reference = logits[k - 1];
+            for logit in &mut logits[..k - 1] {
+                *logit -= reference;
+            }
+            logits[k - 1] = 0.0;
+        }
+    }
+}
 
 /// Per-axis spread of a coordinate column used for the ARD moment-match (F3): the
 /// population variance on a flat axis, and the circular variance `1 − R`
@@ -61,7 +104,7 @@ fn axis_coordinate_spread(coords: ArrayView2<'_, f64>, axis: usize, period: Opti
 /// total centered sum-of-squares are invariants of the whole joint fit. The
 /// guard formerly re-derived them from the full `n × p` target on EVERY accepted
 /// outer iteration ([`SaeManifoldTerm::dictionary_reconstruction_ev`] +
-/// [`SaeManifoldTerm::dictionary_reconstruction_output_energy_ratio_maybe`] each ran an
+/// [`SaeManifoldTerm::dictionary_reconstruction_output_energy_ratio_from_fitted`] each ran an
 /// `O(n·p)` column-major reduction), which the single-threaded inner-loop profile
 /// showed dominating the fit. Computing them ONCE per joint fit and handing them
 /// to each iteration's guard call removes that per-iteration cost.
@@ -157,13 +200,17 @@ impl SaeManifoldTerm {
         let atoms = self
             .atoms
             .iter()
-            .map(|atom| {
-                (
-                    atom.basis_values.clone(),
-                    atom.basis_jacobian.clone(),
-                    atom.decoder_coefficients.clone(),
-                    atom.smooth_penalty.clone(),
-                )
+            .map(|atom| SaeManifoldAtomSnapshot {
+                decoder_coefficients: atom.decoder_coefficients.clone(),
+                decoder_frame: atom.decoder_frame.clone(),
+                smooth_penalty: atom.smooth_penalty.clone(),
+                // Pointer-cheap handle clones; `basis_values`/`basis_jacobian`
+                // are rebuilt from these + coords on restore, avoiding the
+                // dominant `O(N·M·(1+d))` snapshot copy (see
+                // `SaeManifoldMutableState`).
+                basis_evaluator: atom.basis_evaluator.clone(),
+                basis_second_jet: atom.basis_second_jet.clone(),
+                homotopy_eta: atom.homotopy_eta,
             })
             .collect();
         SaeManifoldMutableState {
@@ -174,27 +221,279 @@ impl SaeManifoldTerm {
         }
     }
 
+    /// Whether the term is exactly at a saved fitted-model state.
+    ///
+    /// The snapshot omits basis caches because they are deterministic functions
+    /// of the coordinate blocks, evaluator handles, and homotopy dial. Comparing
+    /// those driving fields plus the decoder/logits is therefore an exact model-
+    /// state identity test without copying the large `(N × M)` basis arrays.
+    fn matches_mutable_state(&self, snapshot: &SaeManifoldMutableState) -> bool {
+        let atoms_match = self.atoms.len() == snapshot.atoms.len()
+            && self
+                .atoms
+                .iter()
+                .zip(snapshot.atoms.iter())
+                .all(|(atom, saved)| {
+                    let evaluator_matches = match (&atom.basis_evaluator, &saved.basis_evaluator) {
+                        (Some(current), Some(expected)) => Arc::ptr_eq(current, expected),
+                        (None, None) => true,
+                        _ => false,
+                    };
+                    let second_jet_matches = match (&atom.basis_second_jet, &saved.basis_second_jet)
+                    {
+                        (Some(current), Some(expected)) => Arc::ptr_eq(current, expected),
+                        (None, None) => true,
+                        _ => false,
+                    };
+                    let decoder_frame_matches = match (&atom.decoder_frame, &saved.decoder_frame) {
+                        (Some(current), Some(expected)) => {
+                            current.frame() == expected.frame()
+                                && current.gauge_singular_values()
+                                    == expected.gauge_singular_values()
+                        }
+                        (None, None) => true,
+                        _ => false,
+                    };
+                    atom.decoder_coefficients == saved.decoder_coefficients
+                        && decoder_frame_matches
+                        && atom.smooth_penalty == saved.smooth_penalty
+                        && atom.homotopy_eta.to_bits() == saved.homotopy_eta.to_bits()
+                        && evaluator_matches
+                        && second_jet_matches
+                });
+        let coords_match = self.assignment.coords.len() == snapshot.coords.len()
+            && self
+                .assignment
+                .coords
+                .iter()
+                .zip(snapshot.coords.iter())
+                .all(|(current, expected)| {
+                    current.latent_id() == expected.latent_id()
+                        && current.as_flat() == expected.as_flat()
+                });
+        let row_layout_matches = match (&self.last_row_layout, &snapshot.last_row_layout) {
+            (Some(current), Some(expected)) => {
+                current.active_atoms == expected.active_atoms
+                    && current.logit_atoms == expected.logit_atoms
+                    && current.coord_starts == expected.coord_starts
+                    && current.coord_offsets_full == expected.coord_offsets_full
+                    && current.coord_dims == expected.coord_dims
+            }
+            (None, None) => true,
+            _ => false,
+        };
+        atoms_match
+            && self.assignment.logits == snapshot.logits
+            && coords_match
+            && row_layout_matches
+    }
+
     /// Restore the mutable state captured by [`Self::snapshot_mutable_state`].
-    /// Assigns into the existing arrays in place so the restore reuses the
-    /// already-allocated buffers rather than reallocating per trial.
-    pub(crate) fn restore_mutable_state(&mut self, snapshot: &SaeManifoldMutableState) {
-        for (atom, (basis_values, basis_jacobian, decoder, smooth_penalty)) in
-            self.atoms.iter_mut().zip(snapshot.atoms.iter())
-        {
-            atom.basis_values.assign(basis_values);
-            atom.basis_jacobian.assign(basis_jacobian);
-            atom.decoder_coefficients.assign(decoder);
-            atom.smooth_penalty.assign(smooth_penalty);
+    ///
+    /// Reassigns the cheap driving state in place (reusing the already-allocated
+    /// buffers), restores each atom's basis-determining handles
+    /// (`basis_evaluator`, `basis_second_jet`, `homotopy_eta`), then rebuilds
+    /// `basis_values`/`basis_jacobian` from the restored coordinates via
+    /// `refresh_basis_from_current_coords` — which fills the atoms' existing
+    /// basis buffers in place through `SaeBasisEvaluator::evaluate_into`. Because
+    /// the basis is a deterministic function of `(coords, evaluator, η)`, the
+    /// rebuilt basis is bit-identical to the snapshotted values. Fallible only
+    /// because the basis re-evaluation is: on valid restored state it cannot
+    /// fail, but the error is propagated rather than swallowed.
+    pub(crate) fn restore_mutable_state(
+        &mut self,
+        snapshot: &SaeManifoldMutableState,
+    ) -> Result<(), String> {
+        for (atom, snap) in self.atoms.iter_mut().zip(snapshot.atoms.iter()) {
+            atom.decoder_coefficients.assign(&snap.decoder_coefficients);
+            atom.decoder_frame.clone_from(&snap.decoder_frame);
+            atom.smooth_penalty.assign(&snap.smooth_penalty);
+            atom.basis_evaluator.clone_from(&snap.basis_evaluator);
+            atom.basis_second_jet.clone_from(&snap.basis_second_jet);
+            atom.homotopy_eta = snap.homotopy_eta;
         }
         self.assignment.logits.assign(&snapshot.logits);
         self.assignment.coords.clone_from(&snapshot.coords);
         self.last_row_layout.clone_from(&snapshot.last_row_layout);
+        // Rebuild the per-atom basis caches from the restored coordinates. This
+        // reuses the in-place `evaluate_into` workspaces (no fresh (N,M)+(N,M,d)
+        // allocation) and reproduces the snapshotted basis exactly.
+        self.refresh_basis_from_current_coords()
     }
 
     pub(crate) fn refresh_basis_from_current_coords(&mut self) -> Result<(), String> {
-        for atom_idx in 0..self.k_atoms() {
-            let coords = self.assignment.coords[atom_idx].as_matrix();
-            self.atoms[atom_idx].refresh_basis(coords.view())?;
+        let parallel = self.n_obs() >= SAE_LOSS_PARALLEL_ROW_MIN
+            && self.k_atoms() > 1
+            && rayon::current_thread_index().is_none();
+        self.refresh_basis_from_current_coords_with_parallelism(parallel)
+    }
+
+    /// Refresh every atom's basis cache from its matching coordinate block.
+    ///
+    /// Atoms are independent: atom `k` reads only coordinate block `k` and
+    /// writes only basis cache `k`. Rayon indexed collection preserves atom
+    /// order, and errors are inspected serially afterward so the lowest-indexed
+    /// failure remains deterministic. The explicit policy argument lets the
+    /// parallelism-invariance regression exercise both paths without changing
+    /// the process-global Rayon pool.
+    pub(crate) fn refresh_basis_from_current_coords_with_parallelism(
+        &mut self,
+        parallel: bool,
+    ) -> Result<(), String> {
+        if self.atoms.len() != self.assignment.coords.len() {
+            return Err(format!(
+                "SaeManifoldTerm::refresh_basis_from_current_coords: {} atoms but {} coordinate blocks",
+                self.atoms.len(),
+                self.assignment.coords.len()
+            ));
+        }
+        if parallel {
+            use rayon::prelude::*;
+            let outcomes: Vec<Result<(), String>> = self
+                .atoms
+                .par_iter_mut()
+                .zip(self.assignment.coords.par_iter())
+                .map(|(atom, coord)| {
+                    with_nested_parallel(|| {
+                        let coords = coord.as_matrix();
+                        atom.refresh_basis(coords.view())
+                    })
+                })
+                .collect();
+            for outcome in outcomes {
+                outcome?;
+            }
+        } else {
+            for (atom, coord) in self.atoms.iter_mut().zip(&self.assignment.coords) {
+                let coords = coord.as_matrix();
+                atom.refresh_basis(coords.view())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Retract every atom's coordinate block by its disjoint slice of a
+    /// row-major Newton step, then optionally refresh that atom's basis cache.
+    /// The indexed parallel path changes scheduling only: no atom reads or
+    /// writes another atom's coordinates, evaluator, or cache, and no
+    /// floating-point reduction crosses atom boundaries.
+    fn apply_coordinate_step_from_rows<F>(
+        &mut self,
+        n: usize,
+        q: usize,
+        coord_offsets: &[usize],
+        step_size: f64,
+        delta_at: F,
+        refresh_basis: bool,
+        parallel: bool,
+    ) -> Result<(), String>
+    where
+        F: Fn(usize, usize) -> f64 + Sync,
+    {
+        if self.atoms.len() != self.assignment.coords.len() {
+            return Err(format!(
+                "SaeManifoldTerm::apply_newton_step: {} atoms but {} coordinate blocks",
+                self.atoms.len(),
+                self.assignment.coords.len()
+            ));
+        }
+        if coord_offsets.len() != self.atoms.len() {
+            return Err(format!(
+                "SaeManifoldTerm::apply_newton_step: {} coordinate offsets for {} atoms",
+                coord_offsets.len(),
+                self.atoms.len()
+            ));
+        }
+        let update_atom = |atom_idx: usize,
+                           atom: &mut SaeManifoldAtom,
+                           coord: &mut LatentCoordValues,
+                           nested_parallel: bool|
+         -> Result<(), String> {
+            let d = coord.latent_dim();
+            let mut delta_coord = Array1::<f64>::zeros(n * d);
+            for row in 0..n {
+                let row_base = row * q + coord_offsets[atom_idx];
+                for axis in 0..d {
+                    delta_coord[row * d + axis] = step_size * delta_at(row, row_base + axis);
+                }
+            }
+            coord.retract_flat_delta(delta_coord.view());
+            if refresh_basis {
+                let coords = coord.as_matrix();
+                if nested_parallel {
+                    with_nested_parallel(|| atom.refresh_basis(coords.view()))?;
+                } else {
+                    atom.refresh_basis(coords.view())?;
+                }
+            }
+            Ok(())
+        };
+
+        if parallel {
+            use rayon::prelude::*;
+            let outcomes: Vec<Result<(), String>> = self
+                .atoms
+                .par_iter_mut()
+                .zip(self.assignment.coords.par_iter_mut())
+                .enumerate()
+                .map(|(atom_idx, (atom, coord))| update_atom(atom_idx, atom, coord, true))
+                .collect();
+            for outcome in outcomes {
+                outcome?;
+            }
+        } else {
+            for (atom_idx, (atom, coord)) in self
+                .atoms
+                .iter_mut()
+                .zip(self.assignment.coords.iter_mut())
+                .enumerate()
+            {
+                update_atom(atom_idx, atom, coord, false)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Add one flat full-decoder Newton step directly into the per-atom decoder
+    /// matrices. Atom coefficient blocks are disjoint and the flat indexing is
+    /// identical to [`Self::flatten_beta`], so the indexed parallel path is
+    /// byte-identical while avoiding the old flatten/add/copy-back allocation.
+    fn apply_decoder_step_from_flat(
+        &mut self,
+        delta_beta: ArrayView1<'_, f64>,
+        step_size: f64,
+        parallel: bool,
+    ) -> Result<(), String> {
+        let expected = self.beta_dim();
+        if delta_beta.len() != expected {
+            return Err(format!(
+                "SaeManifoldTerm::apply_newton_step: full decoder step length {} != expected {expected}",
+                delta_beta.len()
+            ));
+        }
+        let p = self.output_dim();
+        let offsets = self.beta_offsets();
+        let update_atom = |atom_idx: usize, atom: &mut SaeManifoldAtom| {
+            let m = atom.basis_size();
+            let offset = offsets[atom_idx];
+            for basis_col in 0..m {
+                for out_col in 0..p {
+                    let flat_idx = offset + basis_col * p + out_col;
+                    atom.decoder_coefficients[[basis_col, out_col]] +=
+                        step_size * delta_beta[flat_idx];
+                }
+            }
+        };
+        if parallel {
+            use rayon::prelude::*;
+            self.atoms
+                .par_iter_mut()
+                .enumerate()
+                .for_each(|(atom_idx, atom)| update_atom(atom_idx, atom));
+        } else {
+            for (atom_idx, atom) in self.atoms.iter_mut().enumerate() {
+                update_atom(atom_idx, atom);
+            }
         }
         Ok(())
     }
@@ -328,14 +627,6 @@ impl SaeManifoldTerm {
         atom.basis_second_jet = Some(new_evaluator);
         atom.smooth_penalty =
             transport_smooth_penalty_for_decoder(transport.view(), old_smooth_penalty.view())?;
-        // #2022 transport-peel (ADD form, no-refresh). The transported penalty
-        // above is decoder-magnitude-independent (T⁻ᵀ S_old T⁻¹), so under the
-        // quotient normalize the decoder into log_amplitude WITHOUT recomputing
-        // it. `atom`'s borrow ended at its last use above; re-index fresh.
-        if self.quotient_scale {
-            self.atoms[atom_idx]
-                .absorb_decoder_norm_into_log_amplitude_without_refresh(f64::MIN_POSITIVE);
-        }
         Ok(())
     }
 
@@ -352,10 +643,9 @@ impl SaeManifoldTerm {
         let mut scratch = vec![0.0_f64; self.k_atoms()];
         for row in 0..n {
             match rho {
-                Some(rho) => {
-                    self.assignment
-                        .try_assignments_row_for_rho_into(row, rho, &mut scratch)?
-                }
+                Some(_) => self
+                    .assignment
+                    .try_assignments_row_into(row, &mut scratch)?,
                 None => {
                     let a = self.assignment.try_assignments_row(row)?;
                     scratch.copy_from_slice(a.as_slice().expect("contiguous assignment row"));
@@ -533,7 +823,7 @@ impl SaeManifoldTerm {
                 match outcome {
                     Ok(changed) => any_changed |= changed,
                     Err(err) => {
-                        self.restore_mutable_state(&snapshot);
+                        self.restore_mutable_state(&snapshot)?;
                         for (atom, flag) in self.atoms.iter_mut().zip(prior_flags.iter()) {
                             atom.chart_canonicalized = *flag;
                         }
@@ -558,7 +848,7 @@ impl SaeManifoldTerm {
                     Err(_) => false,
                 };
                 if !keep {
-                    self.restore_mutable_state(&snapshot);
+                    self.restore_mutable_state(&snapshot)?;
                     for (atom, flag) in self.atoms.iter_mut().zip(prior_flags.iter()) {
                         atom.chart_canonicalized = *flag;
                     }
@@ -797,14 +1087,6 @@ impl SaeManifoldTerm {
             old_smooth_penalty.view(),
         )?;
         atom.chart_canonicalized = true;
-        // #2022 transport-peel (ADD form, no-refresh). Transported penalty is
-        // decoder-magnitude-independent; under the quotient normalize the decoder
-        // into log_amplitude WITHOUT recomputing it. `atom`'s borrow ended above;
-        // re-index self.atoms fresh.
-        if self.quotient_scale {
-            self.atoms[atom_idx]
-                .absorb_decoder_norm_into_log_amplitude_without_refresh(f64::MIN_POSITIVE);
-        }
         Ok(true)
     }
 
@@ -946,14 +1228,6 @@ impl SaeManifoldTerm {
             old_smooth_penalty.view(),
         )?;
         atom.chart_canonicalized = true;
-        // #2022 transport-peel (ADD form, no-refresh). Transported penalty is
-        // decoder-magnitude-independent; under the quotient normalize the decoder
-        // into log_amplitude WITHOUT recomputing it. `atom`'s borrow ended above;
-        // re-index self.atoms fresh.
-        if self.quotient_scale {
-            self.atoms[atom_idx]
-                .absorb_decoder_norm_into_log_amplitude_without_refresh(f64::MIN_POSITIVE);
-        }
         Ok(true)
     }
 
@@ -1040,14 +1314,6 @@ impl SaeManifoldTerm {
             old_smooth_penalty.view(),
         )?;
         atom.chart_canonicalized = true;
-        // #2022 transport-peel (ADD form, no-refresh). Transported penalty is
-        // decoder-magnitude-independent; under the quotient normalize the decoder
-        // into log_amplitude WITHOUT recomputing it. `atom`'s borrow ended above;
-        // re-index self.atoms fresh.
-        if self.quotient_scale {
-            self.atoms[atom_idx]
-                .absorb_decoder_norm_into_log_amplitude_without_refresh(f64::MIN_POSITIVE);
-        }
         Ok(true)
     }
 
@@ -1134,14 +1400,6 @@ impl SaeManifoldTerm {
             old_smooth_penalty.view(),
         )?;
         atom.chart_canonicalized = true;
-        // #2022 transport-peel (ADD form, no-refresh). Transported penalty is
-        // decoder-magnitude-independent; under the quotient normalize the decoder
-        // into log_amplitude WITHOUT recomputing it. `atom`'s borrow ended above;
-        // re-index self.atoms fresh.
-        if self.quotient_scale {
-            self.atoms[atom_idx]
-                .absorb_decoder_norm_into_log_amplitude_without_refresh(f64::MIN_POSITIVE);
-        }
         Ok(true)
     }
 
@@ -1170,112 +1428,318 @@ impl SaeManifoldTerm {
         1.0 + iterate_norm_sq.sqrt()
     }
 
-    /// Full-length β-block flat directions left by a **rank-deficient decoder
-    /// design** (#1051).
+    /// Machine-null eigenspace of a finite symmetric PSD decoder operator.
     ///
-    /// The chart gauge orbit ([`Self::dense_step_gauge_vectors`]) only spans the
-    /// per-latent-axis reparametrisation freedom — it never reaches a decoder
-    /// column-space deficiency. A euclidean / Duchon patch fit to a shape that
-    /// does not excite every monomial column (e.g. a straight line under the
-    /// degree-2 patch `[1, t, t²]`: the `t²` column carries no signal) leaves a
-    /// genuine flat direction in the β block: a vector `v` with `vᵀG_kv ≈ 0`
-    /// **and** `vᵀS_kv ≈ 0`, where `G_k` is the weighted data Gram and `S_k` the
-    /// smoothing penalty. Along such a `v` the penalised joint objective has no
-    /// curvature, so the undamped Newton step there is unbounded — the inner
-    /// solve's raw KKT residual and step never settle, and `reml_criterion`
-    /// rejects an otherwise-stationary fit as non-converged (the 122 s line-fit
-    /// stall + `1e12` sentinel).
-    ///
-    /// We identify exactly those directions as the joint null of `G_k + S_k`
-    /// (penalty already carries the `λ_smooth` weight installed by
-    /// `assemble_arrow_schur`, so a column the penalty regularises is NOT
-    /// flagged — only the truly unidentified-and-unpenalised directions are).
-    /// Each `M_k`-vector null direction is replicated across the `p` output
-    /// channels via the decoder's `⊗ I_p` Kronecker structure and lifted into
-    /// the full `(n·q + β)` coordinate so it can be quotiented out of the inner
-    /// convergence measure and deflated in the outer gradient identically to a
-    /// chart gauge.
-    pub(crate) fn decoder_beta_null_directions(
-        &self,
-        penalized_gram_scale: &[f64],
+    /// The admissible floor is the standard floating-point dot-product backward
+    /// error `γ_d = d·ε/(1-d·ε)` times the operator norm. Candidates must pass
+    /// both the Rayleigh test and the stronger residual test `‖Hv‖₂ ≤ γ_d‖H‖₂`;
+    /// a merely small model direction is therefore never promoted to a gauge.
+    fn machine_null_eigenvectors(
+        mut operator: Array2<f64>,
+        context: &str,
     ) -> Result<Vec<Array1<f64>>, String> {
-        let p = self.output_dim();
-        let n = self.n_obs();
-        let q = self.assignment.row_block_dim();
-        let beta_dim = self.beta_dim();
-        let total_len = n * q + beta_dim;
-        if p == 0 || beta_dim == 0 {
+        let dim = operator.nrows();
+        if operator.ncols() != dim {
+            return Err(format!(
+                "{context}: decoder operator must be square, got {:?}",
+                operator.dim()
+            ));
+        }
+        if dim == 0 {
             return Ok(Vec::new());
         }
-        let mut grams = self.empty_decoder_gram_accumulator();
-        self.accumulate_decoder_gram(&mut grams);
-        let beta_offsets = self.beta_offsets();
+        for row in 0..dim {
+            for col in 0..row {
+                let sym = 0.5 * (operator[[row, col]] + operator[[col, row]]);
+                operator[[row, col]] = sym;
+                operator[[col, row]] = sym;
+            }
+        }
+        if !operator.iter().all(|value| value.is_finite()) {
+            return Err(format!("{context}: non-finite decoder operator entry"));
+        }
+        let (evals, evecs) = operator
+            .eigh(Side::Lower)
+            .map_err(|err| format!("{context}: eigh failed: {err}"))?;
+        let operator_norm = evals
+            .iter()
+            .fold(0.0_f64, |scale, &value| scale.max(value.abs()));
+        let d_eps = dim as f64 * f64::EPSILON;
+        let gamma_d = if d_eps < 1.0 {
+            d_eps / (1.0 - d_eps)
+        } else {
+            return Err(format!(
+                "{context}: decoder operator dimension {dim} exceeds the f64 backward-error domain"
+            ));
+        };
+        let null_floor = gamma_d * operator_norm;
         let mut out = Vec::new();
-        for atom_idx in 0..self.k_atoms() {
-            let m = self.atoms[atom_idx].basis_size();
-            if m == 0 {
+        for eig_idx in 0..dim {
+            let eigenvalue = evals[eig_idx];
+            if !(eigenvalue.is_finite() && eigenvalue.abs() <= null_floor) {
                 continue;
             }
-            // Penalised β-curvature of this atom's data-channel: `G_k + S_k`.
-            // `accumulate_decoder_gram` returns the unweighted data Gram and
-            // `smooth_penalty` already carries `λ_smooth`-equivalent weighting at
-            // the assembled ρ; `penalized_gram_scale` lets the caller match the
-            // exact relative weighting the Schur factor used so the null test is
-            // computed against the SAME operator whose pivots went singular.
-            let gram = &grams[atom_idx];
-            let penalty = &self.atoms[atom_idx].smooth_penalty;
-            if penalty.dim() != (m, m) {
-                continue;
-            }
-            let scale = penalized_gram_scale[atom_idx];
-            let mut joint = Array2::<f64>::zeros((m, m));
-            for i in 0..m {
-                for j in 0..m {
-                    joint[[i, j]] = gram[[i, j]] + scale * penalty[[i, j]];
-                }
-            }
-            // Symmetrise defensively before the eigendecomposition.
-            for i in 0..m {
-                for j in 0..i {
-                    let sym = 0.5 * (joint[[i, j]] + joint[[j, i]]);
-                    joint[[i, j]] = sym;
-                    joint[[j, i]] = sym;
-                }
-            }
-            let (evals, evecs) = joint
-                .eigh(Side::Lower)
-                .map_err(|e| format!("decoder_beta_null_directions: eigh failed: {e}"))?;
-            let max_eig = evals.iter().fold(0.0_f64, |acc, &v| acc.max(v));
-            if !(max_eig > 0.0) {
-                continue;
-            }
-            // A direction is genuinely flat (unidentified by data AND
-            // unpenalised) when its penalised curvature is below the standard
-            // relative spectral cutoff used across the codebase.
-            let null_floor = SAE_DECODER_BETA_NULL_RELATIVE_FLOOR * max_eig;
-            let beta_base = n * q + beta_offsets[atom_idx];
-            for eig_idx in 0..evals.len() {
-                if !(evals[eig_idx].is_finite() && evals[eig_idx] <= null_floor) {
-                    continue;
-                }
-                // One full-length lift per output channel (the `⊗ I_p` replica).
-                for out_col in 0..p {
-                    let mut dir = Array1::<f64>::zeros(total_len);
-                    for col in 0..m {
-                        dir[beta_base + col * p + out_col] = evecs[[col, eig_idx]];
-                    }
-                    out.push(dir);
-                }
+            let direction = evecs.column(eig_idx).to_owned();
+            let applied = operator.dot(&direction);
+            let rayleigh = direction.dot(&applied).abs();
+            let residual_norm = applied
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt();
+            if rayleigh.is_finite()
+                && residual_norm.is_finite()
+                && rayleigh <= null_floor
+                && residual_norm <= null_floor
+            {
+                out.push(direction);
             }
         }
         Ok(out)
     }
 
+    /// Full-length decoder flat directions of the **joint** weighted dictionary
+    /// operator (#1051/#2080).
+    ///
+    /// Let `D_k = diag(a_·k) Φ_k`. The production decoder Hessian is not the
+    /// block-diagonal collection `D_kᵀD_k`: it contains every cross-atom block
+    /// `D_jᵀD_k`. Consequently two individually full-rank atoms can still carry
+    /// the exact redistribution gauge
+    ///
+    /// `D_j A_j = D_k A_k  ⇒  (δB_j, δB_k) = (A_j C, −A_k C)`.
+    ///
+    /// The former atom-local eigensolves could never emit that coupled vector,
+    /// which left the K≥2 shared-subspace Newton walk crawling along a flat
+    /// direction. This compiler diagonalizes the same joint weighted
+    /// decoder-plus-smoothness operator used by the β tier. On the full-`B`
+    /// isotropic path the output factor is `I_p`, so it diagonalizes the compact
+    /// joint basis operator once and tensors its machine-null space across output
+    /// channels. With active decoder frames it diagonalizes the exact factored
+    /// operator `G_jk ⊗ (U_jᵀU_k) + blockdiag(λ_k S_k ⊗ I_rk)`; under likelihood
+    /// whitening the per-row `U_jᵀM_nU_k` sandwich is accumulated exactly.
+    ///
+    /// Every returned vector lives in the CURRENT arrow border coordinate
+    /// (full `B` or factored `C`) and has passed the machine-scale Rayleigh and
+    /// null-residual certificates in [`Self::machine_null_eigenvectors`].
+    pub(crate) fn joint_decoder_beta_null_directions(
+        &self,
+        penalized_gram_scale: &[f64],
+    ) -> Result<Vec<Array1<f64>>, String> {
+        let n = self.n_obs();
+        let q = self.assignment.row_block_dim();
+        let p = self.output_dim();
+        let k_atoms = self.k_atoms();
+        if penalized_gram_scale.len() != k_atoms {
+            return Err(format!(
+                "joint_decoder_beta_null_directions: {} smooth scales for {k_atoms} atoms",
+                penalized_gram_scale.len()
+            ));
+        }
+        let basis_sizes: Vec<usize> = self.atoms.iter().map(|atom| atom.basis_size()).collect();
+        let mut basis_offsets = Vec::with_capacity(k_atoms);
+        let mut basis_dim = 0usize;
+        for &m in &basis_sizes {
+            basis_offsets.push(basis_dim);
+            basis_dim += m;
+        }
+        let border_dim = self.factored_border_dim();
+        if p == 0 || basis_dim == 0 || border_dim == 0 {
+            return Ok(Vec::new());
+        }
+
+        let assignments = self.assignment.assignments();
+        let mut joint_basis = Array2::<f64>::zeros((basis_dim, basis_dim));
+        let mut weighted_basis = vec![0.0_f64; basis_dim];
+        for row in 0..n {
+            for atom_idx in 0..k_atoms {
+                let atom = &self.atoms[atom_idx];
+                let off = basis_offsets[atom_idx];
+                let weight = assignments[[row, atom_idx]];
+                for basis_col in 0..basis_sizes[atom_idx] {
+                    weighted_basis[off + basis_col] = weight * atom.basis_values[[row, basis_col]];
+                }
+            }
+            for col in 0..basis_dim {
+                let value = weighted_basis[col];
+                if value == 0.0 {
+                    continue;
+                }
+                for row_idx in 0..basis_dim {
+                    joint_basis[[row_idx, col]] += weighted_basis[row_idx] * value;
+                }
+            }
+        }
+        let joint_data_basis = joint_basis.clone();
+        for atom_idx in 0..k_atoms {
+            let m = basis_sizes[atom_idx];
+            let penalty = &self.atoms[atom_idx].smooth_penalty;
+            if penalty.dim() != (m, m) {
+                return Err(format!(
+                    "joint_decoder_beta_null_directions: atom {atom_idx} penalty shape {:?} != ({m}, {m})",
+                    penalty.dim()
+                ));
+            }
+            let off = basis_offsets[atom_idx];
+            let scale = penalized_gram_scale[atom_idx];
+            if !scale.is_finite() || scale < 0.0 {
+                return Err(format!(
+                    "joint_decoder_beta_null_directions: atom {atom_idx} smooth scale must be finite and nonnegative, got {scale}"
+                ));
+            }
+            for row in 0..m {
+                for col in 0..m {
+                    joint_basis[[off + row, off + col]] += scale * penalty[[row, col]];
+                }
+            }
+        }
+
+        let coord_base = n * q;
+        if !self.any_frame_active() {
+            let null_basis = Self::machine_null_eigenvectors(
+                joint_basis,
+                "joint_decoder_beta_null_directions(full-B)",
+            )?;
+            let mut out = Vec::with_capacity(null_basis.len() * p);
+            for basis_direction in null_basis {
+                for out_col in 0..p {
+                    let mut direction = Array1::<f64>::zeros(coord_base + border_dim);
+                    for basis_col in 0..basis_dim {
+                        direction[coord_base + basis_col * p + out_col] =
+                            basis_direction[basis_col];
+                    }
+                    out.push(direction);
+                }
+            }
+            return Ok(out);
+        }
+
+        let border_offsets = self.factored_border_offsets();
+        let frame_ranks: Vec<usize> = self
+            .atoms
+            .iter()
+            .map(SaeManifoldAtom::border_frame_rank)
+            .collect();
+        let mut joint_border = Array2::<f64>::zeros((border_dim, border_dim));
+        let whitens_likelihood = self
+            .row_metric
+            .as_ref()
+            .is_some_and(|metric| metric.whitens_likelihood());
+        if whitens_likelihood {
+            let metric = self
+                .row_metric
+                .as_ref()
+                .expect("whitens_likelihood implies a row metric");
+            let metric_rank = metric.metric_rank();
+            let frames: Vec<Array2<f64>> = (0..k_atoms)
+                .map(|atom_idx| self.frame_output_matrix(atom_idx))
+                .collect();
+            let mut whitened_jacobian = Array2::<f64>::zeros((metric_rank, border_dim));
+            for row in 0..n {
+                whitened_jacobian.fill(0.0);
+                for atom_idx in 0..k_atoms {
+                    let m = basis_sizes[atom_idx];
+                    let rank = frame_ranks[atom_idx];
+                    let border_off = border_offsets[atom_idx];
+                    let weight = assignments[[row, atom_idx]];
+                    for frame_col in 0..rank {
+                        for metric_col in 0..metric_rank {
+                            let mut projected = 0.0_f64;
+                            for out_col in 0..p {
+                                projected += frames[atom_idx][[out_col, frame_col]]
+                                    * metric.factor_entry(row, out_col, metric_col);
+                            }
+                            if projected == 0.0 {
+                                continue;
+                            }
+                            for basis_col in 0..m {
+                                whitened_jacobian
+                                    [[metric_col, border_off + basis_col * rank + frame_col]] =
+                                    weight
+                                        * self.atoms[atom_idx].basis_values[[row, basis_col]]
+                                        * projected;
+                            }
+                        }
+                    }
+                }
+                for col in 0..border_dim {
+                    for row_idx in 0..border_dim {
+                        let mut value = 0.0_f64;
+                        for metric_col in 0..metric_rank {
+                            value += whitened_jacobian[[metric_col, row_idx]]
+                                * whitened_jacobian[[metric_col, col]];
+                        }
+                        joint_border[[row_idx, col]] += value;
+                    }
+                }
+            }
+        } else {
+            for atom_j in 0..k_atoms {
+                let mj = basis_sizes[atom_j];
+                let rj = frame_ranks[atom_j];
+                let basis_j = basis_offsets[atom_j];
+                let border_j = border_offsets[atom_j];
+                for atom_k in 0..k_atoms {
+                    let mk = basis_sizes[atom_k];
+                    let rk = frame_ranks[atom_k];
+                    let basis_k = basis_offsets[atom_k];
+                    let border_k = border_offsets[atom_k];
+                    let frame_overlap = self.frame_cross_factor(atom_j, atom_k);
+                    for col_j in 0..mj {
+                        for col_k in 0..mk {
+                            let gram = joint_data_basis[[basis_j + col_j, basis_k + col_k]];
+                            for channel_j in 0..rj {
+                                for channel_k in 0..rk {
+                                    joint_border[[
+                                        border_j + col_j * rj + channel_j,
+                                        border_k + col_k * rk + channel_k,
+                                    ]] += gram * frame_overlap[[channel_j, channel_k]];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for atom_idx in 0..k_atoms {
+            let m = basis_sizes[atom_idx];
+            let rank = frame_ranks[atom_idx];
+            let off = border_offsets[atom_idx];
+            let penalty = &self.atoms[atom_idx].smooth_penalty;
+            let scale = penalized_gram_scale[atom_idx];
+            for basis_row in 0..m {
+                for basis_col in 0..m {
+                    let value = scale * penalty[[basis_row, basis_col]];
+                    for channel in 0..rank {
+                        joint_border[[
+                            off + basis_row * rank + channel,
+                            off + basis_col * rank + channel,
+                        ]] += value;
+                    }
+                }
+            }
+        }
+        let null_border = Self::machine_null_eigenvectors(
+            joint_border,
+            "joint_decoder_beta_null_directions(factored)",
+        )?;
+        Ok(null_border
+            .into_iter()
+            .map(|beta_direction| {
+                let mut direction = Array1::<f64>::zeros(coord_base + border_dim);
+                direction
+                    .slice_mut(s![coord_base..])
+                    .assign(&beta_direction);
+                direction
+            })
+            .collect())
+    }
+
     /// Deflation candidates for a rank-deficient decoder **column span** (the
     /// ambient output-channel deficiency #1051/#1273 — distinct from the
-    /// basis-column deficiency [`Self::decoder_beta_null_directions`] handles).
+    /// basis-column deficiency [`Self::joint_decoder_beta_null_directions`] handles).
     ///
-    /// [`Self::decoder_beta_null_directions`] is channel-free: it replicates a
+    /// [`Self::joint_decoder_beta_null_directions`] is channel-free on the
+    /// unframed path: it replicates a
     /// single `M_k`-vector basis-null across all `p` output channels, so it can
     /// only see a basis column the data never excites (e.g. an unused `t²`
     /// monomial). It is structurally blind to a decoder whose `p` output
@@ -1299,15 +1763,22 @@ impl SaeManifoldTerm {
         let p = self.output_dim();
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
-        let beta_dim = self.beta_dim();
-        let total_len = n * q + beta_dim;
-        if p == 0 || beta_dim == 0 {
+        let border_dim = self.factored_border_dim();
+        let total_len = n * q + border_dim;
+        if p == 0 || border_dim == 0 {
             return Ok(Vec::new());
         }
-        let beta_offsets = self.beta_offsets();
+        let beta_offsets = self.factored_border_offsets();
         let mut out = Vec::new();
         for atom_idx in 0..self.k_atoms() {
             let atom = &self.atoms[atom_idx];
+            // A framed atom's border contains only its realised `C_k`
+            // coordinates. Ambient directions orthogonal to `U_k` are not
+            // decoder-border coordinates at all; frame orientation is handled
+            // by the separate Grassmann block update.
+            if atom.decoder_frame.is_some() {
+                continue;
+            }
             let m = atom.basis_size();
             if m == 0 {
                 continue;
@@ -1368,8 +1839,8 @@ impl SaeManifoldTerm {
     ) -> Result<f64, String> {
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
-        let beta_dim = self.beta_dim();
-        if delta_ext_coord.len() != n * q || delta_beta.len() != beta_dim {
+        let border_dim = self.factored_border_dim();
+        if delta_ext_coord.len() != n * q || delta_beta.len() != border_dim {
             return Ok(raw_step_norm_sq);
         }
         let mut residual = Array1::<f64>::zeros(delta_ext_coord.len() + delta_beta.len());
@@ -1407,7 +1878,7 @@ impl SaeManifoldTerm {
         let gauges = self
             .dense_step_gauge_vectors()?
             .into_iter()
-            .chain(self.decoder_beta_null_directions(penalized_gram_scale)?)
+            .chain(self.joint_decoder_beta_null_directions(penalized_gram_scale)?)
             // #1051/#1273: project out the decoder column-span null too, so the
             // inner convergence measure and the outer-gradient deflation
             // quotient the SAME identified subspace — otherwise a rank-deficient
@@ -1459,8 +1930,8 @@ impl SaeManifoldTerm {
     ) -> Result<f64, String> {
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
-        let beta_dim = self.beta_dim();
-        if grad_ext_coord.len() != n * q || grad_beta.len() != beta_dim {
+        let border_dim = self.factored_border_dim();
+        if grad_ext_coord.len() != n * q || grad_beta.len() != border_dim {
             return Ok(raw_grad_norm_sq);
         }
         let mut residual = Array1::<f64>::zeros(grad_ext_coord.len() + grad_beta.len());
@@ -1523,8 +1994,8 @@ impl SaeManifoldTerm {
         let q = self.assignment.row_block_dim();
         let p = self.output_dim();
         let coord_offsets = self.assignment.coord_offsets();
-        let beta_offsets = self.beta_offsets();
-        let total_len = n * q + self.beta_dim();
+        let beta_offsets = self.factored_border_offsets();
+        let total_len = n * q + self.factored_border_dim();
         let mut out = Vec::new();
         for atom_idx in 0..self.k_atoms() {
             let d = self.assignment.coords[atom_idx].latent_dim();
@@ -1809,9 +2280,14 @@ impl SaeManifoldTerm {
             }
         }
         let beta_base = n * q + beta_offsets[atom_idx];
+        let delta_border = match atom.decoder_frame.as_ref() {
+            Some(frame) => delta_b.dot(&frame.frame()),
+            None => delta_b,
+        };
+        let border_rank = delta_border.ncols();
         for col in 0..m {
-            for out_col in 0..p {
-                gauge[beta_base + col * p + out_col] = delta_b[[col, out_col]];
+            for channel in 0..border_rank {
+                gauge[beta_base + col * border_rank + channel] = delta_border[[col, channel]];
             }
         }
         Ok(Some(gauge))
@@ -2102,8 +2578,7 @@ impl SaeManifoldTerm {
         let mut a = vec![0.0_f64; self.k_atoms()];
         let mut dfitted = Array2::<f64>::zeros((n, p));
         for row in 0..n {
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
+            self.assignment.try_assignments_row_into(row, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -2125,8 +2600,7 @@ impl SaeManifoldTerm {
         // ∂g_β/∂η[k,μ,c] = Σ_i a_ik (dΦ_k[i,μ] r_i[c] + Φ^η_k[i,μ] dfitted_i[c]).
         let mut out = Array1::<f64>::zeros(self.beta_dim());
         for row in 0..n {
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
+            self.assignment.try_assignments_row_into(row, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -2192,8 +2666,7 @@ impl SaeManifoldTerm {
         let mut a = vec![0.0_f64; self.k_atoms()];
         let mut dfitted = Array2::<f64>::zeros((n, p));
         for row in 0..n {
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
+            self.assignment.try_assignments_row_into(row, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -2216,8 +2689,7 @@ impl SaeManifoldTerm {
         let mut full_buf = vec![0.0_f64; p];
         let mut curved_buf = vec![0.0_f64; p];
         for row in 0..n {
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
+            self.assignment.try_assignments_row_into(row, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -2280,9 +2752,7 @@ impl SaeManifoldTerm {
         let mut a = vec![0.0_f64; k];
         for row in 0..n {
             match rho {
-                Some(rho) => self
-                    .assignment
-                    .try_assignments_row_for_rho_into(row, rho, &mut a),
+                Some(_) => self.assignment.try_assignments_row_into(row, &mut a),
                 None => self
                     .assignment
                     .try_assignments_row(row)
@@ -2371,8 +2841,7 @@ impl SaeManifoldTerm {
                 canonicalize_softmax_logits(&mut self.assignment.logits);
             }
             AssignmentMode::IBPMap { .. } => {
-                // σ(0/τ) = ½ — the gate's neutral point; the IBP prior π_k
-                // still applies its geometric damping, as it should.
+                // σ(0/τ) = ½ — the Bernoulli posterior mean's neutral point.
                 for row in 0..n {
                     self.assignment.logits[[row, atom]] = 0.0;
                 }
@@ -2462,9 +2931,7 @@ impl SaeManifoldTerm {
             .iter()
             .map(|atom| atom.contribution_frobenius_scale())
             .collect();
-        // Median physical contribution scale: the robust dictionary scale. This is
-        // `exp(s_k)‖B_k‖_F`, not just `‖B_k‖_F`, so the same guard remains live after
-        // the quotient representation moves magnitude into `s_k`.
+        // Median physical decoder norm: the robust dictionary scale.
         let mut sorted = norms.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let median = if k % 2 == 1 {
@@ -2544,9 +3011,18 @@ impl SaeManifoldTerm {
             if iteration == 0 {
                 return Ok(());
             }
-            let ev = self.dictionary_reconstruction_ev_maybe(target, rho, target_col_stats)?;
-            let out_energy_ratio = self
-                .dictionary_reconstruction_output_energy_ratio_maybe(target, rho, target_col_stats)?;
+            // The EV and output-energy degeneracy tests read the SAME
+            // reconstruction; compute the full `(N, p)` fitted matrix once and
+            // derive both from it (identical values, one `try_fitted_for_rho`
+            // instead of two) — this guard runs once per accepted outer iterate.
+            let fitted = self.try_fitted_for_rho(rho)?;
+            let ev =
+                self.dictionary_reconstruction_ev_from_fitted(&fitted, target, target_col_stats)?;
+            let out_energy_ratio = self.dictionary_reconstruction_output_energy_ratio_from_fitted(
+                &fitted,
+                target,
+                target_col_stats,
+            )?;
             let n = self.n_obs();
             let p = target.ncols();
             // Reachable rank `q = rank([Φ_1 … Φ_K])`, the CONCATENATED chart-design
@@ -2673,7 +3149,7 @@ impl SaeManifoldTerm {
                         current_uniformity,
                         SAE_FINAL_EV_DEGRADATION_TOL,
                     ) {
-                        self.restore_mutable_state(&best_state);
+                        self.restore_mutable_state(&best_state)?;
                         log::warn!(
                             "SaeManifoldTerm: dictionary co-collapse multi-start budget spent; \
                              restoring best basin (EV={best_ev:.4}) over last reseed (EV={ev:.4})"
@@ -2742,7 +3218,7 @@ impl SaeManifoldTerm {
             // solved AT those gates), so the reconstruction EV strictly improves over
             // the degenerate incumbent — the keep-best multi-start below then banks or
             // restores it as usual.
-            self.refit_decoder_sequential_deflation(target, rho)?;
+            self.refit_decoder_sequential_deflation(target)?;
             // #2082 anchor-then-refit: with disjoint decoders now placed, pin each row
             // (softly) to the atom that best explains it, THEN re-fit the decoders AT
             // the anchored gates so decoders and gates stay consistent (anchoring after
@@ -2750,7 +3226,7 @@ impl SaeManifoldTerm {
             // the anchor safe). Gives each atom a stable territory the outer Newton
             // descent starts from, without breaking the reseed-improves-EV contract.
             self.anchor_logits_to_residual_ownership(target)?;
-            self.refit_decoder_sequential_deflation(target, rho)?;
+            self.refit_decoder_sequential_deflation(target)?;
             // #2089 — enforce the #1026 keep-best contract on the STATE between
             // reseeds, not only at budget exhaustion. A reseed refit at the
             // near-singular co-collapsed Gram can return a huge-norm decoder
@@ -2800,7 +3276,7 @@ impl SaeManifoldTerm {
                 // the budget-exhaustion arm and any later reseed.
                 let incumbent = self.best_cocollapse_incumbent.take();
                 if let Some((_, _, ref state)) = incumbent {
-                    self.restore_mutable_state(state);
+                    self.restore_mutable_state(state)?;
                 }
                 self.best_cocollapse_incumbent = incumbent;
             }
@@ -2910,41 +3386,76 @@ impl SaeManifoldTerm {
         Ok(1.0 - ss_res / ss_tot)
     }
 
+    /// [`Self::dictionary_reconstruction_ev_maybe`] against an ALREADY-COMPUTED
+    /// fitted reconstruction. The decoder-norm guard reads both the EV and the
+    /// output-energy ratio off the SAME `try_fitted_for_rho` result, so sharing
+    /// one fitted matrix between them replaces two full `(N, p)` reconstructions
+    /// with one. `residual = fitted − target` and its reduction order are
+    /// identical to the `_maybe` path, so the returned value is bit-for-bit the
+    /// same.
+    pub(crate) fn dictionary_reconstruction_ev_from_fitted(
+        &self,
+        fitted: &Array2<f64>,
+        target: ArrayView2<'_, f64>,
+        precomputed: Option<&TargetCenteredColStats>,
+    ) -> Result<f64, String> {
+        if fitted.dim() != target.dim() {
+            return Err(format!(
+                "SaeManifoldTerm::dictionary_reconstruction_ev_from_fitted: fitted {:?} != target {:?}",
+                fitted.dim(),
+                target.dim()
+            ));
+        }
+        let residual = fitted - &target;
+        let mut ss_res = 0.0_f64;
+        for &value in residual.iter() {
+            ss_res += value * value;
+        }
+        let owned;
+        let ss_tot = match precomputed {
+            Some(stats) => stats.ss_tot,
+            None => {
+                owned = TargetCenteredColStats::compute(target);
+                owned.ss_tot
+            }
+        };
+        if !(ss_tot > 0.0) {
+            return Ok(if ss_res > 0.0 { 0.0 } else { 1.0 });
+        }
+        Ok(1.0 - ss_res / ss_tot)
+    }
+
     /// S1 (guard surgery) — fraction of the centered target variance carried by the
     /// dictionary's OWN reconstruction OUTPUT: `Σ (fitted − mean)² / Σ (target −
-    /// mean)²`. A dictionary whose decoders have co-vanished reconstructs ≈ the
-    /// column mean, so this ratio falls to the null fitting-noise level; a fit that
-    /// merely reconstructs poorly but whose decoders carry real signal keeps output
-    /// energy of ordinary magnitude. Paired with [`Self::dictionary_reconstruction_ev`],
+    /// mean)²`, computed against an ALREADY-COMPUTED `fitted` reconstruction (the
+    /// decoder-norm guard's shared `try_fitted_for_rho`, so the EV and output-energy
+    /// tests share one `(N, p)` reconstruction instead of recomputing it twice).
+    ///
+    /// A dictionary whose decoders have co-vanished reconstructs ≈ the column mean,
+    /// so this ratio falls to the null fitting-noise level; a fit that merely
+    /// reconstructs poorly but whose decoders carry real signal keeps output energy
+    /// of ordinary magnitude. Paired with [`Self::dictionary_reconstruction_ev`],
     /// this is the "decoder output co-vanished" half of the absolute-degeneracy
     /// co-collapse verdict in [`Self::enforce_decoder_norm_guard`]: a genuine
     /// co-collapse has BOTH ~zero EV AND ~zero output energy, distinguishing it from
     /// a present-decoder fit that simply reconstructs poorly (the optimizer's job).
     /// Returns `0.0` for a constant (zero-variance) target, where the notion is
-    /// vacuous. Column means use the same running update as `dictionary_reconstruction_ev`.
+    /// vacuous.
     ///
-    /// Pass `precomputed = None` for the standalone reduction (the historical
-    /// inline form the S1 guard tests exercise) or `Some(stats)` inside the fit
-    /// loop to reuse the once-per-fit target statistics.
-    ///
-    /// `precomputed = Some(stats)` reuses the
-    /// once-per-fit per-column means and centered total-sum-of-squares (`None`
-    /// reproduces the historical inline reduction bit-for-bit). Only the OUTPUT
-    /// energy `Σ (fitted − mean)²` — which depends on the CURRENT dictionary — is
-    /// recomputed per call; the column means and target variance are fit
-    /// invariants. The output-energy accumulation keeps the historical
+    /// `precomputed = Some(stats)` reuses the once-per-fit per-column means and
+    /// centered total-sum-of-squares (`None` reproduces the historical inline
+    /// reduction bit-for-bit). The output-energy accumulation keeps the historical
     /// single-accumulator column-major order.
-    pub(crate) fn dictionary_reconstruction_output_energy_ratio_maybe(
+    pub(crate) fn dictionary_reconstruction_output_energy_ratio_from_fitted(
         &self,
+        fitted: &Array2<f64>,
         target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
         precomputed: Option<&TargetCenteredColStats>,
     ) -> Result<f64, String> {
-        let fitted = self.try_fitted_for_rho(rho)?;
         if fitted.dim() != target.dim() {
             return Err(format!(
-                "SaeManifoldTerm::dictionary_reconstruction_output_energy_ratio: fitted {:?} \
-                 != target {:?}",
+                "SaeManifoldTerm::dictionary_reconstruction_output_energy_ratio_from_fitted: \
+                 fitted {:?} != target {:?}",
                 fitted.dim(),
                 target.dim()
             ));
@@ -3077,12 +3588,10 @@ impl SaeManifoldTerm {
     /// design is the identical gated `diag(a_·k)·Φ_k` the joint audit and joint refit
     /// use, so on a healthy, well-separated dictionary the deflation reproduces the
     /// joint least-squares fit up to block-coordinate ordering. Deterministic: ties
-    /// resolve to the lower atom index. The `quotient_scale` peel is mirrored from
-    /// the joint refit so the amortized-amplitude bookkeeping stays consistent.
+    /// resolve to the lower atom index.
     pub(crate) fn refit_decoder_sequential_deflation(
         &mut self,
         target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
     ) -> Result<(), String> {
         let n = self.n_obs();
         let p = self.output_dim();
@@ -3100,7 +3609,7 @@ impl SaeManifoldTerm {
         // the deflation design matches the joint audit's `diag(a_·k)·Φ_k` blocks.
         let mut gates = Array2::<f64>::zeros((n, k));
         for row in 0..n {
-            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            let assignments = self.assignment.try_assignments_row(row)?;
             for atom in 0..k {
                 gates[[row, atom]] = assignments[atom];
             }
@@ -3176,12 +3685,6 @@ impl SaeManifoldTerm {
                 }
             }
             self.atoms[best_atom].refresh_intrinsic_smooth_penalty();
-            // #2022 refit-peel, mirrored from the joint refit (default-off; a no-op
-            // unless the scale-gauge quotient is armed on this term).
-            if self.quotient_scale {
-                self.atoms[best_atom].log_amplitude = 0.0;
-                self.atoms[best_atom].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-            }
             remaining.retain(|&a| a != best_atom);
         }
         Ok(())
@@ -3275,7 +3778,9 @@ impl SaeManifoldTerm {
             .map(|(j, kk, coherence, _bar)| (j, kk, coherence)))
     }
 
-    fn structural_coherence_collapsed_pairs(&self) -> Result<Vec<(usize, usize, f64, f64)>, String> {
+    fn structural_coherence_collapsed_pairs(
+        &self,
+    ) -> Result<Vec<(usize, usize, f64, f64)>, String> {
         let k = self.k_atoms();
         let p = self.output_dim();
         if k < 2 || p == 0 {
@@ -3374,7 +3879,12 @@ impl SaeManifoldTerm {
             if phi.nrows() != n || n == 0 {
                 continue;
             }
-            let mut y = phi.dot(&self.atoms[atom].decoder_coefficients);
+            // Per-atom decode `Φ_k · B_k` (N×M · M×p). This runs inside the
+            // per-accepted-iterate structural-coherence guard, so route the
+            // matrix-matrix product through the faer GEMM (small shapes fall
+            // back to `ndarray::dot` inside `fast_ab`; the reduction order may
+            // differ, acceptable per the crate convention).
+            let mut y = fast_ab(phi, &self.atoms[atom].decoder_coefficients);
             for row in 0..n {
                 let g = gates[[row, atom]];
                 for col in 0..y.ncols() {
@@ -3401,7 +3911,11 @@ impl SaeManifoldTerm {
                         nk += b * b;
                     }
                     let denom = (nj * nk).sqrt();
-                    if denom > 0.0 { (dot / denom).abs() } else { 0.0 }
+                    if denom > 0.0 {
+                        (dot / denom).abs()
+                    } else {
+                        0.0
+                    }
                 }
                 // Contribution unavailable (decoder-only detector call before any
                 // gated design): keep the subspace verdict rather than lose it.
@@ -3519,9 +4033,9 @@ impl SaeManifoldTerm {
         for &atom in &to_reseed {
             self.reseed_collapsed_atom_logits(atom);
         }
-        self.refit_decoder_sequential_deflation(target, rho)?;
+        self.refit_decoder_sequential_deflation(target)?;
         self.anchor_logits_to_residual_ownership(target)?;
-        self.refit_decoder_sequential_deflation(target, rho)?;
+        self.refit_decoder_sequential_deflation(target)?;
         Ok(())
     }
 
@@ -3545,11 +4059,10 @@ impl SaeManifoldTerm {
     /// DISTINCT factor, so its deflation decoder lands on that factor's channels and
     /// the atoms separate. Uses only the production seeding primitive
     /// (`sae_pca_seed_initial_coords`, one atom at a time on the residual) and the
-    /// same gated design / `quotient_scale` peel as the joint refit.
+    /// same gated design as the joint refit.
     pub(crate) fn seed_cold_start_disjoint_charts(
         &mut self,
         target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
     ) -> Result<(), String> {
         let n = self.n_obs();
         let p = self.output_dim();
@@ -3567,8 +4080,8 @@ impl SaeManifoldTerm {
         // not variance. Each certified plane already carries its per-row
         // `phases_turns` in the exact `[0, 1)` chart-seed format the Periodic PCA
         // seed emits (see `certify_plane`), so only the chart SOURCE changes; the
-        // decoder LS + `quotient_scale` peel + residual deflation below are
-        // unchanged. When the span carries fewer than K κ-certified circle planes
+        // decoder LS and residual deflation below are unchanged. When the span
+        // carries fewer than K κ-certified circle planes
         // (non-circle atom, or too little independent structure) the remaining
         // atoms fall back to the PCA peel, so peelable/disjoint fixtures are
         // untouched — the κ certificate itself is the gate, never a tuned knob.
@@ -3603,7 +4116,7 @@ impl SaeManifoldTerm {
             let m = self.atoms[atom].basis_size();
             let mut d = Array2::<f64>::zeros((n, m));
             for row in 0..n {
-                let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+                let assignments = self.assignment.try_assignments_row(row)?;
                 let w = assignments[atom];
                 for col in 0..m {
                     d[[row, col]] = w * self.atoms[atom].basis_values[[row, col]];
@@ -3624,10 +4137,6 @@ impl SaeManifoldTerm {
                 }
             }
             self.atoms[atom].refresh_intrinsic_smooth_penalty();
-            if self.quotient_scale {
-                self.atoms[atom].log_amplitude = 0.0;
-                self.atoms[atom].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-            }
         }
         Ok(())
     }
@@ -3701,7 +4210,6 @@ impl SaeManifoldTerm {
     pub fn seed_cold_start_disjoint_charts_streaming(
         &mut self,
         target: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
         chunk_rows: usize,
     ) -> Result<(), String> {
         let n = self.n_obs();
@@ -3743,7 +4251,7 @@ impl SaeManifoldTerm {
             let mut start = 0usize;
             while start < n {
                 let end = (start + step).min(n);
-                let design_chunk = self.gated_design_chunk(atom, start, end, m, rho)?;
+                let design_chunk = self.gated_design_chunk(atom, start, end, m)?;
                 eq.accumulate_chunk(design_chunk.view(), residual.slice(s![start..end, ..]))?;
                 start = end;
             }
@@ -3759,7 +4267,7 @@ impl SaeManifoldTerm {
             let mut start = 0usize;
             while start < n {
                 let end = (start + step).min(n);
-                let design_chunk = self.gated_design_chunk(atom, start, end, m, rho)?;
+                let design_chunk = self.gated_design_chunk(atom, start, end, m)?;
                 let fit_chunk = design_chunk.dot(&beta);
                 let mut resid_chunk = residual.slice_mut(s![start..end, ..]);
                 resid_chunk -= &fit_chunk;
@@ -3771,10 +4279,6 @@ impl SaeManifoldTerm {
                 }
             }
             self.atoms[atom].refresh_intrinsic_smooth_penalty();
-            if self.quotient_scale {
-                self.atoms[atom].log_amplitude = 0.0;
-                self.atoms[atom].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
-            }
         }
         Ok(())
     }
@@ -3789,11 +4293,10 @@ impl SaeManifoldTerm {
         start: usize,
         end: usize,
         m: usize,
-        rho: &SaeManifoldRho,
     ) -> Result<Array2<f64>, String> {
         let mut d = Array2::<f64>::zeros((end - start, m));
         for row in start..end {
-            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            let assignments = self.assignment.try_assignments_row(row)?;
             let w = assignments[atom];
             for col in 0..m {
                 d[[row - start, col]] = w * self.atoms[atom].basis_values[[row, col]];
@@ -3809,6 +4312,27 @@ impl SaeManifoldTerm {
         step_size: f64,
         refresh_basis: bool,
     ) -> Result<(), String> {
+        self.apply_newton_step_impl_with_parallelism(
+            delta_ext_coord,
+            delta_beta,
+            step_size,
+            refresh_basis,
+            None,
+        )
+    }
+
+    /// Implementation shared by the production auto-policy and the
+    /// parallelism-invariance regression. `forced_parallelism == None` selects
+    /// the production policy; tests force the serial and indexed-parallel paths
+    /// inside local Rayon pools without mutating global process state.
+    pub(crate) fn apply_newton_step_impl_with_parallelism(
+        &mut self,
+        delta_ext_coord: ArrayView1<'_, f64>,
+        delta_beta: ArrayView1<'_, f64>,
+        step_size: f64,
+        refresh_basis: bool,
+        forced_parallelism: Option<bool>,
+    ) -> Result<(), String> {
         if !(step_size.is_finite() && step_size > 0.0) {
             return Err(format!(
                 "SaeManifoldTerm::apply_newton_step: step_size must be finite and positive; got {step_size}"
@@ -3818,6 +4342,12 @@ impl SaeManifoldTerm {
         let q = self.assignment.row_block_dim();
         let k_atoms = self.k_atoms();
         let assignment_dim = self.assignment.assignment_coord_dim();
+        let at_top_level = rayon::current_thread_index().is_none();
+        let parallel_rows =
+            forced_parallelism.unwrap_or(n >= SAE_LOSS_PARALLEL_ROW_MIN && at_top_level);
+        let parallel_atoms = forced_parallelism
+            .unwrap_or(n >= SAE_LOSS_PARALLEL_ROW_MIN && k_atoms > 1 && at_top_level);
+        let softmax = matches!(self.assignment.mode, AssignmentMode::Softmax { .. });
         // #972 / #977 T1: when the most recent assembly built the factored
         // β-tier, `delta_beta` is a factored ΔC (length `factored_border_dim`)
         // that must be LIFTED through each active frame (`ΔB_k = ΔC_k U_kᵀ`)
@@ -3843,7 +4373,15 @@ impl SaeManifoldTerm {
         // [compact_offset_i .. compact_offset_i + q_active_i].
         // We expand each row back to full-q before applying.
         if let Some(ref layout) = self.last_row_layout.clone() {
-            let total_len: usize = (0..n).map(|row| layout.row_q_active(row)).sum();
+            let row_dims: Vec<usize> = (0..n).map(|row| layout.row_q_active(row)).collect();
+            let mut compact_offsets = Vec::with_capacity(n + 1);
+            compact_offsets.push(0usize);
+            let mut compact_total = 0usize;
+            for &row_dim in &row_dims {
+                compact_total += row_dim;
+                compact_offsets.push(compact_total);
+            }
+            let total_len = compact_offsets[n];
             if delta_ext_coord.len() != total_len {
                 return Err(format!(
                     "SaeManifoldTerm::apply_newton_step: compact delta_ext_coord length {} != expected {}",
@@ -3851,50 +4389,80 @@ impl SaeManifoldTerm {
                     total_len
                 ));
             }
-            // Expand compact layout to full-q flat buffer.
+            // Expand compact rows independently into disjoint full-q slices.
             let mut full_delta = vec![0.0_f64; n * q];
-            let mut compact_off = 0usize;
-            for row in 0..n {
-                let q_active = layout.row_q_active(row);
-                // Collect compact row (handles both contiguous and strided views).
-                let compact_row: Vec<f64> = delta_ext_coord
-                    .slice(ndarray::s![compact_off..compact_off + q_active])
-                    .iter()
-                    .copied()
-                    .collect();
-                layout.expand_row(row, &compact_row, &mut full_delta[row * q..(row + 1) * q]);
-                compact_off += q_active;
+            if parallel_rows && q > 0 {
+                use rayon::prelude::*;
+                full_delta
+                    .par_chunks_mut(q)
+                    .enumerate()
+                    .for_each(|(row, full_row)| {
+                        let compact_row: Vec<f64> = delta_ext_coord
+                            .slice(ndarray::s![compact_offsets[row]..compact_offsets[row + 1]])
+                            .iter()
+                            .copied()
+                            .collect();
+                        layout.expand_row(row, &compact_row, full_row);
+                    });
+            } else {
+                for row in 0..n {
+                    let compact_row: Vec<f64> = delta_ext_coord
+                        .slice(ndarray::s![compact_offsets[row]..compact_offsets[row + 1]])
+                        .iter()
+                        .copied()
+                        .collect();
+                    layout.expand_row(row, &compact_row, &mut full_delta[row * q..(row + 1) * q]);
+                }
             }
             // Apply logits from expanded buffer, clamped to the #976 gate-scale
-            // step cap (see SAE_ASSIGNMENT_LOGIT_STEP_CAP_TAUS for the Armijo
-            // consistency argument).
+            // step cap, then canonicalize each softmax row in the same worker.
             let logit_step_cap =
                 SAE_ASSIGNMENT_LOGIT_STEP_CAP_TAUS * self.assignment.mode.temperature();
-            for row in 0..n {
-                let row_base = row * q;
-                for atom_idx in 0..assignment_dim {
-                    self.assignment.logits[[row, atom_idx]] += (step_size
-                        * full_delta[row_base + atom_idx])
-                        .clamp(-logit_step_cap, logit_step_cap);
-                }
-            }
-            // Apply coords from expanded buffer.
-            let coord_offsets = self.assignment.coord_offsets();
-            for atom_idx in 0..k_atoms {
-                let d = self.assignment.coords[atom_idx].latent_dim();
-                let mut delta_coord = Array1::<f64>::zeros(n * d);
+            if parallel_rows {
+                use rayon::prelude::*;
+                self.assignment
+                    .logits
+                    .axis_iter_mut(ndarray::Axis(0))
+                    .into_par_iter()
+                    .enumerate()
+                    .for_each(|(row, mut logits)| {
+                        let row_base = row * q;
+                        for atom_idx in 0..assignment_dim {
+                            logits[atom_idx] += (step_size * full_delta[row_base + atom_idx])
+                                .clamp(-logit_step_cap, logit_step_cap);
+                        }
+                        if softmax {
+                            canonicalize_softmax_logit_row(
+                                logits.as_slice_mut().expect("contiguous logit row"),
+                            );
+                        }
+                    });
+            } else {
                 for row in 0..n {
-                    let row_base = row * q + coord_offsets[atom_idx];
-                    for axis in 0..d {
-                        delta_coord[row * d + axis] = step_size * full_delta[row_base + axis];
+                    let row_base = row * q;
+                    let mut logits = self.assignment.logits.row_mut(row);
+                    for atom_idx in 0..assignment_dim {
+                        logits[atom_idx] += (step_size * full_delta[row_base + atom_idx])
+                            .clamp(-logit_step_cap, logit_step_cap);
+                    }
+                    if softmax {
+                        canonicalize_softmax_logit_row(
+                            logits.as_slice_mut().expect("contiguous logit row"),
+                        );
                     }
                 }
-                self.assignment.coords[atom_idx].retract_flat_delta(delta_coord.view());
-                if refresh_basis {
-                    let coords = self.assignment.coords[atom_idx].as_matrix();
-                    self.atoms[atom_idx].refresh_basis(coords.view())?;
-                }
             }
+            // Coordinate blocks and basis caches are independent across atoms.
+            let coord_offsets = self.assignment.coord_offsets();
+            self.apply_coordinate_step_from_rows(
+                n,
+                q,
+                &coord_offsets,
+                step_size,
+                |_, flat_idx| full_delta[flat_idx],
+                refresh_basis,
+                parallel_atoms,
+            )?;
         } else {
             // Dense layout: uniform q per row.
             if delta_ext_coord.len() != n * q {
@@ -3908,66 +4476,65 @@ impl SaeManifoldTerm {
             // #976 gate-scale step cap, as in the compact branch above.
             let logit_step_cap =
                 SAE_ASSIGNMENT_LOGIT_STEP_CAP_TAUS * self.assignment.mode.temperature();
-            for row in 0..n {
-                let row_base = row * q;
-                for atom_idx in 0..assignment_dim {
-                    self.assignment.logits[[row, atom_idx]] += (step_size
-                        * delta_ext_coord[row_base + atom_idx])
-                        .clamp(-logit_step_cap, logit_step_cap);
-                }
-            }
-            for atom_idx in 0..k_atoms {
-                let d = self.assignment.coords[atom_idx].latent_dim();
-                let mut delta_coord = Array1::<f64>::zeros(n * d);
+            if parallel_rows {
+                use rayon::prelude::*;
+                self.assignment
+                    .logits
+                    .axis_iter_mut(ndarray::Axis(0))
+                    .into_par_iter()
+                    .enumerate()
+                    .for_each(|(row, mut logits)| {
+                        let row_base = row * q;
+                        for atom_idx in 0..assignment_dim {
+                            logits[atom_idx] += (step_size * delta_ext_coord[row_base + atom_idx])
+                                .clamp(-logit_step_cap, logit_step_cap);
+                        }
+                        if softmax {
+                            canonicalize_softmax_logit_row(
+                                logits.as_slice_mut().expect("contiguous logit row"),
+                            );
+                        }
+                    });
+            } else {
                 for row in 0..n {
-                    let row_base = row * q + coord_offsets[atom_idx];
-                    for axis in 0..d {
-                        delta_coord[row * d + axis] = step_size * delta_ext_coord[row_base + axis];
+                    let row_base = row * q;
+                    let mut logits = self.assignment.logits.row_mut(row);
+                    for atom_idx in 0..assignment_dim {
+                        logits[atom_idx] += (step_size * delta_ext_coord[row_base + atom_idx])
+                            .clamp(-logit_step_cap, logit_step_cap);
+                    }
+                    if softmax {
+                        canonicalize_softmax_logit_row(
+                            logits.as_slice_mut().expect("contiguous logit row"),
+                        );
                     }
                 }
-                self.assignment.coords[atom_idx].retract_flat_delta(delta_coord.view());
-                if refresh_basis {
-                    let coords = self.assignment.coords[atom_idx].as_matrix();
-                    self.atoms[atom_idx].refresh_basis(coords.view())?;
-                }
             }
-        }
-        if matches!(self.assignment.mode, AssignmentMode::Softmax { .. }) {
-            canonicalize_softmax_logits(&mut self.assignment.logits);
+            self.apply_coordinate_step_from_rows(
+                n,
+                q,
+                &coord_offsets,
+                step_size,
+                |_, flat_idx| delta_ext_coord[flat_idx],
+                refresh_basis,
+                parallel_atoms,
+            )?;
         }
 
-        let mut beta = self.flatten_beta();
         if self.last_frames_active {
             // Factored ΔC → lift to a p-wide ΔB and add `step·ΔB`. For atom `k`,
             // basis row `m`, output channel `i`:
             //   ΔB_k[m,i] = Σ_j ΔC[off_C[k] + m·r_k + j] · U_k[i,j].
             // Un-framed atoms (`U_k = I_p`, `r_k = p`) lift by identity, so a
-            // mixed dictionary is handled uniformly. The decoder is then
-            // refreshed below via `set_flat_beta` (the authoritative `B_k` is the
-            // p-wide flatten; the active frames are re-synced from the decoder by
-            // the polar refresh in the joint-fit driver).
+            // mixed dictionary is handled uniformly. The resulting p-wide step
+            // is applied directly to each authoritative decoder block; active
+            // frames are re-synced from those decoders by the polar refresh in
+            // the joint-fit driver.
             let delta_b = FrameProjection::new(self).lift_border_vec(delta_beta);
-            for idx in 0..beta.len() {
-                beta[idx] += step_size * delta_b[idx];
-            }
+            self.apply_decoder_step_from_flat(delta_b.view(), step_size, parallel_atoms)?;
         } else {
-            for idx in 0..beta.len() {
-                beta[idx] += step_size * delta_beta[idx];
-            }
+            self.apply_decoder_step_from_flat(delta_beta, step_size, parallel_atoms)?;
         }
-        self.set_flat_beta(beta.view())?;
-        // #2100 — the #2022 STEP2 sphere-retract+peel does NOT belong here.
-        // `apply_newton_step_impl` runs on EVERY β-Newton line-search TRIAL, and
-        // folding every atom's ‖B_k‖ into its log-amplitude mid-solve forces
-        // ‖B_k‖≡1 while the β-Newton magnitude step (which assumes scale lives in
-        // B) is still moving: the next step then takes a runaway magnitude
-        // correction that compounds to EV → −1e128 on a HEALTHY dictionary (the
-        // #2100 detonation). The retraction is a settled-iterate representation
-        // move, not a per-trial one, so it now lives at the ACCEPTED-iterate
-        // boundary in `run_joint_fit_arrow_schur` (gated to COLLAPSED atoms via
-        // `retract_collapsed_decoders_in_loop`, where the norms have settled).
-        // Keeping scale in B during the inner solve leaves the β-Newton step on
-        // the manifold it was linearized on. See the #2100 note at that boundary.
         Ok(())
     }
 
@@ -3987,24 +4554,33 @@ impl SaeManifoldTerm {
         if d == 0 {
             return Ok(Array1::<f64>::zeros(0));
         }
-        let mut ridge = base_ridge.max(SAE_MANIFOLD_ROW_RIDGE_FLOOR);
         let mut last_err = String::new();
-        for _ in 0..SAE_MANIFOLD_ROW_RIDGE_MAX_ATTEMPTS {
-            let mut a = h.to_owned();
-            for axis in 0..d {
-                a[[axis, axis]] += ridge;
-            }
-            match sae_cholesky_solve_neg_gradient(a.view(), g) {
-                Ok(delta) => return Ok(delta),
-                Err(err) => {
-                    last_err = err;
-                    ridge *= SAE_MANIFOLD_ROW_RIDGE_GROWTH;
+        escalate_ridge(
+            RidgeSchedule {
+                initial: base_ridge.max(SAE_MANIFOLD_ROW_RIDGE_FLOOR),
+                growth: SAE_MANIFOLD_ROW_RIDGE_GROWTH,
+                max_escalations: SAE_MANIFOLD_ROW_RIDGE_MAX_ATTEMPTS,
+            },
+            |ridge| {
+                let mut a = h.to_owned();
+                for axis in 0..d {
+                    a[[axis, axis]] += ridge;
                 }
-            }
-        }
-        Err(format!(
-            "SaeManifoldTerm::solve_fixed_decoder_row_step: row Hessian did not factor after LM escalation; last error: {last_err}"
-        ))
+                match sae_cholesky_solve_neg_gradient(a.view(), g) {
+                    Ok(delta) => Some(delta),
+                    Err(err) => {
+                        last_err = err;
+                        None
+                    }
+                }
+            },
+        )
+        .map(|success| success.value)
+        .map_err(|_| {
+            format!(
+                "SaeManifoldTerm::solve_fixed_decoder_row_step: row Hessian did not factor after LM escalation; last error: {last_err}"
+            )
+        })
     }
 
     pub(crate) fn fixed_decoder_step_from_rows(
@@ -4090,27 +4666,33 @@ impl SaeManifoldTerm {
     ///
     /// For a fixed decoder the exact out-of-sample encoding of row `i` against
     /// atom `k` is the projection
-    /// `t*_{ik} = argmin_t ‖x_i − Φ_k(t)·B_k‖²`. That objective is non-convex
-    /// on a compact latent (a trigonometric polynomial for periodic / torus
-    /// atoms, a chart function on the sphere), so the cold PCA-`atan2` seed plus
-    /// a handful of Newton steps frequently converges into the wrong basin and
-    /// mis-routes the row — the root cause of the negative-`R²`, near-uniform
-    /// assignment OOS failures. We evaluate each atom's decoder once on a dense
-    /// manifold-spanning grid (provided by the atom basis kind), take the per-row
-    /// global argmin as the coordinate seed, refresh the atom basis there, and
-    /// let the subsequent Newton refinement polish to full precision from inside
-    /// the correct basin. Because the residual-based softmax logit seed reads the
-    /// freshly decoded rows, routing then follows the true per-atom projection
-    /// error rather than the cold-seed error.
+    /// `t*_{ik} = argmin_t ‖x_i − Φ_k(t)·B_k‖²`. For a periodic curve this is a
+    /// trigonometric polynomial: every stationary coordinate is enumerated by
+    /// the shared companion-root solver and compared globally. This exact
+    /// enumeration is available only for the rank-1 Fourier charts (periodic /
+    /// torus with `latent_dim == 1`).
     ///
-    /// Atoms whose basis kind exposes no projection seed grid
-    /// (unbounded / basis-linear latents) are left at their incoming seed. The
-    /// decoder, assignment logits, smoothness penalties and ρ are all untouched;
-    /// only the latent coordinates and the basis caches that depend on them move.
+    /// Every other atom — coupled multivariate compact charts (sphere,
+    /// cylinder, Möbius, multivariate periodic/torus) and the unbounded or
+    /// basis-linear latents (Duchon, Euclidean patch, Poincaré, linear, finite
+    /// set) — **retains its incoming coordinates**. It is fed here already
+    /// carrying the natural-chart seed [`sae_pca_seed_initial_coords`] /
+    /// [`topology_curved_seed_initial_coords`] placed on it, and we do not
+    /// overwrite that with a dishonest fixed-lattice projection: a finite
+    /// multistart support cannot certify it found every stationary component of
+    /// a compact multivariate chart, and this crate does not yet expose the
+    /// interval extensions or polynomial-system solver needed to make that
+    /// completeness claim. Skipping refinement for those atoms is honest (no
+    /// completeness is asserted) and non-fatal (the natural-chart seed survives
+    /// into the joint solve), so a default fit whose topology race selects a
+    /// sphere / Möbius / swiss-sheet atom completes instead of aborting.
+    ///
+    /// The decoder, assignment logits, smoothness penalties and rho are
+    /// untouched; only exact rank-1 Fourier coordinates and their basis caches
+    /// move.
     pub fn seed_coords_by_decoder_projection(
         &mut self,
         target: ArrayView2<'_, f64>,
-        resolution: usize,
     ) -> Result<(), String> {
         let n = self.n_obs();
         let p = self.output_dim();
@@ -4120,6 +4702,15 @@ impl SaeManifoldTerm {
                 target.dim()
             ));
         }
+        // Atoms whose complete stationary set the rank-1 Fourier companion
+        // solver cannot enumerate (compact multivariate charts, and every
+        // unbounded / basis-linear latent) are SKIPPED below, retaining the
+        // natural-chart seed they arrived with. We deliberately do not perform a
+        // fixed-lattice projection for them: a finite multistart cannot certify
+        // completeness for a compact multivariate chart, so refining them here
+        // would assert a guarantee this engine does not carry. Skipping is
+        // honest and lets a default fit whose topology race selects a sphere /
+        // Möbius / swiss-sheet atom complete rather than abort.
         // ENRICHMENT (#980, role (c)): the order in which this discovery/seeding
         // pass *visits* rows is drawn from the per-row Fisher-mass sampling
         // measure when an output-Fisher harvest is present, so behaviorally-live
@@ -4134,62 +4725,50 @@ impl SaeManifoldTerm {
         let visit_order = self.enrichment_visit_order();
         for atom_idx in 0..self.k_atoms() {
             let d = self.atoms[atom_idx].latent_dim;
-            let Some(grid) = self.atoms[atom_idx]
-                .basis_kind
-                .projection_seed_grid(d, resolution)
-            else {
-                continue;
-            };
-            let Some(evaluator) = self.atoms[atom_idx].basis_evaluator.clone() else {
-                continue;
-            };
-            if grid.ncols() != d {
-                return Err(format!(
-                    "SaeManifoldTerm::seed_coords_by_decoder_projection: atom {atom_idx} grid has {} columns but latent_dim is {d}",
-                    grid.ncols()
-                ));
-            }
-            let g = grid.nrows();
-            if g == 0 {
-                continue;
-            }
-            // Decode the whole grid once: `decoded = Φ(grid) · B_k`  (g × p).
-            let (phi_grid, _jet) = evaluator.evaluate(grid.view())?;
-            if phi_grid.ncols() != self.atoms[atom_idx].basis_size() {
-                return Err(format!(
-                    "SaeManifoldTerm::seed_coords_by_decoder_projection: atom {atom_idx} grid Φ has {} columns but decoder expects {}",
-                    phi_grid.ncols(),
-                    self.atoms[atom_idx].basis_size()
-                ));
-            }
-            let decoded = phi_grid.dot(&self.atoms[atom_idx].decoder_coefficients);
-            // Per-row global argmin of ‖x_i − decoded_g‖² over the grid. Rows are
-            // *visited* in the enrichment order (live rows first); the projection
-            // objective for each row is unchanged, and each row is seeded exactly
-            // once, so the order is pure attention and cannot move any seed.
-            let mut seeded = Array2::<f64>::zeros((n, d));
-            for &row in &visit_order {
-                let mut best_idx = 0usize;
-                let mut best_err = f64::INFINITY;
-                for grid_idx in 0..g {
-                    let mut err = 0.0_f64;
-                    for col in 0..p {
-                        let diff = target[[row, col]] - decoded[[grid_idx, col]];
-                        err += diff * diff;
-                    }
-                    if err < best_err {
-                        best_err = err;
-                        best_idx = grid_idx;
+            if matches!(
+                &self.atoms[atom_idx].basis_kind,
+                SaeAtomBasisKind::Periodic | SaeAtomBasisKind::Torus
+            ) && d == 1
+            {
+                let mut seeded = self.assignment.coords[atom_idx].as_matrix();
+                let mut decoder = self.atoms[atom_idx].full_width_decoder();
+                let eta = self.atoms[atom_idx].homotopy_eta;
+                if eta != 1.0 {
+                    // The harmonic homotopy keeps `[1, sin θ, cos θ]` fixed and
+                    // scales harmonics h >= 2.  Folding eta into the physical
+                    // decoder preserves the standard Fourier basis required by
+                    // the companion solver.
+                    for basis in 3..decoder.nrows() {
+                        for output in 0..decoder.ncols() {
+                            decoder[[basis, output]] *= eta;
+                        }
                     }
                 }
-                for axis in 0..d {
-                    seeded[[row, axis]] = grid[[best_idx, axis]];
+                let gram = decoder.dot(&decoder.t());
+                let extrema = PeriodicCurveExtrema::from_gram(gram.view()).map_err(|error| {
+                    format!(
+                        "SaeManifoldTerm::seed_coords_by_decoder_projection: atom {atom_idx}: {error}"
+                    )
+                })?;
+                for &row in &visit_order {
+                    let linear = decoder.dot(&target.row(row));
+                    let coefficients = linear.as_slice().ok_or_else(|| {
+                        "SaeManifoldTerm::seed_coords_by_decoder_projection: Fourier coefficients are not contiguous".to_string()
+                    })?;
+                    seeded[[row, 0]] = extrema
+                        .minimize_squared_distance(coefficients)
+                        .map_err(|error| {
+                            format!(
+                                "SaeManifoldTerm::seed_coords_by_decoder_projection: row {row}, atom {atom_idx}: {error}"
+                            )
+                        })?
+                        .coordinate;
                 }
+                let flat = Array1::from_iter(seeded.iter().copied());
+                self.assignment.coords[atom_idx].set_flat(flat.view());
+                let coords = self.assignment.coords[atom_idx].as_matrix();
+                self.atoms[atom_idx].refresh_basis(coords.view())?;
             }
-            let flat = Array1::from_iter(seeded.iter().copied());
-            self.assignment.coords[atom_idx].set_flat(flat.view());
-            let coords = self.assignment.coords[atom_idx].as_matrix();
-            self.atoms[atom_idx].refresh_basis(coords.view())?;
         }
         Ok(())
     }
@@ -4250,36 +4829,50 @@ impl SaeManifoldTerm {
                 && directional_decrease > 0.0
                 && directional_decrease > directional_decrease_floor)
             {
-                self.restore_mutable_state(&snapshot);
+                self.restore_mutable_state(&snapshot)?;
                 last_loss = pre_step_loss;
                 break;
             }
 
-            let mut trial_step_size = step_size;
-            let mut accepted_loss: Option<SaeManifoldLoss> = None;
-            for halving in 0..=SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS {
-                if halving > 0 {
-                    self.restore_mutable_state(&snapshot);
-                }
-                let trial_result = self
-                    .apply_newton_step(delta_ext_coord.view(), beta_zero.view(), trial_step_size)
-                    .and_then(|()| {
-                        self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
-                    });
-                if let Ok(post_step_total) = trial_result {
+            // Each trial re-applies the Newton step from the pre-step
+            // `snapshot` (reset-before-reapply on every trial after the
+            // first). A trial whose step application or objective evaluation
+            // errors is INVALID (`Ok(None)`): halve without consulting the
+            // Armijo test. On acceptance the mutable state already holds the
+            // accepted trial, so the loss is read after the search returns.
+            let mut first_trial = true;
+            let accepted = backtracking_line_search::<_, String>(
+                BacktrackConfig {
+                    initial_step: step_size,
+                    max_steps: SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS + 1,
+                    ..BacktrackConfig::default()
+                },
+                |trial_step_size| {
+                    if !std::mem::take(&mut first_trial) {
+                        self.restore_mutable_state(&snapshot)?;
+                    }
+                    Ok(self
+                        .apply_newton_step(
+                            delta_ext_coord.view(),
+                            beta_zero.view(),
+                            trial_step_size,
+                        )
+                        .and_then(|()| {
+                            self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                        })
+                        .ok()
+                        .map(|post_step_total| (post_step_total, ())))
+                },
+                |trial_step_size, post_step_total| {
                     let armijo_bound = pre_step_total
                         - SAE_MANIFOLD_ARMIJO_C1 * trial_step_size * directional_decrease;
-                    if post_step_total.is_finite() && post_step_total <= armijo_bound {
-                        accepted_loss = Some(self.loss(target, rho)?);
-                        break;
-                    }
-                }
-                trial_step_size *= 0.5;
-            }
-            match accepted_loss {
-                Some(loss) => last_loss = loss,
+                    post_step_total.is_finite() && post_step_total <= armijo_bound
+                },
+            )?;
+            match accepted {
+                Some(_) => last_loss = self.loss(target, rho)?,
                 None => {
-                    self.restore_mutable_state(&snapshot);
+                    self.restore_mutable_state(&snapshot)?;
                     last_loss = pre_step_loss;
                     break;
                 }
@@ -4370,67 +4963,95 @@ impl SaeManifoldTerm {
         }
         let mut grams = self.empty_decoder_gram_accumulator();
         self.accumulate_decoder_gram(&mut grams);
-        for atom_idx in 0..self.atoms.len() {
-            let m = self.atoms[atom_idx].basis_size();
-            if m == 0 || grams[atom_idx].dim() != (m, m) {
-                continue;
-            }
-            // Symmetrise the bare data Gram `G_k` before the eigendecomposition.
-            let mut data_gram = grams[atom_idx].clone();
-            for i in 0..m {
-                for j in 0..i {
-                    let sym = 0.5 * (data_gram[[i, j]] + data_gram[[j, i]]);
-                    data_gram[[i, j]] = sym;
-                    data_gram[[j, i]] = sym;
+        // Phase 1 (parallel, READ-ONLY): each atom's rank-revealing eigendecomp
+        // depends ONLY on its own data Gram + its own (immutable) atom state, so
+        // the per-atom column-map plan `Q_k` is computed independently and
+        // collected in atom order. The eigendecomp is deterministic and the plan
+        // per atom is a pure function of read-only inputs, so the parallel result
+        // is bit-identical to the serial sweep (ordered collect). #1557 — pin the
+        // faer eigendecomp GEMM to `Par::Seq` inside each atom worker.
+        let plans: Vec<Option<Array2<f64>>> =
+            {
+                let atoms = &self.atoms;
+                let compute_plan =
+                    |atom_idx: usize| -> Option<Array2<f64>> {
+                        let m = atoms[atom_idx].basis_size();
+                        if m == 0 || grams[atom_idx].dim() != (m, m) {
+                            return None;
+                        }
+                        // Symmetrise the bare data Gram `G_k` before the eigendecomposition.
+                        let mut data_gram = grams[atom_idx].clone();
+                        for i in 0..m {
+                            for j in 0..i {
+                                let sym = 0.5 * (data_gram[[i, j]] + data_gram[[j, i]]);
+                                data_gram[[i, j]] = sym;
+                                data_gram[[j, i]] = sym;
+                            }
+                        }
+                        let (evals, evecs) = match data_gram.eigh(Side::Lower) {
+                            Ok(pair) => pair,
+                            Err(_) => return None,
+                        };
+                        let max_eig = evals.iter().fold(0.0_f64, |acc, &v| {
+                            if v.is_finite() { acc.max(v) } else { acc }
+                        });
+                        if !(max_eig > 0.0) {
+                            // An all-zero data Gram (no assignment mass) is handled by the
+                            // fatal pre-fit audit, not by a basis reduction here.
+                            return None;
+                        }
+                        let cutoff = SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF * max_eig;
+                        // Eigenvectors whose eigenvalue clears the relative cutoff span the
+                        // data-supported subspace `Q_k` (the retained columns).
+                        let kept: Vec<usize> = (0..evals.len())
+                            .filter(|&idx| {
+                                let lambda = evals[idx];
+                                lambda.is_finite() && lambda > cutoff
+                            })
+                            .collect();
+                        let r = kept.len();
+                        // Full rank (`r == m`) → the well-conditioned path; leave it
+                        // byte-for-byte unchanged. `r == 0` is a degenerate all-null Gram
+                        // that the fatal pre-fit audit already rejects; do not reduce to a
+                        // zero-width basis here.
+                        if r == m || r == 0 {
+                            return None;
+                        }
+                        // Build the orthonormal column map `Q_k` (M × r) from the retained
+                        // eigenvectors. The reduction needs an analytic second-jet evaluator
+                        // to compose the reduced jets; atoms without one (caller-managed,
+                        // e.g. an out-of-band design) keep the historical projector-free
+                        // full-`B` path and rely on the LM ridge — the periodic/torus/
+                        // sphere/Duchon production atoms all carry a second jet.
+                        if atoms[atom_idx].basis_second_jet.is_none() {
+                            return None;
+                        }
+                        let mut q = Array2::<f64>::zeros((m, r));
+                        for (col, &eig_idx) in kept.iter().enumerate() {
+                            for row in 0..m {
+                                q[[row, col]] = evecs[[row, eig_idx]];
+                            }
+                        }
+                        Some(q)
+                    };
+                let n_atoms = atoms.len();
+                let parallel =
+                    n_atoms >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+                if parallel {
+                    use rayon::prelude::*;
+                    (0..n_atoms)
+                        .into_par_iter()
+                        .map(|atom_idx| with_nested_parallel(|| compute_plan(atom_idx)))
+                        .collect()
+                } else {
+                    (0..n_atoms).map(compute_plan).collect()
                 }
-            }
-            let (evals, evecs) = match data_gram.eigh(Side::Lower) {
-                Ok(pair) => pair,
-                Err(_) => continue,
             };
-            let max_eig = evals.iter().fold(
-                0.0_f64,
-                |acc, &v| {
-                    if v.is_finite() { acc.max(v) } else { acc }
-                },
-            );
-            if !(max_eig > 0.0) {
-                // An all-zero data Gram (no assignment mass) is handled by the
-                // fatal pre-fit audit, not by a basis reduction here.
-                continue;
-            }
-            let cutoff = SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF * max_eig;
-            // Eigenvectors whose eigenvalue clears the relative cutoff span the
-            // data-supported subspace `Q_k` (the retained columns).
-            let kept: Vec<usize> = (0..evals.len())
-                .filter(|&idx| {
-                    let lambda = evals[idx];
-                    lambda.is_finite() && lambda > cutoff
-                })
-                .collect();
-            let r = kept.len();
-            // Full rank (`r == m`) → the well-conditioned path; leave it
-            // byte-for-byte unchanged. `r == 0` is a degenerate all-null Gram
-            // that the fatal pre-fit audit already rejects; do not reduce to a
-            // zero-width basis here.
-            if r == m || r == 0 {
-                continue;
-            }
-            // Build the orthonormal column map `Q_k` (M × r) from the retained
-            // eigenvectors. The reduction needs an analytic second-jet evaluator
-            // to compose the reduced jets; atoms without one (caller-managed,
-            // e.g. an out-of-band design) keep the historical projector-free
-            // full-`B` path and rely on the LM ridge — the periodic/torus/
-            // sphere/Duchon production atoms all carry a second jet.
-            if self.atoms[atom_idx].basis_second_jet.is_none() {
-                continue;
-            }
-            let mut q = Array2::<f64>::zeros((m, r));
-            for (col, &eig_idx) in kept.iter().enumerate() {
-                for row in 0..m {
-                    q[[row, col]] = evecs[[row, eig_idx]];
-                }
-            }
+        // Phase 2 (serial): apply the reparametrization to each atom in atom order.
+        // Each mutation touches ONLY its own atom, but keep it serial so a failure
+        // surfaces the deterministic (lowest-index) error.
+        for (atom_idx, plan) in plans.into_iter().enumerate() {
+            let Some(q) = plan else { continue };
             self.atoms[atom_idx]
                 .reduce_basis_to_subspace(&q)
                 .map_err(|err| {
@@ -4452,11 +5073,134 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
     ) -> Result<SaeManifoldLoss, String> {
+        self.run_joint_fit_arrow_schur_with_termination_policy(
+            target,
+            rho,
+            analytic_penalties,
+            max_iter,
+            step_size,
+            ridge_ext_coord,
+            ridge_beta,
+            true,
+        )
+        .map(|outcome| outcome.loss)
+    }
+
+    /// Evidence-gradient inner polish. The ordinary fit accepts the documented
+    /// coarse KKT band immediately; a Laplace value paired with an implicit
+    /// derivative cannot do that, because the resulting warm-start map is flat
+    /// inside the band while the analytic adjoint differentiates the exact root.
+    /// Keep the same KKT tolerance as an admission certificate, but bypass both
+    /// its loop-top early exit and the approximate objective-stall shortcut. The
+    /// latter deliberately stops ordinary fits after a few sufficiently small
+    /// but still STRICT decreases; re-entering from that state continues moving,
+    /// so it is not an idempotent root and cannot define the state response used
+    /// by an implicit evidence derivative. Evidence therefore retains only the
+    /// actual no-descent / proximal-no-strict-decrease termination routes before
+    /// the undamped cache is formed (#2253).
+    pub(crate) fn run_joint_fit_arrow_schur_for_evidence(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &mut SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        max_iter: usize,
+        step_size: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+    ) -> Result<EvidenceJointFitOutcome, String> {
+        // Entry preparation is part of the evidence map too: rank reduction,
+        // frame activation, collapse guards, and cold-start placement all run
+        // before the Newton loop's explicit `state_moved` tracking begins. Keep
+        // an exact snapshot here so none of those model transitions can be
+        // mistaken for an idempotent re-entry. The snapshot is differential
+        // (large basis caches are deterministic and omitted), so this does not
+        // copy the dominant N x M storage.
+        let entry_state = self.snapshot_mutable_state();
+        let entry_temperature = self.assignment.mode.temperature();
+        let outcome = self.run_joint_fit_arrow_schur_with_termination_policy(
+            target,
+            rho,
+            analytic_penalties,
+            max_iter,
+            step_size,
+            ridge_ext_coord,
+            ridge_beta,
+            false,
+        )?;
+        if matches!(outcome.termination, JointFitTermination::Heuristic) {
+            return Err(
+                "SaeManifoldTerm::run_joint_fit_arrow_schur_for_evidence: heuristic \
+                 termination escaped the evidence policy"
+                    .to_string(),
+            );
+        }
+        let entry_state_recurred = self.matches_mutable_state(&entry_state)
+            && self.assignment.mode.temperature().to_bits() == entry_temperature.to_bits();
+        // `GumbelTemperatureSchedule::step` advances its counter even when the
+        // emitted temperature equals the currently installed value (notably its
+        // first `tau_start` step). Such a call has not reached an idempotent
+        // evidence map if the NEXT re-entry will anneal to a different objective.
+        // At the temperature floor `current_tau(iter_count)` stays bit-identical,
+        // so a genuinely settled schedule remains certifiable.
+        let temperature_stable_on_reentry =
+            self.temperature_schedule.as_ref().is_none_or(|schedule| {
+                schedule.current_tau(schedule.iter_count).to_bits()
+                    == self.assignment.mode.temperature().to_bits()
+            });
+        Ok(EvidenceJointFitOutcome {
+            loss: outcome.loss,
+            fixed_point: matches!(
+                outcome.termination,
+                JointFitTermination::Frozen | JointFitTermination::NoStrictDecrease
+            ) && !outcome.state_moved
+                && entry_state_recurred
+                && temperature_stable_on_reentry,
+        })
+    }
+
+    fn run_joint_fit_arrow_schur_with_termination_policy(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &mut SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        max_iter: usize,
+        step_size: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+        allow_heuristic_termination: bool,
+    ) -> Result<JointFitOutcome, String> {
         if !(step_size.is_finite() && step_size > 0.0) {
             return Err(format!(
                 "SaeManifoldTerm::run_joint_fit_arrow_schur: step_size must be finite and positive; got {step_size}"
             ));
         }
+        // The inner Newton fit fans the per-row assembly, factorization, and
+        // reduced-Schur reduction across the global Rayon pool (`into_par_iter`
+        // over the `n` rows). Every faer HIGH-LEVEL solver reached from inside
+        // those workers — per-row Cholesky / self-adjoint eigendecomposition, the
+        // border factorization — reads `faer::get_global_parallelism()` directly.
+        // `with_nested_parallel` pins only gam's OWN `matmul` wrapper to
+        // `Par::Seq`; it CANNOT reach those faer solvers (they take no parallelism
+        // argument). Under faer's default `Par::rayon(0)` each per-row solver
+        // therefore re-fans faer's `spindle` barrier pool INTO the already
+        // saturated outer Rayon fan-out. Profiling the real behavior fit
+        // (n=4000, p=256, K=8) on an H100 showed ~34% of all cycles spinning in
+        // `spindle::Barrier::wait_and_clear_while` and a further ~16% in the
+        // futex/spinlock slow path, both pure oversubscription overhead. Pinning
+        // faer's process-global parallelism to `Par::Seq` for the duration of the
+        // inner fit collapses that nested pool: the coarse per-row Rayon
+        // parallelism is untouched (it is where the actual parallel speedup
+        // lives), and faer's reductions are parallelism-invariant — `Par::Seq`
+        // and `Par::rayon` are bit-for-bit identical (`tests_parallelism_invariance_1557`)
+        // — so this removes only wasted synchronization, changing no fitted value.
+        //
+        // Held in a named binding and consumed by the explicit `drop(...)` at the
+        // tail return (mirroring `finalize_cap_guard` in run_plan.rs), rather than
+        // `let _guard`: the workspace ban-scanner forbids every underscore-leading
+        // `let`, and a plain unused `let guard` trips `unused_variables` under
+        // `warnings = "deny"`. The guard's Drop still restores the prior
+        // parallelism on every early `?`/`return` path via RAII.
+        let faer_sequential_inner_fit = gam_linalg::faer_ndarray::FaerSequentialScope::enter();
         self.refresh_basis_from_current_coords()
             .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
         // #850 / gam#577 / gam#579 — `max_iter == 0` is a genuine FREEZE of the
@@ -4482,7 +5226,11 @@ impl SaeManifoldTerm {
         // no-op and at worst reparametrize the frozen β — neither is wanted under
         // the freeze contract.
         if max_iter == 0 {
-            return self.loss(target, rho);
+            return self.loss(target, rho).map(|loss| JointFitOutcome {
+                loss,
+                termination: JointFitTermination::Frozen,
+                state_moved: false,
+            });
         }
         // #1117 root-cause fix — rank-revealing adaptive basis depth, applied
         // FIRST (before frame activation, the identifiability audit, and the
@@ -4598,24 +5346,36 @@ impl SaeManifoldTerm {
             // atom's coordinates from the residual left by prior atoms so the atoms
             // align with DISTINCT planted factors and separate, rather than both
             // fitting the dominant factor (high EV, no structure recovery).
-            self.seed_cold_start_disjoint_charts(target, rho)?;
+            self.seed_cold_start_disjoint_charts(target)?;
         }
-        // #1026 — keep the best real reconstruction basin found inside this
-        // bounded inner solve. The co-collapse guard can reseed onto a high-EV
-        // PC-periodic dictionary and then a later Newton step can drift back into
-        // the same low-EV basin before `into_fitted` gets a chance to compare
-        // against the pristine seed. Track an incumbent over states that have
-        // passed the identifiability audit and restore it if the final iterate
-        // degraded. This is not a PCA shortcut: the incumbent is the normal SAE
-        // dictionary state (coords, logits, decoder blocks) produced by the
-        // existing seed/reseed plus LSQ machinery.
+        // #1026/#2230 — keep the best state found inside this bounded inner
+        // solve, keyed on the PENALIZED OBJECTIVE (`prefer_candidate_state`):
+        // the same scalar the Armijo lane descends and the outer REML evidence
+        // consumes. The incumbent exists to undo damage from the NON-monotone
+        // boundary hooks (collapse reseeds, gauge retraction/pin, frame
+        // refresh) — the Armijo walk itself is objective-monotone, so under
+        // this key the end-of-loop restore never vetoes legitimate descent.
+        // The former EV key did: a walk that traded EV for penalty (the
+        // objective's own preference at this ρ) was "restored" back to the
+        // high-EV incumbent after EVERY probe, so the outer criterion was
+        // priced at ≈ the same ρ-independent state each evaluation and the ρ
+        // search flattened into the #2230/#2134 restore-churn grind. EV and
+        // coordinate uniformity remain as the tie-break at near-equal
+        // objective (#2081), and as telemetry. This is not a PCA shortcut:
+        // the incumbent is the normal SAE dictionary state (coords, logits,
+        // decoder blocks) produced by the existing seed/reseed + LSQ machinery.
         let mut best_reconstruction_ev = self
             .dictionary_reconstruction_ev(target, rho)
             .unwrap_or(f64::NEG_INFINITY);
+        let mut best_reconstruction_obj = self
+            .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+            .unwrap_or(f64::INFINITY);
         let initial_reconstruction_is_structurally_healthy = best_reconstruction_ev.is_finite()
+            && best_reconstruction_obj.is_finite()
             && self.structural_coherence_collapse_detected()?.is_none();
         // #2081 — the incumbent carries its coordinate-uniformity score alongside
-        // EV so the keep-best can break (near-)equal-EV ties on coordinate fidelity.
+        // EV so the keep-best can break (near-)equal-objective ties on coordinate
+        // fidelity.
         let mut best_reconstruction_uniformity = if initial_reconstruction_is_structurally_healthy {
             self.coordinate_uniformity_aggregate()
         } else {
@@ -4625,6 +5385,7 @@ impl SaeManifoldTerm {
             Some(self.snapshot_mutable_state())
         } else {
             best_reconstruction_ev = f64::NEG_INFINITY;
+            best_reconstruction_obj = f64::INFINITY;
             None
         };
         // #2100/#1117 — objective-stagnation convergence for the JOINT outer loop,
@@ -4646,7 +5407,9 @@ impl SaeManifoldTerm {
         // criterion there is correct. Break after
         // `SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS` CONSECUTIVE stalled
         // iterations (a single flat step can be a benign saddle crossing; a run of
-        // them is the fixed point). `previous_full_iterate_objective` is the
+        // them is sufficient for the ordinary bounded-fit shortcut). Evidence
+        // disables this heuristic because a still-strict decrease is not an
+        // idempotent root. `previous_full_iterate_objective` is the
         // loop-top objective, which already reflects the PRIOR iteration's step,
         // guards, retraction and canonicalization, so the measured decrease is the
         // TOTAL per-iteration progress. Reuses the existing derived stall constants
@@ -4663,8 +5426,49 @@ impl SaeManifoldTerm {
         // Bit-identical to the historical per-call reduction (see
         // `TargetCenteredColStats`).
         let target_col_stats = TargetCenteredColStats::compute(target);
+        // #2015 line-search step-length warm start (the ‖g‖ crawl mitigation).
+        // The Armijo backtracking only CONTRACTS from `initial_step`; carry the
+        // previous accepted step forward so the search does not re-discover the
+        // same tiny step from `step_size` each iterate. A CLEAN acceptance resets
+        // to the full `step_size` (no overshoot evidence), so a hard early iterate
+        // never throttles later easy iterates; only a BACKTRACKED acceptance warms
+        // forward by one contraction step (`accepted / contraction`). Pure
+        // globalization — KKT convergence and typed exhaustion (#2235/#2241)
+        // unchanged.
+        let warm_growth = 1.0 / BacktrackConfig::default().contraction;
+        let mut warm_step = step_size;
+        // #2015 Levenberg–Marquardt ridge, adapted across iterates. The primary
+        // solve (`solve_with_lm_escalation_inner`) escalates the ridge only when
+        // the factorization FAILS, so on a well-conditioned-but-nonlinear system
+        // it returns the undamped Gauss–Newton step — whose 1-D minimum along the
+        // step is a tiny fraction of the full step on a high-residual / ill-posed
+        // shape (the GN Hessian mismodels curvature because the dropped
+        // residual·∇²r term is large), so Armijo backtracks to ~0.05 every iterate
+        // and the KKT residual crawls. Carry an LM ridge that GROWS when the step
+        // overshoots (the line search had to backtrack — the observed gain-ratio
+        // signal: backtracking depth = ⌈log₂ overshoot⌉) and SHRINKS back toward
+        // Gauss–Newton on a clean full-step acceptance. Growing the ridge bends
+        // the step from GN toward gradient descent (shorter, better-scaled) so the
+        // full step is accepted and real progress resumes; shrinking recovers GN's
+        // quadratic convergence as the fit enters its local quadratic basin. Uses
+        // ONLY the existing ridge parameters and `SAE_MANIFOLD_ROW_RIDGE_GROWTH`
+        // (no new tuning knob), floored at the caller's ridges, and reset to them
+        // on a proximal-correction fallback (which runs its own escalation).
+        // Armijo still refereed the true objective, so descent — and the
+        // #2235/#2241 certified-termination / typed-exhaustion contract — is
+        // unchanged; only the trajectory to the same certified optimum is.
+        let mut lm_ridge_t = ridge_ext_coord;
+        let mut lm_ridge_b = ridge_beta;
+        let mut termination = JointFitTermination::IterationGrantExhausted;
+        let mut state_moved = false;
         for outer_iteration in 0..max_iter {
-            self.advance_temperature_schedule()?;
+            let temperature_before = self.assignment.mode.temperature();
+            if self
+                .advance_temperature_schedule()?
+                .is_some_and(|temperature| temperature.to_bits() != temperature_before.to_bits())
+            {
+                state_moved = true;
+            }
             // ρ (including the ARD precisions) is owned by the outer engine
             // (`SaeManifoldOuterObjective`) and held FIXED across this inner
             // (t, β) Newton solve. The inner loop solves the joint manifold +
@@ -4676,14 +5480,25 @@ impl SaeManifoldTerm {
             // `update_ard_reml` rule (α = n / ‖t‖²) dropped the logdet /
             // effective-dof term and collapsed α on near-degenerate axes; it
             // has been removed in favour of the criterion-driven update.
-            let sys = self
+            let mut sys = self
                 .assemble_arrow_schur(target, rho, analytic_penalties)
                 .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
             let plan = self
                 .streaming_plan()
                 .admitted_or_error(self.n_obs(), self.output_dim(), self.k_atoms())
                 .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
-            let solve_options = plan.solve_options_for_border_dim(sys.k);
+            let mut solve_options = plan.solve_options_for_border_dim(sys.k);
+            // #1017 allocation residency across ACCEPTED nonlinear iterates.
+            // The retained handle owns device allocations only; `prepare_*`
+            // overwrites every ridge-independent operand from this freshly
+            // assembled `sys` (or rebuilds on shape drift). The LM ladder then
+            // recomputes `ainv` for each ridge trial as before. No factor or
+            // numerical block crosses the accepted-iterate boundary.
+            let existing_resident_frame = self.arrow_assembly_workspace.resident_frame.take();
+            let resident_frame =
+                prepare_sae_resident_frame(&sys, &solve_options, existing_resident_frame);
+            solve_options.sae_resident_frame = resident_frame;
+            self.arrow_assembly_workspace.resident_frame = solve_options.sae_resident_frame.clone();
             // Inner Newton step with principled LM-style ridge escalation. The
             // PCA-seed starting state on a small batch (e.g. `predict` on a
             // strict subset of the training set) can produce a per-row
@@ -4697,7 +5512,7 @@ impl SaeManifoldTerm {
             // errors (PCG divergence with no factor failure, adaptive-step
             // exhaustion, …) still surface immediately.
             let (mut delta_ext_coord, mut delta_beta, _diag) =
-                solve_with_lm_escalation_inner(&sys, ridge_ext_coord, ridge_beta, &solve_options)
+                solve_with_lm_escalation_inner(&sys, lm_ridge_t, lm_ridge_b, &solve_options)
                     .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
             // #1095/#2228 (second root) — per-row STEP gauge fixing. On a chart
             // over-parametrized for its intrinsic data dimension (d=2 chart on an
@@ -4733,19 +5548,83 @@ impl SaeManifoldTerm {
             // in the radial direction, so it is second-order small; the dominant
             // drift is the direct `Δt` null component removed here, and any residual
             // β coupling is re-solved next iterate from the on-circle state.
-            for row_idx in 0..sys.rows.len() {
-                let off = sys.row_offsets[row_idx];
-                let di = sys.row_dims[row_idx];
-                for dir in row_sub_floor_null_directions(sys.rows[row_idx].htt.view()) {
-                    if dir.len() != di {
-                        continue;
+            // Each row projects its own sub-floor null directions out of ONLY its
+            // own `[off..off+di]` coordinate segment (disjoint segments keyed by
+            // `row_offsets`), so the rows are independent. Fan out over the SAE row
+            // count, handing each row-chunk its own contiguous output slice via
+            // `split_at_mut` keyed on `row_offsets` (the same disjoint-segment idiom
+            // `back_substitute_delta_t` uses). Disjoint writes ⇒ no reduction, no
+            // run-to-run drift — bit-identical to the serial sweep.
+            let n_rows = sys.rows.len();
+            let parallel =
+                n_rows >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+            if parallel {
+                use rayon::prelude::*;
+                const CHUNK: usize = 64;
+                let row_offsets = &sys.row_offsets;
+                let dt_slice = delta_ext_coord
+                    .as_slice_mut()
+                    .expect("delta_ext_coord contiguous");
+                let n_chunks = n_rows.div_ceil(CHUNK);
+                let mut remaining = dt_slice;
+                let mut segments: Vec<(usize, &mut [f64])> = Vec::with_capacity(n_chunks);
+                let mut prev_end = 0usize;
+                for chunk in 0..n_chunks {
+                    let start = chunk * CHUNK;
+                    let end = (start + CHUNK).min(n_rows);
+                    let seg_len = row_offsets[end] - row_offsets[start];
+                    assert!(
+                        prev_end == row_offsets[start],
+                        "sae gauge-fix: non-contiguous row segment at chunk start {start} \
+                         (prev_end={prev_end}, row_offset={})",
+                        row_offsets[start]
+                    );
+                    let (seg, rest) = remaining.split_at_mut(seg_len);
+                    remaining = rest;
+                    segments.push((start, seg));
+                    prev_end = row_offsets[end];
+                }
+                segments.into_par_iter().for_each(|(start, seg)| {
+                    let end = (start + CHUNK).min(n_rows);
+                    let mut local = 0usize;
+                    for row_idx in start..end {
+                        let di = sys.row_dims[row_idx];
+                        // #1557 — the null-direction eigendecomp (`sym.eigh`) issues a
+                        // faer GEMM; pin it to `Par::Seq` inside this row worker so it
+                        // does not re-fan the outer pool (bit-identical result).
+                        let dirs = with_nested_parallel(|| {
+                            row_sub_floor_null_directions(sys.rows[row_idx].htt.view())
+                        });
+                        for dir in dirs {
+                            if dir.len() != di {
+                                continue;
+                            }
+                            let mut dot = 0.0;
+                            for a in 0..di {
+                                dot += dir[a] * seg[local + a];
+                            }
+                            for a in 0..di {
+                                seg[local + a] -= dot * dir[a];
+                            }
+                        }
+                        local += di;
                     }
-                    let mut dot = 0.0;
-                    for a in 0..di {
-                        dot += dir[a] * delta_ext_coord[off + a];
-                    }
-                    for a in 0..di {
-                        delta_ext_coord[off + a] -= dot * dir[a];
+                });
+            } else {
+                for row_idx in 0..n_rows {
+                    let off = sys.row_offsets[row_idx];
+                    let di = sys.row_dims[row_idx];
+                    for dir in row_sub_floor_null_directions(sys.rows[row_idx].htt.view()) {
+                        if dir.len() != di {
+                            continue;
+                        }
+                        let mut dot = 0.0;
+                        for a in 0..di {
+                            dot += dir[a] * delta_ext_coord[off + a];
+                        }
+                        for a in 0..di {
+                            delta_ext_coord[off + a] -= dot * dir[a];
+                        }
                     }
                 }
             }
@@ -4780,7 +5659,11 @@ impl SaeManifoldTerm {
             // quotient. A tiny quotient Newton step is a globalization diagnostic,
             // not a KKT certificate: on K=1 near-isotropic clouds it can be tiny
             // along the chart gauge while the outer residual remains large.
-            if grad_norm <= grad_tolerance || quotient_grad_norm <= grad_tolerance {
+            if allow_heuristic_termination
+                && (grad_norm <= grad_tolerance || quotient_grad_norm <= grad_tolerance)
+            {
+                termination = JointFitTermination::Heuristic;
+                self.reclaim_arrow_assembly_workspace(&mut sys);
                 break;
             }
             let mut step_norm_sq = 0.0;
@@ -4849,10 +5732,20 @@ impl SaeManifoldTerm {
             if !pre_step_total.is_finite() {
                 // Pre-step state is unperturbed here; restore is a no-op but
                 // keeps the invariant explicit.
-                self.restore_mutable_state(&snapshot);
+                self.restore_mutable_state(&snapshot)?;
+                self.reclaim_arrow_assembly_workspace(&mut sys);
+                if !allow_heuristic_termination {
+                    return Err(
+                        "SaeManifoldTerm::run_joint_fit_arrow_schur: evidence polish \
+                         encountered a non-finite pre-step objective"
+                            .to_string(),
+                    );
+                }
+                termination = JointFitTermination::Heuristic;
                 break;
             }
-            // #2100/#1117 objective-stagnation gate (see the locals above). The
+            // #2100/#1117 ordinary-fit objective-stagnation shortcut (see the
+            // locals above). The
             // loop-top `pre_step_total` already carries the full effect of the
             // previous iteration, so a relative decrease below the derived stall
             // tolerance means that whole iteration (Newton step + guards +
@@ -4861,20 +5754,23 @@ impl SaeManifoldTerm {
             // immediately (constant EV ⇒ vanishing objective decrease); on a healthy
             // fit the grad gate above breaks first. Counting CONSECUTIVE stalls
             // tolerates a lone flat step; `MIN_ROUNDS` in a row is the fixed point.
-            if previous_full_iterate_objective.is_finite() {
-                let round_improvement =
-                    (previous_full_iterate_objective - pre_step_total).max(0.0);
-                let objective_scale =
-                    previous_full_iterate_objective.abs().max(pre_step_total.abs()) + 1.0;
+            if allow_heuristic_termination && previous_full_iterate_objective.is_finite() {
+                let round_improvement = (previous_full_iterate_objective - pre_step_total).max(0.0);
+                let objective_scale = previous_full_iterate_objective
+                    .abs()
+                    .max(pre_step_total.abs())
+                    + 1.0;
                 let relative_decrease = round_improvement / objective_scale;
                 if relative_decrease < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL {
                     consecutive_objective_stalls += 1;
-                    if consecutive_objective_stalls
-                        >= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS
+                    if consecutive_objective_stalls >= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS
                     {
-                        // Converged on the quotient — the objective is at its
-                        // numerical fixed point. The pre-step state is unperturbed
-                        // (the snapshot was taken from it), so no restore is needed.
+                        // The ordinary bounded fit has reached its documented
+                        // objective-stall approximation. The pre-step state is
+                        // unperturbed (the snapshot was taken from it), so no
+                        // restore is needed.
+                        termination = JointFitTermination::Heuristic;
+                        self.reclaim_arrow_assembly_workspace(&mut sys);
                         break;
                     }
                 } else {
@@ -4902,43 +5798,116 @@ impl SaeManifoldTerm {
                 && directional_decrease > 0.0
                 && directional_decrease > directional_decrease_floor;
             if !descent_direction_ok {
-                // The grad gate above is now unconditional and would have broken
-                // already if grad was small. This arm remains for routing a
-                // non-descent delta straight to proximal correction.
+                // The ordinary-fit coarse KKT gate above already breaks on a small
+                // gradient. Evidence polish intentionally bypasses that gate, so
+                // this arm is also its numerical fixed-point route: try the
+                // existing proximal correction once, then stop below when even
+                // that correction cannot produce a strict objective decrease.
             }
 
-            let mut trial_step_size = step_size;
-            let mut accepted = false;
-            for halving in 0..=SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS {
-                if !descent_direction_ok {
-                    // No Armijo bound is meaningful along a non-descent
-                    // direction; route straight to the proximal correction.
-                    break;
+            // No Armijo bound is meaningful along a non-descent direction, so
+            // the whole line search is gated on `descent_direction_ok` and a
+            // non-descent delta routes straight to the proximal correction.
+            // Each trial re-applies the Newton step from the pre-step
+            // `snapshot` (reset-before-reapply after the first trial); a trial
+            // whose step application or objective evaluation errors is INVALID
+            // (`Ok(None)`), halving without consulting the Armijo test.
+            let mut first_trial = true;
+            let accepted_step = if descent_direction_ok {
+                backtracking_line_search::<_, String>(
+                    BacktrackConfig {
+                        initial_step: warm_step,
+                        max_steps: SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS + 1,
+                        ..BacktrackConfig::default()
+                    },
+                    |trial_step_size| {
+                        if !std::mem::take(&mut first_trial) {
+                            self.restore_mutable_state(&snapshot)?;
+                        }
+                        Ok(self
+                            .apply_newton_step(
+                                delta_ext_coord.view(),
+                                delta_beta.view(),
+                                trial_step_size,
+                            )
+                            .and_then(|()| {
+                                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                            })
+                            .ok()
+                            .map(|post_step_total| (post_step_total, ())))
+                    },
+                    |trial_step_size, post_step_total| {
+                        let armijo_bound = pre_step_total
+                            - SAE_MANIFOLD_ARMIJO_C1 * trial_step_size * directional_decrease;
+                        post_step_total.is_finite() && post_step_total <= armijo_bound
+                    },
+                )?
+            } else {
+                None
+            };
+            let accepted = accepted_step.is_some();
+            if let Some(step) = accepted_step {
+                state_moved = true;
+                // A CLEAN acceptance (the trial at the warm start itself passed
+                // Armijo, no backtracking) means the overshoot evidence is gone —
+                // reset to the caller's full `step_size` so one hard early
+                // iterate cannot throttle the whole budget (the multiblock EV
+                // regression). Only a BACKTRACKED acceptance carries overshoot
+                // evidence forward, warmed one contraction-step above the
+                // accepted length.
+                let clean_acceptance = step.step >= warm_step;
+                warm_step = if clean_acceptance {
+                    step_size
+                } else {
+                    (step.step * warm_growth).min(step_size)
+                };
+                // True Levenberg–Marquardt gain-ratio ridge adaptation (a
+                // trust-region on the RIDGE, not the step length). The gain ratio
+                //   ρ = actual decrease / model-predicted decrease
+                // measures how well the local quadratic model predicted the step:
+                // ρ ≈ 1 ⇒ the model is trustworthy ⇒ RELAX toward Gauss–Newton;
+                // ρ small ⇒ the GN step overshot the nonlinear objective ⇒ GROW the
+                // ridge to bend toward gradient descent. A middle HOLD band lets
+                // the ridge settle at the damping the problem needs instead of
+                // oscillating — the fixed-floor version un-damped on every clean
+                // step and re-overshot, so it only reduced the crawl. Predicted
+                // decrease along the accepted step α·Δ is α·d − ½α²·ΔᵀHΔ, with
+                // d = directional_decrease (= −gᵀΔ > 0) and, for the LM step
+                // (H+λI)Δ = −g, ΔᵀHΔ = d − λ‖Δ‖² (λ the β-block ridge). Standard
+                // 0.25/0.75 trust-region thresholds; factor 4 the standard
+                // aggressive LM step (Marquardt / Nocedal–Wright Alg. 4.1, inverted
+                // for the ridge↔radius reciprocal). Floored at the caller's ridges.
+                const LM_RATIO_LOW: f64 = 0.25;
+                const LM_RATIO_HIGH: f64 = 0.75;
+                const LM_RIDGE_FACTOR: f64 = 4.0;
+                let alpha = step.step;
+                let actual = pre_step_total - step.value;
+                let d_th_d = (directional_decrease - lm_ridge_b * step_norm_sq).max(0.0);
+                let predicted =
+                    (alpha * directional_decrease - 0.5 * alpha * alpha * d_th_d).max(0.0);
+                let gain_ratio = if predicted > 0.0 {
+                    actual / predicted
+                } else {
+                    1.0
+                };
+                if gain_ratio < LM_RATIO_LOW {
+                    lm_ridge_t *= LM_RIDGE_FACTOR;
+                    lm_ridge_b *= LM_RIDGE_FACTOR;
+                } else if gain_ratio > LM_RATIO_HIGH {
+                    lm_ridge_t = (lm_ridge_t / LM_RIDGE_FACTOR).max(ridge_ext_coord);
+                    lm_ridge_b = (lm_ridge_b / LM_RIDGE_FACTOR).max(ridge_beta);
                 }
-                if halving > 0 {
-                    // Reset to the pre-step state before re-applying at the
-                    // halved step. The first trial starts from the pre-step
-                    // state already, so the restore is only needed after a
-                    // rejected trial mutated `self`.
-                    self.restore_mutable_state(&snapshot);
-                }
-                let trial_result = self
-                    .apply_newton_step(delta_ext_coord.view(), delta_beta.view(), trial_step_size)
-                    .and_then(|()| {
-                        self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
-                    });
-                if let Ok(post_step_total) = trial_result {
-                    let armijo_bound = pre_step_total
-                        - SAE_MANIFOLD_ARMIJO_C1 * trial_step_size * directional_decrease;
-                    if post_step_total.is_finite() && post_step_total <= armijo_bound {
-                        accepted = true;
-                        break;
-                    }
-                }
-                trial_step_size *= 0.5;
             }
             if !accepted {
-                self.restore_mutable_state(&snapshot);
+                // The proximal correction below runs its own ridge escalation from
+                // the caller's base, so reset the adaptive LM ridge to base too.
+                lm_ridge_t = ridge_ext_coord;
+                lm_ridge_b = ridge_beta;
+                // The proximal LM correction below re-solves with its own ridge
+                // escalation; the next line-search regime is unrelated to this
+                // iterate's accepted length, so reset the warm start.
+                warm_step = step_size;
+                self.restore_mutable_state(&snapshot)?;
                 let correction = ArrowProximalCorrectionOptions {
                     initial_ridge: ridge_ext_coord
                         .max(ridge_beta)
@@ -4958,7 +5927,9 @@ impl SaeManifoldTerm {
                     &solve_options,
                     &correction,
                     |trial_delta_t, trial_delta_beta| {
-                        self.restore_mutable_state(&snapshot);
+                        if self.restore_mutable_state(&snapshot).is_err() {
+                            return f64::INFINITY;
+                        }
                         self.apply_newton_step(trial_delta_t, trial_delta_beta, 1.0)
                             .and_then(|()| {
                                 self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
@@ -4975,7 +5946,15 @@ impl SaeManifoldTerm {
                              ‖g‖={:.3e}): {err}",
                             grad_norm_sq.sqrt()
                         );
-                        self.restore_mutable_state(&snapshot);
+                        self.restore_mutable_state(&snapshot)?;
+                        self.reclaim_arrow_assembly_workspace(&mut sys);
+                        if !allow_heuristic_termination {
+                            return Err(format!(
+                                "SaeManifoldTerm::run_joint_fit_arrow_schur: evidence \
+                                 proximal correction failed before a no-descent certificate: {err}"
+                            ));
+                        }
+                        termination = JointFitTermination::Heuristic;
                         break;
                     }
                 };
@@ -4989,9 +5968,12 @@ impl SaeManifoldTerm {
                         accepted_step.trial_objective_value,
                         grad_norm_sq.sqrt()
                     );
-                    self.restore_mutable_state(&snapshot);
+                    self.restore_mutable_state(&snapshot)?;
+                    self.reclaim_arrow_assembly_workspace(&mut sys);
+                    termination = JointFitTermination::NoStrictDecrease;
                     break;
                 }
+                state_moved = true;
             }
             // Affine gauge canonicalization is a representation change, but the
             // decoder smoothness term is part of the optimized objective. Keep the
@@ -5005,7 +5987,7 @@ impl SaeManifoldTerm {
             let canonical_total =
                 self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
             if !(canonical_total.is_finite() && canonical_total <= accepted_total) {
-                self.restore_mutable_state(&accepted_snapshot);
+                self.restore_mutable_state(&accepted_snapshot)?;
             }
             // #976 Layer-1 guard 3: after an accepted step (Armijo or proximal
             // — the rejection paths `break` above), check every atom's support
@@ -5020,12 +6002,7 @@ impl SaeManifoldTerm {
             // EV→0 and the `0 → K·n` evidence-deflation abort). Catch a decoder
             // that has fallen far behind its peers and reseed it onto the
             // residual; a strict no-op for K=1.
-            self.enforce_decoder_norm_guard(
-                target,
-                outer_iteration,
-                rho,
-                Some(&target_col_stats),
-            )?;
+            self.enforce_decoder_norm_guard(target, outer_iteration, rho, Some(&target_col_stats))?;
             self.enforce_structural_coherence_guard(target, outer_iteration, rho)?;
             // #2089 defense-in-depth: never grind a hopeless fit (and never let a
             // CPU watchdog SIGKILL the host while it does). When the co-collapse
@@ -5099,34 +6076,24 @@ impl SaeManifoldTerm {
             // prior (which pins t→±t+c) is enforced throughout the fit, not merely
             // post-fit. SEAM: this boundary overlaps seed-audit STEP2's reseed/refit
             // hooks — reconcile ordering there (retraction after guards/reseed).
+            // #2230 — the unit-speed retraction and the frame re-polar below are
+            // NON-monotone boundary hooks applied OUTSIDE the line search. The
+            // block-coordinate frame re-polar in particular can RAISE the penalized
+            // objective (it trades reconstruction residual for decoder-smoothness
+            // penalty). Left unguarded, that damage is banked by the #1026
+            // keep-best and then clawed back by the incumbent restore at loop exit
+            // — the accept/restore ALTERNATION that grinds for hours (the #2230
+            // hang). Guard the pair the way the affine-gauge canonicalization above
+            // is guarded: keep the re-gauged/re-polared state only when the SAME
+            // penalized scalar the line search descends does NOT increase; else
+            // revert. The canonical snapshot includes the frame U and its
+            // singular-value gauge, so rejection restores the complete
+            // profiled state and evidence recurrence can observe a kept polar
+            // update (#2253).
+            let pre_hook_obj =
+                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
+            let pre_hook_state = self.snapshot_mutable_state();
             self.retract_unit_speed_charts_in_loop()?;
-            // #1939 cone-atom RECOVERY retraction (Design B) — at this accepted
-            // OUTER-iterate boundary, retract ONLY the atoms whose decoder has
-            // COLLAPSED relative to its dictionary peers (breach vs peer median),
-            // folding the vanished ‖B_k‖ into s_k so the paired amplitude solve can
-            // re-home it — recovering a co-vanished born decoder (the K≥2
-            // 0.7255→0.0023 collapse) — while leaving HEALTHY atoms' scale in B.
-            //
-            // Shared by two flags, both breach-gated at this settled boundary:
-            //   * `cone_atom_recovery` (#1939) — recover a co-vanished born decoder.
-            //   * `quotient_scale` (#2022 SCALE-gauge) — after #2100 removed the
-            //     detonating per-β-Newton fold at `apply_newton_step_impl` (which
-            //     forced ‖B_k‖≡1 on EVERY atom every TRIAL and blew a healthy K=2
-            //     fit to EV→−1e128), the #2022 unit-Frobenius retraction lives HERE
-            //     instead: at the ACCEPTED iterate where the norms have settled, and
-            //     gated to the COLLAPSED atoms only. On a healthy dictionary nothing
-            //     breaches ⇒ strict no-op ⇒ EV preserved (healthy K=2 back to ~+0.43);
-            //     K<2 is a no-op inside the helper (the K=1 low-amp fit is untouched).
-            // Either flag does ONLY the breach-gated boundary retraction and never a
-            // per-Newton fold, so neither can detonate. K<2 / all-zero-median are
-            // no-ops inside the helper. Run the paired amplitude solve solely when an
-            // atom was actually retracted, so a fit with no collapsed atom is a strict
-            // no-op (bit-for-bit the flag-off path).
-            if (self.cone_atom_recovery || self.quotient_scale)
-                && self.retract_collapsed_decoders_in_loop() > 0
-            {
-                self.optimize_log_amplitudes_closed_form(target, rho)?;
-            }
             // #972 / #977 T1 — U-block of the alternating block-coordinate ascent.
             // After the decoder `B` has been updated by the accepted (t, ΔC) step
             // (lifted through the OLD frames in `apply_newton_step`), re-polar each
@@ -5139,78 +6106,97 @@ impl SaeManifoldTerm {
             // accepted outer iteration is a sensible cadence (the issue's
             // streaming-polar fixed point).
             if self.frames_active() {
-                self.refresh_active_frames_from_data(target, rho)
+                self.refresh_active_frames_from_data(target)
                     .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
             }
+            let post_hook_obj = self
+                .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                .unwrap_or(f64::INFINITY);
+            if !(post_hook_obj.is_finite() && post_hook_obj <= pre_hook_obj) {
+                self.restore_mutable_state(&pre_hook_state)?;
+            } else if !self.matches_mutable_state(&pre_hook_state) {
+                // A kept unit-speed or polar-frame block update is a real
+                // transition of the evidence map. Without this bit the wrapper
+                // could report `fixed_point=true` after U moved invisibly.
+                state_moved = true;
+            }
             if let Ok(ev) = self.dictionary_reconstruction_ev(target, rho) {
-                // #2081 — keep the best basin on EV FIRST and, at (near-)equal EV,
-                // on the coordinate-uniformity certificate ([`prefer_candidate_basin`]).
+                // #2230 — keep the best state on the PENALIZED OBJECTIVE first
+                // (the walk's own referee) and, at (near-)equal objective, on the
+                // #2081 EV-then-uniformity certificate ([`prefer_candidate_state`]).
                 if self.structural_coherence_collapse_detected()?.is_none() {
                     let candidate_uniformity = self.coordinate_uniformity_aggregate();
-                    if prefer_candidate_basin(
+                    let candidate_obj = self
+                        .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                        .unwrap_or(f64::INFINITY);
+                    if prefer_candidate_state(
+                        candidate_obj,
                         ev,
                         candidate_uniformity,
+                        best_reconstruction_obj,
                         best_reconstruction_ev,
                         best_reconstruction_uniformity,
+                        SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL,
                         SAE_FINAL_EV_DEGRADATION_TOL,
                     ) {
                         best_reconstruction_ev = ev;
+                        best_reconstruction_obj = candidate_obj;
                         best_reconstruction_uniformity = candidate_uniformity;
                         best_reconstruction_state = Some(self.snapshot_mutable_state());
                     }
-                    // Fit-LEVEL keep-best (`best_fit_incumbent`): the in-call
-                    // ledger above dies with this call, but the outer ρ search
-                    // re-enters this driver once per probe and each probe's walk
-                    // can drag the shared warm-start state into a collapse basin
-                    // — across calls the good basin is unrecoverable. Bank it on
-                    // the term under the same ordering, floor-gated so a
-                    // sub-collapse basin never becomes the fit's incumbent.
-                    if ev >= SAE_FIT_DATA_COLLAPSE_EV_FLOOR {
-                        let bank = match self.best_fit_incumbent.as_ref() {
-                            None => ev.is_finite(),
-                            Some((best_ev, best_uniformity, _)) => prefer_candidate_basin(
-                                ev,
-                                candidate_uniformity,
-                                *best_ev,
-                                *best_uniformity,
-                                SAE_FINAL_EV_DEGRADATION_TOL,
-                            ),
-                        };
-                        if bank {
-                            self.best_fit_incumbent =
-                                Some((ev, candidate_uniformity, self.snapshot_mutable_state()));
-                        }
-                    }
                 }
             }
+            self.reclaim_arrow_assembly_workspace(&mut sys);
         }
         // #1117 — the rank-`r_k` oracle is already pinned: each rank-deficient
         // atom was reparametrized onto its data-supported subspace at fit entry
         // (`reduce_atoms_to_data_supported_rank`), so its decoder lives in the
         // reduced `r_k`-wide coordinate by construction and carries no data-null
         // component to project away. No post-loop projection is needed.
-        if let Some(best_state) = best_reconstruction_state.as_ref() {
-            if let Ok(final_ev) = self.dictionary_reconstruction_ev(target, rho) {
-                if best_reconstruction_ev >= SAE_FIT_DATA_COLLAPSE_EV_FLOOR
-                    && final_ev.is_finite()
-                    && final_ev + SAE_FINAL_EV_DEGRADATION_TOL < best_reconstruction_ev
-                {
-                    log::warn!(
-                        "[#1026] restoring inner-fit reconstruction incumbent after EV degraded \
-                         from {best_reconstruction_ev:.4} to {final_ev:.4}"
-                    );
-                    self.restore_mutable_state(best_state);
-                    if self.frames_active() {
-                        self.refresh_active_frames_from_data(target, rho)
-                            .map_err(|err| {
-                                format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
-                            })?;
-                    }
+        let mut inner_incumbent_restored = false;
+        if let Some(best_state) = best_reconstruction_state.as_ref()
+            && best_reconstruction_obj.is_finite()
+        {
+            // #2230 ONE-referee restore: the incumbent is restored ONLY when the
+            // final iterate's PENALIZED OBJECTIVE — the exact scalar the Armijo
+            // lane descended and the outer evidence will consume — is materially
+            // WORSE than the banked best. The Armijo walk is objective-monotone,
+            // so this fires solely when a non-monotone boundary hook (collapse
+            // reseed, gauge retraction/pin, frame refresh) damaged the state; a
+            // walk that legitimately traded reconstruction EV for penalty is the
+            // objective's own preference at this ρ and is KEPT, so the outer ρ
+            // search sees a criterion that actually varies with ρ (the former
+            // EV-keyed veto restored the same ρ-independent incumbent after
+            // every probe and flattened the outer objective into the
+            // #2230/#2134 restore-churn grind).
+            let final_obj = self
+                .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                .unwrap_or(f64::INFINITY);
+            let obj_scale = SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+                * (1.0 + final_obj.abs().max(best_reconstruction_obj.abs()));
+            if !(final_obj <= best_reconstruction_obj + obj_scale) {
+                let final_ev = self
+                    .dictionary_reconstruction_ev(target, rho)
+                    .unwrap_or(f64::NAN);
+                log::warn!(
+                    "[#1026] restoring inner-fit incumbent: final penalized objective \
+                     {final_obj:.6e} degraded past banked {best_reconstruction_obj:.6e} \
+                     (EV {final_ev:.4} vs banked {best_reconstruction_ev:.4}) — \
+                     non-monotone boundary-hook damage, not line-search descent"
+                );
+                self.restore_mutable_state(best_state)?;
+                inner_incumbent_restored = true;
+                state_moved = true;
+                if self.frames_active() {
+                    self.refresh_active_frames_from_data(target)
+                        .map_err(|err| {
+                            format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
+                        })?;
                 }
             }
         }
-        // #1026 — final EV-gated alternating decoder-LSQ / coordinate-reprojection
-        // polish on the converged (best) basin.
+        // #1026 — final objective-gated alternating decoder-LSQ /
+        // coordinate-reprojection polish on the converged (best) basin.
         //
         // The bounded joint Newton walk above can return an UNDER-converged decoder
         // on real long-tailed activations: a modest `max_iter` (the OLMo real-recon
@@ -5228,9 +6214,10 @@ impl SaeManifoldTerm {
         // entry_at_rho`, outer_objective.rs): a closed-form least-squares decoder
         // refit at the current coordinates/gates (the exact data-optimal decoder for
         // the fixed chart), then a per-row coordinate re-projection onto that
-        // refreshed decoder (a Lloyd/EM step that snaps each row's latent coordinate
-        // to the nearest decoded grid point), then one more decoder refit at the
-        // re-projected coordinates.
+        // refreshed decoder (a Lloyd/EM step that globally projects each rank-1
+        // Fourier coordinate through all companion roots), then one more decoder
+        // refit at the re-projected coordinates. Coupled compact charts fail this
+        // optional round transactionally instead of using a lattice.
         //
         // It is applied here (every joint fit) rather than only on the homotopy
         // arrival because the standard inner solve — the path the real-data fit
@@ -5271,28 +6258,19 @@ impl SaeManifoldTerm {
         // hint would always equal the cold LSQ decoder, never the seed). A freeze
         // is by definition not a convergence request, so there is no
         // under-converged decoder to rescue here.
-        let pre_polish_reconstruction_incumbent = self
-            .dictionary_reconstruction_ev(target, rho)
-            .ok()
-            .filter(|ev| ev.is_finite())
-            .map(|ev| (ev, self.snapshot_mutable_state()));
         if max_iter > 0 && !self.frames_active() {
             let mut best_objective =
                 self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
             if best_objective.is_finite() {
-                // #1026: up to 4 alternating decoder-LSQ / coordinate-reprojection
-                // polish rounds; the strict-objective-decrease gate below stops
-                // early and is a bit-for-bit no-op on an already-converged decoder.
-                for _ in 0..4 {
+                // Alternate decoder-LSQ / coordinate reprojection to its
+                // objective fixed point. The strict decrease gate is the
+                // termination certificate; a workload-tuned round cap would
+                // return an under-converged fit on harder data.
+                loop {
                     let snapshot = self.snapshot_mutable_state();
                     let round = self
                         .refit_decoder_least_squares_at_current_state(target, Some(rho))
-                        .and_then(|()| {
-                            self.seed_coords_by_decoder_projection(
-                                target,
-                                SAE_FINAL_DECODER_POLISH_PROJECTION_RESOLUTION,
-                            )
-                        })
+                        .and_then(|()| self.seed_coords_by_decoder_projection(target))
                         .and_then(|()| {
                             self.refit_decoder_least_squares_at_current_state(target, Some(rho))
                         })
@@ -5304,43 +6282,56 @@ impl SaeManifoldTerm {
                     // any loss scale. Anything else (already-converged decoder, a
                     // round that traded data-fit for penalty, or a refit/projection
                     // failure) restores the pre-round state and stops.
-                    let accept_floor = SAE_FINAL_EV_DEGRADATION_TOL * (1.0 + best_objective.abs());
+                    let accept_floor =
+                        SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL * (1.0 + best_objective.abs());
                     match round {
                         Ok(value) if value.is_finite() && value < best_objective - accept_floor => {
                             best_objective = value;
+                            state_moved = true;
                         }
                         _ => {
-                            self.restore_mutable_state(&snapshot);
+                            self.restore_mutable_state(&snapshot)?;
                             break;
                         }
                     }
                 }
             }
         }
-        // The final decoder-LSQ / coordinate-reprojection polish is accepted by
-        // the penalized objective because that is the scalar consumed by the REML
-        // outer loop. Reconstruction EV is the user-facing fitted quantity,
-        // however, and the polish is allowed to trade data fit for smoothness.
-        // Keep the same #1026 invariant as the Newton loop: a bounded in-fit
-        // refinement may not return a materially worse reconstruction than the
-        // incumbent it started from. This preserves the evidence objective's
-        // monotone path during fitting while ensuring the delivered fitted state is
-        // the best reconstruction basin the inner solve already found, rather than
-        // a smoother-but-collapsed post-polish state.
-        if let Some((pre_polish_ev, pre_polish_state)) = pre_polish_reconstruction_incumbent {
-            if let Ok(final_ev) = self.dictionary_reconstruction_ev(target, rho) {
-                if final_ev.is_finite() && final_ev + SAE_FINAL_EV_DEGRADATION_TOL < pre_polish_ev {
-                    log::warn!(
-                        "[#1026] restoring pre-polish reconstruction incumbent after final \
-                         polish degraded EV from {pre_polish_ev:.4} to {final_ev:.4}"
-                    );
-                    self.restore_mutable_state(&pre_polish_state);
-                }
-            }
+        // Track an exact recurrence of the OBJECTIVE-keyed in-call restore.
+        // This is convergence evidence only; it is never a cross-ρ state bank
+        // and is never installed after the outer certificate. A final polish
+        // that moved the state breaks the streak.
+        let exact_objective_incumbent_restored = inner_incumbent_restored
+            && best_reconstruction_state
+                .as_ref()
+                .is_some_and(|state| self.matches_mutable_state(state));
+        if exact_objective_incumbent_restored {
+            let consecutive_inner_restores = self
+                .best_fit_incumbent
+                .as_ref()
+                .filter(|prior| self.matches_mutable_state(&prior.state))
+                .map_or(1, |prior| {
+                    prior.consecutive_inner_restores.saturating_add(1)
+                });
+            self.best_fit_incumbent = Some(SaeFitIncumbent {
+                state: self.snapshot_mutable_state(),
+                consecutive_inner_restores,
+            });
+        } else {
+            self.best_fit_incumbent = None;
         }
         // ρ is owned by the outer engine and unchanged here; just return the
-        // converged inner loss at the fixed ρ.
-        self.loss(target, rho)
+        // converged inner loss at the fixed ρ. Drop the faer-sequential guard
+        // explicitly (the idiomatic "use" that satisfies `unused_variables`);
+        // faer's process-global parallelism is restored to its prior policy for
+        // any work the outer engine runs after this inner fit returns.
+        let loss = self.loss(target, rho)?;
+        drop(faer_sequential_inner_fit);
+        Ok(JointFitOutcome {
+            loss,
+            termination,
+            state_moved,
+        })
     }
 
     /// Allocate one zero `(M_k × M_k)` Gram accumulator per atom for the
@@ -6035,29 +7026,38 @@ impl SaeManifoldTerm {
             } else {
                 delta_beta.clone()
             };
-            let mut trial_step = step_size;
-            let mut accepted_loss: Option<SaeManifoldLoss> = None;
-            for _ in 0..=SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS {
-                let mut trial_beta = beta0.clone();
-                for j in 0..self.beta_dim() {
-                    trial_beta[j] += trial_step * delta_b[j];
-                }
-                self.set_flat_beta(trial_beta.view())?;
-                let (trial_loss, trial_total) = self.streaming_loss_and_penalized_objective_total(
-                    &chunk_ranges,
-                    rho,
-                    analytic_penalties,
-                    n_total,
-                    &mut chunk_init,
-                )?;
-                let armijo_bound =
-                    pre_step_total - SAE_MANIFOLD_ARMIJO_C1 * trial_step * directional_decrease;
-                if trial_total.is_finite() && trial_total <= armijo_bound {
-                    accepted_loss = Some(trial_loss);
-                    break;
-                }
-                trial_step *= 0.5;
-            }
+            // Every trial rebuilds β from `beta0`, so no snapshot restore is
+            // needed between trials; the state is fully determined by the
+            // trial β. Evaluation errors propagate (`?`), as before.
+            let accepted_loss = backtracking_line_search::<_, String>(
+                BacktrackConfig {
+                    initial_step: step_size,
+                    max_steps: SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS + 1,
+                    ..BacktrackConfig::default()
+                },
+                |trial_step| {
+                    let mut trial_beta = beta0.clone();
+                    for j in 0..self.beta_dim() {
+                        trial_beta[j] += trial_step * delta_b[j];
+                    }
+                    self.set_flat_beta(trial_beta.view())?;
+                    let (trial_loss, trial_total) = self
+                        .streaming_loss_and_penalized_objective_total(
+                            &chunk_ranges,
+                            rho,
+                            analytic_penalties,
+                            n_total,
+                            &mut chunk_init,
+                        )?;
+                    Ok(Some((trial_total, trial_loss)))
+                },
+                |trial_step, trial_total| {
+                    let armijo_bound =
+                        pre_step_total - SAE_MANIFOLD_ARMIJO_C1 * trial_step * directional_decrease;
+                    trial_total.is_finite() && trial_total <= armijo_bound
+                },
+            )?
+            .map(|step| step.payload);
             match accepted_loss {
                 Some(loss) => {
                     last_loss = loss;
@@ -6395,4 +7395,49 @@ fn union_output_frame_rank(frames: &[Array2<f64>], p: usize) -> usize {
     }
     let tol = crate::frames::SAE_FRAME_RANK_CUTOFF * max_sv;
     sv.iter().filter(|&&v| v > tol).count().min(p)
+}
+
+#[cfg(test)]
+mod projection_policy_tests {
+    use super::*;
+    use crate::basis::{SaeBasisEvaluator, SphereChartEvaluator};
+    use ndarray::array;
+    use std::sync::Arc;
+
+    #[test]
+    fn multivariate_compact_projection_skips_without_mutation() {
+        // A compact multivariate chart (sphere) has no complete rank-1 Fourier
+        // stationary enumeration, so the decoder-projection E-step must SKIP it
+        // — leaving its incoming natural-chart coordinates untouched — and
+        // return Ok, rather than aborting the whole fit. (A fixed-lattice
+        // projection is still never performed: honesty is preserved by not
+        // moving the atom, not by erroring.)
+        let coordinates = array![[0.2, 0.3]];
+        let evaluator = Arc::new(SphereChartEvaluator);
+        let (phi, jet) = evaluator.evaluate(coordinates.view()).unwrap();
+        let atom = SaeManifoldAtom::new(
+            "sphere",
+            SaeAtomBasisKind::Sphere,
+            2,
+            phi,
+            jet,
+            Array2::<f64>::zeros((7, 2)),
+            Array2::<f64>::eye(7),
+        )
+        .unwrap()
+        .with_basis_evaluator(evaluator);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((1, 1)),
+            vec![coordinates.clone()],
+            vec![SaeAtomBasisKind::Sphere.latent_manifold(2)],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+
+        let before = term.assignment.coords[0].as_matrix();
+        term.seed_coords_by_decoder_projection(Array2::<f64>::zeros((1, 2)).view())
+            .expect("compact multivariate chart is skipped, not an error");
+        assert_eq!(term.assignment.coords[0].as_matrix(), before);
+    }
 }

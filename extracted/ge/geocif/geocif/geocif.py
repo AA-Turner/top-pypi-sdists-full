@@ -301,6 +301,12 @@ class Geocif:
                 self.region_zscore_cids = []
         except (ValueError, SyntaxError):
             self.region_zscore_cids = []
+        # z-score-ONLY mode: when True, drop each raw "<base> <stage>" column
+        # after adding its "_zreg" sibling. Default False keeps both (raw =
+        # cross-region level, _zreg = within-region anomaly; complementary).
+        self.region_zscore_replace_raw = self.parser.getboolean(
+            "ML", "region_zscore_replace_raw", fallback=False
+        )
         self.detrend_method = self.parser.get("ML", "detrend_method") if self.parser.has_option("ML", "detrend_method") else "gaussian"
         self.run_time_steps = self.parser.get("ML", "run_time_steps", fallback="latest")
         # "current" means use today's partial-season stage window for ALL
@@ -441,6 +447,12 @@ class Geocif:
         # aggregates. Off by default for backward compatibility.
         self.monthly_only_features = self.parser.getboolean(
             self.model_name, "monthly_only_features", fallback=False,
+        )
+        # Middle ground: single months + the one full-season window, dropping
+        # intermediate cumulative spans. Restores season-integrated signal that
+        # monthly_only strips, while avoiding the full cumulative set's dilution.
+        self.monthly_plus_fullseason_features = self.parser.getboolean(
+            self.model_name, "monthly_plus_fullseason_features", fallback=False,
         )
         # curated_<algo> wrappers train on a hand-picked CID list — the
         # whole point is to bypass gOMP / Boruta selection and use every
@@ -2603,12 +2615,25 @@ class Geocif:
             and "Country__Region" in self.df_train.columns
             else "Region"
         )
+        # Resolve the ['all'] sentinel to every time-varying CID base present,
+        # excluding static embeddings (AEF/soilgrids), categorical columns and
+        # yield-derived features. Country-agnostic: no hand-curated list, so it
+        # works for countries/crops where the informative CIDs are unknown —
+        # gOMP selects the useful anomalies per (country, crop) fold.
+        bases = self.region_zscore_cids
+        if len(bases) == 1 and str(bases[0]).strip().lower() == "all":
+            bases = self._all_zscore_bases()
+            self.logger.info(
+                f"  region_zscore: 'all' mode -> {len(bases)} time-varying CID base(s)"
+            )
         std_floor = 1e-9
         n_added = 0
-        for base in self.region_zscore_cids:
+        dropped_raw = 0
+        for base in bases:
             matching = [
                 c for c in self.df_train.columns
-                if c == base or str(c).startswith(f"{base} ")
+                if (c == base or str(c).startswith(f"{base} "))
+                and pd.api.types.is_numeric_dtype(self.df_train[c])
             ]
             for col in matching:
                 stats = self.df_train.groupby(admin_col)[col].agg(
@@ -2635,11 +2660,59 @@ class Geocif:
                         (df[col].astype(float) - mu) / sd
                     ).clip(-5, 5)
                 n_added += 1
+                # z-score-only mode: drop the raw sibling now that _zreg exists.
+                if self.region_zscore_replace_raw:
+                    for df in (self.df_train, self.df_test):
+                        if col in df.columns:
+                            df.drop(columns=[col], inplace=True)
+                            dropped_raw += 1
         if n_added:
             self.logger.info(
                 f"  region_zscore: added {n_added} sibling z-scored "
-                f"column(s) for {len(self.region_zscore_cids)} base CID(s)"
+                f"column(s) for {len(bases)} base CID(s)"
+                + (f"; dropped {dropped_raw} raw column(s) [replace_raw]"
+                   if self.region_zscore_replace_raw else "")
             )
+
+    def _all_zscore_bases(self):
+        """Resolve region_zscore_cids=['all'] to every time-varying CID base in
+        df_train, excluding NON-CID columns: static embeddings (AEF/soilgrids),
+        categorical, geo, and — critically — the yield / Production / Area /
+        Season bookkeeping columns from geocif's harvest schema.
+
+        LEAKAGE GUARD: ``Production`` (= yield x area) and any ``Yield`` column
+        are target proxies; z-scoring them per region reproduces the yield
+        anomaly (the target), so gOMP would select them and inflate skill. They
+        are hard-excluded here. (This was a real bug: an earlier version
+        z-scored ``Production (tn)`` and it was selected in 20/20 folds for
+        brazil rice/soybean/winter_wheat.) Country-agnostic — geocif's id/meta
+        schema is stable — so it still generalizes to unknown-driver crops."""
+        import re as _re
+        stage_re = _re.compile(r" [A-Z][a-z]{2} \d+-[A-Z][a-z]{2} \d+$")
+        cat = set(getattr(self, "cat_features", []) or []) | {"Country__Region"}
+        soil_kw = ("sand", "clay", "silt", "bdod", "cfvo", "soc", "ocd",
+                   "nitrogen", "phh2o", "soil")
+        # geocif id/meta + geo + engineered non-CID columns (stable schema).
+        skip_exact = {"Country", "Region", "Region_ID", "Harvest Year", "Season",
+                      "Area (ha)", "Area", "Latitude", "Longitude", "lat", "lon",
+                      "Trend All", "Yield Trend", getattr(self, "target", "")}
+        bases = set()
+        for c in self.df_train.columns:
+            if not pd.api.types.is_numeric_dtype(self.df_train[c]):
+                continue
+            b = stage_re.sub("", str(c)).strip()
+            if not b or b in cat or b in skip_exact:
+                continue
+            if b.startswith("AEF") or b.startswith("Detrended"):
+                continue
+            # Target proxies — NEVER z-score (leakage): the Yield target, any
+            # lag/median/analog/last-year Yield, and Production (= yield x area).
+            if "Yield" in b or "Production" in b:
+                continue
+            if any(k in b.lower() for k in soil_kw):
+                continue
+            bases.add(b)
+        return sorted(bases)
 
     def _diagnose_yield_trend(self):
         """Diag-STFN-style trend-gate diagnostic. Returns (activate: bool,
@@ -2930,6 +3003,7 @@ class Geocif:
         df = self._apply_cumulative_or_stage_selection(df)
         df = self._filter_single_time_period_features(df)
         df = self._filter_monthly_only_features(df)
+        df = self._filter_monthly_plus_fullseason(df)
         df = self._filter_current_month_partial_data(df)
         df = self._remove_last_month_data(df)
         df = self._update_column_names(df)
@@ -3079,6 +3153,20 @@ class Geocif:
             df = stages.select_single_calendar_period_features(df)
             self.logger.info(
                 f"  monthly_only_features: {n_before} → {df.shape[1]} columns"
+            )
+        return df
+
+    def _filter_monthly_plus_fullseason(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Keep single-month + full-season features when the per-model
+        ``monthly_plus_fullseason_features`` flag is set — drops intermediate
+        cumulative spans only. Middle ground between monthly-only and the full
+        cumulative feature set.
+        """
+        if self.monthly_plus_fullseason_features:
+            n_before = df.shape[1]
+            df = stages.select_monthly_plus_fullseason_features(df)
+            self.logger.info(
+                f"  monthly_plus_fullseason: {n_before} → {df.shape[1]} columns"
             )
         return df
 

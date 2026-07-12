@@ -11,7 +11,7 @@ pub(crate) struct DeflatedArrowSolver<'a> {
     pub(crate) gauge_basis: Vec<Array1<f64>>,
     pub(crate) gauge_response_physical: Vec<Array1<f64>>,
     pub(crate) woodbury_factor: Option<FaerCholeskyFactor>,
-    pub(crate) gauge_stiffness_recip: f64,
+    pub(crate) gauge_stiffness: f64,
 }
 
 impl<'a> DeflatedArrowSolver<'a> {
@@ -21,7 +21,7 @@ impl<'a> DeflatedArrowSolver<'a> {
             gauge_basis: Vec::new(),
             gauge_response_physical: Vec::new(),
             woodbury_factor: None,
-            gauge_stiffness_recip: 0.0,
+            gauge_stiffness: 0.0,
         }
     }
 
@@ -85,8 +85,56 @@ impl<'a> DeflatedArrowSolver<'a> {
             gauge_basis,
             gauge_response_physical,
             woodbury_factor: Some(woodbury_factor),
-            gauge_stiffness_recip: stiffness_recip,
+            gauge_stiffness: stiffness,
         })
+    }
+
+    /// Add the closed-form gauge-fixing action `κ Q Qᵀ v` to an already
+    /// assembled operator product.
+    ///
+    /// [`Self::solve`] is the Woodbury inverse of `B + κ Q Qᵀ`, not of the raw
+    /// arrow operator `B`. Any operator preconditioned by this solver must carry
+    /// the same gauge stiffness. In particular, the exact-stationarity solve
+    /// uses `A + κ Q Qᵀ`: applying raw `A` while preconditioning with the
+    /// gauge-fixed `B` leaves the known gauge null in the Krylov operator and can
+    /// make a perfectly valid quotient solve fail its original-residual check
+    /// (#2253). Plain solvers have an empty basis and remain bit-identical.
+    pub(crate) fn add_gauge_stiffness(
+        &self,
+        vector: &SaeArrowVector,
+        applied: &mut SaeArrowVector,
+    ) -> Result<(), String> {
+        if self.gauge_basis.is_empty() {
+            return Ok(());
+        }
+        let t_len = self.cache.delta_t_len();
+        let beta_len = self.cache.k;
+        if vector.t.len() != t_len
+            || vector.beta.len() != beta_len
+            || applied.t.len() != t_len
+            || applied.beta.len() != beta_len
+        {
+            return Err(format!(
+                "DeflatedArrowSolver: gauge-stiffness operator shapes vector=({}, {}), \
+                 applied=({}, {}) != cache=({t_len}, {beta_len})",
+                vector.t.len(),
+                vector.beta.len(),
+                applied.t.len(),
+                applied.beta.len(),
+            ));
+        }
+        for gauge in &self.gauge_basis {
+            let coefficient = self.gauge_stiffness
+                * (gauge.slice(s![..t_len]).dot(&vector.t)
+                    + gauge.slice(s![t_len..]).dot(&vector.beta));
+            for i in 0..t_len {
+                applied.t[i] += coefficient * gauge[i];
+            }
+            for i in 0..beta_len {
+                applied.beta[i] += coefficient * gauge[t_len + i];
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn solve(
@@ -129,7 +177,7 @@ impl<'a> DeflatedArrowSolver<'a> {
             }
         }
         for (gauge, &weight) in self.gauge_basis.iter().zip(weights.iter()) {
-            let coeff = self.gauge_stiffness_recip * weight;
+            let coeff = self.gauge_stiffness.recip() * weight;
             for i in 0..flat.len() {
                 flat[i] += gauge[i] * coeff;
             }
@@ -311,7 +359,8 @@ mod selected_inverse_row_blocks_oracle_tests {
     //! α-trace consumers rely on when they take the fast path.
     use super::*;
     use gam_solve::arrow_schur::{
-        ArrowFactorSlab, ArrowHtbetaCache, ArrowSolverMode, ArrowUndampedFactors, PcgDiagnostics,
+        ArrowFactorSlab, ArrowHtbetaCache, ArrowPcgDiagnostics, ArrowSolverMode,
+        ArrowUndampedFactors,
     };
     use ndarray::array;
     use std::sync::Arc;
@@ -349,10 +398,11 @@ mod selected_inverse_row_blocks_oracle_tests {
             k: 2,
             manifold_mode_fingerprint: 0,
             row_hessian_fingerprint: 0,
-            pcg_diagnostics: PcgDiagnostics::default(),
+            pcg_diagnostics: ArrowPcgDiagnostics::default(),
             gauge_deflated_directions: 0,
             deflated_row_directions: Arc::from(Vec::new()),
             deflation_row_spectra: Arc::from(Vec::new()),
+            beta_gauge_quotient: None,
             cross_row_woodbury: None,
         }
     }
@@ -598,7 +648,8 @@ pub(crate) fn sae_dot(a: &[f64], b: &[f64]) -> f64 {
 }
 
 /// Euclidean inner product `⟨a, b⟩` over the concatenated `(t, β)` blocks of two
-/// arrow vectors. Used by the #1418 `B`-preconditioned CG inner solve.
+/// arrow vectors. Used by the exact-stationarity Krylov solve and its residual
+/// verification.
 pub(crate) fn sae_inner(a: &SaeArrowVector, b: &SaeArrowVector) -> f64 {
     sae_dot(a.t.as_slice().unwrap_or(&[]), b.t.as_slice().unwrap_or(&[]))
         + sae_dot(
@@ -612,78 +663,247 @@ pub(crate) fn sae_norm(a: &SaeArrowVector) -> f64 {
     sae_inner(a, a).max(0.0).sqrt()
 }
 
-/// #1418: solve `A x = rhs` by **`B`-preconditioned conjugate gradients**, where
-/// `apply_a(v) = A v` is the exact stationarity-Jacobian matvec and the
-/// `solver` (the assembled `B` factorization) supplies the SPD preconditioner
-/// `B⁻¹`. The IFT step `θ̂_ρ = −A⁻¹ g_ρ` must invert the EXACT `A`, not the
-/// surrogate `B`; the earlier truncated Neumann series `Σ_m (−B⁻¹ΔC)^m B⁻¹ rhs`
-/// equals `A⁻¹ rhs` only when `ρ(B⁻¹ΔC) < 1`, and DIVERGED for large
-/// `ΔC = ⟨r, ∂²f⟩`. PCG converges for any spectral radius in ≤ `dim` steps — one
-/// `A` matvec and one `B⁻¹` solve per step, no second factorization. On
-/// non-positive curvature `pᵀ A p ≤ 0` (the high-residual `A` can be indefinite
-/// away from a strict minimum) it stops at the last finite iterate.
-pub(crate) fn solve_b_preconditioned_cg<F>(
-    solver: &DeflatedArrowSolver<'_>,
+/// Largest Arnoldi basis admitted by the live cgroup-aware host budget.
+///
+/// A GMRES cycle owns `(m+1)` length-`dim` basis vectors, an
+/// `(m+1)×m` Hessenberg matrix, and the fixed work vectors. Choosing `m` from
+/// the memory ledger makes small/medium arrow systems full-memory (and hence
+/// exact in at most `dim` Krylov directions) without imposing a dimension or
+/// iteration constant; genuinely large systems use the largest restart that
+/// can be allocated without violating the process budget.
+fn admitted_gmres_restart(dim: usize) -> Result<usize, String> {
+    let (budget, available) = sae_host_in_core_budget_bytes();
+    let storage_bytes = |m: usize| -> Option<usize> {
+        let basis = m.checked_add(1)?.checked_mul(dim)?;
+        let hessenberg = m.checked_add(1)?.checked_mul(m)?;
+        let fixed = dim.checked_mul(6)?.checked_add(m.checked_mul(4)?)?;
+        basis
+            .checked_add(hessenberg)?
+            .checked_add(fixed)?
+            .checked_mul(std::mem::size_of::<f64>())
+    };
+    let minimum = storage_bytes(1).ok_or_else(|| {
+        format!("solve_b_preconditioned_gmres: storage size overflow for dimension {dim}")
+    })?;
+    if minimum > budget {
+        return Err(format!(
+            "solve_b_preconditioned_gmres: even one Arnoldi direction needs {minimum} bytes, \
+             exceeding the cgroup-aware Krylov budget {budget} (available {available})"
+        ));
+    }
+    let mut low = 1usize;
+    let mut high = dim;
+    while low < high {
+        let mid = low + (high - low).div_ceil(2);
+        if storage_bytes(mid).is_some_and(|bytes| bytes <= budget) {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    Ok(low)
+}
+
+/// Solve `A x = rhs` by left-preconditioned restarted GMRES.
+///
+/// The exact stationarity Jacobian `A` contains residual and prior curvature and
+/// can be indefinite. Conjugate gradients is therefore not admissible: its SPD
+/// recurrence can stop at negative curvature and silently return a non-solution.
+/// GMRES instead minimizes the preconditioned residual without an SPD assumption.
+/// A candidate is returned only after the *original* residual `||rhs - A x||`
+/// meets tolerance; exhaustion or Arnoldi breakdown is a typed error, never a
+/// last-iterate fallback. The preconditioner closure supports both the dense
+/// factor cache and the matrix-free reduced-Schur inverse through this one live
+/// implementation.
+pub(crate) fn solve_b_preconditioned_gmres_with<F, P>(
     rhs: &SaeArrowVector,
     apply_a: F,
+    precondition: P,
 ) -> Result<SaeArrowVector, String>
 where
     F: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+    P: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
 {
-    // x_0 = B⁻¹ rhs (the surrogate step; CG corrects it onto A⁻¹ rhs).
-    let mut x = solver
-        .solve(rhs.t.view(), rhs.beta.view())
-        .map_err(|err| format!("solve_b_preconditioned_cg: B inverse: {err}"))?;
-    // r_0 = rhs − A x_0; z_0 = B⁻¹ r_0; p_0 = z_0.
-    let ax = apply_a(&x)?;
-    let mut r = SaeArrowVector {
-        t: &rhs.t - &ax.t,
-        beta: &rhs.beta - &ax.beta,
-    };
-    let mut z = solver
-        .solve(r.t.view(), r.beta.view())
-        .map_err(|err| format!("solve_b_preconditioned_cg: B preconditioner: {err}"))?;
-    // p_0 = z_0. Compute rz from z FIRST, then MOVE z into p (no clone) — z is
-    // re-bound at the top of every loop iteration before it is read again.
-    let mut rz = sae_inner(&r, &z);
-    let mut p = z;
-
-    let rhs_norm = sae_norm(rhs).max(1.0);
-    let max_iters = (x.t.len() + x.beta.len()).clamp(8, 256);
-    let rel_tol = 1.0e-10;
-    for _ in 0..max_iters {
-        if !rz.is_finite() || rz <= 0.0 {
-            break; // preconditioned residual exhausted / degenerate.
-        }
-        let ap = apply_a(&p)?;
-        let p_ap = sae_inner(&p, &ap);
-        if !p_ap.is_finite() || p_ap <= 0.0 {
-            break; // non-positive curvature: keep the finite iterate.
-        }
-        let alpha = rz / p_ap;
-        for idx in 0..x.t.len() {
-            x.t[idx] += alpha * p.t[idx];
-            r.t[idx] -= alpha * ap.t[idx];
-        }
-        for idx in 0..x.beta.len() {
-            x.beta[idx] += alpha * p.beta[idx];
-            r.beta[idx] -= alpha * ap.beta[idx];
-        }
-        if sae_norm(&r) <= rel_tol * rhs_norm {
-            break;
-        }
-        z = solver
-            .solve(r.t.view(), r.beta.view())
-            .map_err(|err| format!("solve_b_preconditioned_cg: B preconditioner: {err}"))?;
-        let rz_next = sae_inner(&r, &z);
-        let beta = rz_next / rz;
-        for idx in 0..p.t.len() {
-            p.t[idx] = z.t[idx] + beta * p.t[idx];
-        }
-        for idx in 0..p.beta.len() {
-            p.beta[idx] = z.beta[idx] + beta * p.beta[idx];
-        }
-        rz = rz_next;
+    let t_len = rhs.t.len();
+    let beta_len = rhs.beta.len();
+    let dim = t_len + beta_len;
+    if dim == 0 {
+        return Ok(SaeArrowVector {
+            t: Array1::zeros(0),
+            beta: Array1::zeros(0),
+        });
     }
-    Ok(x)
+    let rhs_flat = flatten_arrow_parts(rhs.t.view(), rhs.beta.view());
+    let rhs_norm = rhs_flat.dot(&rhs_flat).sqrt();
+    if rhs_norm == 0.0 {
+        return Ok(SaeArrowVector {
+            t: Array1::zeros(t_len),
+            beta: Array1::zeros(beta_len),
+        });
+    }
+    if !rhs_norm.is_finite() {
+        return Err("solve_b_preconditioned_gmres: non-finite right-hand side".to_string());
+    }
+    let b = precondition(rhs)
+        .map_err(|err| format!("solve_b_preconditioned_gmres: B inverse: {err}"))?;
+    let b = flatten_arrow_parts(b.t.view(), b.beta.view());
+    let b_norm = b.dot(&b).sqrt();
+    if !(b_norm.is_finite() && b_norm > 0.0) {
+        return Err(format!(
+            "solve_b_preconditioned_gmres: invalid preconditioned right-hand-side norm {b_norm}"
+        ));
+    }
+    let relative_floor = f64::EPSILON.sqrt();
+    // Full-memory whenever the live memory ledger admits it. There is no
+    // iteration ceiling: each restarted cycle must make a strictly
+    // representable reduction in the preconditioned residual, and inability to
+    // do so is the typed numerical-stagnation certificate.
+    let restart = admitted_gmres_restart(dim)?;
+    let mut iterations = 0usize;
+    let mut x = Array1::<f64>::zeros(dim);
+
+    let as_arrow = |flat: &Array1<f64>| SaeArrowVector {
+        t: flat.slice(s![..t_len]).to_owned(),
+        beta: flat.slice(s![t_len..]).to_owned(),
+    };
+    let apply_preconditioned = |flat: &Array1<f64>| -> Result<Array1<f64>, String> {
+        let v = as_arrow(flat);
+        let av = apply_a(&v)?;
+        let pav = precondition(&av)
+            .map_err(|err| format!("solve_b_preconditioned_gmres: B preconditioner: {err}"))?;
+        Ok(flatten_arrow_parts(pav.t.view(), pav.beta.view()))
+    };
+
+    loop {
+        let px = apply_preconditioned(&x)?;
+        let mut residual = &b - &px;
+        let residual_norm = residual.dot(&residual).sqrt();
+        if residual_norm <= relative_floor * b_norm {
+            let candidate = as_arrow(&x);
+            let ax = apply_a(&candidate)?;
+            let original = SaeArrowVector {
+                t: &rhs.t - &ax.t,
+                beta: &rhs.beta - &ax.beta,
+            };
+            let original_norm = sae_norm(&original);
+            if original_norm <= relative_floor * rhs_norm {
+                return Ok(candidate);
+            }
+        }
+        if !(residual_norm.is_finite() && residual_norm > 0.0) {
+            return Err(
+                "solve_b_preconditioned_gmres: non-finite preconditioned residual".to_string(),
+            );
+        }
+
+        residual.mapv_inplace(|value| value / residual_norm);
+        let cycle = restart;
+        let mut basis: Vec<Array1<f64>> = Vec::with_capacity(cycle + 1);
+        basis.push(residual);
+        let mut h = Array2::<f64>::zeros((cycle + 1, cycle));
+        let mut cosines = vec![0.0_f64; cycle];
+        let mut sines = vec![0.0_f64; cycle];
+        let mut g = Array1::<f64>::zeros(cycle + 1);
+        g[0] = residual_norm;
+        let mut used = 0usize;
+
+        for j in 0..cycle {
+            let mut w = apply_preconditioned(&basis[j])?;
+            // Modified Gram-Schmidt Arnoldi.
+            for i in 0..=j {
+                let hij = basis[i].dot(&w);
+                h[[i, j]] = hij;
+                for slot in 0..dim {
+                    w[slot] -= hij * basis[i][slot];
+                }
+            }
+            let next_norm = w.dot(&w).sqrt();
+            h[[j + 1, j]] = next_norm;
+            if next_norm > f64::EPSILON {
+                w.mapv_inplace(|value| value / next_norm);
+                basis.push(w);
+            } else {
+                basis.push(Array1::zeros(dim));
+            }
+
+            for i in 0..j {
+                let upper = cosines[i] * h[[i, j]] + sines[i] * h[[i + 1, j]];
+                let lower = -sines[i] * h[[i, j]] + cosines[i] * h[[i + 1, j]];
+                h[[i, j]] = upper;
+                h[[i + 1, j]] = lower;
+            }
+            let diagonal = h[[j, j]];
+            let below = h[[j + 1, j]];
+            let radius = diagonal.hypot(below);
+            if !(radius.is_finite() && radius > f64::EPSILON) {
+                return Err(format!(
+                    "solve_b_preconditioned_gmres: Arnoldi breakdown after {} iterations",
+                    iterations + j
+                ));
+            }
+            cosines[j] = diagonal / radius;
+            sines[j] = below / radius;
+            h[[j, j]] = radius;
+            h[[j + 1, j]] = 0.0;
+            let gj = g[j];
+            g[j] = cosines[j] * gj;
+            g[j + 1] = -sines[j] * gj;
+            used = j + 1;
+            iterations = iterations.checked_add(1).ok_or_else(|| {
+                "solve_b_preconditioned_gmres: iteration counter overflow".to_string()
+            })?;
+            if g[j + 1].abs() <= relative_floor * b_norm {
+                break;
+            }
+        }
+
+        let mut y = Array1::<f64>::zeros(used);
+        for i in (0..used).rev() {
+            let mut value = g[i];
+            for j in i + 1..used {
+                value -= h[[i, j]] * y[j];
+            }
+            let diagonal = h[[i, i]];
+            if !(diagonal.is_finite() && diagonal.abs() > f64::EPSILON) {
+                return Err(format!(
+                    "solve_b_preconditioned_gmres: singular Hessenberg diagonal at {i}"
+                ));
+            }
+            y[i] = value / diagonal;
+        }
+        for i in 0..used {
+            for slot in 0..dim {
+                x[slot] += y[i] * basis[i][slot];
+            }
+        }
+
+        let candidate = as_arrow(&x);
+        let ax = apply_a(&candidate)?;
+        let original = SaeArrowVector {
+            t: &rhs.t - &ax.t,
+            beta: &rhs.beta - &ax.beta,
+        };
+        let original_norm = sae_norm(&original);
+        // Full-memory GMRES terminates within `dim` directions up to round-off.
+        // The attainable residual of a moderately conditioned system is
+        // O(kappa*eps), so sqrt(eps) is the scalar-type-derived certification
+        // floor rather than a last-iterate fallback.
+        let roundoff_floor = relative_floor * rhs_norm;
+        if original_norm <= roundoff_floor {
+            return Ok(candidate);
+        }
+        let next_px = apply_preconditioned(&x)?;
+        let next_residual = &b - &next_px;
+        let next_norm = next_residual.dot(&next_residual).sqrt();
+        if !(next_norm.is_finite() && next_norm < residual_norm) {
+            return Err(format!(
+                "solve_b_preconditioned_gmres: no representable residual reduction after \
+                 {iterations} iterations (restart {restart}, dimension {dim}); preconditioned \
+                 residual {residual_norm:.3e} -> {next_norm:.3e}, original relative residual \
+                 {:.3e}, round-off certification floor {:.3e}",
+                original_norm / rhs_norm,
+                roundoff_floor / rhs_norm,
+            ));
+        }
+    }
 }

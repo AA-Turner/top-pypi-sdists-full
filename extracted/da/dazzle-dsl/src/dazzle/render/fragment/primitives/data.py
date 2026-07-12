@@ -575,6 +575,11 @@ class ListRegion:
     # row) when the entry is set — the htmx-idiomatic shape the standalone
     # list uses (#1029), not a cell ``<a>`` which would break ``<td>`` nesting.
     row_links: tuple[str | None, ...] = ()
+    # dual_pane_flow master-detail: when True, row links target the sibling
+    # detail pane (not body) and rows get ``dz-master-detail__item``.
+    master_detail_pane: bool = False
+    # CSS selector for the detail pane (``#dz-md-detail-<region>``).
+    master_detail_target: str = ""
 
     def __post_init__(self) -> None:
         for i, row in enumerate(self.rows):
@@ -1775,6 +1780,10 @@ class DashboardGrid:
     cards: tuple[DashboardCard, ...] = ()
     sse_url: str = ""
     edit_enabled: bool = False
+    # dual_pane master-detail shell HTML (pre-escaped production string from
+    # ``render_master_detail_shell``). Emitted first inside the grid so the
+    # pair spans the full row; remaining unpaired regions stay as cards.
+    leading_html: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1787,7 +1796,7 @@ class BulkActionToolbar:
     injects action + selected/excluded ids + all-matching + the query echo
     on config-request, and `data-dz-grid-bulk-refresh` re-fetches rows +
     footer after the POST settles); Clear is `[data-dz-grid-clear]`; the
-    "Select all N matching" escalation rides `[data-dz-grid-select-all-matching]`
+    "Select all N results" escalation rides `[data-dz-grid-select-all-matching]`
     with the total mirrored from the footer's `data-dz-grid-total`.
     Visibility stays CSS-driven via `[data-dz-bulk-count]` on the grid root
     (written by dz-grid.js's sync()); the count text is mirrored to

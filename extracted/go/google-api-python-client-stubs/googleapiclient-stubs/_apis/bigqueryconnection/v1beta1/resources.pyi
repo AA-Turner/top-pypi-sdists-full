@@ -23,8 +23,8 @@ class BigQueryConnectionServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Connection = ...,
-                    connectionId: str = ...,
+                    body: Connection,
+                    connectionId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ConnectionHttpRequest: ...
                 def delete(
@@ -37,15 +37,15 @@ class BigQueryConnectionServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    maxResults: int = ...,
-                    pageToken: str = ...,
+                    maxResults: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListConnectionsResponseHttpRequest: ...
                 def list_next(
@@ -57,30 +57,26 @@ class BigQueryConnectionServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Connection = ...,
-                    updateMask: str = ...,
+                    body: Connection,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ConnectionHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def updateCredential(
-                    self,
-                    *,
-                    name: str,
-                    body: ConnectionCredential = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: ConnectionCredential, **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
 
             def connections(self) -> ConnectionsResource: ...

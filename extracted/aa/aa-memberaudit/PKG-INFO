@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-memberaudit
-Version: 5.0.2
+Version: 5.0.3
 Summary: An Alliance Auth app that provides full access to Eve characters
 Keywords: allianceauth,eveonline,memberaudit
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>, Peter Pfeufer <develop@ppfeufer.de>, Rebecca Murphy <rebecca@rcmurphy.me>
@@ -10,8 +10,7 @@ Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: End Users/Desktop
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -20,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
-Requires-Dist: allianceauth-app-utils>=1.31
+Requires-Dist: allianceauth-app-utils>=1.33.2
 Requires-Dist: allianceauth>=4,<6
 Requires-Dist: django-esi>=8,<10
 Requires-Dist: bleach
@@ -34,11 +33,8 @@ Requires-Dist: coverage ; extra == "test"
 Requires-Dist: factory_boy ; extra == "test"
 Requires-Dist: django-webtest ; extra == "test"
 Requires-Dist: pook ; extra == "test"
-Project-URL: Changelog, https://gitlab.com/ErikKalkoken/aa-memberaudit/-/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://aa-memberaudit.readthedocs.io/en/latest/
-Project-URL: Homepage, https://gitlab.com/ErikKalkoken/aa-memberaudit
-Project-URL: Source, https://gitlab.com/ErikKalkoken/aa-memberaudit
-Project-URL: Tracker, https://gitlab.com/ErikKalkoken/aa-memberaudit/-/issues
+Project-URL: Homepage, https://github.com/AllianceAuth-Apps/aa-memberaudit
 Provides-Extra: test
 
 # Member Audit
@@ -48,10 +44,10 @@ An Alliance Auth app that provides full access to Eve characters and related rep
 [![release](https://img.shields.io/pypi/v/aa-memberaudit?label=release)](https://pypi.org/project/aa-memberaudit/)
 [![python](https://img.shields.io/pypi/pyversions/aa-memberaudit)](https://pypi.org/project/aa-memberaudit/)
 [![django](https://img.shields.io/pypi/djversions/aa-memberaudit?label=django)](https://pypi.org/project/aa-memberaudit/)
-[![pipeline](https://gitlab.com/ErikKalkoken/aa-memberaudit/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/aa-memberaudit/-/pipelines)
-[![codecov](https://codecov.io/gl/ErikKalkoken/aa-memberaudit/branch/master/graph/badge.svg?token=QHMCUAFZBV)](https://codecov.io/gl/ErikKalkoken/aa-memberaudit)
+[![CI/CD Pipeline](https://github.com/AllianceAuth-Apps/aa-memberaudit/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/AllianceAuth-Apps/aa-memberaudit/actions/workflows/ci-cd.yaml)
+[![codecov](https://codecov.io/github/AllianceAuth-Apps/aa-memberaudit/graph/badge.svg?token=4vy5jXFKmH)](https://codecov.io/github/AllianceAuth-Apps/aa-memberaudit)
 [![Documentation Status](https://readthedocs.org/projects/aa-memberaudit/badge/?version=latest)](https://aa-memberaudit.readthedocs.io/en/stable/)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/aa-memberaudit/-/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/AllianceAuth-Apps/aa-memberaudit#MIT-1-ov-file)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)

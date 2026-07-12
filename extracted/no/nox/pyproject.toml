@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "nox"
-version = "2026.04.10"
+version = "2026.07.11"
 description = "Flexible test automation."
 readme = "README.md"
 keywords = [
@@ -18,7 +18,7 @@ license = "Apache-2.0"
 authors = [
   { name = "Alethea Katherine Flowers", email = "me@thea.codes" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
@@ -29,12 +29,12 @@ classifiers = [
   "Operating System :: Unix",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Testing",
 ]
 dependencies = [
@@ -45,8 +45,7 @@ dependencies = [
   "humanize>=4",
   "packaging>=22",
   "tomli>=1.1; python_version<'3.11'",
-  "virtualenv>=20.14.1; python_version<'3.10'",
-  "virtualenv>=20.15; python_version>='3.10'",
+  "virtualenv>=20.15",
 ]
 optional-dependencies.pbs = [
   "pbs-installer[all]>=2025.1.6",
@@ -73,7 +72,7 @@ test = [
   "coverage[toml]>=7.10.3",
   "pytest>=7.4; python_version>='3.12'",
   "pytest>=7; python_version<'3.12'",
-  "pytest-cov>=3",
+  "pytest-xdist>=3",
 ]
 docs = [
   "docutils<0.22",    # Waiting for sphinx-tabs release
@@ -117,29 +116,37 @@ lint.flake8-builtins.ignorelist = [ "copyright" ]
 lint.flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.pyproject-fmt]
-max_supported_python = "3.14"
+max_supported_python = "3.15"
 
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = [ "-ra", "--strict-markers", "--strict-config" ]
-xfail_strict = true
-filterwarnings = [ "error" ]
-log_level = "INFO"
-testpaths = [ "tests" ]
-pythonpath = [ ".github/" ]
-markers = [
+[tool.mypy]
+mypy_path = [ ".github" ]
+python_version = "3.10"
+warn_unreachable = true
+enable_error_code = [ "ignore-without-code", "redundant-expr", "truthy-bool" ]
+strict = true
+overrides = [ { module = [ "tox.*" ], ignore_missing_imports = true } ]
+
+[tool.pytest]
+ini_options.minversion = "7.0"
+ini_options.testpaths = [ "tests" ]
+ini_options.pythonpath = [ ".github/" ]
+ini_options.addopts = [ "-ra", "--strict-markers", "--strict-config" ]
+ini_options.markers = [
   "conda: test requires conda",
 ]
+ini_options.xfail_strict = true
+ini_options.filterwarnings = [ "error" ]
+ini_options.log_level = "INFO"
 
 [tool.coverage]
-run.core = "sysmon"
 run.branch = true
-run.patch = [ "subprocess" ]
-run.relative_files = true
-run.source_pkgs = [ "nox" ]
+run.core = "sysmon"
 run.disable_warnings = [
   "no-sysmon",
 ]
+run.patch = [ "subprocess" ]
+run.relative_files = true
+run.source_pkgs = [ "nox" ]
 report.exclude_also = [
   "@overload",
   "def __dir__()",
@@ -147,14 +154,3 @@ report.exclude_also = [
   "if TYPE_CHECKING:",
 ]
 report.omit = [ "nox/_typing.py" ]
-
-[tool.mypy]
-python_version = "3.9"
-strict = true
-warn_unreachable = true
-enable_error_code = [ "ignore-without-code", "redundant-expr", "truthy-bool" ]
-mypy_path = [ ".github" ]
-
-[[tool.mypy.overrides]]
-module = [ "tox.*" ]
-ignore_missing_imports = true

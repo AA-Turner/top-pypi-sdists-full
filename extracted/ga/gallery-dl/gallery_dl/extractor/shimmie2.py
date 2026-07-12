@@ -87,10 +87,9 @@ BASE_PATTERN = Shimmie2Extractor.update({
         "root": "https://co.llection.pics",
         "pattern": r"co\.llection\.pics",
     },
-    "soybooru": {
-        "root": "https://soybooru.com",
-        "pattern": r"soybooru\.com",
-        "quote": "'",
+    "prequelfanart": {
+        "root": "https://www.prequeladventure.com/fanartbooru",
+        "pattern": r"(?:www\.)?prequeladventure\.com/fanartbooru",
     },
 }) + r"/(?:index\.php\?q=/?)?"
 
@@ -139,10 +138,14 @@ class Shimmie2TagExtractor(Shimmie2Extractor):
 
                 data = extr("title="+quote, quote).split(" // ")
                 tags = data[0]
-                dimensions = data[1]
-                size = data[2]
 
-                width, _, height = dimensions.partition("x")
+                try:
+                    width, _, height = data[1].partition("x")
+                    size = data[2]
+                except Exception:
+                    width = height = 0
+                    size = ""
+
                 md5 = extr("/_thumbs/", "/")
 
                 yield {

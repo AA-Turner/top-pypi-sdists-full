@@ -2,6 +2,7 @@ use super::family::clamp_bernoulli_link_probability;
 use super::*;
 use gam_linalg::matrix::{LinearOperator, SignedWeightsView};
 use gam_math::jet_tower::Tower4;
+use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, escalate_ridge};
 
 pub(crate) fn standardize_latent_z_with_policy(
     z: &Array1<f64>,
@@ -77,18 +78,38 @@ pub(crate) fn standardize_latent_z_with_policy(
 
     let normalization = target_norm;
     let z_std = normalization.apply(z, context)?;
+    // Standardized moments of z_std itself. `z_std` has weighted mean 0 and
+    // variance 1 only in `FitWeighted` mode; under `None`/`Frozen` its raw
+    // third/fourth moments are NOT the named statistics (a ×3-scaled Gaussian
+    // would read "excess_kurtosis≈240"), so center and scale by z_std's own
+    // weighted moments before labeling them skewness / excess kurtosis.
+    let std_mean = z_std
+        .iter()
+        .zip(weights.iter())
+        .map(|(&zi, &wi)| wi * zi)
+        .sum::<f64>()
+        / weight_sum;
+    let std_var = (z_std
+        .iter()
+        .zip(weights.iter())
+        .map(|(&zi, &wi)| wi * (zi - std_mean) * (zi - std_mean))
+        .sum::<f64>()
+        / weight_sum)
+        .max(f64::MIN_POSITIVE);
     let skew = z_std
         .iter()
         .zip(weights.iter())
-        .map(|(&zi, &wi)| wi * zi.powi(3))
+        .map(|(&zi, &wi)| wi * (zi - std_mean).powi(3))
         .sum::<f64>()
-        / weight_sum;
+        / weight_sum
+        / std_var.powf(1.5);
     let kurt = z_std
         .iter()
         .zip(weights.iter())
-        .map(|(&zi, &wi)| wi * zi.powi(4))
+        .map(|(&zi, &wi)| wi * (zi - std_mean).powi(4))
         .sum::<f64>()
         / weight_sum
+        / (std_var * std_var)
         - 3.0;
     if skew.abs() > policy.max_abs_skew || kurt.abs() > policy.max_abs_excess_kurtosis {
         let msg = format!(
@@ -256,45 +277,58 @@ pub(super) fn pooled_probit_baseline(
         if grad_max < BMS_DERIV_TOL {
             break;
         }
-        let mut ridge = POOLED_PILOT_RIDGE_INIT;
-        let (step0, step1) = loop {
-            let h00_r = h00 + ridge;
-            let h11_r = h11 + ridge;
-            let det = h00_r * h11_r - h01 * h01;
-            if det.is_finite() && det.abs() > POOLED_PILOT_DET_FLOOR {
+        // Ridge budget: the pre-migration loop grew δ from RIDGE_INIT by
+        // RIDGE_GROWTH until it exceeded RIDGE_MAX, so the trial count is the
+        // decade span of [RIDGE_INIT, RIDGE_MAX] inclusive.
+        let ridge_trials = (POOLED_PILOT_RIDGE_MAX / POOLED_PILOT_RIDGE_INIT)
+            .log10()
+            .ceil() as usize
+            + 1;
+        let (step0, step1) = escalate_ridge(
+            RidgeSchedule {
+                initial: POOLED_PILOT_RIDGE_INIT,
+                growth: POOLED_PILOT_RIDGE_GROWTH,
+                max_escalations: ridge_trials,
+            },
+            |ridge| {
+                let h00_r = h00 + ridge;
+                let h11_r = h11 + ridge;
+                let det = h00_r * h11_r - h01 * h01;
+                if !(det.is_finite() && det.abs() > POOLED_PILOT_DET_FLOOR) {
+                    return None;
+                }
                 let s0 = (h11_r * g0 - h01 * g1) / det;
                 let s1 = (-h01 * g0 + h00_r * g1) / det;
-                if s0.is_finite() && s1.is_finite() {
-                    break (s0, s1);
+                (s0.is_finite() && s1.is_finite()).then_some((s0, s1))
+            },
+        )
+        .map(|success| success.value)
+        .map_err(|_| "pooled bernoulli-marginal-slope pilot Hessian solve failed".to_string())?;
+        let accepted = backtracking_line_search::<_, String>(
+            BacktrackConfig {
+                contraction: POOLED_PILOT_BACKTRACK_SHRINK,
+                max_steps: POOLED_PILOT_MAX_BACKTRACKS,
+                ..BacktrackConfig::default()
+            },
+            |step_scale| {
+                let cand0 = beta0 - step_scale * step0;
+                let cand1 = beta1 - step_scale * step1;
+                let (cand_obj, _, _, _, _, _) = objective_grad_hess(cand0, cand1)?;
+                Ok(Some((cand_obj, (cand0, cand1))))
+            },
+            |_scale, cand_obj| cand_obj.is_finite() && cand_obj <= obj,
+        )?;
+        match accepted {
+            Some(step) => {
+                (beta0, beta1) = step.payload;
+                obj_prev = step.value;
+            }
+            None => {
+                if (obj_prev - obj).abs() < POOLED_PILOT_STALL_TOL {
+                    break;
                 }
+                return Err("pooled bernoulli-marginal-slope pilot line search failed".to_string());
             }
-            ridge *= POOLED_PILOT_RIDGE_GROWTH;
-            if ridge > POOLED_PILOT_RIDGE_MAX {
-                return Err(
-                    "pooled bernoulli-marginal-slope pilot Hessian solve failed".to_string()
-                );
-            }
-        };
-        let mut accepted = false;
-        let mut step_scale = 1.0;
-        for _ in 0..POOLED_PILOT_MAX_BACKTRACKS {
-            let cand0 = beta0 - step_scale * step0;
-            let cand1 = beta1 - step_scale * step1;
-            let (cand_obj, _, _, _, _, _) = objective_grad_hess(cand0, cand1)?;
-            if cand_obj.is_finite() && cand_obj <= obj {
-                beta0 = cand0;
-                beta1 = cand1;
-                obj_prev = cand_obj;
-                accepted = true;
-                break;
-            }
-            step_scale *= POOLED_PILOT_BACKTRACK_SHRINK;
-        }
-        if !accepted {
-            if (obj_prev - obj).abs() < POOLED_PILOT_STALL_TOL {
-                break;
-            }
-            return Err("pooled bernoulli-marginal-slope pilot line search failed".to_string());
         }
     }
     let a = beta0;
@@ -471,6 +505,7 @@ pub(super) fn joint_setup(
     logslopespec: &TermCollectionSpec,
     marginal_penalties: usize,
     logslope_penalties: usize,
+    absorber_rho0: Option<f64>,
     extra_rho0: &[f64],
     kappa_options: &SpatialLengthScaleOptimizationOptions,
 ) -> ExactJointHyperSetup {
@@ -478,6 +513,16 @@ pub(super) fn joint_setup(
     let logslope_terms = spatial_length_scale_term_indices(logslopespec);
     let rho_dim = marginal_penalties + logslope_penalties + extra_rho0.len();
     let mut rho0vec = Array1::<f64>::zeros(rho_dim);
+    // The #461 influence-absorber ridge is the TRAILING marginal coordinate
+    // (see `marginal_penalties_with_influence_ridge`); it is REML-learned like
+    // every other penalty but seeds at the ln(n) leakage scale instead of 0.
+    if let Some(seed) = absorber_rho0 {
+        assert!(
+            marginal_penalties > 0,
+            "an absorber rho0 seed requires at least one marginal penalty to land in"
+        );
+        rho0vec[marginal_penalties - 1] = seed;
+    }
     for (idx, &value) in extra_rho0.iter().enumerate() {
         rho0vec[marginal_penalties + logslope_penalties + idx] = value;
     }
@@ -2586,9 +2631,15 @@ mod jet_tower_oracle_tests {
                     eta[r],
                 )
                 .expect("link map");
-                let (jv, jg, jh) =
-                    rigid_standard_normal_row_kernel(marginal, g[r], z[r], y[r], w[r], probit_scale)
-                        .expect("jet kernel");
+                let (jv, jg, jh) = rigid_standard_normal_row_kernel(
+                    marginal,
+                    g[r],
+                    z[r],
+                    y[r],
+                    w[r],
+                    probit_scale,
+                )
+                .expect("jet kernel");
                 let (hv, hg, hh) = hand_rigid_vgh(marginal, g[r], z[r], y[r], w[r], probit_scale);
                 close(jv, hv, "value");
                 for a in 0..2 {

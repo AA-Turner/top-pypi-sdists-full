@@ -22,11 +22,7 @@ class LookerResource(googleapiclient.discovery.Resource):
                 @typing.type_check_only
                 class BackupsResource(googleapiclient.discovery.Resource):
                     def create(
-                        self,
-                        *,
-                        parent: str,
-                        body: InstanceBackup = ...,
-                        **kwargs: typing.Any,
+                        self, *, parent: str, body: InstanceBackup, **kwargs: typing.Any
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self, *, name: str, **kwargs: typing.Any
@@ -38,9 +34,9 @@ class LookerResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListInstanceBackupsResponseHttpRequest: ...
                     def list_next(
@@ -53,18 +49,18 @@ class LookerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Instance = ...,
-                    instanceId: str = ...,
+                    body: Instance,
+                    instanceId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def export(
                     self,
                     *,
                     name: str,
-                    body: ExportInstanceRequest = ...,
+                    body: ExportInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -74,16 +70,16 @@ class LookerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ImportInstanceRequest = ...,
+                    body: ImportInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    showDeleted: bool = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    showDeleted: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListInstancesResponseHttpRequest: ...
                 def list_next(
@@ -95,29 +91,29 @@ class LookerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Instance = ...,
-                    updateMask: str = ...,
+                    body: Instance,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restart(
                     self,
                     *,
                     name: str,
-                    body: RestartInstanceRequest = ...,
+                    body: RestartInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def restore(
                     self,
                     *,
                     name: str,
-                    body: RestoreInstanceRequest = ...,
+                    body: RestoreInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def undelete(
                     self,
                     *,
                     name: str,
-                    body: UndeleteInstanceRequest = ...,
+                    body: UndeleteInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def backups(self) -> BackupsResource: ...
@@ -128,7 +124,7 @@ class LookerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -141,10 +137,10 @@ class LookerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -160,10 +156,10 @@ class LookerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

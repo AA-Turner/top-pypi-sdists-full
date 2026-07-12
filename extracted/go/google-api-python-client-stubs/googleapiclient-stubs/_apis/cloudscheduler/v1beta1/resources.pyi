@@ -20,13 +20,13 @@ class CloudSchedulerResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class JobsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: Job = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: Job, **kwargs: typing.Any
                 ) -> JobHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    legacyAppEngineCron: bool = ...,
+                    legacyAppEngineCron: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(self, *, name: str, **kwargs: typing.Any) -> JobHttpRequest: ...
@@ -34,10 +34,10 @@ class CloudSchedulerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    legacyAppEngineCron: bool = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    legacyAppEngineCron: bool | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListJobsResponseHttpRequest: ...
                 def list_next(
@@ -49,26 +49,18 @@ class CloudSchedulerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Job = ...,
-                    updateMask: str = ...,
+                    body: Job,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> JobHttpRequest: ...
                 def pause(
-                    self,
-                    *,
-                    name: str,
-                    body: PauseJobRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: PauseJobRequest, **kwargs: typing.Any
                 ) -> JobHttpRequest: ...
                 def resume(
-                    self,
-                    *,
-                    name: str,
-                    body: ResumeJobRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: ResumeJobRequest, **kwargs: typing.Any
                 ) -> JobHttpRequest: ...
                 def run(
-                    self, *, name: str, body: RunJobRequest = ..., **kwargs: typing.Any
+                    self, *, name: str, body: RunJobRequest, **kwargs: typing.Any
                 ) -> JobHttpRequest: ...
 
             @typing.type_check_only
@@ -77,7 +69,7 @@ class CloudSchedulerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -90,10 +82,10 @@ class CloudSchedulerResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -109,10 +101,10 @@ class CloudSchedulerResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

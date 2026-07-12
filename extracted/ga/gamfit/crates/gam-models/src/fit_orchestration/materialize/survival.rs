@@ -116,9 +116,7 @@ pub(crate) fn materialize_survival<'a>(
     // selects the location-scale AFT model whose link the wiggle flexes — so
     // promote rather than reject. An EXPLICIT incompatible likelihood
     // (weibull/latent/latent-binary) is still a hard error below.
-    if parsed.linkwiggle.is_some()
-        && survival_mode == SurvivalLikelihoodMode::Transformation
-    {
+    if parsed.linkwiggle.is_some() && survival_mode == SurvivalLikelihoodMode::Transformation {
         survival_mode = SurvivalLikelihoodMode::LocationScale;
     }
     if age_right.is_some() && survival_mode != SurvivalLikelihoodMode::Latent {
@@ -154,8 +152,8 @@ pub(crate) fn materialize_survival<'a>(
             ),
         });
     }
-    let cause_count = crate::survival::cause_count_from_event_codes(event_codes.view())
-        .into_workflow_result()?;
+    let cause_count =
+        crate::survival::cause_count_from_event_codes(event_codes.view()).into_workflow_result()?;
     if cause_count > 1
         && !matches!(
             survival_mode,
@@ -296,8 +294,7 @@ pub(crate) fn materialize_survival<'a>(
     let is_left_truncated = age_entry
         .iter()
         .any(|&t| t > crate::survival::ENTRY_AT_ORIGIN_THRESHOLD);
-    let time_anchor = if survival_mode == SurvivalLikelihoodMode::MarginalSlope
-        || is_left_truncated
+    let time_anchor = if survival_mode == SurvivalLikelihoodMode::MarginalSlope || is_left_truncated
     {
         resolve_survival_marginal_slope_time_anchor_value(&age_entry, &age_exit, None)?
     } else if survival_mode == SurvivalLikelihoodMode::Transformation {
@@ -364,7 +361,6 @@ pub(crate) fn materialize_survival<'a>(
 
     let policy = resolved_resource_policy(
         config,
-        data,
         gam_runtime::resource::ProblemHints {
             // Survival marginal-slope shares the operator-only invariant with
             // the Bernoulli path; flag it as such so strict mode is selected
@@ -748,16 +744,17 @@ pub(crate) fn materialize_survival<'a>(
         }
     }
     let marginal_slope_frailty = if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
-        Some(fixed_gaussian_shift_frailty_from_spec(
-            config.frailty.as_ref().unwrap_or(&FrailtySpec::None),
-            "survival marginal-slope",
-        )?)
+        Some(
+            config
+                .frailty
+                .resolve_fixed_gaussian_shift("survival marginal-slope")?,
+        )
     } else {
         None
     };
     match survival_mode {
         SurvivalLikelihoodMode::Transformation | SurvivalLikelihoodMode::Weibull
-            if config.frailty.as_ref().is_some_and(FrailtySpec::is_active) =>
+            if config.frailty.is_active() =>
         {
             return Err(WorkflowError::InvalidConfig {
                 reason: "frailty is not supported for transformation/weibull survival models"
@@ -765,9 +762,7 @@ pub(crate) fn materialize_survival<'a>(
             }
             .into());
         }
-        SurvivalLikelihoodMode::LocationScale
-            if config.frailty.as_ref().is_some_and(FrailtySpec::is_active) =>
-        {
+        SurvivalLikelihoodMode::LocationScale if config.frailty.is_active() => {
             return Err(WorkflowError::InvalidConfig {
                 reason: "config.frailty is not implemented for survival-likelihood=location-scale"
                     .to_string(),
@@ -789,7 +784,7 @@ pub(crate) fn materialize_survival<'a>(
         survival_mode,
         SurvivalLikelihoodMode::Latent | SurvivalLikelihoodMode::LatentBinary
     ) {
-        let frailty = config.frailty.as_ref().unwrap_or(&FrailtySpec::None);
+        let frailty = &config.frailty;
         Some(latent_hazard_loading(
             frailty,
             "workflow latent survival/binary",
@@ -798,50 +793,50 @@ pub(crate) fn materialize_survival<'a>(
         None
     };
 
-    let build_time_block =
-        |candidate: &crate::survival::construction::SurvivalBaselineConfig| {
-            let prepared = prepare_survival_time_stack(
-                &age_entry,
-                &age_exit,
-                candidate,
-                survival_mode,
-                (survival_mode == SurvivalLikelihoodMode::LocationScale)
-                    .then_some(&survival_inverse_link),
-                time_anchor,
-                exact_derivative_guard,
-                &time_build,
-                effective_timewiggle.as_ref(),
-                None,
-            )?;
-            let time_p = prepared.time_design_exit.ncols();
-            let time_initial_log_lambdas = if prepared.time_penalties.is_empty() {
-                None
-            } else {
-                Some(Array1::from_elem(
-                    prepared.time_penalties.len(),
-                    config.time_smooth_lambda.ln(),
-                ))
-            };
-            let initial_beta = if survival_mode == SurvivalLikelihoodMode::LocationScale {
-                None
-            } else {
-                Some(Array1::from_elem(time_p, 1e-4))
-            };
-            let time_block = TimeBlockInput {
-                design_entry: prepared.time_design_entry.clone(),
-                design_exit: prepared.time_design_exit.clone(),
-                design_derivative_exit: prepared.time_design_derivative_exit.clone(),
-                offset_entry: prepared.eta_offset_entry.clone(),
-                offset_exit: prepared.eta_offset_exit.clone(),
-                derivative_offset_exit: prepared.derivative_offset_exit.clone(),
-                time_monotonicity: crate::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
-                penalties: prepared.time_penalties.clone(),
-                nullspace_dims: prepared.time_nullspace_dims.clone(),
-                initial_log_lambdas: time_initial_log_lambdas,
-                initial_beta,
-            };
-            Ok::<_, String>((prepared, time_block))
+    let build_time_block = |candidate: &crate::survival::construction::SurvivalBaselineConfig| {
+        let prepared = prepare_survival_time_stack(
+            &age_entry,
+            &age_exit,
+            candidate,
+            survival_mode,
+            (survival_mode == SurvivalLikelihoodMode::LocationScale)
+                .then_some(&survival_inverse_link),
+            time_anchor,
+            exact_derivative_guard,
+            &time_build,
+            effective_timewiggle.as_ref(),
+            None,
+        )?;
+        let time_p = prepared.time_design_exit.ncols();
+        let time_initial_log_lambdas = if prepared.time_penalties.is_empty() {
+            None
+        } else {
+            Some(Array1::from_elem(
+                prepared.time_penalties.len(),
+                config.time_smooth_lambda.ln(),
+            ))
         };
+        let initial_beta = if survival_mode == SurvivalLikelihoodMode::LocationScale {
+            None
+        } else {
+            Some(Array1::from_elem(time_p, 1e-4))
+        };
+        let time_block = TimeBlockInput {
+            design_entry: prepared.time_design_entry.clone(),
+            design_exit: prepared.time_design_exit.clone(),
+            design_derivative_exit: prepared.time_design_derivative_exit.clone(),
+            offset_entry: prepared.eta_offset_entry.clone(),
+            offset_exit: prepared.eta_offset_exit.clone(),
+            derivative_offset_exit: prepared.derivative_offset_exit.clone(),
+            time_monotonicity:
+                crate::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
+            penalties: prepared.time_penalties.clone(),
+            nullspace_dims: prepared.time_nullspace_dims.clone(),
+            initial_log_lambdas: time_initial_log_lambdas,
+            initial_beta,
+        };
+        Ok::<_, String>((prepared, time_block))
+    };
 
     // Warm-start cache for the outer baseline-config optimization: each probe
     // runs a complete inner BFGS over ρ (log-smoothing) starting from zeros if cold; by
@@ -895,7 +890,7 @@ pub(crate) fn materialize_survival<'a>(
                 data: data.values.view(),
                 spec,
                 wiggle: effective_linkwiggle_cfg.clone(),
-                kappa_options: SpatialLengthScaleOptimizationOptions::default(),
+                kappa_options: config.spatial_optimization.clone(),
                 optimize_inverse_link,
                 cache_session: None,
             })
@@ -941,7 +936,7 @@ pub(crate) fn materialize_survival<'a>(
                     // default for survival marginal-slope — no flag to thread.
                     ..Default::default()
                 },
-                kappa_options: SpatialLengthScaleOptimizationOptions::default(),
+                kappa_options: config.spatial_optimization.clone(),
             })
         };
 
@@ -1032,7 +1027,8 @@ pub(crate) fn materialize_survival<'a>(
                 offset_entry: prepared.eta_offset_entry.clone(),
                 offset_exit: prepared.eta_offset_exit.clone(),
                 derivative_offset_exit: prepared.derivative_offset_exit.clone(),
-                time_monotonicity: crate::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
+                time_monotonicity:
+                    crate::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
                 penalties: prepared.time_penalties.clone(),
                 nullspace_dims: prepared.time_nullspace_dims.clone(),
                 initial_log_lambdas: time_initial_log_lambdas,
@@ -1056,7 +1052,7 @@ pub(crate) fn materialize_survival<'a>(
                     meanspec: termspec.clone(),
                     mean_offset: threshold_offset.clone(),
                 },
-                frailty: config.frailty.clone().unwrap_or(FrailtySpec::None),
+                frailty: config.frailty.clone(),
                 options: BlockwiseFitOptions::default(),
             })
         };
@@ -1094,7 +1090,8 @@ pub(crate) fn materialize_survival<'a>(
                 offset_entry: prepared.eta_offset_entry.clone(),
                 offset_exit: prepared.eta_offset_exit.clone(),
                 derivative_offset_exit: prepared.derivative_offset_exit.clone(),
-                time_monotonicity: crate::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
+                time_monotonicity:
+                    crate::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
                 penalties: prepared.time_penalties.clone(),
                 nullspace_dims: prepared.time_nullspace_dims.clone(),
                 initial_log_lambdas: time_initial_log_lambdas,
@@ -1114,7 +1111,7 @@ pub(crate) fn materialize_survival<'a>(
                     meanspec: termspec.clone(),
                     mean_offset: threshold_offset.clone(),
                 },
-                frailty: config.frailty.clone().unwrap_or(FrailtySpec::None),
+                frailty: config.frailty.clone(),
                 options: BlockwiseFitOptions::default(),
             })
         };

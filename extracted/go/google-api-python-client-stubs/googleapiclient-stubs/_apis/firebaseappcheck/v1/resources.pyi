@@ -25,14 +25,14 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
             self,
             *,
             app: str,
-            body: GoogleFirebaseAppcheckV1ExchangeAppAttestAssertionRequest = ...,
+            body: GoogleFirebaseAppcheckV1ExchangeAppAttestAssertionRequest,
             **kwargs: typing.Any,
         ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
         def exchangeAppAttestAttestation(
             self,
             *,
             app: str,
-            body: GoogleFirebaseAppcheckV1ExchangeAppAttestAttestationRequest = ...,
+            body: GoogleFirebaseAppcheckV1ExchangeAppAttestAttestationRequest,
             **kwargs: typing.Any,
         ) -> (
             GoogleFirebaseAppcheckV1ExchangeAppAttestAttestationResponseHttpRequest
@@ -41,14 +41,14 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
             self,
             *,
             app: str,
-            body: GoogleFirebaseAppcheckV1ExchangeDebugTokenRequest = ...,
+            body: GoogleFirebaseAppcheckV1ExchangeDebugTokenRequest,
             **kwargs: typing.Any,
         ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
         def generateAppAttestChallenge(
             self,
             *,
             app: str,
-            body: GoogleFirebaseAppcheckV1GenerateAppAttestChallengeRequest = ...,
+            body: GoogleFirebaseAppcheckV1GenerateAppAttestChallengeRequest,
             **kwargs: typing.Any,
         ) -> GoogleFirebaseAppcheckV1GenerateAppAttestChallengeResponseHttpRequest: ...
 
@@ -62,7 +62,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    names: str | _list[str] = ...,
+                    names: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleFirebaseAppcheckV1BatchGetAppAttestConfigsResponseHttpRequest
@@ -74,8 +74,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1AppAttestConfig = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1AppAttestConfig,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1AppAttestConfigHttpRequest: ...
 
@@ -85,11 +85,11 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleFirebaseAppcheckV1DebugToken = ...,
+                    body: GoogleFirebaseAppcheckV1DebugToken,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1DebugTokenHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -98,8 +98,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1ListDebugTokensResponseHttpRequest: ...
                 def list_next(
@@ -113,8 +113,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1DebugToken = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1DebugToken,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1DebugTokenHttpRequest: ...
 
@@ -124,7 +124,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    names: str | _list[str] = ...,
+                    names: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1BatchGetDeviceCheckConfigsResponseHttpRequest: ...
                 def get(
@@ -134,8 +134,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1DeviceCheckConfig = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1DeviceCheckConfig,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1DeviceCheckConfigHttpRequest: ...
 
@@ -145,7 +145,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    names: str | _list[str] = ...,
+                    names: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1BatchGetPlayIntegrityConfigsResponseHttpRequest: ...
                 def get(
@@ -155,8 +155,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1PlayIntegrityConfig = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1PlayIntegrityConfig,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1PlayIntegrityConfigHttpRequest: ...
 
@@ -166,7 +166,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    names: str | _list[str] = ...,
+                    names: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1BatchGetRecaptchaEnterpriseConfigsResponseHttpRequest: ...
                 def get(
@@ -176,8 +176,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1RecaptchaEnterpriseConfig = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1RecaptchaEnterpriseConfig,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1RecaptchaEnterpriseConfigHttpRequest: ...
 
@@ -187,7 +187,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    names: str | _list[str] = ...,
+                    names: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1BatchGetRecaptchaV3ConfigsResponseHttpRequest: ...
                 def get(
@@ -197,8 +197,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1RecaptchaV3Config = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1RecaptchaV3Config,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1RecaptchaV3ConfigHttpRequest: ...
 
@@ -208,7 +208,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    names: str | _list[str] = ...,
+                    names: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleFirebaseAppcheckV1BatchGetSafetyNetConfigsResponseHttpRequest
@@ -220,8 +220,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1SafetyNetConfig = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1SafetyNetConfig,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1SafetyNetConfigHttpRequest: ...
 
@@ -229,14 +229,14 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeAppAttestAssertionRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeAppAttestAssertionRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangeAppAttestAttestation(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeAppAttestAttestationRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeAppAttestAttestationRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleFirebaseAppcheckV1ExchangeAppAttestAttestationResponseHttpRequest
@@ -245,56 +245,56 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeCustomTokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeCustomTokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangeDebugToken(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeDebugTokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeDebugTokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangeDeviceCheckToken(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeDeviceCheckTokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeDeviceCheckTokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangePlayIntegrityToken(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangePlayIntegrityTokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangePlayIntegrityTokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangeRecaptchaEnterpriseToken(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeRecaptchaEnterpriseTokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeRecaptchaEnterpriseTokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangeRecaptchaV3Token(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeRecaptchaV3TokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeRecaptchaV3TokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def exchangeSafetyNetToken(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1ExchangeSafetyNetTokenRequest = ...,
+                body: GoogleFirebaseAppcheckV1ExchangeSafetyNetTokenRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1AppCheckTokenHttpRequest: ...
             def generateAppAttestChallenge(
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1GenerateAppAttestChallengeRequest = ...,
+                body: GoogleFirebaseAppcheckV1GenerateAppAttestChallengeRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleFirebaseAppcheckV1GenerateAppAttestChallengeResponseHttpRequest
@@ -303,7 +303,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 app: str,
-                body: GoogleFirebaseAppcheckV1GeneratePlayIntegrityChallengeRequest = ...,
+                body: GoogleFirebaseAppcheckV1GeneratePlayIntegrityChallengeRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1GeneratePlayIntegrityChallengeResponseHttpRequest: ...
             def appAttestConfig(self) -> AppAttestConfigResource: ...
@@ -324,18 +324,18 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleFirebaseAppcheckV1BatchUpdateResourcePoliciesRequest = ...,
+                    body: GoogleFirebaseAppcheckV1BatchUpdateResourcePoliciesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1BatchUpdateResourcePoliciesResponseHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleFirebaseAppcheckV1ResourcePolicy = ...,
+                    body: GoogleFirebaseAppcheckV1ResourcePolicy,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1ResourcePolicyHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -344,9 +344,9 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleFirebaseAppcheckV1ListResourcePoliciesResponseHttpRequest
@@ -363,8 +363,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleFirebaseAppcheckV1ResourcePolicy = ...,
-                    updateMask: str = ...,
+                    body: GoogleFirebaseAppcheckV1ResourcePolicy,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleFirebaseAppcheckV1ResourcePolicyHttpRequest: ...
 
@@ -372,7 +372,7 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleFirebaseAppcheckV1BatchUpdateServicesRequest = ...,
+                body: GoogleFirebaseAppcheckV1BatchUpdateServicesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1BatchUpdateServicesResponseHttpRequest: ...
             def get(
@@ -382,8 +382,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1ListServicesResponseHttpRequest: ...
             def list_next(
@@ -395,8 +395,8 @@ class FirebaseappcheckResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleFirebaseAppcheckV1Service = ...,
-                updateMask: str = ...,
+                body: GoogleFirebaseAppcheckV1Service,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleFirebaseAppcheckV1ServiceHttpRequest: ...
             def resourcePolicies(self) -> ResourcePoliciesResource: ...

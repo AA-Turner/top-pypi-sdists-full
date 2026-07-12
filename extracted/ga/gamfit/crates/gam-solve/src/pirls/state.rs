@@ -1,11 +1,11 @@
-use gam_terms::construction::ReparamResult;
+use crate::active_set::ConstraintKktDiagnostics;
 use crate::estimate::EstimationError;
 use gam_linalg::matrix::{
     DesignMatrix, PsdWeightsView, ReparamOperator, SignedWeightsView, SymmetricMatrix,
 };
-use crate::active_set::ConstraintKktDiagnostics;
-use gam_problem::{Coefficients, GlmLikelihoodSpec, InverseLink, LinearPredictor, RidgePassport};
 use gam_problem::LinearInequalityConstraints;
+use gam_problem::{Coefficients, GlmLikelihoodSpec, InverseLink, LinearPredictor, RidgePassport};
+use gam_terms::construction::ReparamResult;
 use ndarray::{ArcArray1, Array1, Array2, ArrayView1};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -108,6 +108,12 @@ pub struct WorkingState {
 }
 
 impl WorkingState {
+    /// Value minimized by PIRLS for this fully evaluated state.
+    #[inline]
+    pub fn penalized_objective(&self) -> f64 {
+        0.5 * (self.deviance + self.penalty_term)
+    }
+
     #[inline]
     pub fn jeffreys_logdet(&self) -> Option<f64> {
         self.firth.jeffreys_logdet()
@@ -685,9 +691,9 @@ impl PirlsResult {
             constraint_kkt: self.constraint_kkt.clone(),
             linear_constraints_transformed: self.linear_constraints_transformed.clone(),
             reparam_result: self.reparam_result.clone(),
-            x_transformed: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(
-                ReparamOperator::new(x_original.clone(), qs_arc),
-            ))),
+            x_transformed: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Arc::new(ReparamOperator::new(x_original.clone(), qs_arc)),
+            )),
             coordinate_frame: self.coordinate_frame,
             cache_compacted: false,
             min_penalized_deviance: self.min_penalized_deviance,

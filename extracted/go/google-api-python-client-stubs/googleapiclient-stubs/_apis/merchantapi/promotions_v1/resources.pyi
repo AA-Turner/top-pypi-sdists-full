@@ -21,18 +21,14 @@ class MerchantResource(googleapiclient.discovery.Resource):
                 self, *, name: str, **kwargs: typing.Any
             ) -> PromotionHttpRequest: ...
             def insert(
-                self,
-                *,
-                parent: str,
-                body: InsertPromotionRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: InsertPromotionRequest, **kwargs: typing.Any
             ) -> PromotionHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListPromotionsResponseHttpRequest: ...
             def list_next(

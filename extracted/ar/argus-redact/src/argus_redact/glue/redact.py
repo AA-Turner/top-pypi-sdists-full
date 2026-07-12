@@ -693,6 +693,13 @@ def redact(
             **{k: round(v, 2) for k, v in timing.items()},
         }
 
+        # Theme B: PII-free security events (currently keep-downgrade) shared by
+        # both the report and detailed return shapes; residual flag is report-only.
+        from argus_redact.pure.replacer import keep_downgraded_event, residual_personal_data
+
+        _kd_event = keep_downgraded_event(entities, config)
+        security_events = [_kd_event] if _kd_event else []
+
         if report:
             # Precedence 1: report wins over everything
             from argus_redact._types import RedactReport
@@ -716,10 +723,20 @@ def redact(
                 entities=tuple(entity_details),
                 stats=stats,
                 risk=risk,
+                residual_personal_data=residual_personal_data(entities, config),
+                security_events=tuple(security_events),
             )
 
         # Precedence 2: detailed (no report) — wins over with_types
-        return redacted, result_key, {"entities": entity_details, "stats": stats}
+        return (
+            redacted,
+            result_key,
+            {
+                "entities": entity_details,
+                "stats": stats,
+                "security_events": security_events,
+            },
+        )
 
     if with_types:
         # Precedence 3: with_types only — replacement → PII type mapping

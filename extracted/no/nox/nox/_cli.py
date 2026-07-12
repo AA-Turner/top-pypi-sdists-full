@@ -16,6 +16,26 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "importlib",
+    "importlib.metadata",
+    "nox._options",
+    "nox._version",
+    "nox.command",
+    "nox.logger",
+    "nox.project",
+    "nox.registry",
+    "nox.virtualenv",
+    "packaging",
+    "packaging.requirements",
+    "packaging.utils",
+    "pathlib",
+    "shutil",
+    "subprocess",
+    "urllib",
+    "urllib.parse",
+}
+
 import importlib.metadata
 import os
 import shutil
@@ -39,7 +59,7 @@ from nox.project import load_toml
 
 if TYPE_CHECKING:
     from argparse import Namespace
-    from collections.abc import Generator
+    from collections.abc import Iterator
 
 __all__ = ["execute_workflow", "main", "nox_main"]
 
@@ -72,20 +92,38 @@ def execute_workflow(args: Namespace) -> int:
 
 def get_dependencies(
     req: packaging.requirements.Requirement,
-) -> Generator[packaging.requirements.Requirement, None, None]:
+) -> Iterator[packaging.requirements.Requirement]:
     """
     Gets all dependencies. Raises ModuleNotFoundError if a package is not installed.
     """
-    info = importlib.metadata.metadata(req.name)
-    yield req
+    seen: set[tuple[packaging.utils.NormalizedName, frozenset[str]]] = set()
 
-    dist_list = info.get_all("requires-dist") or []
-    extra_list = [packaging.requirements.Requirement(mk) for mk in dist_list]
-    for extra in req.extras:
-        for ireq in extra_list:
-            if ireq.marker and not ireq.marker.evaluate({"extra": extra}):
-                continue
-            yield from get_dependencies(ireq)
+    def expand(
+        req: packaging.requirements.Requirement,
+    ) -> Iterator[packaging.requirements.Requirement]:
+        # Skip the metadata read and re-expansion for requirements already
+        # visited with the same extras; this avoids rescanning shared
+        # dependencies reachable through multiple extras and guards against
+        # dependency cycles. The requirement itself is still yielded so that
+        # every specifier is checked downstream.
+        key = (packaging.utils.canonicalize_name(req.name), frozenset(req.extras))
+        if key in seen:
+            yield req
+            return
+        seen.add(key)
+
+        info = importlib.metadata.metadata(req.name)
+        yield req
+
+        dist_list = info.get_all("requires-dist") or []
+        extra_list = [packaging.requirements.Requirement(mk) for mk in dist_list]
+        for extra in req.extras:
+            for ireq in extra_list:
+                if ireq.marker and not ireq.marker.evaluate({"extra": extra}):
+                    continue
+                yield from expand(ireq)
+
+    yield from expand(req)
 
 
 def check_dependencies(dependencies: list[str]) -> bool:
@@ -171,11 +209,14 @@ def run_script_mode(
     venv.create()
     env = {k: v for k, v in venv._get_env({}).items() if v is not None}
     env["NOX_SCRIPT_MODE"] = "none"
-    cmd = (
-        [nox.virtualenv.UV, "pip", "install"]
-        if venv.venv_backend == "uv"
-        else ["pip", "install"]
-    )
+    if venv.venv_backend == "uv":
+        cmd = [nox.virtualenv.UV, "pip", "install"]
+    else:
+        # On Windows, subprocess resolves the executable against the parent
+        # process's PATH, not the child env's, so resolve pip explicitly.
+        pip_cmd = shutil.which("pip", path=env["PATH"])
+        assert pip_cmd is not None, "pip must be discoverable in the environment"
+        cmd = [pip_cmd, "install"]
     subprocess.run([*cmd, *dependencies], env=env, check=True)
     nox_cmd = shutil.which("nox", path=env["PATH"])
     assert nox_cmd is not None, "Nox must be discoverable when installed"
@@ -249,9 +290,10 @@ def _main(*, main_ep: bool) -> None:
                     or (
                         toml_config.get("tool", {})
                         .get("nox", {})
-                        .get("script-download-python", "auto")
+                        .get("script-download-python")
                     )
                     or args.download_python
+                    or "auto"
                 )
 
                 if download_python not in ("auto", "never", "always"):

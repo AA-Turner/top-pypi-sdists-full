@@ -28,6 +28,73 @@ use gam_solve::rho_optimizer::{OuterObjective, OuterProblem};
 use ndarray::{Array1, Array2, ArrayView2, array, s};
 use std::sync::Arc;
 
+/// #2080 — two atoms may each have a full-rank decoder design while their
+/// CONCATENATED design is rank-deficient. With identical weighted constant
+/// columns, `δB₀ = c, δB₁ = −c` leaves the reconstruction exactly unchanged;
+/// an atom-local `G_k + λS_k` audit sees two positive scalar Grams and misses
+/// this coupled redistribution gauge entirely.
+#[test]
+fn joint_decoder_gauge_quotients_full_rank_atom_redistribution_2080() -> Result<(), String> {
+    let n = 4usize;
+    let phi = Array2::<f64>::ones((n, 1));
+    let jet = ndarray::Array3::<f64>::zeros((n, 1, 1));
+    let make_atom = |name: &str, decoder: f64| {
+        SaeManifoldAtom::new(
+            name,
+            SaeAtomBasisKind::Linear,
+            1,
+            phi.clone(),
+            jet.clone(),
+            array![[decoder]],
+            Array2::<f64>::zeros((1, 1)),
+        )
+    };
+    let coords = Array2::<f64>::zeros((n, 1));
+    let assignment = SaeAssignment::from_blocks_with_mode(
+        Array2::<f64>::zeros((n, 2)),
+        vec![coords.clone(), coords],
+        AssignmentMode::softmax(1.0),
+    )?;
+    let term = SaeManifoldTerm::new(
+        vec![make_atom("shared-a", 1.0)?, make_atom("shared-b", -0.5)?],
+        assignment,
+    )?;
+
+    // Both atom-local weighted designs are individually rank one (their full
+    // possible rank), so the superseded per-atom eigensolves have no null.
+    let weights = term.assignment.assignments();
+    for atom_idx in 0..2 {
+        let gram = (0..n)
+            .map(|row| {
+                let value = weights[[row, atom_idx]] * phi[[row, 0]];
+                value * value
+            })
+            .sum::<f64>();
+        assert!(
+            gram > 0.0,
+            "atom {atom_idx} must have a full-rank scalar Gram"
+        );
+    }
+
+    let gauges = term.joint_decoder_beta_null_directions(&[0.0, 0.0])?;
+    assert_eq!(
+        gauges.len(),
+        1,
+        "the two identical scalar designs have exactly one coupled decoder gauge"
+    );
+    let coord_dim = n * term.assignment.row_block_dim();
+    let delta_t = Array1::<f64>::zeros(coord_dim);
+    let delta_beta = array![1.0_f64, -1.0];
+    let raw = delta_beta.dot(&delta_beta);
+    let quotient =
+        term.quotient_newton_step_norm_sq(delta_t.view(), delta_beta.view(), raw, &[0.0, 0.0])?;
+    assert!(
+        quotient <= f64::EPSILON * (1.0 + raw),
+        "joint redistribution must vanish on the identified quotient; raw={raw:.3e}, quotient={quotient:.3e}"
+    );
+    Ok(())
+}
+
 /// Two planted circles on DISJOINT ambient column parities (circle A on the even
 /// output channels, circle B on the odd), driven by two incommensurate phases and
 /// per-column standardized. Together they span a rank-4 subspace of the whitened
@@ -110,8 +177,9 @@ fn one_circle_wide_target(n: usize, p: usize, sigma: f64) -> Array2<f64> {
         let t = std::f64::consts::TAU * (row as f64) / (n as f64);
         let (c, s) = (t.cos(), t.sin());
         for j in 0..p {
-            z[[row, j]] =
-                c * frame[[0, j]] + s * frame[[1, j]] + sigma * deterministic_circle_noise(row, j + 7);
+            z[[row, j]] = c * frame[[0, j]]
+                + s * frame[[1, j]]
+                + sigma * deterministic_circle_noise(row, j + 7);
         }
     }
     for j in 0..p {
@@ -218,7 +286,7 @@ fn run_wide_outer_fit(
     let n_params = seed.len();
     let mut objective =
         SaeManifoldOuterObjective::new(term, z.clone(), None, init_rho, 8, 0.04, 1.0e-6, 1.0e-6);
-    OuterProblem::new(n_params)
+    let result = OuterProblem::new(n_params)
         .with_initial_rho(seed)
         .with_max_iter(4)
         .with_seed_config(gam_problem::SeedConfig {
@@ -228,8 +296,18 @@ fn run_wide_outer_fit(
         })
         .run(&mut objective, "SAE manifold")
         .expect("#2080 wide-p outer REML fit must terminate, not hang / abort");
+    assert!(
+        result.converged,
+        "#2080 wide-p acceptance requires a CONVERGED outer REML optimum, not a \
+         finite max-iteration/line-search incumbent: iterations={}, final_value={:.6e}, \
+         final_grad_norm={:?}",
+        result.iterations, result.final_value, result.final_grad_norm,
+    );
     let telemetry = objective.probe_telemetry();
-    let fitted = objective.into_fitted();
+    objective
+        .certify_outer_result(&result)
+        .expect("#2080 wide-p outer result must certify the installed state");
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let ev = global_ev(z.view(), fitted.term.fitted().view());
     (ev, telemetry)
 }
@@ -253,7 +331,7 @@ fn run_k1_generated_seed_outer_fit(
     let n_params = init_rho.to_flat().len();
     let mut objective =
         SaeManifoldOuterObjective::new(term, z.clone(), None, init_rho, 8, 0.04, 1.0e-6, 1.0e-6);
-    OuterProblem::new(n_params)
+    let result = OuterProblem::new(n_params)
         .with_max_iter(4)
         .with_seed_config(gam_problem::SeedConfig {
             max_seeds: 1,
@@ -262,8 +340,17 @@ fn run_k1_generated_seed_outer_fit(
         })
         .run(&mut objective, "SAE manifold K=1 generated seed")
         .expect("#2153 K=1 generated-seed circle fit must terminate");
+    assert!(
+        result.converged,
+        "#2153 K=1 acceptance requires a converged outer optimum: iterations={}, \
+         final_value={:.6e}, final_grad_norm={:?}",
+        result.iterations, result.final_value, result.final_grad_norm,
+    );
     let telemetry = objective.probe_telemetry();
-    let fitted = objective.into_fitted();
+    objective
+        .certify_outer_result(&result)
+        .expect("#2153 outer result must certify the installed state");
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let ev = global_ev(z.view(), fitted.term.fitted().view());
     (ev, telemetry)
 }
@@ -328,7 +415,12 @@ fn l2_norm(v: &Array1<f64>) -> f64 {
 
 fn seeded_k1_circle_objective(
     cfg: CeilingPathologyConfig,
-) -> (Array2<f64>, SaeManifoldRho, Array1<f64>, SaeManifoldOuterObjective) {
+) -> (
+    Array2<f64>,
+    SaeManifoldRho,
+    Array1<f64>,
+    SaeManifoldOuterObjective,
+) {
     let z = one_circle_wide_target(cfg.n, cfg.p, cfg.sigma);
     let (term, seed_dispersion) = two_circle_periodic_term(z.view(), 1, cfg.harmonics);
     let mode = AssignmentMode::ibp_map(1.0, 1.0, false);
@@ -358,9 +450,7 @@ fn seeded_k1_circle_objective(
 /// realize. The full outer run then reports the operational symptoms that make
 /// this a solver pathology rather than an information ceiling: collapsed
 /// accepted ρ displacement and a large final gradient.
-fn run_ceiling_vs_pathology_instrument(
-    cfg: CeilingPathologyConfig,
-) -> CeilingPathologyReport {
+fn run_ceiling_vs_pathology_instrument(cfg: CeilingPathologyConfig) -> CeilingPathologyReport {
     let probe_seeded = seeded_k1_circle_objective(cfg);
     let seed_probe = probe_seeded.2;
     let mut probe_objective = probe_seeded.3;
@@ -390,9 +480,8 @@ fn run_ceiling_vs_pathology_instrument(
     } else {
         f64::NAN
     };
-    let predicted_decrease_not_materializing =
-        materialization_ratio.is_finite()
-            && materialization_ratio < cfg.materialization_ratio_floor;
+    let predicted_decrease_not_materializing = materialization_ratio.is_finite()
+        && materialization_ratio < cfg.materialization_ratio_floor;
 
     let fit_seeded = seeded_k1_circle_objective(cfg);
     let z = fit_seeded.0;
@@ -417,9 +506,12 @@ fn run_ceiling_vs_pathology_instrument(
             let rho_displacement = l2_norm(&(&result.rho - &seed));
             let step_collapsed =
                 rho_displacement.is_finite() && rho_displacement <= cfg.step_collapse_radius;
-            let huge_final_gradient = final_grad_norm.is_finite()
-                && final_grad_norm >= cfg.huge_final_gradient_floor;
-            let fitted = objective.into_fitted();
+            let huge_final_gradient =
+                final_grad_norm.is_finite() && final_grad_norm >= cfg.huge_final_gradient_floor;
+            objective
+                .certify_outer_result(&result)
+                .expect("ceiling-pathology outer result must certify the installed state");
+            let fitted = objective.into_fitted().expect("outer fit was evaluated");
             let ev = global_ev(z.view(), fitted.term.fitted().view());
             let live_lock_present =
                 predicted_decrease_not_materializing && step_collapsed && huge_final_gradient;
@@ -466,8 +558,7 @@ fn run_ceiling_vs_pathology_instrument(
 }
 
 /// #2080 — the wide-`p` (p=96) K=2 outer REML fit must terminate in a bounded
-/// number of criterion evaluations, run every value probe on a throwaway clone
-/// (zero mutating value probes), and recover a materially positive EV — even
+/// number of criterion evaluations and recover a materially positive EV — even
 /// though the outer line search overshoots into the non-PD basin on many probes.
 #[test]
 fn wide_p_outer_reml_terminates_within_probe_budget_2080() {
@@ -477,17 +568,26 @@ fn wide_p_outer_reml_terminates_within_probe_budget_2080() {
     let harmonics = 2usize; // m = 5: [1, sin2πt, cos2πt, sin4πt, cos4πt]
     let (ev, telemetry) = run_wide_outer_fit(n, p, k, harmonics);
     eprintln!(
-        "[#2080] wide-p outer fit: ev={ev:.4}, criterion_calls={}, fd_probe_calls={}, \
+        "[#2080] wide-p outer fit: ev={ev:.4}, criterion_calls={}, \
          infeasible(non_pd_per_row={},cross_row={},schur={},inner_nc={}), \
-         wall_cost_value_probes={}, mutating_value_probes={}",
+         infeasible_criterion_evals={}, reactive_scalar_installs={}, \
+         reactive_target_restores={}",
         telemetry.criterion_calls,
-        telemetry.fd_probe_calls,
         telemetry.infeasible_non_pd_per_row,
         telemetry.infeasible_cross_row,
         telemetry.infeasible_schur,
         telemetry.infeasible_inner_not_converged,
-        telemetry.wall_cost_value_probes,
-        telemetry.mutating_value_probes,
+        telemetry.infeasible_criterion_evals,
+        telemetry.reactive_scalar_installs,
+        telemetry.reactive_target_restores,
+    );
+    assert!(
+        telemetry.reactive_scalar_installs > 0,
+        "the initially undefined wide-K=2 seed must traverse genuine objective-installed scalar waypoints"
+    );
+    assert!(
+        telemetry.reactive_target_restores > 0,
+        "the wide-K=2 continuation must restore the objective's literal scalar target before certification"
     );
     // Bounded criterion (eval / eval_cost / efs) budget — a PROBE COUNT, not a
     // wall-clock limit (SPEC bans time budgets). With `with_max_iter(4)` and a
@@ -498,25 +598,6 @@ fn wide_p_outer_reml_terminates_within_probe_budget_2080() {
         telemetry.criterion_calls <= 64,
         "outer REML issued {} criterion calls; expected a bounded (<= 64) probe budget",
         telemetry.criterion_calls
-    );
-    // Every FD / line-search value probe runs on a throwaway clone: the accepted
-    // warm-start basin is never corrupted by a rejected probe (#2080 defect 3).
-    assert_eq!(
-        telemetry.mutating_value_probes, 0,
-        "value probes must not mutate the accepted term basin (found {})",
-        telemetry.mutating_value_probes
-    );
-    // The FD-safeguard probe count is bounded by the outer iteration / seed budget
-    // times the per-gradient probe count (2 directional + up to 2·d_ρ escalation),
-    // so it stays small — the escalation is gated on criterion width, never
-    // unbounded. The bound is generous (per-gradient-point cost × a safe multiple
-    // of the outer budget); the exact count is logged above.
-    let per_gradient_probe_bound = 2 + 2 * n_params_for(k);
-    assert!(
-        telemetry.fd_probe_calls <= 16 * per_gradient_probe_bound,
-        "FD probe count {} exceeded the bounded per-iteration budget ({})",
-        telemetry.fd_probe_calls,
-        16 * per_gradient_probe_bound,
     );
     assert!(
         ev.is_finite() && ev > 0.20,
@@ -536,23 +617,16 @@ fn k1_generated_seed_circle_outer_reml_does_not_livelock_2153() {
     let (ev, telemetry) = run_k1_generated_seed_outer_fit(32, 24, 1);
     eprintln!(
         "[#2153] K=1 generated-seed outer fit: ev={ev:.4}, criterion_calls={}, \
-         fd_probe_calls={}, wall_cost_value_probes={}, infeasible_total={}, \
-         mutating_value_probes={}",
+         infeasible_criterion_evals={}, infeasible_total={}",
         telemetry.criterion_calls,
-        telemetry.fd_probe_calls,
-        telemetry.wall_cost_value_probes,
+        telemetry.infeasible_criterion_evals,
         telemetry.infeasible_total(),
-        telemetry.mutating_value_probes,
     );
     assert!(
         telemetry.criterion_calls <= 32,
         "#2153 K=1 generated-seed fit issued {} criterion calls; expected a \
          bounded first-line-search probe budget",
         telemetry.criterion_calls
-    );
-    assert_eq!(
-        telemetry.mutating_value_probes, 0,
-        "#2153 line-search value probes must not mutate the accepted term basin"
     );
     assert!(
         ev.is_finite() && ev > 0.30,
@@ -576,8 +650,8 @@ fn ceiling_vs_pathology_outer_reml_instrument_2156() {
         "[#2156 ceiling-vs-pathology] initial_cost={:.6e}, initial_grad_norm={:.6e}, \
          predicted_decrease={:.6e}, actual_decrease={:.6e}, materialization_ratio={:.6e}, \
          outer_converged={}, outer_iterations={}, final_value={:.6e}, final_grad_norm={:.6e}, \
-         rho_displacement={:.6e}, ev={:.4}, criterion_calls={}, fd_probe_calls={}, \
-         wall_cost_value_probes={}, infeasible_total={}, outer_error={:?}, \
+         rho_displacement={:.6e}, ev={:.4}, criterion_calls={}, \
+         infeasible_criterion_evals={}, infeasible_total={}, outer_error={:?}, \
          predicted_not_materializing={}, step_collapsed={}, huge_final_gradient={}, \
          live_lock_present={}",
         report.initial_cost,
@@ -592,8 +666,7 @@ fn ceiling_vs_pathology_outer_reml_instrument_2156() {
         report.rho_displacement,
         report.ev,
         report.telemetry.criterion_calls,
-        report.telemetry.fd_probe_calls,
-        report.telemetry.wall_cost_value_probes,
+        report.telemetry.infeasible_criterion_evals,
         report.telemetry.infeasible_total(),
         report.outer_error,
         report.predicted_decrease_not_materializing,
@@ -609,27 +682,18 @@ fn ceiling_vs_pathology_outer_reml_instrument_2156() {
     );
 }
 
-/// d_ρ for a K-atom, per-atom d=1 ARD periodic fit: 1 (sparse) + K (smooth) + K
-/// (ARD) = 1 + 2K.
-fn n_params_for(k: usize) -> usize {
-    1 + 2 * k
-}
-
 /// #2080 — heavier K=3 wide-`p` variant (the issue's headline shape). Same
 /// bounded-probe-budget contract.
 #[test]
 fn wide_p_outer_reml_terminates_k3_heavy_2080() {
     let (ev, telemetry) = run_wide_outer_fit(96, 96, 3, 2);
     eprintln!(
-        "[#2080 heavy] K=3 wide-p outer fit: ev={ev:.4}, criterion_calls={}, fd_probe_calls={}, \
-         infeasible_total={}, mutating_value_probes={}",
+        "[#2080 heavy] K=3 wide-p outer fit: ev={ev:.4}, criterion_calls={}, \
+         infeasible_total={}",
         telemetry.criterion_calls,
-        telemetry.fd_probe_calls,
         telemetry.infeasible_total(),
-        telemetry.mutating_value_probes,
     );
     assert!(telemetry.criterion_calls <= 96);
-    assert_eq!(telemetry.mutating_value_probes, 0);
     assert!(ev.is_finite() && ev > 0.15);
 }
 
@@ -750,7 +814,7 @@ fn entangled_two_circle_outer_reml_separates_2080() {
     let n_params = seed.len();
     let mut objective =
         SaeManifoldOuterObjective::new(term, z.clone(), None, init_rho, 8, 0.04, 1.0e-6, 1.0e-6);
-    OuterProblem::new(n_params)
+    let result = OuterProblem::new(n_params)
         .with_initial_rho(seed)
         .with_max_iter(4)
         .with_seed_config(gam_problem::SeedConfig {
@@ -760,7 +824,16 @@ fn entangled_two_circle_outer_reml_separates_2080() {
         })
         .run(&mut objective, "SAE manifold entangled two-circle")
         .expect("#2080 entangled two-circle outer REML fit must terminate, not abort");
-    let fitted = objective.into_fitted();
+    assert!(
+        result.converged,
+        "#2080 entangled acceptance requires a converged outer REML optimum: \
+         iterations={}, final_value={:.6e}, final_grad_norm={:?}",
+        result.iterations, result.final_value, result.final_grad_norm,
+    );
+    objective
+        .certify_outer_result(&result)
+        .expect("entangled two-circle outer result must certify the installed state");
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let ev = global_ev(z.view(), fitted.term.fitted().view());
     let mut norms = vec![0.0_f64; k];
     for (i, atom) in fitted.term.atoms.iter().enumerate() {

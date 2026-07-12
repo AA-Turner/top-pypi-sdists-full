@@ -21,12 +21,13 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 view: typing_extensions.Literal[
                     "CREATIVE_VIEW_UNSPECIFIED", "SERVING_DECISION_ONLY", "FULL"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCreativesResponseHttpRequest: ...
             def list_next(
@@ -35,11 +36,7 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 previous_response: ListCreativesResponse,
             ) -> ListCreativesResponseHttpRequest | None: ...
             def watch(
-                self,
-                *,
-                parent: str,
-                body: WatchCreativesRequest = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: WatchCreativesRequest, **kwargs: typing.Any
             ) -> WatchCreativesResponseHttpRequest: ...
 
         @typing.type_check_only
@@ -51,8 +48,8 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListEndpointsResponseHttpRequest: ...
             def list_next(
@@ -64,8 +61,8 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Endpoint = ...,
-                updateMask: str = ...,
+                body: Endpoint,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> EndpointHttpRequest: ...
 
@@ -75,36 +72,32 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: ActivatePretargetingConfigRequest = ...,
+                body: ActivatePretargetingConfigRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def addTargetedApps(
                 self,
                 *,
                 pretargetingConfig: str,
-                body: AddTargetedAppsRequest = ...,
+                body: AddTargetedAppsRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def addTargetedPublishers(
                 self,
                 *,
                 pretargetingConfig: str,
-                body: AddTargetedPublishersRequest = ...,
+                body: AddTargetedPublishersRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def addTargetedSites(
                 self,
                 *,
                 pretargetingConfig: str,
-                body: AddTargetedSitesRequest = ...,
+                body: AddTargetedSitesRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def create(
-                self,
-                *,
-                parent: str,
-                body: PretargetingConfig = ...,
-                **kwargs: typing.Any,
+                self, *, parent: str, body: PretargetingConfig, **kwargs: typing.Any
             ) -> PretargetingConfigHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -116,8 +109,8 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListPretargetingConfigsResponseHttpRequest: ...
             def list_next(
@@ -129,36 +122,36 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: PretargetingConfig = ...,
-                updateMask: str = ...,
+                body: PretargetingConfig,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def removeTargetedApps(
                 self,
                 *,
                 pretargetingConfig: str,
-                body: RemoveTargetedAppsRequest = ...,
+                body: RemoveTargetedAppsRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def removeTargetedPublishers(
                 self,
                 *,
                 pretargetingConfig: str,
-                body: RemoveTargetedPublishersRequest = ...,
+                body: RemoveTargetedPublishersRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def removeTargetedSites(
                 self,
                 *,
                 pretargetingConfig: str,
-                body: RemoveTargetedSitesRequest = ...,
+                body: RemoveTargetedSitesRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
             def suspend(
                 self,
                 *,
                 name: str,
-                body: SuspendPretargetingConfigRequest = ...,
+                body: SuspendPretargetingConfigRequest,
                 **kwargs: typing.Any,
             ) -> PretargetingConfigHttpRequest: ...
 
@@ -168,14 +161,14 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: BatchApprovePublisherConnectionsRequest = ...,
+                body: BatchApprovePublisherConnectionsRequest,
                 **kwargs: typing.Any,
             ) -> BatchApprovePublisherConnectionsResponseHttpRequest: ...
             def batchReject(
                 self,
                 *,
                 parent: str,
-                body: BatchRejectPublisherConnectionsRequest = ...,
+                body: BatchRejectPublisherConnectionsRequest,
                 **kwargs: typing.Any,
             ) -> BatchRejectPublisherConnectionsResponseHttpRequest: ...
             def get(
@@ -185,10 +178,10 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListPublisherConnectionsResponseHttpRequest: ...
             def list_next(
@@ -199,7 +192,11 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
 
         def get(self, *, name: str, **kwargs: typing.Any) -> BidderHttpRequest: ...
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListBiddersResponseHttpRequest: ...
         def list_next(
             self,
@@ -216,7 +213,7 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class CreativesResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: Creative = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Creative, **kwargs: typing.Any
             ) -> CreativeHttpRequest: ...
             def get(
                 self,
@@ -224,19 +221,21 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 name: str,
                 view: typing_extensions.Literal[
                     "CREATIVE_VIEW_UNSPECIFIED", "SERVING_DECISION_ONLY", "FULL"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> CreativeHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 view: typing_extensions.Literal[
                     "CREATIVE_VIEW_UNSPECIFIED", "SERVING_DECISION_ONLY", "FULL"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListCreativesResponseHttpRequest: ...
             def list_next(
@@ -248,22 +247,18 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: Creative = ...,
-                updateMask: str = ...,
+                body: Creative,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> CreativeHttpRequest: ...
 
         @typing.type_check_only
         class UserListsResource(googleapiclient.discovery.Resource):
             def close(  # type: ignore[override]
-                self,
-                *,
-                name: str,
-                body: CloseUserListRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: CloseUserListRequest, **kwargs: typing.Any
             ) -> UserListHttpRequest: ...
             def create(
-                self, *, parent: str, body: UserList = ..., **kwargs: typing.Any
+                self, *, parent: str, body: UserList, **kwargs: typing.Any
             ) -> UserListHttpRequest: ...
             def get(
                 self, *, name: str, **kwargs: typing.Any
@@ -275,8 +270,8 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListUserListsResponseHttpRequest: ...
             def list_next(
@@ -285,14 +280,10 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
                 previous_response: ListUserListsResponse,
             ) -> ListUserListsResponseHttpRequest | None: ...
             def open(
-                self,
-                *,
-                name: str,
-                body: OpenUserListRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: OpenUserListRequest, **kwargs: typing.Any
             ) -> UserListHttpRequest: ...
             def update(
-                self, *, name: str, body: UserList = ..., **kwargs: typing.Any
+                self, *, name: str, body: UserList, **kwargs: typing.Any
             ) -> UserListHttpRequest: ...
 
         def get(self, *, name: str, **kwargs: typing.Any) -> BuyerHttpRequest: ...
@@ -300,7 +291,11 @@ class RealTimeBiddingResource(googleapiclient.discovery.Resource):
             self, *, name: str, **kwargs: typing.Any
         ) -> GetRemarketingTagResponseHttpRequest: ...
         def list(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> ListBuyersResponseHttpRequest: ...
         def list_next(
             self,

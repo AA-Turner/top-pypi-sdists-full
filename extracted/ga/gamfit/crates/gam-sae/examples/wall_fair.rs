@@ -232,7 +232,11 @@ fn number(value: &Value, key: &str) -> Result<f64, String> {
         .ok_or_else(|| format!("missing numeric field {key}"))
 }
 
-fn load_even_rows(path: &Path, take: usize, phase: u64) -> Result<(Array2<f32>, Vec<usize>), String> {
+fn load_even_rows(
+    path: &Path,
+    take: usize,
+    phase: u64,
+) -> Result<(Array2<f32>, Vec<usize>), String> {
     let mut file = File::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
     let header = read_npy_header(&mut file)?;
     let n_take = take.min(header.rows);
@@ -280,7 +284,10 @@ fn read_npy_header(file: &mut File) -> Result<NpyHeader, String> {
             .map_err(|e| format!("read v2 header len: {e}"))?;
         u32::from_le_bytes(raw) as usize
     } else {
-        return Err(format!("unsupported npy version {}.{}", version[0], version[1]));
+        return Err(format!(
+            "unsupported npy version {}.{}",
+            version[0], version[1]
+        ));
     };
     let mut header_bytes = vec![0u8; header_len];
     file.read_exact(&mut header_bytes)
@@ -495,7 +502,6 @@ fn fit_stratum(
         min_firings: 32,
         max_blocks: args.curved_blocks,
         crossfit_folds: 2,
-        alpha: 0.10,
         min_effect: 0.0,
         whitening_ridge: 1.0e-8,
         pair_screen: false,
@@ -525,7 +531,7 @@ fn fit_stratum(
                 "chart_loss": record.evidence.chart_loss,
                 "deviance_gain": record.evidence.deviance_gain,
                 "margin": record.evidence.margin,
-                "accepted": record.evidence.accepted
+                "accepted": record.evidence.fdr_selected
             })
         })
         .collect::<Vec<_>>();
@@ -554,12 +560,16 @@ fn fit_stratum(
         "curved_base_ev": curved.explained_variance,
         "flat_epochs": flat.epochs,
         "curved_epochs": curved.epochs,
-        "flat_converged": flat.converged,
-        "curved_converged": curved.converged,
+        // A returned BlockSparseFit is converged by construction now
+        // (non-convergence is a typed error); report the certificate residuals.
+        "flat_ev_residual": flat.convergence.ev_residual,
+        "curved_ev_residual": curved.convergence.ev_residual,
         "selected_blocks": composed.selected_blocks,
-        "accepted_blocks": composed.accepted_blocks,
+        // The honest discovery list is the FDR-controlled e-BH selection
+        // (#2246); the BIC gate stays available as selected_chart_blocks.
+        "accepted_blocks": composed.fdr_selected_chart_blocks,
         "n_chart_records": records.len(),
-        "n_accepted_charts": composed.accepted_blocks.len(),
+        "n_accepted_charts": composed.fdr_selected_chart_blocks.len(),
         "chart_records": records
     }))
 }
@@ -719,7 +729,9 @@ fn render_markdown(payload: &Value) -> String {
         }
     }
     out.push_str("\nPositive drop means the curved lane has a lower reconstruction floor.\n");
-    out.push_str("Curvature is the RMS chart correction energy relative to stratum target energy.\n");
+    out.push_str(
+        "Curvature is the RMS chart correction energy relative to stratum target energy.\n",
+    );
     out
 }
 

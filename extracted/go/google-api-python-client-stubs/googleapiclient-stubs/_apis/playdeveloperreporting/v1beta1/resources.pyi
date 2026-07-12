@@ -19,9 +19,9 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
             **kwargs: typing.Any,
         ) -> GooglePlayDeveloperReportingV1beta1ListAnomaliesResponseHttpRequest: ...
         def list_next(
@@ -38,7 +38,11 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
             self, *, name: str, **kwargs: typing.Any
         ) -> GooglePlayDeveloperReportingV1beta1ReleaseFilterOptionsHttpRequest: ...
         def search(
-            self, *, pageSize: int = ..., pageToken: str = ..., **kwargs: typing.Any
+            self,
+            *,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            **kwargs: typing.Any,
         ) -> (
             GooglePlayDeveloperReportingV1beta1SearchAccessibleAppsResponseHttpRequest
         ): ...
@@ -62,7 +66,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetResponseHttpRequest: ...
             def query_next(
@@ -83,7 +87,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetResponseHttpRequest: ...
             def query_next(
@@ -108,7 +112,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GooglePlayDeveloperReportingV1beta1QueryErrorCountMetricSetRequest = ...,
+                    body: GooglePlayDeveloperReportingV1beta1QueryErrorCountMetricSetRequest,
                     **kwargs: typing.Any,
                 ) -> GooglePlayDeveloperReportingV1beta1QueryErrorCountMetricSetResponseHttpRequest: ...
                 def query_next(
@@ -126,31 +130,31 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    interval_endTime_day: int = ...,
-                    interval_endTime_hours: int = ...,
-                    interval_endTime_minutes: int = ...,
-                    interval_endTime_month: int = ...,
-                    interval_endTime_nanos: int = ...,
-                    interval_endTime_seconds: int = ...,
-                    interval_endTime_timeZone_id: str = ...,
-                    interval_endTime_timeZone_version: str = ...,
-                    interval_endTime_utcOffset: str = ...,
-                    interval_endTime_year: int = ...,
-                    interval_startTime_day: int = ...,
-                    interval_startTime_hours: int = ...,
-                    interval_startTime_minutes: int = ...,
-                    interval_startTime_month: int = ...,
-                    interval_startTime_nanos: int = ...,
-                    interval_startTime_seconds: int = ...,
-                    interval_startTime_timeZone_id: str = ...,
-                    interval_startTime_timeZone_version: str = ...,
-                    interval_startTime_utcOffset: str = ...,
-                    interval_startTime_year: int = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    sampleErrorReportLimit: int = ...,
+                    filter: str | None = ...,
+                    interval_endTime_day: int | None = ...,
+                    interval_endTime_hours: int | None = ...,
+                    interval_endTime_minutes: int | None = ...,
+                    interval_endTime_month: int | None = ...,
+                    interval_endTime_nanos: int | None = ...,
+                    interval_endTime_seconds: int | None = ...,
+                    interval_endTime_timeZone_id: str | None = ...,
+                    interval_endTime_timeZone_version: str | None = ...,
+                    interval_endTime_utcOffset: str | None = ...,
+                    interval_endTime_year: int | None = ...,
+                    interval_startTime_day: int | None = ...,
+                    interval_startTime_hours: int | None = ...,
+                    interval_startTime_minutes: int | None = ...,
+                    interval_startTime_month: int | None = ...,
+                    interval_startTime_nanos: int | None = ...,
+                    interval_startTime_seconds: int | None = ...,
+                    interval_startTime_timeZone_id: str | None = ...,
+                    interval_startTime_timeZone_version: str | None = ...,
+                    interval_startTime_utcOffset: str | None = ...,
+                    interval_startTime_year: int | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    sampleErrorReportLimit: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GooglePlayDeveloperReportingV1beta1SearchErrorIssuesResponseHttpRequest: ...
                 def search_next(
@@ -168,29 +172,29 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    interval_endTime_day: int = ...,
-                    interval_endTime_hours: int = ...,
-                    interval_endTime_minutes: int = ...,
-                    interval_endTime_month: int = ...,
-                    interval_endTime_nanos: int = ...,
-                    interval_endTime_seconds: int = ...,
-                    interval_endTime_timeZone_id: str = ...,
-                    interval_endTime_timeZone_version: str = ...,
-                    interval_endTime_utcOffset: str = ...,
-                    interval_endTime_year: int = ...,
-                    interval_startTime_day: int = ...,
-                    interval_startTime_hours: int = ...,
-                    interval_startTime_minutes: int = ...,
-                    interval_startTime_month: int = ...,
-                    interval_startTime_nanos: int = ...,
-                    interval_startTime_seconds: int = ...,
-                    interval_startTime_timeZone_id: str = ...,
-                    interval_startTime_timeZone_version: str = ...,
-                    interval_startTime_utcOffset: str = ...,
-                    interval_startTime_year: int = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    interval_endTime_day: int | None = ...,
+                    interval_endTime_hours: int | None = ...,
+                    interval_endTime_minutes: int | None = ...,
+                    interval_endTime_month: int | None = ...,
+                    interval_endTime_nanos: int | None = ...,
+                    interval_endTime_seconds: int | None = ...,
+                    interval_endTime_timeZone_id: str | None = ...,
+                    interval_endTime_timeZone_version: str | None = ...,
+                    interval_endTime_utcOffset: str | None = ...,
+                    interval_endTime_year: int | None = ...,
+                    interval_startTime_day: int | None = ...,
+                    interval_startTime_hours: int | None = ...,
+                    interval_startTime_minutes: int | None = ...,
+                    interval_startTime_month: int | None = ...,
+                    interval_startTime_nanos: int | None = ...,
+                    interval_startTime_seconds: int | None = ...,
+                    interval_startTime_timeZone_id: str | None = ...,
+                    interval_startTime_timeZone_version: str | None = ...,
+                    interval_startTime_utcOffset: str | None = ...,
+                    interval_startTime_year: int | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GooglePlayDeveloperReportingV1beta1SearchErrorReportsResponseHttpRequest: ...
                 def search_next(
@@ -215,7 +219,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QueryExcessiveWakeupRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QueryExcessiveWakeupRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QueryExcessiveWakeupRateMetricSetResponseHttpRequest: ...
             def query_next(
@@ -236,7 +240,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QueryLmkRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QueryLmkRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QueryLmkRateMetricSetResponseHttpRequest: ...
             def query_next(
@@ -259,7 +263,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QuerySlowRenderingRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QuerySlowRenderingRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QuerySlowRenderingRateMetricSetResponseHttpRequest: ...
             def query_next(
@@ -282,7 +286,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QuerySlowStartRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QuerySlowStartRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QuerySlowStartRateMetricSetResponseHttpRequest: ...
             def query_next(
@@ -303,7 +307,7 @@ class PlaydeveloperreportingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GooglePlayDeveloperReportingV1beta1QueryStuckBackgroundWakelockRateMetricSetRequest = ...,
+                body: GooglePlayDeveloperReportingV1beta1QueryStuckBackgroundWakelockRateMetricSetRequest,
                 **kwargs: typing.Any,
             ) -> GooglePlayDeveloperReportingV1beta1QueryStuckBackgroundWakelockRateMetricSetResponseHttpRequest: ...
             def query_next(

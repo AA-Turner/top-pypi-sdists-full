@@ -143,6 +143,11 @@ pub use gam_identifiability as identifiability;
 pub use gam_inference as inference;
 pub use gam_linalg as linalg;
 pub use gam_models as families;
+/// Prediction, uncertainty propagation, posterior bands, and conformal calibration.
+///
+/// The implementation lives in the upper-layer `gam-predict` crate and is exposed
+/// as a namespace instead of flattening its large API into the `gam` crate root.
+pub use gam_predict as predict;
 pub mod model_types;
 /// Lower-layer outer-iteration row-subsampling/chunking primitives (RowSet,
 /// ARROW_ROW_CHUNK). Hosted at the crate root so `families` can name them
@@ -178,27 +183,6 @@ pub mod solver {
 pub mod terms {
     pub use gam_sae as sae;
     pub use gam_terms::*;
-    // #1521 carve compatibility: the SAE manifold public API used to live
-    // flatly under `gam::terms` before the manifold engine was split into the
-    // `gam-sae` crate. Roughly thirty integration tests (and downstream code)
-    // still import these types as `gam::terms::{SaeManifoldTerm, ...}`, so keep
-    // that path stable by re-exporting them from their new home. The types are
-    // all flattened onto `gam_sae::manifold` (which re-exports `assignment::*`,
-    // `basis::*`, `atom::*`, `loss::*`, `rho::*`, `term::*`). These explicit
-    // re-exports take priority over the `gam_terms::*` glob above, so there is
-    // no ambiguity with any same-named term-side item.
-    pub use gam_sae::manifold::{
-        ArdSharing, AssignmentMode, CurvatureWalkReport, EuclideanPatchEvaluator,
-        PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind, SaeBasisEvaluator,
-        SaeManifoldAtom, SaeManifoldLoss, SaeManifoldOuterObjective, SaeManifoldRho,
-        SaeManifoldTerm, SphereChartEvaluator, StagewiseEventKind, StagewiseProgress,
-        StagewiseProgressCallback, TorusHarmonicEvaluator,
-    };
-    // `LatentManifold` lives in `gam_terms::latent` and is not surfaced at the
-    // `gam_terms` root, so the `gam_terms::*` glob does not bring it to the flat
-    // `gam::terms::LatentManifold` path (only `gam::terms::latent::LatentManifold`).
-    // Several manifold tests/examples import the flat path; restore it.
-    pub use gam_terms::latent::LatentManifold;
 }
 /// Shared test-support helpers (FD harness, fixtures, reference-tool + CLI
 /// harnesses) carved into the `gam-test-support` crate under #1521 so the
@@ -252,8 +236,8 @@ pub use solver::estimate::reml::reml_outer_engine::PenaltySubspaceTrace;
 // `SharedBorderTopology` (`new` for a named border set, `disjoint` /
 // `fully_coupled` for the two extremes).
 pub use gam_problem::{
-    DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval,
-    OuterHessianMaterialization, OuterHessianOperator, OuterStrategyError,
+    DeclaredHessianForm, Derivative, EfsEval, HessianMaterialization, HessianOperator,
+    HessianValue, ObjectiveEvalError, OuterEval, OuterStrategyError,
 };
 pub use gam_runtime::resource::{
     ByteLruCache, DerivativeStorageMode, MaterializationPolicy, MatrixMaterializationError,
@@ -333,6 +317,7 @@ pub use gam_models::fit_orchestration::{
     TransformationNormalFitRequest, WorkflowError, constant_curvature_profiled_reml_scores,
     fit_from_formula, fit_model, fit_residual_cascade_from_formula, fit_spline_scan_from_formula,
     is_binary_response, materialize, prepare_survival_time_stack, residual_cascade_fast_path,
-    resolve_family, resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
+    resolve_family, resolve_offset_column, resolve_weight_column, response_column_kind,
+    spline_scan_fast_path,
 };
 pub use gpu::GpuDeviceInfo;

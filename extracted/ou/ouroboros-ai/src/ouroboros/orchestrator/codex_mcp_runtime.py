@@ -34,7 +34,6 @@ from ouroboros.codex.cli_policy import build_codex_child_env, resolve_codex_cli_
 from ouroboros.config import get_codex_cli_path
 from ouroboros.mcp.types import MCPServerConfig, TransportType
 from ouroboros.observability.logging import get_logger
-from ouroboros.orchestrator.adapter import ParamSupport
 from ouroboros.orchestrator.codex_mcp_session_pool import (
     DEFAULT_SESSION_IDLE_TIMEOUT,
     MCPSessionActor,
@@ -59,6 +58,7 @@ _CODEX_REASONING_EFFORT_LEVELS: frozenset[str] = frozenset(
 # Codex sandbox / approval-policy values accepted by the ``codex`` MCP tool.
 _SANDBOX_READ_ONLY = "read-only"
 _SANDBOX_WORKSPACE_WRITE = "workspace-write"
+_SANDBOX_DANGER_FULL_ACCESS = "danger-full-access"
 # Permission modes that should keep the worker read-only (it must not edit files).
 _READ_ONLY_PERMISSION_MODES = frozenset({"read-only", "plan", "default", "ask"})
 
@@ -77,13 +77,16 @@ _RECURSION_GUARD_DISABLED_MCP_SERVERS: tuple[str, ...] = ("ouroboros",)
 def _map_permission_mode(permission_mode: str | None) -> tuple[str, str]:
     """Map ouroboros ``permission_mode`` → codex ``(sandbox, approval-policy)``.
 
-    Defaults to autonomous workspace-write (an execution worker writes code), and
-    NEVER ``danger-full-access`` — Codex's own sandbox governs the worker. A
-    read-only-leaning mode keeps the worker from editing.
+    Defaults to autonomous workspace-write (an execution worker writes code).
+    Explicit ``bypassPermissions`` removes both approvals and the sandbox, matching
+    the Codex CLI runtime's native unrestricted mapping. A read-only-leaning mode
+    keeps the worker from editing.
     """
     normalized = (permission_mode or "").strip().lower()
     if normalized in _READ_ONLY_PERMISSION_MODES:
         return _SANDBOX_READ_ONLY, "on-request"
+    if normalized == "bypasspermissions":
+        return _SANDBOX_DANGER_FULL_ACCESS, "never"
     return _SANDBOX_WORKSPACE_WRITE, "never"
 
 
@@ -229,7 +232,18 @@ class CodexMcpWorkerTransport:
             await actor.aclose()
         return turn
 
-    async def resume(self, *, session_id: str, prompt: str) -> WorkerTurn:
+    async def resume(
+        self,
+        *,
+        session_id: str,
+        prompt: str,
+        permission_mode: str | None = None,
+        model: str | None = None,
+        reasoning_effort: str | None = None,
+    ) -> WorkerTurn:
+        # ``codex-reply`` accepts neither control. Keep the provider-neutral
+        # transport contract without smuggling unsupported arguments into MCP.
+        del permission_mode, model, reasoning_effort
         actor = self._pool.get(session_id)
         if actor is None or not actor.is_alive:
             # The warm session was reaped (idle TTL / closed) — process-bound
@@ -285,8 +299,17 @@ def build_codex_mcp_worker_runtime(
         cwd=cwd,
         permission_mode=permission_mode,
         model=model,
-        reasoning_effort_support=ParamSupport.NATIVE,
-        enforceable_reasoning_efforts=_CODEX_REASONING_EFFORT_LEVELS,
+        # A fresh ``codex`` call accepts model_reasoning_effort, but the warm
+        # ``codex-reply`` resume leg cannot retarget it. The capability describes
+        # the whole per-call runtime contract, so claiming NATIVE would make
+        # resumed rows falsely appear enforced; retain the truthful IGNORED
+        # default, matching model_override_support below.
+        # model_override_support is intentionally left at its IGNORED default: a
+        # per-call model can be pinned only at thread creation (the ``codex`` call),
+        # but ``codex-reply`` (this runtime's resume path) has no model argument, so
+        # a warm thread cannot be re-targeted mid-session. Declaring NATIVE would be
+        # a lie for the resume leg, so the runtime honestly opts out — mirroring how
+        # it declines targeted_resume for the same process-bound reason.
         # codex mcp-server sessions are PROCESS-BOUND (in-memory threadId,
         # addressable only by the SAME server process) and the warm pool is
         # aclose()d after each parallel run, so a persisted RuntimeHandle is

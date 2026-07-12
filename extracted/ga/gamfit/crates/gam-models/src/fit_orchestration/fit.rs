@@ -1,4 +1,5 @@
 use super::*;
+use opt::{RidgeSchedule, escalate_ridge};
 
 pub(crate) fn survival_inverse_link_has_free_parameters(link: &InverseLink) -> bool {
     match link {
@@ -57,19 +58,84 @@ const SURVIVAL_TRANSFORMATION_PIRLS_MAX_STEP_HALVING: usize = 40;
 
 const SURVIVAL_TRANSFORMATION_PIRLS_MIN_STEP_SIZE: f64 = 1e-12;
 
-/// High finite LAML cost returned for an outer smoothing candidate whose inner
-/// constrained I-spline PIRLS failed to converge (gam#1123). It must be large
-/// enough to dominate any genuine LAML value at a fittable ρ (the survival LAML
-/// is O(deviance) ~ O(n·log) — a few thousand here) so the outer optimizer always
-/// prefers a converged region, yet finite so the line search treats it as a
-/// recoverable bad step (a backtrack) rather than aborting on a non-finite cost.
-const SURVIVAL_TRANSFORMATION_NONCONVERGED_TRIAL_COST: f64 = 1e12;
-
 struct SurvivalLocationScaleProfile {
     fit: SurvivalLocationScaleTermFitResult,
     inverse_link: InverseLink,
     wiggle_knots: Option<Array1<f64>>,
     wiggle_degree: Option<usize>,
+}
+
+fn survival_pirls_status_is_certified(status: gam_solve::pirls::PirlsStatus) -> bool {
+    status.is_converged()
+}
+
+fn require_certified_survival_pirls(
+    summary: &gam_solve::pirls::WorkingModelPirlsResult,
+    context: &str,
+    parameter_checkpoint: &[f64],
+    durable_checkpoint_key: Option<&str>,
+) -> Result<(), String> {
+    if survival_pirls_status_is_certified(summary.status) {
+        return Ok(());
+    }
+    Err(format!(
+        "{context} did not produce a strict PIRLS convergence certificate \
+         (status={:?}, iterations={}, projected_gradient_norm={:.6e}, \
+         deviance={:.6e}, min_penalized_deviance={:.6e}, last_step_size={:.6e}, \
+         last_step_halving={}, parameter_checkpoint={parameter_checkpoint:?}{}). The accepted \
+         iterate is checkpoint evidence only; no fit was minted.",
+        summary.status,
+        summary.iterations,
+        summary.lastgradient_norm,
+        summary.state.deviance,
+        summary.min_penalized_deviance,
+        summary.last_step_size,
+        summary.last_step_halving,
+        durable_checkpoint_key
+            .map(|key| format!(", durable_checkpoint_key={key}"))
+            .unwrap_or_default(),
+    ))
+}
+
+/// Encode a nonlinear baseline candidate in the exact coordinates consumed by
+/// its outer optimizer, so non-convergence evidence can be passed back as a
+/// directly resumable checkpoint rather than as raw distribution parameters.
+fn survival_baseline_parameter_checkpoint(
+    config: &crate::survival::construction::SurvivalBaselineConfig,
+) -> Result<Vec<f64>, String> {
+    let required = |name: &str, value: Option<f64>| {
+        value
+            .filter(|candidate| candidate.is_finite())
+            .ok_or_else(|| format!("survival baseline checkpoint is missing finite {name}"))
+    };
+    let positive_log = |name: &str, value: Option<f64>| {
+        let value = required(name, value)?;
+        if value > 0.0 {
+            Ok(value.ln())
+        } else {
+            Err(format!(
+                "survival baseline checkpoint requires positive {name}, got {value}"
+            ))
+        }
+    };
+
+    use crate::survival::construction::SurvivalBaselineTarget;
+    match config.target {
+        SurvivalBaselineTarget::Linear => Ok(Vec::new()),
+        SurvivalBaselineTarget::Weibull => Ok(vec![
+            positive_log("Weibull scale", config.scale)?,
+            positive_log("Weibull shape", config.shape)?,
+        ]),
+        SurvivalBaselineTarget::Gompertz => Ok(vec![
+            positive_log("Gompertz rate", config.rate)?,
+            required("Gompertz shape", config.shape)?,
+        ]),
+        SurvivalBaselineTarget::GompertzMakeham => Ok(vec![
+            positive_log("Gompertz-Makeham rate", config.rate)?,
+            required("Gompertz-Makeham shape", config.shape)?,
+            positive_log("Gompertz-Makeham makeham", config.makeham)?,
+        ]),
+    }
 }
 
 impl SurvivalLocationScaleProfile {
@@ -99,325 +165,37 @@ fn resolved_wiggle_inverse_link(
     Ok(resolved)
 }
 
-fn deviation_block_config_from_formula_linkwiggle(
-    wiggle: &LinkWiggleFormulaSpec,
-) -> Result<DeviationBlockConfig, String> {
-    // #384: the score-warp / link-deviation block is realized by the
-    // structurally *cubic* I-spline `DeviationRuntime` (see
-    // `build_deviation_block_from_knots_and_design_seed` in `bms::family`):
-    // its span tables, C2-continuous construction, and derivative operators
-    // are all hard-wired to cubic, so the only realizable `degree` is 3. The
-    // shared formula parser intentionally stays general (it also feeds the
-    // arbitrary-degree `timewiggle` / location-scale monotone basis), so the
-    // cubic-only contract is enforced here, at the routing boundary that feeds
-    // this runtime — up front, instead of failing deep inside the fit after
-    // expensive setup with a cryptic "degree must be 3" IntegrationError. The
-    // CLI routing twin (`gam-cli::main::model_build`) applies the same guard.
-    if wiggle.degree != 3 {
-        return Err(format!(
-            "linkwiggle() degree must be 3 when routed into the score-warp / \
-             link-deviation block: that runtime is a cubic I-spline and only \
-             supports cubic splines; got degree={}",
-            wiggle.degree
-        ));
-    }
-    let defaults = WigglePenaltyConfig::cubic_triple_operator_default();
-    Ok(DeviationBlockConfig {
-        degree: wiggle.degree,
-        num_internal_knots: wiggle.num_internal_knots,
-        penalty_order: *wiggle.penalty_orders.iter().max().unwrap_or(&2),
-        penalty_orders: wiggle.penalty_orders.clone(),
-        double_penalty: wiggle.double_penalty,
-        monotonicity_eps: defaults.monotonicity_eps,
-    })
-}
-
-#[derive(Debug)]
-pub(crate) struct MarginalSlopeDeviationRouting {
-    pub(crate) score_warp: Option<DeviationBlockConfig>,
-    pub(crate) link_dev: Option<DeviationBlockConfig>,
-}
-
-pub(crate) fn route_marginal_slope_deviation_blocks(
-    main_linkwiggle: Option<&LinkWiggleFormulaSpec>,
-    logslope_linkwiggle: Option<&LinkWiggleFormulaSpec>,
-) -> Result<MarginalSlopeDeviationRouting, String> {
-    Ok(MarginalSlopeDeviationRouting {
-        score_warp: logslope_linkwiggle
-            .map(deviation_block_config_from_formula_linkwiggle)
-            .transpose()?,
-        link_dev: main_linkwiggle
-            .map(deviation_block_config_from_formula_linkwiggle)
-            .transpose()?,
-    })
-}
-
-pub(crate) fn fixed_gaussian_shift_frailty_from_spec(
-    frailty: &FrailtySpec,
-    context: &str,
-) -> Result<FrailtySpec, String> {
-    match frailty {
-        FrailtySpec::None => Ok(FrailtySpec::None),
-        FrailtySpec::GaussianShift {
-            sigma_fixed: Some(sigma),
-        } => Ok(FrailtySpec::GaussianShift {
-            sigma_fixed: Some(*sigma),
-        }),
-        FrailtySpec::GaussianShift { sigma_fixed: None } => Err(WorkflowError::MissingDependency {
-            reason: format!("{context} currently requires a fixed GaussianShift sigma"),
-        }
-        .into()),
-        FrailtySpec::HazardMultiplier { .. } => Err(WorkflowError::MissingDependency {
-            reason: format!("{context} requires FrailtySpec::GaussianShift or no frailty"),
-        }
-        .into()),
-    }
-}
-
-/// #1788: neutralize a self-contradictory penalized-EDF report on a stalled
-/// standard fit, reusing the `untrusted_edf_collapse` guard the smooth-term LR
-/// path already applies (`drivers::spatial_optimization::
-/// smooth_term_lr_inference_forspec`).
-///
-/// When the outer REML optimizer STALLS at its iteration cap it can rail every
-/// smooth block's `λ` to its ceiling (~1e5–1e13) and return an INCONSISTENT
-/// state: the coefficients (from the inner P-IRLS solve) stay wiggly and predict
-/// the response with dozens of active columns, yet the influence / trace-channel
-/// EDF assembled at that divergent outer iterate collapses —
-/// `Σ_k λ_k·tr(H⁻¹S_k) → Σ block_cols`, so each smooth term's `tr(F) → 0` and
-/// `edf_total → p − Σ block_cols = mp`, the intercept-only floor (~1.0). A genuine
-/// penalized least-squares solution cannot pair large `β` with `tr(F) ≈ 0`, so
-/// that reported EDF is untrustworthy; shipping it verbatim reports
-/// `edf_total ≈ 1.0` with every per-term smooth EDF `= 0` for a well-fitting
-/// model, silently violating EDF additivity and hiding the non-convergence on the
-/// EDF channel (#1788).
-///
-/// The trigger is the SAME NARROW `untrusted_edf_collapse` fingerprint that guard
-/// uses: NON-convergence AND a per-term influence EDF collapsed BELOW the term's
-/// guaranteed joint unpenalized (null-space) floor `wald_unpenalized_dim` — the
-/// direction no penalty can shrink, so a present term cannot honestly read below
-/// it. On a matching term the trustworthy substitute is the dimension floor (the
-/// term's full basis rank — the maximally-honest EDF for an untrusted term that
-/// may occupy up to all its columns), exactly as the LR path floors its reference
-/// d.f. The corrected per-term EDF is written to the additive `edf_by_block` /
-/// `penalty_block_trace` channel, `edf_total` is re-derived additively, and the
-/// now-untrustworthy influence matrix is dropped so `per_term_edf` reports the
-/// SAME corrected additive value (rather than re-reading the collapsed `F`). A
-/// HEALTHY non-converged fit (the null-space double-penalty λ routinely rails on
-/// good `te`/multi-term fits) keeps its trustworthy EDF untouched, because its
-/// per-term EDF never falls below the floor. The underlying flat-valley REML
-/// stall itself is #1762 (out of scope); this only keeps the REPORTED EDF from
-/// contradicting the fitted coefficients and surfaces the non-convergence rather
-/// than leaving the collapse silent.
-fn guard_untrusted_edf_collapse(
-    fit: &mut UnifiedFitResult,
-    design: &TermCollectionDesign,
-    n_obs: usize,
-) {
-    if fit.outer_converged {
-        return;
-    }
-    // Dispersion rescale factor to apply after the `inference` borrow ends: the
-    // corrected effective d.f. changes `σ̂² = RSS/(n − edf_total)`, and every
-    // dispersion-linked covariance block (top-level AND inference) must scale by
-    // it together. We compute it while holding the `inference` borrow (it needs
-    // the old/new EDF) but apply it through the single invariant-preserving
-    // `UnifiedFitResult::rescale_estimated_dispersion` afterwards, so the two
-    // redundant covariance representations can never drift apart (#1789).
-    let mut pending_var_ratio = 1.0_f64;
-    // Reporting state hoisted out of the `inference` borrow so the single
-    // non-convergence warning can be emitted AFTER the dispersion rescale below
-    // and thus quote the σ̂ ratio that rescale actually applied.
-    let mut corrected_any = false;
-    let mut correction_note = String::new();
-    let edf_total_before;
-    let mut corrected_total = 0.0_f64;
-    {
-    let Some(inference) = fit.inference.as_mut() else {
-        return;
-    };
-    edf_total_before = inference.edf_total;
-    // Penalty-block cursor walks the recorded global block order: any leading
-    // linear ridge and penalized random-effect ridge blocks first, then smooth
-    // terms (mirrors `smooth_term_lr_inference_forspec` and the
-    // `build_model_summary` per-term EDF walk).
-    let mut penalty_cursor = design.leading_penalty_blocks_before_smooth();
-    // Running change to `Σ edf_by_block`. `edf_total` carries an additional
-    // `mp = p − Σ rank_k` offset for the UNPENALIZED columns (e.g. the intercept),
-    // so it is NOT `Σ edf_by_block`; applying the same delta preserves that offset.
-    let mut edf_delta = 0.0_f64;
-    for design_term in design.smooth.terms.iter() {
-        let k = design_term.penalties_local.len();
-        let block_start = penalty_cursor;
-        penalty_cursor += k;
-        // Shape-constrained smooths use a cone-projected EDF; leave them alone
-        // (the LR path skips them for the same reason).
-        if design_term.shape != gam_terms::smooth::ShapeConstraint::None {
-            continue;
-        }
-        let coeff_range = design_term.coeff_range.clone();
-        if coeff_range.start >= coeff_range.end {
-            continue;
-        }
-        let block_cols = coeff_range.len();
-        // Influence-matrix per-term EDF `tr(F)` over the term's block — the same
-        // authoritative quantity the summary per-term-EDF path reads.
-        let edf = fit_inference_per_term_edf(inference, &coeff_range, block_start, k);
-        // The term's joint unpenalized null-space dimension `dim(∩_k null(S_k))`:
-        // the coefficient directions no active penalty can shrink. A term that is
-        // present cannot honestly read an EDF below this floor.
-        let edf_floor = design_term.wald_unpenalized_dim().max(1) as f64;
-        if edf < edf_floor {
-            // Substitute the dimension floor via the ADDITIVE channel: the term's
-            // first block carries the full basis rank; any trailing blocks of the
-            // same coefficient range carry 0 (matching `per_term_edf`'s
-            // single-range accounting) and their traces go to 0.
-            let mut old_block_sum = 0.0_f64;
-            if let Some(slot) = inference.edf_by_block.get_mut(block_start) {
-                old_block_sum += *slot;
-                *slot = block_cols as f64;
-            }
-            if let Some(slot) = inference.penalty_block_trace.get_mut(block_start) {
-                *slot = 0.0;
-            }
-            for extra in (block_start + 1)..(block_start + k) {
-                if let Some(slot) = inference.edf_by_block.get_mut(extra) {
-                    old_block_sum += *slot;
-                    *slot = 0.0;
-                }
-                if let Some(slot) = inference.penalty_block_trace.get_mut(extra) {
-                    *slot = 0.0;
-                }
-            }
-            edf_delta += block_cols as f64 - old_block_sum;
-            corrected_any = true;
-            correction_note.push_str(&format!(
-                " term[{}..{}] edf {edf:.3}->{block_cols}",
-                coeff_range.start, coeff_range.end
-            ));
-        }
-    }
-    if corrected_any {
-        // Apply the per-block correction delta to the total (preserving its `mp`
-        // unpenalized-column offset), then drop the untrustworthy influence matrix
-        // so `per_term_edf` reports the SAME corrected additive value (its
-        // resolution prefers `F` when present).
-        inference.edf_total += edf_delta;
-        corrected_total = inference.edf_total;
-        inference.coefficient_influence = None;
-
-        // Keep the estimated dispersion consistent with the corrected effective
-        // d.f.: for an estimated-scale fit the reported scale is `σ̂² =
-        // RSS/(n − edf_total)` and the coefficient covariance is `Vb = H⁻¹·σ̂²`
-        // (with SEs `sqrt(diag Vb)`). The collapsed `edf_total ≈ mp` inflated
-        // `n − edf_total`, biasing `σ̂²` LOW; leaving it stale after raising
-        // `edf_total` would re-introduce a contradiction (`σ̂² ≠
-        // RSS/(n − edf_total)`). Because `RSS` is invariant under this EDF
-        // correction, `σ̂²_new = σ̂²_old·(n − edf_old)/(n − edf_new)` is an EXACT
-        // scalar rescale, and `Vb`/`Vp`/SEs scale by the same ratio (they are
-        // linear in `σ̂²` / `σ̂`). We only record the ratio here (the actual
-        // covariance rescale, gated on an estimated scale, happens below via the
-        // single method that touches BOTH covariance representations at once —
-        // see `pending_var_ratio`).
-        let denom_old = (n_obs as f64 - edf_total_before).max(1.0);
-        let denom_new = (n_obs as f64 - corrected_total).max(1.0);
-        pending_var_ratio = denom_old / denom_new;
-    }
-    }
-    if !corrected_any {
-        return;
-    }
-    // Apply the dispersion rescale outside the `inference` borrow, through the
-    // single invariant-preserving method: it scales `σ̂`, both top-level
-    // covariance blocks, and the paired inference-block covariances/SEs by the
-    // same factor (and is a no-op for a fixed/`Known` scale). This is what keeps
-    // `covariance_conditional == inference.beta_covariance` after the correction
-    // so the returned model still passes `validate()` on predict/summary/load
-    // (#1789); the previous inline rescale updated only the inference block and
-    // produced an unusable model.
-    //
-    // The method returns the σ̂ ratio it applied: `√pending_var_ratio` for an
-    // estimated-scale fit whose SEs/covariance genuinely moved, or exactly `1.0`
-    // for a fixed-scale family (`φ ≡ 1`) whose covariance does not embed σ̂² and
-    // so must not move under an EDF change. Reporting that factor makes the
-    // downstream consequence of the correction — that the returned standard
-    // errors were rescaled, and by how much — explicit in the non-convergence
-    // warning instead of leaving it silent.
-    let sigma_ratio = fit.rescale_estimated_dispersion(pending_var_ratio);
-    log::warn!(
-        "[edf#1788] outer REML did not converge (railed smoothing parameters); the \
-         influence EDF collapsed to the intercept-only floor while the fitted \
-         coefficients remain wiggly. Substituted the per-term dimension floor so the \
-         reported EDF is not self-contradictory (edf_total {edf_total_before:.3}->\
-         {corrected_total:.3}).{correction_note} Standard errors and covariance rescaled \
-         by ×{sigma_ratio:.4} to keep σ̂² = RSS/(n − edf_total) consistent with the \
-         corrected effective d.f. The fit is NON-CONVERGED (see #1762); treat its \
-         inference accordingly."
-    );
-}
-
-/// Read-only per-term EDF over `coeff_range` from a [`FitInference`], mirroring
-/// [`UnifiedFitResult::per_term_edf`] but operating on the inference block alone
-/// (so the #1788 guard can consult it while holding a `&mut` borrow of the same
-/// inference): influence-matrix trace when available, else the additive
-/// `|coeff_range| − Σ tr_kk` trace channel.
-fn fit_inference_per_term_edf(
-    inference: &gam_solve::estimate::FitInference,
-    coeff_range: &std::ops::Range<usize>,
-    penalty_cursor: usize,
-    k: usize,
-) -> f64 {
-    let dim = coeff_range.len() as f64;
-    if let Some(f) = inference.coefficient_influence.as_ref()
-        && coeff_range.end <= f.nrows()
-        && coeff_range.end <= f.ncols()
-    {
-        let tr = coeff_range.clone().map(|j| f[[j, j]]).sum::<f64>();
-        return tr.clamp(0.0, dim);
-    }
-    if k == 0 {
-        return dim;
-    }
-    if let Some(block) = inference
-        .penalty_block_trace
-        .get(penalty_cursor..penalty_cursor + k)
-    {
-        let sum_trace = block.iter().sum::<f64>();
-        return (dim - sum_trace).clamp(0.0, dim);
-    }
-    inference
-        .edf_by_block
-        .get(penalty_cursor..penalty_cursor + k)
-        .map(|block| block.iter().sum::<f64>().clamp(0.0, dim))
-        .unwrap_or(0.0)
-}
-
 /// Run the base standard fit (the three-way latent / coefficient-group /
 /// spatial dispatch) at an explicit [`FitOptions`], leaving the caller's
 /// `request.options` untouched. Split out of [`fit_standard_model`] so the
 /// #1762 near-separation Firth fallback can re-run the identical fit with the
 /// Jeffreys penalty enabled without duplicating the dispatch.
+type StandardBaseFit = crate::fit_orchestration::drivers::FittedTermCollectionWithSpec;
+
 fn fit_standard_base(
     request: &StandardFitRequest<'_>,
     family: &LikelihoodSpec,
     options: &FitOptions,
-) -> Result<crate::fit_orchestration::drivers::FittedTermCollectionWithSpec, String> {
+) -> Result<StandardBaseFit, gam_solve::estimate::EstimationError> {
     if let Some(latent_coord) = request.latent_coord.as_ref() {
         if !request.coefficient_groups.is_empty() || !request.penalty_block_gamma_priors.is_empty()
         {
-            return Err("latent-coordinate standard fits do not support coefficient_groups or penalty_block_gamma_priors in the same request".to_string());
+            return Err(gam_solve::estimate::EstimationError::InvalidInput(
+                "latent-coordinate standard fits do not support coefficient_groups or \
+                 penalty_block_gamma_priors in the same request"
+                    .to_string(),
+            ));
         }
         fit_term_collectionwith_latent_coord_optimization(
             request.data.view(),
-            request.y.clone(),
-            request.weights.clone(),
-            request.offset.clone(),
+            request.y.as_ref().clone(),
+            request.weights.as_ref().clone(),
+            request.offset.as_ref().clone(),
             &request.spec,
             latent_coord,
             family.clone(),
             options,
         )
-        .map_err(|e| e.to_string())
     } else if !request.coefficient_groups.is_empty()
         || !request.penalty_block_gamma_priors.is_empty()
     {
@@ -431,30 +209,114 @@ fn fit_standard_base(
             &request.penalty_block_gamma_priors,
             family.clone(),
             options,
+        )?;
+        let resolvedspec = crate::fit_orchestration::drivers::freeze_term_collection_from_design(
+            &request.spec,
+            &fitted.design,
+        )?;
+        Ok(
+            crate::fit_orchestration::drivers::FittedTermCollectionWithSpec {
+                fit: fitted.fit,
+                design: fitted.design,
+                resolvedspec,
+                adaptive_diagnostics: fitted.adaptive_diagnostics,
+                kappa_timing: None,
+            },
         )
-        .map_err(|e| e.to_string())?;
-        let resolvedspec =
-            crate::fit_orchestration::drivers::freeze_term_collection_from_design(&request.spec, &fitted.design)
-                .map_err(|e| e.to_string())?;
-        Ok(crate::fit_orchestration::drivers::FittedTermCollectionWithSpec {
-            fit: fitted.fit,
-            design: fitted.design,
-            resolvedspec,
-            adaptive_diagnostics: fitted.adaptive_diagnostics,
-            kappa_timing: None,
-        })
     } else {
         fit_term_collectionwith_spatial_length_scale_optimization(
             request.data.view(),
-            request.y.clone(),
-            request.weights.clone(),
-            request.offset.clone(),
+            request.y.as_ref().clone(),
+            request.weights.as_ref().clone(),
+            request.offset.as_ref().clone(),
             &request.spec,
             family.clone(),
             options,
             &request.kappa_options,
         )
-        .map_err(|e| e.to_string())
+    }
+}
+
+fn firth_can_rescue(error: &gam_solve::estimate::EstimationError) -> bool {
+    use gam_solve::estimate::EstimationError;
+    error.is_inner_solve_retreat()
+        || matches!(
+            error,
+            EstimationError::PrefitPerfectSeparationDetected { .. }
+                | EstimationError::PrefitLinearSeparationDetected { .. }
+                | EstimationError::RemlDidNotConverge { .. }
+        )
+}
+
+fn certified_retry_or_original<T, E>(original: E, retry: Result<T, E>) -> Result<T, E> {
+    match retry {
+        Ok(value) => Ok(value),
+        Err(_) => Err(original),
+    }
+}
+
+#[cfg(test)]
+mod standard_convergence_gate_tests {
+    use super::{
+        certified_retry_or_original, firth_can_rescue, survival_baseline_parameter_checkpoint,
+        survival_pirls_status_is_certified,
+    };
+    use crate::survival::construction::{SurvivalBaselineConfig, SurvivalBaselineTarget};
+    use gam_solve::estimate::EstimationError;
+    use gam_solve::pirls::PirlsStatus;
+
+    #[test]
+    fn failed_retry_returns_original_evidence() {
+        let result = certified_retry_or_original::<(), _>("base evidence", Err("retry evidence"));
+        assert_eq!(result, Err("base evidence"));
+        assert_eq!(
+            certified_retry_or_original("base evidence", Ok::<_, &str>(7)),
+            Ok(7)
+        );
+    }
+
+    #[test]
+    fn survival_gate_rejects_every_exhausted_or_stalled_status() {
+        assert!(survival_pirls_status_is_certified(PirlsStatus::Converged));
+        for status in [
+            PirlsStatus::StalledAtValidMinimum,
+            PirlsStatus::MaxIterationsReached,
+            PirlsStatus::LmStepSearchExhausted,
+            PirlsStatus::Unstable,
+        ] {
+            assert!(!survival_pirls_status_is_certified(status));
+        }
+    }
+
+    #[test]
+    fn survival_baseline_checkpoint_matches_outer_coordinates() {
+        let checkpoint = survival_baseline_parameter_checkpoint(&SurvivalBaselineConfig {
+            target: SurvivalBaselineTarget::GompertzMakeham,
+            scale: None,
+            shape: Some(-0.25),
+            rate: Some(2.0),
+            makeham: Some(4.0),
+        })
+        .expect("valid baseline checkpoint");
+        assert_eq!(checkpoint, vec![2.0_f64.ln(), -0.25, 4.0_f64.ln()]);
+    }
+
+    #[test]
+    fn firth_retry_is_limited_to_separation_and_nonconvergence() {
+        assert!(firth_can_rescue(&EstimationError::PirlsDidNotConverge {
+            max_iterations: 20,
+            last_change: 1.0,
+        }));
+        assert!(firth_can_rescue(
+            &EstimationError::PrefitPerfectSeparationDetected {
+                column_index: 0,
+                threshold: 0.0,
+                positive_above_threshold: true,
+            }
+        ));
+        assert!(!firth_can_rescue(&EstimationError::InvalidInput(
+            "structural mismatch".to_string()
+        )));
     }
 }
 
@@ -483,10 +345,7 @@ fn tweedie_profile_loglik(request: &StandardFitRequest<'_>, p: f64) -> Option<f6
     if !gam_spec::is_valid_tweedie_power(p) {
         return None;
     }
-    let family = LikelihoodSpec::new(
-        ResponseFamily::Tweedie { p },
-        request.family.link.clone(),
-    );
+    let family = LikelihoodSpec::new(ResponseFamily::Tweedie { p }, request.family.link.clone());
     // `apply` is the `LinearOperator` trait method used to rebuild the fitted
     // linear predictor from the design and coefficients.
     use gam_linalg::matrix::LinearOperator;
@@ -498,7 +357,7 @@ fn tweedie_profile_loglik(request: &StandardFitRequest<'_>, p: f64) -> Option<f6
     if mu.len() != request.y.len() {
         return None;
     }
-    mu += &request.offset;
+    mu += request.offset.as_ref();
     mu.mapv_inplace(f64::exp);
     // Profile the dispersion out at this `p` with the SAME prior-weighted Pearson
     // moment estimator the inner solver uses to report the Tweedie `φ̂`
@@ -512,12 +371,7 @@ fn tweedie_profile_loglik(request: &StandardFitRequest<'_>, p: f64) -> Option<f6
     const PHI_MAX: f64 = 1e12;
     let mut weighted_pearson = 0.0_f64;
     let mut total_weight = 0.0_f64;
-    for ((&yi, &mui), &wi) in request
-        .y
-        .iter()
-        .zip(mu.iter())
-        .zip(request.weights.iter())
-    {
+    for ((&yi, &mui), &wi) in request.y.iter().zip(mu.iter()).zip(request.weights.iter()) {
         let wi = wi.max(0.0);
         if wi == 0.0 {
             continue;
@@ -628,8 +482,6 @@ pub(crate) fn fit_standard_model(
         request.estimate_tweedie_p = false;
     }
 
-    let base = fit_standard_base(&request, &request.family, &request.options);
-
     // #1762: near-perfect linear separation drives the binomial-logit REML/ARC
     // outer optimizer into a FLAT-VALLEY STALL. As the fit approaches
     // separation the coefficients want to run to infinity, the PIRLS working
@@ -642,57 +494,62 @@ pub(crate) fn fit_standard_model(
     // remedy: it bounds the coefficients and keeps the working weights from
     // collapsing, so the inner solve is well conditioned at every λ and the
     // outer optimizer certifies quickly. Retry ONCE with Firth when a plain
-    // binomial-logit fit fails to converge (non-converged OR errored), and adopt
-    // it only if it actually converges — otherwise the honest non-converged base
-    // fit (or its original error) is preserved. This is a no-op on the
-    // overwhelming majority of fits, which converge on the first pass.
+    // binomial-logit fit fails with typed separation/non-convergence evidence,
+    // and adopt it only if the retry itself carries both inner and outer
+    // convergence certificates. If the retry fails, return the ORIGINAL base
+    // error unchanged; a failed rescue can never replace its evidence or mint
+    // the abandoned base iterate. Structural errors are not Firth-retryable.
     let is_binomial_logit = matches!(request.family.response, ResponseFamily::Binomial)
-        && matches!(request.family.link, InverseLink::Standard(StandardLink::Logit));
-    let base_needs_rescue = match &base {
-        Ok(f) => !f.fit.outer_converged,
-        Err(_) => true,
-    };
-    let mut fitted = if is_binomial_logit
-        && !request.options.firth_bias_reduction
-        && base_needs_rescue
-    {
-        let mut firth_options = request.options.clone();
-        firth_options.firth_bias_reduction = true;
-        match fit_standard_base(&request, &request.family, &firth_options) {
-            Ok(firth_fitted) if firth_fitted.fit.outer_converged => {
-                log::info!(
-                    "[#1762] binomial-logit fit did not converge (near-separation flat-valley \
-                     stall); Firth bias-reduction retry converged — adopting the Firth fit \
-                     (base edf {:.2}, Firth edf {:.2}).",
-                    base.as_ref().ok().map_or(f64::NAN, |f| f.fit.edf_total().unwrap_or(f64::NAN)),
-                    firth_fitted.fit.edf_total().unwrap_or(f64::NAN),
-                );
-                firth_fitted
-            }
-            _ => {
-                log::warn!(
-                    "[#1762] binomial-logit fit did not converge and the Firth retry did not \
-                     certify convergence; keeping the base result."
-                );
-                base?
+        && matches!(
+            request.family.link,
+            InverseLink::Standard(StandardLink::Logit)
+        );
+    let base = fit_standard_base(&request, &request.family, &request.options);
+    let fitted = match base {
+        Ok(fitted) => fitted,
+        Err(original_error)
+            if is_binomial_logit
+                && !request.options.firth_bias_reduction
+                && firth_can_rescue(&original_error) =>
+        {
+            let original_report = original_error.to_string();
+            let mut firth_options = request.options.clone();
+            firth_options.firth_bias_reduction = true;
+            let firth = fit_standard_base(&request, &request.family, &firth_options);
+            let firth_failure = firth.as_ref().err().map(ToString::to_string);
+            match certified_retry_or_original(original_error, firth) {
+                Ok(firth_fitted) => {
+                    log::info!(
+                        "[#1762] binomial-logit base fit failed with retryable \
+                         separation/non-convergence evidence ({original_report}); Firth \
+                         bias-reduction retry certified — adopting it (Firth edf {:.2}).",
+                        firth_fitted.fit.edf_total().unwrap_or(f64::NAN),
+                    );
+                    firth_fitted
+                }
+                Err(original_error) => {
+                    log::warn!(
+                        "[#1762] binomial-logit base fit failed ({original_report}); Firth retry \
+                         also failed to certify ({}) — returning the original typed base \
+                         evidence, not either abandoned iterate.",
+                        firth_failure.unwrap_or_else(|| "unknown retry failure".to_string()),
+                    );
+                    return Err(original_error.to_string());
+                }
             }
         }
-    } else {
-        base?
+        Err(error) => return Err(error.to_string()),
     };
 
-    // #1788: if the outer REML stalled with railed λ, the assembled penalized
-    // EDF can collapse to the intercept-only floor while the coefficients stay
-    // wiggly. Reuse the smooth-term LR path's `untrusted_edf_collapse` guard to
-    // keep the REPORTED EDF consistent with the fit and surface the
-    // non-convergence rather than leaving the collapse silent.
-    guard_untrusted_edf_collapse(&mut fitted.fit, &fitted.design, request.y.len());
-
+    let adaptive_spatial_terms = adaptive_spatial_term_mask(&request.spec);
+    let adaptive_spatial_center_counts = adaptive_spatial_center_counts(&request.spec);
     let result = StandardFitResult {
         saved_link_state: fitted.fit.fitted_link.clone(),
         fit: fitted.fit,
         design: fitted.design,
         resolvedspec: fitted.resolvedspec,
+        adaptive_spatial_terms: adaptive_spatial_terms.clone(),
+        adaptive_spatial_center_counts: adaptive_spatial_center_counts.clone(),
         adaptive_diagnostics: fitted.adaptive_diagnostics,
         kappa_timing: fitted.kappa_timing,
         wiggle_knots: None,
@@ -750,8 +607,8 @@ pub(crate) fn fit_standard_model(
         &result.resolvedspec,
         &result.design,
         &result.fit,
-        &request.y,
-        &request.weights,
+        request.y.as_ref(),
+        request.weights.as_ref(),
         wiggle_link_kind,
         selected_wiggle_basis,
         &wiggle_options,
@@ -771,9 +628,7 @@ pub(crate) fn fit_standard_model(
             // (a real `Err` the caller sees), matching how the SAS / mixture
             // adaptive-link paths now report startup-validation failures
             // (#1571/#1572). The fit is NOT silently downgraded.
-            log::warn!(
-                "[linkwiggle] binomial mean link-wiggle joint solve did not converge ({e})"
-            );
+            log::warn!("[linkwiggle] binomial mean link-wiggle joint solve did not converge ({e})");
             return Err(format!(
                 "flexible/learnable link requested via link(type=flexible(...)) / \
                  linkwiggle(...), but the binomial mean link-wiggle joint solve did not \
@@ -789,6 +644,8 @@ pub(crate) fn fit_standard_model(
         fit: solved.fit,
         design: solved.design,
         resolvedspec: solved.resolvedspec,
+        adaptive_spatial_terms,
+        adaptive_spatial_center_counts,
         adaptive_diagnostics: result.adaptive_diagnostics,
         kappa_timing: result.kappa_timing,
         wiggle_knots: Some(solved.wiggle_knots),
@@ -1386,50 +1243,6 @@ pub(crate) fn fit_binomial_location_scale_model(
     fit_location_scale_with_optional_wiggle::<BinomialLocationScaleWorkflow>(request)
 }
 
-fn survival_working_reml_score(state: &gam_solve::pirls::WorkingState) -> f64 {
-    0.5 * (state.deviance + state.penalty_term)
-}
-
-/// Recover the fitted Weibull baseline config from the anchor-CENTERED linear
-/// `[1, log t]` time-basis coefficients.
-///
-/// The fit centers the time basis at the survival time anchor
-/// (`center_survival_time_designs_at_anchor`), which zeroes the constant column,
-/// so the constant-column coefficient `beta[0]` is UNIDENTIFIED (left at its
-/// stale seed). The identified baseline the model carries is
-/// `eta(t) = beta[1] * (log t - log anchor)`, exactly the Weibull form
-/// `eta(t) = shape * (log t - log scale)` with `shape = beta[1]` and
-/// `scale = anchor`. Reconstructing `scale` from `beta[0]` (the old
-/// `exp(-beta[0]/shape)`) reads the stale constant column and produces a wrong
-/// saved scale, misleading every consumer that rebuilds `H0(t) = (t/scale)^shape`
-/// from the saved scale (e.g. competing-risks CIF). Recover `scale` from the
-/// identified anchor instead (issue #899).
-fn fitted_weibull_baseline_from_linear_time_beta(
-    beta: &Array1<f64>,
-    anchor: f64,
-) -> Option<crate::survival::construction::SurvivalBaselineConfig> {
-    if beta.len() < 2 {
-        return None;
-    }
-    let shape = beta[1];
-    if !shape.is_finite() || shape <= 0.0 {
-        return None;
-    }
-    if !anchor.is_finite() || anchor <= 0.0 {
-        return None;
-    }
-    let scale = anchor;
-    Some(
-        crate::survival::construction::SurvivalBaselineConfig {
-            target: SurvivalBaselineTarget::Weibull,
-            scale: Some(scale),
-            shape: Some(shape),
-            rate: None,
-            makeham: None,
-        },
-    )
-}
-
 /// Penalized effective degrees of freedom for a survival transformation fit.
 ///
 /// Uses exactly the mgcv definition `edf_total = p − Σ_k λ_k·tr(H⁻¹ S_k)`, where
@@ -1455,23 +1268,23 @@ fn survival_transformation_edf(
     // yields a usable trace rather than aborting the whole fit.
     let factor = {
         let scale = h_sym.max_abs_diag();
-        let min_step = scale * 1e-10;
-        let mut ridge = 0.0_f64;
-        let mut attempts = 0_usize;
-        loop {
+        let try_ridge = |ridge: f64| -> Option<_> {
             let candidate = if ridge > 0.0 {
                 h_sym.addridge(ridge).unwrap_or_else(|_| h_sym.clone())
             } else {
                 h_sym.clone()
             };
-            if let Ok(f) = candidate.factorize() {
-                break f;
-            }
-            attempts += 1;
-            if attempts >= 8 {
-                return Err("survival edf: penalized Hessian could not be factorized".to_string());
-            }
-            ridge = if ridge <= 0.0 { min_step } else { ridge * 10.0 };
+            candidate.factorize().ok()
+        };
+        // Bare (unridged) attempt first, then 7 geometric escalations from
+        // `scale·1e-10` — the pre-migration budget of 8 total attempts.
+        match try_ridge(0.0) {
+            Some(f) => f,
+            None => escalate_ridge(RidgeSchedule::geometric(scale * 1e-10, 7), try_ridge)
+                .map(|success| success.value)
+                .map_err(|_| {
+                    "survival edf: penalized Hessian could not be factorized".to_string()
+                })?,
         }
     };
     let mut edf_by_block = vec![0.0_f64; penalty_blocks.len()];
@@ -1579,8 +1392,8 @@ fn optimize_survival_transformation_smoothing(
     time_block_cols: usize,
     left_truncated: bool,
 ) -> Result<Option<Vec<f64>>, String> {
+    use gam_problem::{Derivative, HessianValue, OuterEval};
     use gam_solve::rho_optimizer::OuterProblem;
-    use gam_problem::{Derivative, HessianResult, OuterEval};
     if num_smoothing == 0 {
         return Ok(None);
     }
@@ -1613,7 +1426,10 @@ fn optimize_survival_transformation_smoothing(
     // unified survival LAML, and project the gradient onto the smoothing
     // coordinates (the trailing ridge gradient component is discarded since the
     // ridge is fixed).
-    let eval_at = |rho_smooth: &Array1<f64>| -> Result<(f64, Array1<f64>), String> {
+    let eval_at = |rho_smooth: &Array1<f64>| -> Result<
+        (f64, Array1<f64>),
+        gam_solve::estimate::EstimationError,
+    > {
         if let Some((cached_rho, cached_cost, cached_grad)) = eval_cache.borrow().as_ref()
             && cached_rho == rho_smooth
         {
@@ -1626,7 +1442,9 @@ fn optimize_survival_transformation_smoothing(
         }
         candidate
             .set_penalty_lambdas(&lambdas)
-            .map_err(|e| e.to_string())?;
+            .map_err(|error| {
+                gam_solve::estimate::EstimationError::InvalidInput(error.to_string())
+            })?;
         let opts = gam_solve::pirls::WorkingModelPirlsOptions {
             max_iterations: SURVIVAL_TRANSFORMATION_PIRLS_MAX_ITERATIONS,
             convergence_tolerance: SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL,
@@ -1637,7 +1455,6 @@ fn optimize_survival_transformation_smoothing(
             coefficient_lower_bounds: structural_lower_bounds.cloned(),
             linear_constraints: None,
             initial_lm_lambda: None,
-            geodesic_acceleration: false,
             arrow_schur: None,
         };
         let summary = gam_solve::pirls::runworking_model_pirls(
@@ -1645,75 +1462,51 @@ fn optimize_survival_transformation_smoothing(
             gam_problem::Coefficients::new(beta0.clone()),
             &opts,
             |_| {},
-        )
-        .map_err(|err| format!("survival smoothing PIRLS failed: {err}"))?;
-        // Bad-trial semantics (gam#1123). The CLI fits the transformation
-        // survival model at the SEED λ (no outer selection) and recovers the
-        // truth; the Python path additionally runs THIS outer BFGS over ρ. The
-        // two must be one engine: the outer selector may only ever IMPROVE on the
-        // seed, and a wandering trial at a bad ρ must never abort the fit. A
-        // trial ρ is only a *valid* LAML evaluation when the constrained inner
-        // PIRLS reaches its β-optimum (the envelope theorem that makes ∂LAML/∂ρ
-        // exact requires it) AND the resulting LAML cost+gradient are finite.
-        // Every other outcome at a *trial* ρ — inner non-convergence
-        // (`MaxIterationsReached`, gradient plateaued at a pathological large λ),
-        // a failed state/LAML evaluation, or a non-finite cost/gradient on the
-        // wandering trajectory — is NOT a structural error and must NOT be
-        // surfaced to the outer optimizer as an infeasible/undefined probe
-        // (which the BFGS bridge's probe-refusal guard escalates to a FATAL
-        // RemlOptimizationFailed when the whole trial neighbourhood is
-        // infeasible). Instead, return a high FINITE cost with a zero gradient so
-        // the line search sees no descent there and backtracks toward the
-        // converged seed region. This makes the Python outer loop incapable of
-        // doing worse than the CLI's seed fit. Only a genuine *structural* setup
-        // failure (e.g. `set_penalty_lambdas`) stays fatal, since it signals a
-        // bug rather than a merely-bad smoothing value.
-        let bad_trial = |reason: &str| -> Result<(f64, Array1<f64>), String> {
-            log::info!(
-                "[OUTER #1123] survival transformation smoothing candidate ρ rejected ({reason}): \
-                 inner PIRLS status={:?} grad_norm={:.3e} iters={} — returning high finite cost so \
-                 BFGS steps away from the un-fittable region toward the converged seed",
-                summary.status,
-                summary.lastgradient_norm,
-                summary.iterations,
-            );
-            let cost = SURVIVAL_TRANSFORMATION_NONCONVERGED_TRIAL_COST;
-            let grad = Array1::zeros(num_smoothing);
-            *eval_cache.borrow_mut() = Some((rho_smooth.to_owned(), cost, grad.clone()));
-            Ok((cost, grad))
-        };
-        let inner_converged = matches!(
-            summary.status,
-            gam_solve::pirls::PirlsStatus::Converged | gam_solve::pirls::PirlsStatus::StalledAtValidMinimum
-        );
-        if !inner_converged {
-            return bad_trial("inner PIRLS did not converge");
+        )?;
+        // The envelope gradient exists only at a certified beta optimum. A
+        // finite exhausted state is a checkpoint, not a derivative-bearing
+        // objective sample; return typed inner non-convergence so the generic
+        // outer bridge can retreat from this rho without fabricating a cost or
+        // zero gradient.
+        if !survival_pirls_status_is_certified(summary.status) {
+            return Err(gam_solve::estimate::EstimationError::PirlsDidNotConverge {
+                max_iterations: opts.max_iterations,
+                last_change: summary.lastgradient_norm,
+            });
         }
         let beta = summary.beta.as_ref().to_owned();
-        let state = match candidate.update_state(&beta) {
-            Ok(state) => state,
-            Err(_) => return bad_trial("inner state evaluation failed"),
-        };
+        let state = candidate.update_state(&beta).map_err(|error| {
+            gam_solve::estimate::EstimationError::InvalidInput(format!(
+                "survival smoothing inner state evaluation failed: {error}"
+            ))
+        })?;
         // Active-penalty ρ over ALL active blocks (smoothing + fixed ridge), in
         // block order, as the unified survival LAML evaluator requires. The
         // candidate's λ are exactly `lambdas` (smoothing entries from the
         // proposal, ridge entries frozen), so build ρ from that vector directly.
         let full_rho = Array1::from_iter(lambdas.iter().filter(|&&l| l > 0.0).map(|&l| l.ln()));
-        let (cost, grad_full) =
-            match candidate.unified_lamlobjective_and_rhogradient(&beta, &state, &full_rho) {
-                Ok(pair) => pair,
-                Err(_) => return bad_trial("LAML evaluation failed"),
-            };
+        let (cost, grad_full) = candidate
+            .unified_lamlobjective_and_rhogradient(&beta, &state, &full_rho)
+            .map_err(|error| {
+                gam_solve::estimate::EstimationError::InvalidInput(format!(
+                    "survival smoothing LAML evaluation failed: {error}"
+                ))
+            })?;
         // Project onto the smoothing coordinates. The active-block enumeration
         // lists the smoothing blocks first (they are constructed first and the
         // ridge is appended last), so the leading `num_smoothing` gradient
         // entries are exactly ∂LAML/∂ρ_smooth with the ridge held fixed.
         if grad_full.len() < num_smoothing || !cost.is_finite() {
-            return bad_trial("LAML cost non-finite or gradient too short");
+            return Err(gam_solve::estimate::EstimationError::InvalidInput(
+                "survival smoothing LAML cost was non-finite or gradient was too short"
+                    .to_string(),
+            ));
         }
         let grad = grad_full.slice(s![..num_smoothing]).to_owned();
         if grad.iter().any(|g| !g.is_finite()) {
-            return bad_trial("LAML gradient non-finite");
+            return Err(gam_solve::estimate::EstimationError::InvalidInput(
+                "survival smoothing LAML gradient was non-finite".to_string(),
+            ));
         }
         *eval_cache.borrow_mut() = Some((rho_smooth.to_owned(), cost, grad.clone()));
         Ok((cost, grad))
@@ -1758,18 +1551,13 @@ fn optimize_survival_transformation_smoothing(
         format!("survival transformation smoothing-parameter selection (dim={num_smoothing})");
     let mut obj = problem.build_objective(
         (),
+        |_: &mut (), rho: &Array1<f64>| eval_at(rho).map(|(c, _)| c),
         |_: &mut (), rho: &Array1<f64>| {
-            eval_at(rho)
-                .map(|(c, _)| c)
-                .map_err(gam_solve::estimate::EstimationError::InvalidInput)
-        },
-        |_: &mut (), rho: &Array1<f64>| {
-            let (cost, gradient) =
-                eval_at(rho).map_err(gam_solve::estimate::EstimationError::InvalidInput)?;
+            let (cost, gradient) = eval_at(rho)?;
             Ok(OuterEval {
                 cost,
                 gradient,
-                hessian: HessianResult::Unavailable,
+                hessian: HessianValue::Unavailable,
                 inner_beta_hint: None,
             })
         },
@@ -1781,35 +1569,34 @@ fn optimize_survival_transformation_smoothing(
             ) -> Result<gam_problem::EfsEval, gam_solve::estimate::EstimationError>,
         >,
     );
-    // The outer selector only ever IMPROVES on the seed; it must never be able
-    // to fail the whole fit, because the CLI fits the IDENTICAL model at the
-    // seed λ with no outer loop and recovers the truth (gam#1123, "one engine").
-    // Per-trial bad smoothing values are already routed to a high finite cost in
-    // `eval_at`, so the only way `run` can still return Err is a pathological
-    // outer-optimizer state with no usable iterate. In that case fall back to the
-    // seed λ (a known-good, CLI-equivalent fit) rather than aborting — the
-    // selector is an enhancement, not a precondition for a valid model.
-    let result = match problem.run(&mut obj, &context) {
-        Ok(result) => result,
-        Err(err) => {
-            log::warn!(
-                "[#1123] survival transformation smoothing selector did not produce a usable ρ \
-                 ({err}); falling back to the seed λ (the CLI fits this same model at the seed and \
-                 recovers the truth)"
-            );
-            return Ok(Some(seed_lambdas));
-        }
-    };
-    // If the outer loop does not certify convergence (rare flat-LAML plateau),
-    // fall back to the best ρ it reached rather than failing — the seed is
-    // already a valid model.
+    // `OuterProblem::run` returns `Ok` only after its analytic projected-KKT
+    // certificate accepts the selected rho. Exhaustion is
+    // `EstimationError::RemlDidNotConverge`, whose rho checkpoint is preserved
+    // in the error; a seed or best-so-far smoothing value is never promoted to
+    // an estimator merely because a fixed-lambda inner solve was finite.
+    let result = problem
+        .run(&mut obj, &context)
+        .map_err(|error| error.to_string())?;
     let selected_rho = result.rho;
+    if selected_rho.len() != num_smoothing {
+        return Err(format!(
+            "survival transformation smoothing selector returned {} coordinates for \
+             {num_smoothing} smoothing parameters; selected-rho checkpoint={:?}",
+            selected_rho.len(),
+            selected_rho.to_vec(),
+        ));
+    }
     let mut lambdas = seed_lambdas;
-    for k in 0..num_smoothing.min(selected_rho.len()) {
+    for k in 0..num_smoothing {
         let lam = selected_rho[k].exp();
-        if lam.is_finite() && lam > 0.0 {
-            lambdas[k] = lam;
+        if !(lam.is_finite() && lam > 0.0) {
+            return Err(format!(
+                "survival transformation smoothing selector produced invalid lambda[{k}]={lam} \
+                 from selected-rho checkpoint={:?}",
+                selected_rho.to_vec(),
+            ));
         }
+        lambdas[k] = lam;
     }
     Ok(Some(lambdas))
 }
@@ -1822,29 +1609,23 @@ fn survival_unified_fit_result(
     penalty_blocks: &[PenaltyBlock],
 ) -> Result<UnifiedFitResult, String> {
     let log_lambdas = lambdas.mapv(|v| v.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln());
-    let reml_score = survival_working_reml_score(state);
-    // #1426-class honesty: report `outer_converged` from the REAL inner PIRLS
-    // verdict, not a hardcoded `true`. The caller (#1123) deliberately accepts a
-    // FINITE-but-non-converged inner solve at the selected λ rather than aborting
-    // the fit — so a `MaxIterationsReached` / `LmStepSearchExhausted` / `Unstable`
-    // optimum can legitimately reach here. Shipping it as `outer_converged = true`
-    // while carrying a real (possibly large) `outer_gradient_norm` is exactly the
-    // silent-non-convergence mislabelling #1426 cured for the REML path. Only the
-    // genuine stationary verdicts — `Converged` and `StalledAtValidMinimum` (the
-    // gradient and Hessian indicate a valid minimum) — count as converged; every
-    // other accepted status is reported honestly as non-converged with its
-    // residual `outer_gradient_norm`.
-    let outer_converged = matches!(
-        summary.status,
-        gam_solve::pirls::PirlsStatus::Converged | gam_solve::pirls::PirlsStatus::StalledAtValidMinimum
-    );
+    require_certified_survival_pirls(
+        summary,
+        "survival transformation fit assembly",
+        log_lambdas.as_slice().unwrap_or(&[]),
+        None,
+    )?;
+    let reml_score = state.penalized_objective();
     gam_solve::estimate::validate_all_finite("survival fit beta", beta.iter().copied())?;
     gam_solve::estimate::validate_all_finite("survival fit lambdas", lambdas.iter().copied())?;
     gam_solve::estimate::ensure_finite_scalar("survival fit log_likelihood", state.log_likelihood)?;
     gam_solve::estimate::ensure_finite_scalar("survival fit deviance", state.deviance)?;
     gam_solve::estimate::ensure_finite_scalar("survival fit penalty", state.penalty_term)?;
     gam_solve::estimate::ensure_finite_scalar("survival fit reml_score", reml_score)?;
-    gam_solve::estimate::ensure_finite_scalar("survival fit gradient_norm", summary.lastgradient_norm)?;
+    gam_solve::estimate::ensure_finite_scalar(
+        "survival fit gradient_norm",
+        summary.lastgradient_norm,
+    )?;
     gam_solve::estimate::ensure_finite_scalar("survival fit max_abs_eta", summary.max_abs_eta)?;
 
     // Penalized effective degrees of freedom from the converged penalized
@@ -1874,6 +1655,7 @@ fn survival_unified_fit_result(
         coefficient_influence: None,
         weighted_gram: None,
         bias_correction_beta: None,
+        bias_correction_jacobian: None,
     };
 
     UnifiedFitResult::try_from_parts(gam_solve::estimate::UnifiedFitResultParts {
@@ -1895,7 +1677,7 @@ fn survival_unified_fit_result(
         penalized_objective: reml_score,
         used_device: false,
         outer_iterations: summary.iterations,
-        outer_converged,
+        outer_converged: true,
         outer_gradient_norm: Some(summary.lastgradient_norm),
         standard_deviation: 1.0,
         covariance_conditional: None,
@@ -1956,9 +1738,8 @@ fn fit_cause_specific_survival_transformation_custom(
     derivative_floor: f64,
     penalty_block_gamma_priors: &[(String, f64, f64)],
 ) -> Result<SurvivalTransformationFitResult, String> {
-    let cause_count =
-        crate::survival::cause_count_from_event_codes(spec.event_target.view())
-            .into_workflow_result()?;
+    let cause_count = crate::survival::cause_count_from_event_codes(spec.event_target.view())
+        .into_workflow_result()?;
     if cause_count == 0 {
         return Err(WorkflowError::MissingDependency {
             reason: "cause-specific custom survival fit requires at least one cause".to_string(),
@@ -2429,12 +2210,12 @@ fn store_survival_transformation_persistent_warm_start(
     rho: Vec<f64>,
     beta: &Array1<f64>,
     summary: &gam_solve::pirls::WorkingModelPirlsResult,
-) {
+) -> bool {
     if beta.len() != n_cols
         || beta.iter().any(|value| !value.is_finite())
         || rho.iter().any(|value| !value.is_finite())
     {
-        return;
+        return false;
     }
     let mut record = gam_solve::persistent_warm_start::PersistentWarmStartRecord::new(
         key.to_string(),
@@ -2444,29 +2225,35 @@ fn store_survival_transformation_persistent_warm_start(
     record.rho = rho;
     record.beta = beta.to_vec();
     record.last_inner_iters = summary.iterations;
-    record.last_inner_converged = matches!(
-        summary.status,
-        gam_solve::pirls::PirlsStatus::Converged | gam_solve::pirls::PirlsStatus::StalledAtValidMinimum
-    );
+    record.last_inner_converged = summary.status.is_converged();
     record.last_pirls_lm_lambda = (summary.final_lm_lambda.is_finite()
         && summary.final_lm_lambda > 0.0)
         .then_some(summary.final_lm_lambda);
     record.last_pirls_accept_rho = summary
         .final_accept_rho
         .filter(|value| value.is_finite() && *value >= 0.0);
-    if let Err(err) = gam_solve::persistent_warm_start::store_record(&record) {
-        log::warn!(
-            "[warm-start-cache] failed to persist survival transformation warm start: {err}"
-        );
+    match gam_solve::persistent_warm_start::store_record(&record) {
+        Ok(()) => {
+            gam_solve::persistent_warm_start::load_record(&record.key).is_some_and(|stored| {
+                stored.rho == record.rho
+                    && stored.beta == record.beta
+                    && stored.last_inner_iters == record.last_inner_iters
+                    && stored.last_inner_converged == record.last_inner_converged
+            })
+        }
+        Err(err) => {
+            log::warn!(
+                "[warm-start-cache] failed to persist survival transformation warm start: {err}"
+            );
+            false
+        }
     }
 }
 
 pub(crate) fn fit_survival_transformation_model(
     request: SurvivalTransformationFitRequest<'_>,
 ) -> Result<SurvivalTransformationFitResult, String> {
-    use crate::survival::{
-        PenaltyBlock, PenaltyBlocks, SurvivalMonotonicityPenalty, SurvivalSpec,
-    };
+    use crate::survival::{PenaltyBlock, PenaltyBlocks, SurvivalMonotonicityPenalty, SurvivalSpec};
 
     let SurvivalTransformationFitRequest {
         data,
@@ -2476,14 +2263,15 @@ pub(crate) fn fit_survival_transformation_model(
     let mut baseline_cfg = spec.baseline_cfg.clone();
     let covariate_design =
         build_term_collection_design(data, &spec.covariate_spec).map_err(|err| err.to_string())?;
-    let resolvedspec =
-        crate::fit_orchestration::drivers::freeze_term_collection_from_design(&spec.covariate_spec, &covariate_design)
-            .map_err(|err| err.to_string())?;
+    let resolvedspec = crate::fit_orchestration::drivers::freeze_term_collection_from_design(
+        &spec.covariate_spec,
+        &covariate_design,
+    )
+    .map_err(|err| err.to_string())?;
     let dense_cov_design = covariate_design.design.to_dense();
     let p_cov = dense_cov_design.ncols();
-    let cause_count =
-        crate::survival::cause_count_from_event_codes(spec.event_target.view())
-            .into_workflow_result()?;
+    let cause_count = crate::survival::cause_count_from_event_codes(spec.event_target.view())
+        .into_workflow_result()?;
     let exact_derivative_guard = survival_derivative_guard_for_likelihood(spec.likelihood_mode);
 
     let build_working_model =
@@ -2707,21 +2495,32 @@ pub(crate) fn fit_survival_transformation_model(
                     coefficient_lower_bounds: structural_lower_bounds,
                     linear_constraints: None,
                     initial_lm_lambda: None,
-                    geodesic_acceleration: false,
                     arrow_schur: None,
                 };
+                let parameter_checkpoint = survival_baseline_parameter_checkpoint(candidate)?;
                 let summary = gam_solve::pirls::runworking_model_pirls(
                     &mut model,
                     gam_problem::Coefficients::new(beta0),
                     &opts,
                     |_| {},
                 )
-                .map_err(|err| format!("survival PIRLS failed: {err}"))?;
+                .map_err(|error| {
+                    format!(
+                        "survival baseline PIRLS failed at parameter_checkpoint=\
+                         {parameter_checkpoint:?}: {error}; no fit was minted"
+                    )
+                })?;
+                require_certified_survival_pirls(
+                    &summary,
+                    "survival transformation baseline profile",
+                    &parameter_checkpoint,
+                    None,
+                )?;
                 let beta = summary.beta.as_ref().to_owned();
                 let state = model.update_state(&beta).map_err(|err| {
                     format!("failed to evaluate survival baseline candidate: {err}")
                 })?;
-                let cost = survival_working_reml_score(&state);
+                let cost = state.penalized_objective();
                 let residuals = model.offset_channel_residuals(&beta).map_err(|err| {
                     format!("failed to form survival baseline offset residuals: {err}")
                 })?;
@@ -2810,10 +2609,10 @@ pub(crate) fn fit_survival_transformation_model(
         coefficient_lower_bounds: structural_lower_bounds,
         linear_constraints: None,
         initial_lm_lambda: None,
-        geodesic_acceleration: false,
         arrow_schur: None,
     };
     let rho_for_cache = survival_transformation_log_lambdas(&penalty_blocks);
+    let expected_beta_len = beta0.len();
     let persistent_warm_start_key = persistent_survival_transformation_key(
         &spec,
         &baseline_cfg,
@@ -2821,13 +2620,13 @@ pub(crate) fn fit_survival_transformation_model(
         &prepared,
         &penalty_blocks,
         &opts,
-        beta0.len(),
+        expected_beta_len,
     );
     let mut opts = opts;
     let beta_start = match load_survival_transformation_persistent_warm_start(
         &persistent_warm_start_key,
         &spec,
-        beta0.len(),
+        expected_beta_len,
         &rho_for_cache,
     ) {
         Some((beta, lm_lambda)) => {
@@ -2842,58 +2641,31 @@ pub(crate) fn fit_survival_transformation_model(
         &opts,
         |_| {},
     )
-    .map_err(|err| format!("survival PIRLS failed: {err}"))?;
-    match summary.status {
-        gam_solve::pirls::PirlsStatus::Converged | gam_solve::pirls::PirlsStatus::StalledAtValidMinimum => {
-        }
-        ref other => {
-            // Non-fatal inner non-convergence at the selected λ (gam#1123). A
-            // `MaxIterationsReached` here used to abort the whole fit — discarding
-            // the converged seed-λ fit that demonstrably exists (the CLI saves it).
-            // An inner solve that exhausts its budget but lands at a FINITE β with a
-            // finite deviance/gradient is a usable (if imperfect) optimum: the
-            // downstream `survival_unified_fit_result` already validates every
-            // finite-ness contract and will reject a genuinely degenerate result. A
-            // transient inner non-convergence during outer selection must not throw
-            // the model away — the CLI tolerates exactly this and finishes. Accept a
-            // finite non-converged result with a warning; only a NON-FINITE result
-            // (β / deviance / gradient norm not finite) remains fatal, since nothing
-            // usable can be built from it.
-            let beta_finite = summary.beta.as_ref().iter().all(|v| v.is_finite());
-            let result_finite = beta_finite
-                && summary.state.deviance.is_finite()
-                && summary.lastgradient_norm.is_finite();
-            if result_finite {
-                log::warn!(
-                    "[#1123] survival transformation inner PIRLS at the selected λ did not reach the \
-                     convergence tolerance (status={other:?}, grad_norm={:.3e}, iterations={}, \
-                     deviance={:.6e}), but landed at a finite optimum; accepting it rather than \
-                     aborting the fit (the outer smoothing selector already steers away from \
-                     un-fittable λ, and a finite optimum is a usable model).",
-                    summary.lastgradient_norm,
-                    summary.iterations,
-                    summary.state.deviance,
-                );
-            } else {
-                return Err(WorkflowError::IntegrationFailed {
-                    reason: format!(
-                        "survival PIRLS did not converge to a finite optimum: status={other:?}, grad_norm={:.3e}, iterations={}, deviance={:.6e}",
-                        summary.lastgradient_norm, summary.iterations, summary.state.deviance
-                    ),
-                }
-                .into());
-            }
-        }
-    }
+    .map_err(|error| {
+        format!(
+            "survival transformation final fixed-lambda PIRLS failed at \
+             parameter_checkpoint={rho_for_cache:?} (warm_start_key=\
+             {persistent_warm_start_key}): {error}; no fit was minted"
+        )
+    })?;
     let beta = summary.beta.as_ref().to_owned();
-    store_survival_transformation_persistent_warm_start(
+    // Persist every finite accepted iterate before enforcing the certificate:
+    // an exhausted solve is resumable work, but it is never a fit. The record's
+    // `last_inner_converged` bit distinguishes a final mode from a checkpoint.
+    let checkpoint_persisted = store_survival_transformation_persistent_warm_start(
         &persistent_warm_start_key,
         &spec,
-        beta.len(),
-        rho_for_cache,
+        expected_beta_len,
+        rho_for_cache.clone(),
         &beta,
         &summary,
     );
+    require_certified_survival_pirls(
+        &summary,
+        "survival transformation final fixed-lambda PIRLS",
+        &rho_for_cache,
+        checkpoint_persisted.then_some(persistent_warm_start_key.as_str()),
+    )?;
     let state = model
         .update_state(&beta)
         .map_err(|err| format!("failed to evaluate survival optimum: {err}"))?;
@@ -3027,8 +2799,8 @@ pub(crate) fn fit_survival_location_scale_model(
         where
             R: Fn(&Array1<f64>) -> Option<InverseLink>,
         {
+            use gam_problem::{DeclaredHessianForm, Derivative, HessianValue, OuterEval};
             use gam_solve::rho_optimizer::OuterProblem;
-            use gam_problem::{DeclaredHessianForm, Derivative, HessianResult, OuterEval};
             let dim = init.len();
             // Box bounds keep line-search probes inside a physically admissible
             // region (|ε|, |log δ| ≤ 6 gives the SAS link a finite range on both
@@ -3102,7 +2874,7 @@ pub(crate) fn fit_survival_location_scale_model(
                 Ok(OuterEval {
                     cost,
                     gradient,
-                    hessian: HessianResult::Unavailable,
+                    hessian: HessianValue::Unavailable,
                     inner_beta_hint: None,
                 })
             };
@@ -3430,9 +3202,11 @@ pub(crate) fn crossfit_score_calibration(
     .map_err(|e| e.to_string())?;
     let full_cov_design = build_term_collection_design(data.values.view(), &covariate_spec_raw)
         .map_err(|e| e.to_string())?;
-    let frozen_cov_spec =
-        crate::fit_orchestration::drivers::freeze_term_collection_from_design(&covariate_spec_raw, &full_cov_design)
-            .map_err(|e| e.to_string())?;
+    let frozen_cov_spec = crate::fit_orchestration::drivers::freeze_term_collection_from_design(
+        &covariate_spec_raw,
+        &full_cov_design,
+    )
+    .map_err(|e| e.to_string())?;
     let p_cov = full_cov_design.design.ncols();
 
     let k = crossfit_fold_count(n);

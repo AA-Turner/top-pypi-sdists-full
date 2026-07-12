@@ -18,7 +18,7 @@ class CloudTraceResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class TraceSinksResource(googleapiclient.discovery.Resource):
             def create(
-                self, *, parent: str, body: TraceSink = ..., **kwargs: typing.Any
+                self, *, parent: str, body: TraceSink, **kwargs: typing.Any
             ) -> TraceSinkHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
@@ -30,8 +30,8 @@ class CloudTraceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTraceSinksResponseHttpRequest: ...
             def list_next(
@@ -43,8 +43,8 @@ class CloudTraceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: TraceSink = ...,
-                updateMask: str = ...,
+                body: TraceSink,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> TraceSinkHttpRequest: ...
 

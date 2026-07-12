@@ -23,10 +23,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchResourceBackupConfigsResponseHttpRequest: ...
                 def fetch_next(
@@ -49,10 +49,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchResourceBackupConfigsResponseHttpRequest: ...
                 def fetch_next(
@@ -75,23 +75,27 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BackupPlanAssociation = ...,
-                    backupPlanAssociationId: str = ...,
-                    requestId: str = ...,
+                    body: BackupPlanAssociation,
+                    backupPlanAssociationId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchForResourceType(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    resourceType: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    resourceType: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchBackupPlanAssociationsForResourceTypeResponseHttpRequest: ...
                 def fetchForResourceType_next(
@@ -108,9 +112,9 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBackupPlanAssociationsResponseHttpRequest: ...
                 def list_next(
@@ -122,17 +126,13 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BackupPlanAssociation = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: BackupPlanAssociation,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def triggerBackup(
-                    self,
-                    *,
-                    name: str,
-                    body: TriggerBackupRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: TriggerBackupRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
 
             @typing.type_check_only
@@ -146,8 +146,8 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListBackupPlanRevisionsResponseHttpRequest: ...
                     def list_next(
@@ -160,13 +160,17 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BackupPlan = ...,
-                    backupPlanId: str = ...,
-                    requestId: str = ...,
+                    body: BackupPlan,
+                    backupPlanId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -175,10 +179,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBackupPlansResponseHttpRequest: ...
                 def list_next(
@@ -190,9 +194,9 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BackupPlan = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
+                    body: BackupPlan,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def revisions(self) -> RevisionsResource: ...
@@ -207,23 +211,24 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            requestId: str = ...,
+                            requestId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def fetchForResourceType(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            resourceType: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            resourceType: str | None = ...,
                             view: typing_extensions.Literal[
                                 "BACKUP_VIEW_UNSPECIFIED",
                                 "BACKUP_VIEW_BASIC",
                                 "BACKUP_VIEW_FULL",
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> FetchBackupsForResourceTypeResponseHttpRequest: ...
                         def fetchForResourceType_next(
@@ -239,22 +244,24 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                                 "BACKUP_VIEW_UNSPECIFIED",
                                 "BACKUP_VIEW_BASIC",
                                 "BACKUP_VIEW_FULL",
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> BackupHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             view: typing_extensions.Literal[
                                 "BACKUP_VIEW_UNSPECIFIED",
                                 "BACKUP_VIEW_BASIC",
                                 "BACKUP_VIEW_FULL",
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListBackupsResponseHttpRequest: ...
                         def list_next(
@@ -266,16 +273,16 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: Backup = ...,
-                            requestId: str = ...,
-                            updateMask: str = ...,
+                            body: Backup,
+                            requestId: str | None = ...,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
                         def restore(
                             self,
                             *,
                             name: str,
-                            body: RestoreBackupRequest = ...,
+                            body: RestoreBackupRequest,
                             **kwargs: typing.Any,
                         ) -> OperationHttpRequest: ...
 
@@ -283,21 +290,21 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         dataSource: str,
-                        body: AbandonBackupRequest = ...,
+                        body: AbandonBackupRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def fetchAccessToken(
                         self,
                         *,
                         name: str,
-                        body: FetchAccessTokenRequest = ...,
+                        body: FetchAccessTokenRequest,
                         **kwargs: typing.Any,
                     ) -> FetchAccessTokenResponseHttpRequest: ...
                     def finalizeBackup(
                         self,
                         *,
                         dataSource: str,
-                        body: FinalizeBackupRequest = ...,
+                        body: FinalizeBackupRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -307,17 +314,17 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         dataSource: str,
-                        body: InitiateBackupRequest = ...,
+                        body: InitiateBackupRequest,
                         **kwargs: typing.Any,
                     ) -> InitiateBackupResponseHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDataSourcesResponseHttpRequest: ...
                     def list_next(
@@ -329,24 +336,24 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: DataSource = ...,
-                        allowMissing: bool = ...,
-                        requestId: str = ...,
-                        updateMask: str = ...,
+                        body: DataSource,
+                        allowMissing: bool | None = ...,
+                        requestId: str | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def remove(
                         self,
                         *,
                         name: str,
-                        body: RemoveDataSourceRequest = ...,
+                        body: RemoveDataSourceRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def setInternalStatus(
                         self,
                         *,
                         dataSource: str,
-                        body: SetInternalStatusRequest = ...,
+                        body: SetInternalStatusRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def backups(self) -> BackupsResource: ...
@@ -355,32 +362,32 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: BackupVault = ...,
-                    backupVaultId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: BackupVault,
+                    backupVaultId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    allowMissing: bool = ...,
-                    etag: str = ...,
-                    force: bool = ...,
-                    ignoreBackupPlanReferences: bool = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    allowMissing: bool | None = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    ignoreBackupPlanReferences: bool | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchUsable(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchUsableBackupVaultsResponseHttpRequest: ...
                 def fetchUsable_next(
@@ -396,22 +403,24 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                         "BACKUP_VAULT_VIEW_UNSPECIFIED",
                         "BACKUP_VAULT_VIEW_BASIC",
                         "BACKUP_VAULT_VIEW_FULL",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> BackupVaultHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "BACKUP_VAULT_VIEW_UNSPECIFIED",
                         "BACKUP_VAULT_VIEW_BASIC",
                         "BACKUP_VAULT_VIEW_FULL",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListBackupVaultsResponseHttpRequest: ...
                 def list_next(
@@ -423,19 +432,19 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: BackupVault = ...,
-                    force: bool = ...,
-                    forceUpdateAccessRestriction: bool = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: BackupVault,
+                    force: bool | None = ...,
+                    forceUpdateAccessRestriction: bool | None = ...,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def dataSources(self) -> DataSourcesResource: ...
@@ -446,11 +455,11 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    resourceType: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    resourceType: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchDataSourceReferencesForResourceTypeResponseHttpRequest: ...
                 def fetchForResourceType_next(
@@ -467,10 +476,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDataSourceReferencesResponseHttpRequest: ...
                 def list_next(
@@ -485,13 +494,17 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ManagementServer = ...,
-                    managementServerId: str = ...,
-                    requestId: str = ...,
+                    body: ManagementServer,
+                    managementServerId: str | None = ...,
+                    requestId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, requestId: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    name: str,
+                    requestId: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -500,17 +513,17 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListManagementServersResponseHttpRequest: ...
                 def list_next(
@@ -522,21 +535,21 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: FetchMsComplianceMetadataRequest = ...,
+                    body: FetchMsComplianceMetadataRequest,
                     **kwargs: typing.Any,
                 ) -> FetchMsComplianceMetadataResponseHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -546,7 +559,7 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -559,10 +572,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -577,10 +590,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchResourceBackupConfigsResponseHttpRequest: ...
                 def fetch_next(
@@ -592,10 +605,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListResourceBackupConfigsResponseHttpRequest: ...
                 def list_next(
@@ -610,24 +623,20 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: InitializeServiceRequest = ...,
+                    body: InitializeServiceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
 
             @typing.type_check_only
             class TrialResource(googleapiclient.discovery.Resource):
                 def end(
-                    self,
-                    *,
-                    parent: str,
-                    body: EndTrialRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: EndTrialRequest, **kwargs: typing.Any
                 ) -> TrialHttpRequest: ...
                 def subscribe(
                     self,
                     *,
                     parent: str,
-                    body: SubscribeTrialRequest = ...,
+                    body: SubscribeTrialRequest,
                     **kwargs: typing.Any,
                 ) -> TrialHttpRequest: ...
 
@@ -641,10 +650,10 @@ class BackupdrResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

@@ -29,11 +29,7 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class ReservationGrantsResource(googleapiclient.discovery.Resource):
                 def create(
-                    self,
-                    *,
-                    parent: str,
-                    body: ReservationGrant = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: ReservationGrant, **kwargs: typing.Any
                 ) -> ReservationGrantHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -42,8 +38,8 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListReservationGrantsResponseHttpRequest: ...
                 def list_next(
@@ -66,8 +62,8 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSlotPoolsResponseHttpRequest: ...
                     def list_next(
@@ -80,20 +76,20 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Reservation = ...,
-                    reservationId: str = ...,
+                    body: Reservation,
+                    reservationId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ReservationHttpRequest: ...
                 def createReservation(
                     self,
                     *,
                     parent: str,
-                    body: Reservation = ...,
-                    reservationId: str = ...,
+                    body: Reservation,
+                    reservationId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ReservationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -102,9 +98,9 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListReservationsResponseHttpRequest: ...
                 def list_next(
@@ -116,8 +112,8 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Reservation = ...,
-                    updateMask: str = ...,
+                    body: Reservation,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ReservationHttpRequest: ...
                 def slotPools(self) -> SlotPoolsResource: ...
@@ -126,9 +122,9 @@ class BigQueryReservationResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                query: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                query: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SearchReservationGrantsResponseHttpRequest: ...
             def searchReservationGrants_next(

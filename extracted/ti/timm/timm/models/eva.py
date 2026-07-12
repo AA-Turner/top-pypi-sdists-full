@@ -122,6 +122,7 @@ class EvaAttention(nn.Module):
             qk_norm: bool = False,
             scale_norm: bool = True,
             rotate_half: bool = False,
+            gated: bool = False,
             device=None,
             dtype=None,
     ):
@@ -176,6 +177,7 @@ class EvaAttention(nn.Module):
         self.k_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
         self.attn_drop = nn.Dropout(attn_drop)
         self.norm = norm_layer(attn_dim, **dd) if scale_norm else nn.Identity()
+        self.gate = nn.Linear(dim, attn_dim, bias=qkv_bias, **dd) if gated else None
         self.proj = nn.Linear(attn_dim, dim, **dd)
         self.proj_drop = nn.Dropout(proj_drop)
 
@@ -213,6 +215,7 @@ class EvaAttention(nn.Module):
             Tensor of shape (batch_size, sequence_length, embedding_dim)
         """
         B, N, C = x.shape
+        gate = self.gate(x).sigmoid() if self.gate is not None else None
 
         if self.qkv is not None:
             if self.q_bias is None:
@@ -257,6 +260,8 @@ class EvaAttention(nn.Module):
 
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.norm(x)
+        if gate is not None:
+            x = x * gate
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
@@ -282,6 +287,7 @@ class EvaBlock(nn.Module):
             num_prefix_tokens: int = 1,
             attn_type: str = 'eva',
             rotate_half: bool = False,
+            gated_attn: bool = False,
             proj_drop: float = 0.,
             attn_drop: float = 0.,
             drop_path: float = 0.,
@@ -331,6 +337,7 @@ class EvaBlock(nn.Module):
             norm_layer=norm_layer,
             scale_norm=scale_attn_inner,
             rotate_half=rotate_half,
+            gated=gated_attn,
             **dd,
         )
         self.init_values = init_values
@@ -409,6 +416,7 @@ class EvaBlockPostNorm(nn.Module):
             mlp_ratio: float = 4.,
             attn_type: str = 'eva',
             rotate_half: bool = False,
+            gated_attn: bool = False,
             swiglu_mlp: bool = False,
             swiglu_align_to: int = 0,
             scale_mlp: bool = False,
@@ -462,6 +470,7 @@ class EvaBlockPostNorm(nn.Module):
             norm_layer=norm_layer,
             scale_norm=scale_attn_inner,
             rotate_half=rotate_half,
+            gated=gated_attn,
             **dd,
         )
         self.norm1 = norm_layer(dim, **dd)
@@ -789,7 +798,7 @@ class Eva(nn.Module):
     @torch.jit.ignore
     def no_weight_decay(self) -> Set[str]:
         """Parameters to exclude from weight decay."""
-        nwd = {'pos_embed', 'cls_token'}
+        nwd = {'pos_embed', 'cls_token', 'reg_token'}
         if (rope := getattr(self, "rope", None)) and hasattr(rope, "no_weight_decay"):
             return nwd | {f"rope.{p}" for p in rope.no_weight_decay()}
         return nwd
@@ -803,7 +812,7 @@ class Eva(nn.Module):
     def group_matcher(self, coarse: bool = False) -> Dict[str, Any]:
         """Create layer groupings for optimization."""
         matcher = dict(
-            stem=r'^cls_token|pos_embed|patch_embed',  # stem and embed
+            stem=r'^cls_token|reg_token|pos_embed|patch_embed',  # stem and embed
             blocks=[(r'^blocks\.(\d+)', None), (r'^norm', (99999,))],
         )
         return matcher
@@ -1213,6 +1222,9 @@ def checkpoint_filter_fn(
             if any([k.endswith(f) for f in ['.periods', '.bias_mask', 'mask_token']]):
                 # discard unused/non-persistent/pretrain only params
                 continue
+            if k.startswith('projectors.'):
+                # discard optional distillation projection heads from EUPE checkpoints
+                continue
             if k.startswith('local_cls_norm'):
                 # discard, only used for 7b dinov3 pretrain w/ local crops
                 continue
@@ -1372,6 +1384,18 @@ def _dinov3_cfg(url: str = '', **kwargs) -> Dict[str, Any]:
         'mean': IMAGENET_DEFAULT_MEAN, 'std': IMAGENET_DEFAULT_STD,
         'first_conv': 'patch_embed.proj', 'classifier': 'head',
         'license': 'dinov3-license', **kwargs
+    }
+
+
+def _eupe_cfg(url: str = '', **kwargs) -> Dict[str, Any]:
+    """Generate default configuration for EUPE models."""
+    return {
+        'url': url,
+        'num_classes': 0, 'input_size': (3, 256, 256), 'pool_size': None,
+        'crop_pct': 1.0, 'interpolation': 'bicubic', 'fixed_input_size': True,
+        'mean': IMAGENET_DEFAULT_MEAN, 'std': IMAGENET_DEFAULT_STD,
+        'first_conv': 'patch_embed.proj', 'classifier': 'head',
+        'license': 'fair-noncommercial-research-license', **kwargs
     }
 
 default_cfgs = generate_default_cfgs({
@@ -1746,6 +1770,15 @@ default_cfgs = generate_default_cfgs({
         hf_hub_id='timm/',
     ),
     'vit_base_patch16_dinov3_qkvb.lvd1689m': _dinov3_cfg(
+        hf_hub_id='timm/',
+    ),
+    'vit_tiny_patch16_dinov3_qkvb.eupe_lvd1689m': _eupe_cfg(
+        hf_hub_id='timm/',
+    ),
+    'vit_small_patch16_dinov3_qkvb.eupe_lvd1689m': _eupe_cfg(
+        hf_hub_id='timm/',
+    ),
+    'vit_base_patch16_dinov3_qkvb.eupe_lvd1689m': _eupe_cfg(
         hf_hub_id='timm/',
     ),
     'vit_large_patch16_dinov3.lvd1689m': _dinov3_cfg(
@@ -2717,6 +2750,32 @@ def vit_large_patch16_rope_mixed_ape_224(pretrained: bool = False, **kwargs) -> 
 
 
 @register_model
+def vit_tiny_patch16_dinov3_qkvb(pretrained: bool = False, **kwargs) -> Eva:
+    """DINOv3-style T/16 w/ QKV bias enabled."""
+    model_args = dict(
+        patch_size=16,
+        dynamic_img_size=True,
+        embed_dim=192,
+        depth=12,
+        num_heads=3,
+        qkv_bias=True,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
+        init_values=1.0e-05, # layer-scale
+        rope_type='dinov3',
+        rope_temperature=100,
+        #rope_rescale_coords=2,  # haven't added to interface
+        rope_rotate_half=True,
+        use_rot_pos_emb=True,
+        use_abs_pos_emb=False,
+        num_reg_tokens=4,
+        use_fc_norm=False,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+    )
+    model = _create_eva('vit_tiny_patch16_dinov3_qkvb', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
 def vit_small_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
     """DINOv3 S/16 https://arxiv.org/abs/2508.10104
     NOTE: Pass global_pool='token' to use CLS-token pooling (matches upstream DINOv3).
@@ -2728,6 +2787,7 @@ def vit_small_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
         depth=12,
         num_heads=6,
         qkv_bias=False,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-05, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2755,6 +2815,7 @@ def vit_small_patch16_dinov3_qkvb(pretrained: bool = False, **kwargs) -> Eva:
         depth=12,
         num_heads=6,
         qkv_bias=True,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-05, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2782,6 +2843,7 @@ def vit_small_plus_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
         depth=12,
         num_heads=6,
         qkv_bias=False,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-05, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2811,6 +2873,7 @@ def vit_small_plus_patch16_dinov3_qkvb(pretrained: bool = False, **kwargs) -> Ev
         depth=12,
         num_heads=6,
         qkv_bias=True,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-05, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2840,6 +2903,7 @@ def vit_base_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
         depth=12,
         num_heads=12,
         qkv_bias=False,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-05, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2867,6 +2931,7 @@ def vit_base_patch16_dinov3_qkvb(pretrained: bool = False, **kwargs) -> Eva:
         depth=12,
         num_heads=12,
         qkv_bias=True,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-05, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2894,6 +2959,7 @@ def vit_large_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
         depth=24,
         num_heads=16,
         qkv_bias=False,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-5, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2921,6 +2987,7 @@ def vit_large_patch16_dinov3_qkvb(pretrained: bool = False, **kwargs) -> Eva:
         depth=24,
         num_heads=16,
         qkv_bias=True,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-5, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2948,6 +3015,7 @@ def vit_huge_plus_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
         depth=32,
         num_heads=20,
         qkv_bias=False,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-5, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -2978,6 +3046,7 @@ def vit_huge_plus_patch16_dinov3_qkvb(pretrained: bool = False, **kwargs) -> Eva
         depth=32,
         num_heads=20,
         qkv_bias=True,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         init_values=1.0e-5, # layer-scale
         rope_type='dinov3',
         rope_temperature=100,
@@ -3007,6 +3076,7 @@ def vit_7b_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
         depth=40,
         num_heads=32,
         qkv_bias=False,
+        # global_pool='token',  # upstream uses CLS token; default here is 'avg', pass via kwargs or --gp
         mlp_ratio=2,
         init_values=1.0e-5, # layer-scale
         rope_type='dinov3',

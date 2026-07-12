@@ -83,7 +83,7 @@ pub fn build_bspline_basis_1d(
 ) -> Result<BasisBuildResult, BasisError> {
     // Natural cubic regression spline (bs="cr"/"cs", #1074): a dense
     // value-at-knot basis with its own roughness penalty, not a B-spline
-    // difference penalty. Route to the dedicated builder BEFORE the B-spline-only
+    // derivative penalty. Route to the dedicated builder BEFORE the B-spline-only
     // auto-shrink and periodic logic so neither touches a cr spec.
     if let BSplineKnotSpec::NaturalCubicRegression { knots } = &spec.knotspec {
         return build_cubic_regression_basis_1d(data, spec, knots);
@@ -171,8 +171,13 @@ pub fn build_bspline_basis_1d(
             );
         }
         let knots = cyclic_uniform_knot_vector(start, end, spec.degree, num_basis);
-        let s_bend_raw = create_cyclic_difference_penalty_matrix(num_basis, spec.penalty_order)?;
-        // A cyclic difference penalty has a single null direction — the constant
+        let s_bend_raw = cyclic_bspline_derivative_penalty_matrix(
+            spec.degree,
+            num_basis,
+            end - start,
+            spec.penalty_order,
+        )?;
+        // A cyclic derivative penalty has a single null direction — the constant
         // vector — and that direction is removed wholesale by the periodic
         // sum-to-zero identifiability constraint applied below
         // (`apply_bspline_identifiability_policy` / streaming equivalent). The
@@ -341,13 +346,9 @@ pub fn build_bspline_basis_1d(
         None
     };
     if let Some((knots, p_raw, chunk)) = auto_chunk_streaming {
-        let greville_for_penalty = penalty_greville_abscissae_for_knots(&knots, spec.degree)?;
-        let s_bend_raw = create_difference_penalty_matrix(
-            p_raw,
-            spec.penalty_order,
-            greville_for_penalty.as_ref().map(|g| g.view()),
-        )?;
-        let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec)?;
+        let s_bend_raw =
+            bspline_derivative_penalty_matrix(knots.view(), spec.degree, spec.penalty_order)?;
+        let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec, &knots)?;
         let penalties_raw_mats = penalties_raw
             .iter()
             .map(|candidate| candidate.matrix.clone())
@@ -530,18 +531,9 @@ pub fn build_bspline_basis_1d(
             }
         }
     };
-    let p_raw = design_sparse_opt
-        .as_ref()
-        .map(|basis| basis.ncols())
-        .or_else(|| design_dense_opt.as_ref().map(Array2::ncols))
-        .expect("B-spline basis should be present");
-    let greville_for_penalty = penalty_greville_abscissae_for_knots(&knots, spec.degree)?;
-    let s_bend_raw = create_difference_penalty_matrix(
-        p_raw,
-        spec.penalty_order,
-        greville_for_penalty.as_ref().map(|g| g.view()),
-    )?;
-    let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec)?;
+    let s_bend_raw =
+        bspline_derivative_penalty_matrix(knots.view(), spec.degree, spec.penalty_order)?;
+    let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec, &knots)?;
     let penalties_raw_mats: Vec<Array2<f64>> = penalties_raw
         .iter()
         .map(|candidate| candidate.matrix.clone())
@@ -713,7 +705,7 @@ pub fn build_bspline_basis_1d(
 /// formed, then identifiability congruence → double-penalty nullspace rebuild →
 /// filter), but with the cr design ([`CubicRegressionBasis::design`]) and cr
 /// roughness penalty ([`CubicRegressionBasis::penalty`], null space `{const,
-/// linear}`, dim 2) instead of the B-spline design + difference penalty, and
+/// linear}`, dim 2) instead of the B-spline design + derivative penalty, and
 /// emits [`BasisMetadata::CubicRegression1D`]. The stored
 /// `identifiability_transform` is the SAME raw→constrained transform a
 /// `BSpline1D` stores, so predict-time replay reconstructs the fit-time design.
@@ -740,6 +732,11 @@ pub fn build_cubic_regression_basis_1d(
              RemoveLinearTrend identifiability; use the default sum-to-zero centering"
         );
     }
+    if !spec.boundary_conditions.is_free() {
+        crate::bail_invalid_basis!(
+            "natural cubic regression splines do not support additional endpoint boundary conditions; their natural second-derivative conditions are structural"
+        );
+    }
 
     let cr = CubicRegressionBasis::new(knots.clone())?;
     let raw_design = cr.design(data);
@@ -748,7 +745,7 @@ pub fn build_cubic_regression_basis_1d(
     // Raw (pre-identifiability) candidates: Frobenius-normalized bending penalty
     // plus, for `cs`/double-penalty, the null-space shrinkage ridge — exactly as
     // `bspline_penalty_candidates` assembles them.
-    let want_nullspace = spec.double_penalty && spec.boundary_conditions.is_free();
+    let want_nullspace = spec.double_penalty;
     let (bend_norm, bend_scale) = normalize_penalty(&s_bend_raw);
     let mut penalties_raw = vec![PenaltyCandidate {
         matrix: bend_norm,
@@ -758,8 +755,16 @@ pub fn build_cubic_regression_basis_1d(
         kronecker_factors: None,
         op: None,
     }];
-    if want_nullspace && let Some(shrinkage) = build_nullspace_shrinkage_penalty(&s_bend_raw)? {
-        let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage.sym_penalty);
+    // The cr basis is piecewise cubic between its knots, so its exact L² Gram
+    // supplies the function metric for the null-component shrinkage (SPEC 5).
+    let cr_shrinkage = if want_nullspace {
+        let gram = cubic_regression_function_gram(knots)?;
+        function_space_nullspace_shrinkage(&s_bend_raw, &gram)?
+    } else {
+        None
+    };
+    if let Some(shrinkage) = cr_shrinkage {
+        let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage);
         penalties_raw.push(PenaltyCandidate {
             matrix: ridge_norm,
             nullspace_dim_hint: 0,
@@ -1956,28 +1961,21 @@ fn renormalize_constrained_penalty_candidates(
 /// Rebuild the double-penalty null-space shrinkage ridge in the FINAL
 /// (post-identifiability) coefficient chart.
 ///
-/// The Marra & Wood (2011) null-space shrinkage block is the orthogonal
-/// projector `U Uᵀ` onto `null(S_wiggle)`. `bspline_penalty_candidates` builds
-/// it in the RAW B-spline coefficient chart, but the identifiability transform
-/// `Z` (sum-to-zero centering, boundary projection, ...) is applied to every
-/// penalty *afterwards* as the congruence `S → ZᵀSZ`. A congruence does NOT
-/// commute with the projector construction: `Zᵀ(UUᵀ)Z = (ZᵀU)(ZᵀU)ᵀ` is no
-/// longer a projector onto `null(ZᵀSZ)`. Its nonzero eigenvalues are those of
-/// `Uᵀ(ZZᵀ)U`; for an open/clamped B-spline the centering vector `c=Bᵀ1`
-/// is NOT in `null(S)`, so one of those eigenvalues is `δ=dist²(ĉ,null(S))>0`
-/// (≈0.148 for the k=10 order-2 P-spline). That spurious second null direction
-/// lies in the RANGE of the bend penalty, so the "shrinkage" ridge penalizes a
-/// genuine curvature mode — the source of the concurvity collapse (#1476) and
-/// the Tweedie `bs="ps"` boundary bias (#1477).
+/// `bspline_penalty_candidates` builds the function-space block
+/// `R = G N(NᵀGN)⁻¹NᵀG` in the raw chart. An identifiability map `M`
+/// restricts both physical penalties by congruence, `S_c=MᵀSM` and
+/// `R_c=MᵀRM`. If `M` removes part of `null(S)`, merely retaining `R_c`
+/// also retains metric coupling to the removed direction. Rebuilding from the
+/// surviving generalized null space gives the L² norm of exactly the null
+/// component that remains representable in the final chart.
 ///
-/// The fix mirrors the box-reparametrization path (term_specs.rs): rebuild the
-/// ridge from `null(S_c)` of the *transformed* primary wiggliness penalty, so
-/// `rank(P)=nullity(S_c)` and `S_c P = P S_c ≈ 0` exactly in the chart REML
-/// scores. After centering the constant direction is gone, so `nullity(S_c)=1`
-/// (a true rank-1 ridge); an UNcentered / constraint-free smooth keeps its
-/// genuine 2-D null space, because the projector adapts to the actual
-/// `null(S_c)`. The rebuilt ridge's `normalization_scale` is reset to `1.0`:
-/// it is a fresh unit-eigenvalue projector, and the subsequent
+/// The rebuild is METRIC-CONSISTENT (`rebuild_metric_consistent_ridge`): the
+/// raw ridge is the function-space block `G Z (ZᵀGZ)⁻¹ ZᵀG` (penalizing
+/// `∫(null component of f)²`, SPEC rule 5), and its congruence transform still
+/// acts as the constrained-chart Gram on `null(S_c)`, so the rebuilt block is
+/// the constrained-chart function-space ridge — not a coefficient-space
+/// projector that would change under basis rescaling. The rebuilt ridge's
+/// `normalization_scale` is reset to `1.0`; the subsequent
 /// `renormalize_constrained_penalty_candidates` pass folds in its unit-Frobenius
 /// scale just as for every other constrained block.
 fn rebuild_double_penalty_nullspace_in_constrained_chart(
@@ -2001,7 +1999,7 @@ fn rebuild_double_penalty_nullspace_in_constrained_chart(
     let primary_constrained = candidates
         .iter()
         .find(|c| matches!(c.source, PenaltySource::Primary))
-        .map(|c| c.matrix.clone());
+        .map(|c| c.matrix.mapv(|value| value * c.normalization_scale));
     let Some(s_c) = primary_constrained else {
         crate::bail_invalid_basis!(
             "double-penalty B-spline has a null-space shrinkage ridge but no primary \
@@ -2009,12 +2007,17 @@ fn rebuild_double_penalty_nullspace_in_constrained_chart(
         );
     };
     let p = s_c.nrows();
-    let ridge = build_nullspace_shrinkage_penalty(&s_c)?
-        .map(|shrink| shrink.sym_penalty)
-        .unwrap_or_else(|| Array2::<f64>::zeros((p, p)));
     for candidate in &mut candidates {
         if matches!(candidate.source, PenaltySource::DoublePenaltyNullspace) {
-            candidate.matrix = ridge.clone();
+            // Undo the raw-chart Frobenius normalizations before rebuilding.
+            // The two physical congruence transforms are covariant under any
+            // basis change; their independently normalized working matrices
+            // are not.
+            let ridge_constrained = candidate
+                .matrix
+                .mapv(|value| value * candidate.normalization_scale);
+            candidate.matrix = rebuild_metric_consistent_ridge(&s_c, &ridge_constrained)?
+                .unwrap_or_else(|| Array2::<f64>::zeros((p, p)));
             candidate.normalization_scale = 1.0;
             candidate.op = None;
         }
@@ -2054,7 +2057,8 @@ pub(crate) fn validated_kronecker_factors(
 ///
 /// The wiggliness penalty `S_bend` is always present. When `double_penalty` is
 /// enabled on a free (non-boundary-conditioned) basis we additionally emit the
-/// Marra & Wood (2011) null-space shrinkage block `Z Zᵀ` as a *separate* REML
+/// null-space shrinkage block (Marra & Wood 2011, in the FUNCTION-SPACE form
+/// `G Z (ZᵀGZ)⁻¹ ZᵀG` with `G` the exact basis Gram) as a *separate* REML
 /// coordinate, so that REML can drive an unsupported term's constant/linear
 /// part to `EDF → 0` independently of its wiggliness (mgcv `select = TRUE`).
 ///
@@ -2072,10 +2076,21 @@ pub(crate) fn validated_kronecker_factors(
 fn bspline_penalty_candidates(
     s_bend_raw: &Array2<f64>,
     spec: &BSplineBasisSpec,
+    knots: &Array1<f64>,
 ) -> Result<Vec<PenaltyCandidate>, BasisError> {
-    let want_nullspace = spec.double_penalty && spec.boundary_conditions.is_free();
+    // Build in the raw chart whenever requested. Endpoint conditions and
+    // identifiability transforms may remove only part of the polynomial null
+    // space; the metric-consistent constrained-chart rebuild below retains the
+    // surviving function component and the active-candidate filter drops the
+    // block only when no null direction remains.
+    let want_nullspace = spec.double_penalty;
     let shrinkage = if want_nullspace {
-        build_nullspace_shrinkage_penalty(s_bend_raw)?
+        // Function-space shrinkage (SPEC rule 5): the ridge penalizes
+        // `∫(null component of f)²` via the exact basis Gram, so the penalized
+        // quantity is a property of the fitted function, invariant to how the
+        // B-spline basis happens to be scaled or parameterized.
+        let gram = bspline_function_gram(knots, spec.degree)?;
+        function_space_nullspace_shrinkage(s_bend_raw, &gram)?
     } else {
         None
     };
@@ -2108,7 +2123,7 @@ fn bspline_penalty_candidates(
     };
 
     let (bend_norm, bend_scale) = normalize_penalty(s_bend_raw);
-    let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage.sym_penalty);
+    let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage);
     Ok(vec![
         PenaltyCandidate {
             matrix: bend_norm,
@@ -2127,6 +2142,359 @@ fn bspline_penalty_candidates(
             op: None,
         },
     ])
+}
+
+/// Exact L² Gram `G = ∫ b(x) b(x)ᵀ dx` of a piecewise-polynomial 1-D basis,
+/// assembled span-by-span with a `points_per_span`-point Gauss–Legendre rule.
+/// An `m`-point rule is exact for polynomial integrands of degree `≤ 2m − 1`
+/// on every span, so choosing `points_per_span = degree + 1` makes the Gram of
+/// a degree-`degree` spline basis exact (the integrand `b_i b_j` has degree
+/// `2·degree` per span).
+pub(crate) fn piecewise_polynomial_function_gram(
+    breaks: &[f64],
+    points_per_span: usize,
+    eval: &mut dyn FnMut(ArrayView1<'_, f64>) -> Result<Array2<f64>, BasisError>,
+) -> Result<Array2<f64>, BasisError> {
+    if points_per_span == 0 {
+        crate::bail_invalid_basis!(
+            "function-space Gram requires at least one quadrature point per span"
+        );
+    }
+    if breaks.len() < 2 {
+        crate::bail_invalid_basis!("function-space Gram requires at least one knot span");
+    }
+    if breaks.iter().any(|value| !value.is_finite()) {
+        crate::bail_invalid_basis!("function-space Gram breakpoints must all be finite");
+    }
+    if breaks.windows(2).any(|span| span[1] < span[0]) {
+        crate::bail_invalid_basis!("function-space Gram breakpoints must be nondecreasing");
+    }
+    let (nodes, weights) = gam_math::special::gauss_legendre(points_per_span);
+    let mut quad_x = Vec::with_capacity((breaks.len() - 1) * points_per_span);
+    let mut quad_w = Vec::with_capacity(quad_x.capacity());
+    for span in breaks.windows(2) {
+        let (a, b) = (span[0], span[1]);
+        if !(b > a) {
+            continue;
+        }
+        let half = 0.5 * (b - a);
+        let mid = 0.5 * (a + b);
+        for (&t, &w) in nodes.iter().zip(weights.iter()) {
+            quad_x.push(mid + half * t);
+            quad_w.push(half * w);
+        }
+    }
+    if quad_x.is_empty() {
+        crate::bail_invalid_basis!(
+            "function-space Gram: every knot span is degenerate (zero length)"
+        );
+    }
+    let x = Array1::from(quad_x);
+    let design = eval(x.view())?;
+    if design.nrows() != x.len() {
+        crate::bail_dim_basis!(
+            "function-space Gram evaluator returned {} rows for {} quadrature points",
+            design.nrows(),
+            x.len()
+        );
+    }
+    if design.iter().any(|value| !value.is_finite()) {
+        crate::bail_invalid_basis!(
+            "function-space Gram evaluator returned a non-finite basis value"
+        );
+    }
+    let mut weighted = design.clone();
+    for (mut row, &w) in weighted.axis_iter_mut(Axis(0)).zip(quad_w.iter()) {
+        row *= w.sqrt();
+    }
+    Ok(fast_ata(&weighted))
+}
+
+/// Exact Gram of the raw (free-end) B-spline basis over its modeling interval
+/// `[t_d, t_{K−1−d}]` (the span where the partition of unity holds).
+pub(crate) fn bspline_function_gram(
+    knots: &Array1<f64>,
+    degree: usize,
+) -> Result<Array2<f64>, BasisError> {
+    let k = knots.len();
+    if k < 2 * (degree + 1) {
+        crate::bail_invalid_basis!(
+            "B-spline function Gram requires at least {} knots for degree {degree}, got {k}",
+            2 * (degree + 1)
+        );
+    }
+    let mut breaks = Vec::<f64>::with_capacity(k - 2 * degree);
+    for i in degree..=(k - 1 - degree) {
+        let t = knots[i];
+        if breaks.last().is_none_or(|&prev| t > prev) {
+            breaks.push(t);
+        }
+    }
+    piecewise_polynomial_function_gram(&breaks, degree + 1, &mut |pts| {
+        let (basis, _) = create_basis::<Dense>(
+            pts,
+            KnotSource::Provided(knots.view()),
+            degree,
+            BasisOptions::value(),
+        )?;
+        Ok((*basis).clone())
+    })
+}
+
+/// Exact L² Gram of the natural cubic regression basis indexed by `knots`.
+pub(crate) fn cubic_regression_function_gram(
+    knots: &Array1<f64>,
+) -> Result<Array2<f64>, BasisError> {
+    let cr = CubicRegressionBasis::new(knots.clone())?;
+    // A cubic-by-cubic product has degree six on each span, exactly integrated
+    // by four Gauss–Legendre points.
+    piecewise_polynomial_function_gram(&knots.to_vec(), 4, &mut |pts| Ok(cr.design(pts)))
+}
+
+/// Exact L² Gram of a periodic cardinal B-spline basis over one full period.
+pub(crate) fn periodic_bspline_function_gram(
+    start: f64,
+    end: f64,
+    degree: usize,
+    num_basis: usize,
+) -> Result<Array2<f64>, BasisError> {
+    if !(start.is_finite() && end.is_finite() && end > start) {
+        return Err(BasisError::InvalidRange(start, end));
+    }
+    if num_basis <= degree {
+        crate::bail_invalid_basis!(
+            "periodic function Gram requires more basis functions ({num_basis}) than degree ({degree})"
+        );
+    }
+    let breaks = Array1::linspace(start, end, num_basis + 1).to_vec();
+    piecewise_polynomial_function_gram(&breaks, degree + 1, &mut |pts| {
+        create_cyclic_bspline_basis_dense(pts, start, end, degree, num_basis)
+            .map(|(basis, _)| basis)
+    })
+}
+
+/// Generalized-null frame for `S v = μ H v`, with `H` strictly positive
+/// definite. The returned columns are H-orthonormal and correspond to the zero
+/// generalized eigenvalues. Whitening before classifying the spectrum is
+/// essential: ordinary eigenvalue cutoffs change under a harmless rescaling of
+/// the coefficient basis, while generalized eigenvalues do not.
+fn generalized_nullspace_basis(
+    penalty: &Array2<f64>,
+    metric: &Array2<f64>,
+    context: &str,
+) -> Result<Option<Array2<f64>>, BasisError> {
+    if penalty.dim() != metric.dim() || penalty.nrows() != penalty.ncols() {
+        crate::bail_dim_basis!(
+            "{context}: penalty is {}x{} but metric is {}x{}",
+            penalty.nrows(),
+            penalty.ncols(),
+            metric.nrows(),
+            metric.ncols()
+        );
+    }
+    let p = penalty.nrows();
+    if p == 0 {
+        return Ok(None);
+    }
+
+    let metric_sym = symmetrize_penalty(metric);
+    let factor = gam_linalg::faer_ndarray::FaerCholesky::cholesky(&metric_sym, Side::Lower)
+        .map_err(|error| {
+            BasisError::InvalidInput(format!(
+                "{context}: function metric is not strictly positive definite: {error}"
+            ))
+        })?;
+    let lower = factor.lower_triangular();
+    let penalty_sym = symmetrize_penalty(penalty);
+    let left =
+        gam_linalg::triangular::forward_substitution_lower_matrix(lower.view(), penalty_sym.view());
+    let whitened =
+        gam_linalg::triangular::forward_substitution_lower_matrix(lower.view(), left.t());
+    let whitened = symmetrize_penalty(&whitened);
+    let (evals, evecs) = FaerEigh::eigh(&whitened, Side::Lower).map_err(BasisError::LinalgError)?;
+    let tol = generalized_spectral_tolerance(&evals, &whitened);
+    let penalty_scale = max_abs_row_sum(&penalty_sym);
+    let mut zero_idx = Vec::new();
+    for (index, &value) in evals.iter().enumerate() {
+        if value.abs() <= tol {
+            zero_idx.push(index);
+            continue;
+        }
+        // Whitening by L^{-1} can amplify roundoff when the function metric is
+        // ill-conditioned. Adjudicate every questionable eigenpair in the
+        // original PSD quadratic: v=L^{-T}u and μ=vᵀSv because vᵀHv=1. The
+        // O(n·eps·||S||∞·||v||²) envelope is a backward-error test on the source
+        // penalty, so it accepts only curvature numerically indistinguishable
+        // from zero rather than widening a global generalized-eigenvalue floor.
+        let generalized = gam_linalg::triangular::back_substitution_lower_transpose(
+            lower.view(),
+            evecs.column(index),
+        );
+        let coefficient_norm_squared = generalized.dot(&generalized);
+        let source_quadratic = generalized.dot(&penalty_sym.dot(&generalized));
+        let source_tol = default_rrqr_rank_alpha()
+            * f64::EPSILON
+            * p.max(1) as f64
+            * penalty_scale
+            * coefficient_norm_squared;
+        if source_quadratic.abs() <= source_tol {
+            zero_idx.push(index);
+        } else if source_quadratic < -source_tol {
+            crate::bail_invalid_basis!(
+                "{context}: generalized penalty is not positive semidefinite; eigenvalue {value:.6e} has source quadratic {source_quadratic:.6e} outside its backward-error envelope {source_tol:.6e}"
+            );
+        }
+    }
+    if zero_idx.is_empty() {
+        return Ok(None);
+    }
+
+    let whitened_null = evecs.select(Axis(1), &zero_idx);
+    let mut null_basis = Array2::<f64>::zeros((p, zero_idx.len()));
+    for column in 0..zero_idx.len() {
+        let generalized = gam_linalg::triangular::back_substitution_lower_transpose(
+            lower.view(),
+            whitened_null.column(column),
+        );
+        null_basis.column_mut(column).assign(&generalized);
+    }
+    Ok(Some(null_basis))
+}
+
+/// Scale-relative working-precision cutoff for a generalized symmetric
+/// eigensystem. Unlike the broad canonical-penalty reporting tolerance, this
+/// decides a structural null space and must not erase genuine low-frequency
+/// modes merely because the largest generalized frequency grows with basis
+/// resolution.
+fn generalized_spectral_tolerance(evals: &Array1<f64>, operator: &Array2<f64>) -> f64 {
+    let spectral_scale = evals
+        .iter()
+        .copied()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    // Symmetric eigensolvers are backward stable in an operator norm, while the
+    // computed eigenvalues alone can slightly underestimate that norm after the
+    // two triangular whitening solves above. The maximum absolute row sum is a
+    // deterministic upper bound on ||A||₂, so this is the standard O(n·eps·||A||)
+    // roundoff envelope rather than a fitted absolute floor.
+    let operator_scale = max_abs_row_sum(operator);
+    let scale = spectral_scale.max(operator_scale);
+    default_rrqr_rank_alpha() * f64::EPSILON * operator.nrows().max(1) as f64 * scale
+}
+
+fn max_abs_row_sum(matrix: &Array2<f64>) -> f64 {
+    matrix
+        .rows()
+        .into_iter()
+        .map(|row| row.iter().map(|value| value.abs()).sum::<f64>())
+        .fold(0.0_f64, f64::max)
+}
+
+/// `R = W (NᵀW)⁻¹ Wᵀ` for any full-column-rank null frame `N` and
+/// metric action `W=G N`. A singular restriction means the supplied matrix is
+/// not a valid function metric on the claimed null space and is an error, never
+/// an invitation to substitute a coefficient-space projector.
+fn ridge_from_null_metric_action(
+    n: &Array2<f64>,
+    w: &Array2<f64>,
+) -> Result<Array2<f64>, BasisError> {
+    let c_raw = n.t().dot(w);
+    let (c_sym, evals, evecs) = spectral_summary(&c_raw)?;
+    let tol = generalized_spectral_tolerance(&evals, &c_sym);
+    if let Some(&invalid) = evals.iter().find(|&&value| value <= tol) {
+        crate::bail_invalid_basis!(
+            "function-space null metric is not strictly positive definite; eigenvalue {invalid:.6e} is at or below tolerance {tol:.6e}"
+        );
+    }
+    let mut gz = w.dot(&evecs);
+    for (mut col, &d) in gz.axis_iter_mut(Axis(1)).zip(evals.iter()) {
+        col /= d.sqrt();
+    }
+    Ok(fast_abt(&gz, &gz))
+}
+
+/// Function-space double-penalty ridge: shrink the *function* component that
+/// the primary penalty cannot see, not the raw coefficients (SPEC rule 5).
+///
+/// The Euclidean Marra & Wood projector `ZZᵀ` penalizes `‖null coefficients‖²`,
+/// which changes under a harmless basis rescaling/reparameterization even when
+/// the represented function is identical. With the basis Gram `G = ∫ b bᵀ`, the
+/// ridge `G Z (ZᵀGZ)⁻¹ ZᵀG` penalizes `∫ (null component of f)²` instead — a
+/// property of the function alone, covariant under any basis change
+/// (`S → MᵀSM`, `G → MᵀGM` maps the ridge to exactly `MᵀRM`).
+pub(crate) fn function_space_nullspace_shrinkage(
+    penalty: &Array2<f64>,
+    gram: &Array2<f64>,
+) -> Result<Option<Array2<f64>>, BasisError> {
+    if penalty.dim() != gram.dim() || penalty.nrows() != penalty.ncols() {
+        crate::bail_dim_basis!(
+            "function-space shrinkage: penalty is {}x{} but Gram is {}x{}",
+            penalty.nrows(),
+            penalty.ncols(),
+            gram.nrows(),
+            gram.ncols()
+        );
+    }
+    if penalty.nrows() == 0 {
+        return Ok(None);
+    }
+    let Some(z) = generalized_nullspace_basis(
+        penalty,
+        gram,
+        "function-space null-shrinkage generalized eigenproblem",
+    )?
+    else {
+        return Ok(None);
+    };
+    let gz = gram.dot(&z);
+    Ok(Some(fast_abt(&gz, &gz)))
+}
+
+/// Rebuild a double-penalty ridge after a coefficient reparameterization while
+/// PRESERVING the function-space metric the original ridge encoded.
+///
+/// For any ridge of the form `R = G Z (ZᵀGZ)⁻¹ ZᵀG` (`G` SPD, `Z` spanning
+/// `null(S)`) and any injective transform `M` applied as the congruences
+/// `S_c = MᵀSM`, `R_c = MᵀRM`, the identity `R_c v = (MᵀGM) v` holds for every
+/// `v ∈ null(S_c)`: `Mv ∈ null(S)` (PSD `S`), and the G-orthogonal projector
+/// underlying `R` fixes null vectors. So the correct constrained-chart ridge
+/// `G_c N (NᵀG_cN)⁻¹ NᵀG_c` is computable from `(S_c, R_c)` alone — no Gram
+/// needs to travel with the candidate:
+///
+///   `N = null(S_c)`,  `W = R_c N (= G_c N)`,  `ridge = W (NᵀW)⁻¹ Wᵀ`.
+///
+/// Null classification is itself generalized, using the strictly-positive
+/// metric `H=S_c+R_c`. This avoids reintroducing a coefficient-scale-dependent
+/// ordinary eigenvalue cutoff during a later chart change. Returns `Ok(None)`
+/// when the constrained primary has no null space.
+pub(crate) fn rebuild_metric_consistent_ridge(
+    primary_constrained: &Array2<f64>,
+    ridge_constrained: &Array2<f64>,
+) -> Result<Option<Array2<f64>>, BasisError> {
+    if primary_constrained.dim() != ridge_constrained.dim()
+        || primary_constrained.nrows() != primary_constrained.ncols()
+    {
+        crate::bail_dim_basis!(
+            "metric-consistent ridge rebuild: primary is {}x{} but ridge is {}x{}",
+            primary_constrained.nrows(),
+            primary_constrained.ncols(),
+            ridge_constrained.nrows(),
+            ridge_constrained.ncols()
+        );
+    }
+    if primary_constrained.nrows() == 0 {
+        return Ok(None);
+    }
+    let metric = primary_constrained + ridge_constrained;
+    let Some(n) = generalized_nullspace_basis(
+        primary_constrained,
+        &metric,
+        "metric-consistent ridge rebuild generalized eigenproblem",
+    )?
+    else {
+        return Ok(None);
+    };
+    let w = ridge_constrained.dot(&n);
+    Ok(Some(ridge_from_null_metric_action(&n, &w)?))
 }
 
 /// Build the double-penalty ridge from the structural null space of a PSD penalty.
@@ -2383,4 +2751,175 @@ pub fn expand_periodic_centers(
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod function_space_null_shrinkage_tests {
+    use super::*;
+    use ndarray::{Array2, array};
+
+    fn congruence(matrix: &Array2<f64>, transform: &Array2<f64>) -> Array2<f64> {
+        fast_atb(transform, &fast_ab(matrix, transform))
+    }
+
+    fn max_abs_difference(left: &Array2<f64>, right: &Array2<f64>) -> f64 {
+        left.iter()
+            .zip(right.iter())
+            .map(|(&a, &b)| (a - b).abs())
+            .fold(0.0_f64, f64::max)
+    }
+
+    #[test]
+    fn degree_one_hat_basis_has_exact_analytic_gram() {
+        let knots = array![0.0, 0.0, 1.0, 1.0];
+        let gram = bspline_function_gram(&knots, 1).expect("exact hat-basis Gram");
+        let expected = array![[1.0 / 3.0, 1.0 / 6.0], [1.0 / 6.0, 1.0 / 3.0]];
+        assert!(
+            max_abs_difference(&gram, &expected) < 2.0e-15,
+            "exact Gram mismatch: {gram:?}"
+        );
+        let ones = array![1.0, 1.0];
+        assert!((ones.dot(&gram.dot(&ones)) - 1.0).abs() < 2.0e-15);
+    }
+
+    #[test]
+    fn generalized_null_classification_is_covariant_under_ill_scaled_shear() {
+        let penalty = array![[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        let gram = Array2::<f64>::eye(3);
+        let transform = array![[1.0, 0.3, 0.0], [0.0, 1.0, 0.2], [0.0, 0.0, 1.0e-6]];
+        let ridge = function_space_nullspace_shrinkage(&penalty, &gram)
+            .expect("base generalized solve")
+            .expect("one-dimensional null space");
+        let penalty_t = congruence(&penalty, &transform);
+        let gram_t = congruence(&gram, &transform);
+        let ridge_t = function_space_nullspace_shrinkage(&penalty_t, &gram_t)
+            .expect("transformed generalized solve")
+            .expect("transformed null space");
+        let expected = congruence(&ridge, &transform);
+        assert!(
+            max_abs_difference(&ridge_t, &expected) < 2.0e-9,
+            "function-space ridge is not congruence-covariant:\nactual={ridge_t:?}\nexpected={expected:?}"
+        );
+    }
+
+    #[test]
+    fn ridge_quadratic_is_l2_energy_of_g_orthogonal_null_component() {
+        let penalty = array![[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 2.0]];
+        let gram = array![[2.0, 0.4, 0.2], [0.4, 1.5, 0.1], [0.2, 0.1, 1.2]];
+        let z = generalized_nullspace_basis(&penalty, &gram, "test")
+            .expect("generalized null solve")
+            .expect("two-dimensional null space");
+        let ridge = function_space_nullspace_shrinkage(&penalty, &gram)
+            .expect("function-space ridge")
+            .expect("two-dimensional null space");
+        let beta = array![0.7, -1.1, 0.9];
+        let projection_coefficients = z.t().dot(&gram.dot(&beta));
+        let beta_null = z.dot(&projection_coefficients);
+        let ridge_energy = beta.dot(&ridge.dot(&beta));
+        let function_energy = beta_null.dot(&gram.dot(&beta_null));
+        assert!((ridge_energy - function_energy).abs() < 2.0e-13);
+    }
+
+    #[test]
+    fn constrained_metric_rebuild_matches_direct_function_space_construction() {
+        let penalty = array![
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 2.0]
+        ];
+        let gram = array![
+            [2.0, 0.2, 0.1, 0.0],
+            [0.2, 1.7, 0.3, 0.1],
+            [0.1, 0.3, 1.5, 0.2],
+            [0.0, 0.1, 0.2, 1.3]
+        ];
+        let transform = array![
+            [1.0, 0.2, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.3],
+            [0.0, 0.0, 1.0]
+        ];
+        let ridge = function_space_nullspace_shrinkage(&penalty, &gram)
+            .expect("raw ridge")
+            .expect("raw null space");
+        let penalty_t = congruence(&penalty, &transform);
+        let gram_t = congruence(&gram, &transform);
+        let restricted_ridge = congruence(&ridge, &transform);
+        let rebuilt = rebuild_metric_consistent_ridge(&penalty_t, &restricted_ridge)
+            .expect("metric rebuild")
+            .expect("surviving null direction");
+        let direct = function_space_nullspace_shrinkage(&penalty_t, &gram_t)
+            .expect("direct constrained ridge")
+            .expect("surviving null direction");
+        assert!(max_abs_difference(&rebuilt, &direct) < 2.0e-10);
+    }
+
+    #[test]
+    fn singular_function_metric_is_an_error_not_a_coefficient_fallback() {
+        let penalty = array![[0.0, 0.0], [0.0, 1.0]];
+        let singular_gram = array![[0.0, 0.0], [0.0, 1.0]];
+        let error = function_space_nullspace_shrinkage(&penalty, &singular_gram)
+            .expect_err("singular Gram must be rejected");
+        assert!(error.to_string().contains("not strictly positive definite"));
+    }
+
+    #[test]
+    fn one_sided_endpoint_constraint_keeps_surviving_null_recovery() {
+        let data = Array1::linspace(0.0, 1.0, 32);
+        let spec = BSplineBasisSpec {
+            degree: 3,
+            penalty_order: 2,
+            knotspec: BSplineKnotSpec::Generate {
+                data_range: (0.0, 1.0),
+                num_internal_knots: 5,
+            },
+            double_penalty: true,
+            identifiability: BSplineIdentifiability::None,
+            boundary: OneDimensionalBoundary::Open,
+            boundary_conditions: BSplineBoundaryConditions {
+                left: BSplineEndpointBoundaryCondition::Anchored { value: 0.0 },
+                right: BSplineEndpointBoundaryCondition::Free,
+            },
+        };
+        let built = build_bspline_basis_1d(data.view(), &spec)
+            .expect("one-sided anchored double-penalty basis");
+        assert_eq!(
+            built.penalties.len(),
+            2,
+            "the anchor removes the constant null direction but the linear direction must remain shrinkable"
+        );
+        assert!(built.penaltyinfo.iter().any(|info| {
+            info.active
+                && matches!(info.source, PenaltySource::DoublePenaltyNullspace)
+                && info.effective_rank == 1
+        }));
+    }
+
+    #[test]
+    fn cubic_regression_rejects_unimplemented_endpoint_conditions() {
+        let data = Array1::linspace(0.0, 1.0, 16);
+        let knots = Array1::linspace(0.0, 1.0, 6);
+        let spec = BSplineBasisSpec {
+            degree: 3,
+            penalty_order: 2,
+            knotspec: BSplineKnotSpec::NaturalCubicRegression {
+                knots: knots.clone(),
+            },
+            double_penalty: true,
+            identifiability: BSplineIdentifiability::None,
+            boundary: OneDimensionalBoundary::Open,
+            boundary_conditions: BSplineBoundaryConditions {
+                left: BSplineEndpointBoundaryCondition::Clamped,
+                right: BSplineEndpointBoundaryCondition::Free,
+            },
+        };
+        let error = build_bspline_basis_1d(data.view(), &spec)
+            .expect_err("cr endpoint conditions must not be silently ignored");
+        assert!(
+            error
+                .to_string()
+                .contains("do not support additional endpoint")
+        );
+    }
 }

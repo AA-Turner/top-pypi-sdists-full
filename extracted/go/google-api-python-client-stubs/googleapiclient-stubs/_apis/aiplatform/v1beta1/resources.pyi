@@ -30,10 +30,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -42,7 +42,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -64,10 +64,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -76,7 +76,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -86,8 +86,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1BatchPredictionJob = ...,
-            parent: str = ...,
+            body: GoogleCloudAiplatformV1beta1BatchPredictionJob,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1BatchPredictionJobHttpRequest: ...
         def get(
@@ -96,11 +96,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
-            readMask: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
+            readMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1ListBatchPredictionJobsResponseHttpRequest: ...
         def list_next(
@@ -129,10 +129,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -141,7 +141,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -163,10 +163,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -175,7 +175,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -199,10 +199,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -211,7 +211,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -235,10 +235,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -247,7 +247,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -267,10 +271,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -279,7 +283,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def annotations(self) -> AnnotationsResource: ...
@@ -291,24 +295,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1DatasetVersion = ...,
+                body: GoogleCloudAiplatformV1beta1DatasetVersion,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def delete(
                 self, *, name: str, **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def get(
-                self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+                self, *, name: str, readMask: str | None = ..., **kwargs: typing.Any
             ) -> GoogleCloudAiplatformV1beta1DatasetVersionHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                readMask: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                readMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ListDatasetVersionsResponseHttpRequest: ...
             def list_next(
@@ -323,8 +327,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1DatasetVersion = ...,
-                updateMask: str = ...,
+                body: GoogleCloudAiplatformV1beta1DatasetVersion,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1DatasetVersionHttpRequest: ...
             def restore(
@@ -346,10 +350,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -358,7 +362,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         @typing.type_check_only
@@ -378,10 +382,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -390,7 +394,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -398,25 +402,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         def create(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1Dataset = ...,
-            parent: str = ...,
+            body: GoogleCloudAiplatformV1beta1Dataset,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def delete(
             self, *, name: str, **kwargs: typing.Any
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def get(
-            self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+            self, *, name: str, readMask: str | None = ..., **kwargs: typing.Any
         ) -> GoogleCloudAiplatformV1beta1DatasetHttpRequest: ...
         def list(
             self,
             *,
-            filter: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
-            readMask: str = ...,
+            filter: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
+            readMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1ListDatasetsResponseHttpRequest: ...
         def list_next(
@@ -428,8 +432,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1Dataset = ...,
-            updateMask: str = ...,
+            body: GoogleCloudAiplatformV1beta1Dataset,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1DatasetHttpRequest: ...
         def annotationSpecs(self) -> AnnotationSpecsResource: ...
@@ -455,10 +459,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -467,7 +471,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -489,10 +493,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -501,7 +505,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -511,11 +515,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         @typing.type_check_only
         class ChatResource(googleapiclient.discovery.Resource):
             def completions(
-                self,
-                *,
-                endpoint: str,
-                body: GoogleApiHttpBody = ...,
-                **kwargs: typing.Any,
+                self, *, endpoint: str, body: GoogleApiHttpBody, **kwargs: typing.Any
             ) -> GoogleApiHttpBodyHttpRequest: ...
 
         @typing.type_check_only
@@ -533,10 +533,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -545,56 +545,56 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def computeTokens(
             self,
             *,
             endpoint: str,
-            body: GoogleCloudAiplatformV1beta1ComputeTokensRequest = ...,
+            body: GoogleCloudAiplatformV1beta1ComputeTokensRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1ComputeTokensResponseHttpRequest: ...
         def countTokens(
             self,
             *,
             endpoint: str,
-            body: GoogleCloudAiplatformV1beta1CountTokensRequest = ...,
+            body: GoogleCloudAiplatformV1beta1CountTokensRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1CountTokensResponseHttpRequest: ...
         def fetchPredictOperation(
             self,
             *,
             endpoint: str,
-            body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest = ...,
+            body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def generateContent(
             self,
             *,
             model: str,
-            body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+            body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest: ...
         def predict(
             self,
             *,
             endpoint: str,
-            body: GoogleCloudAiplatformV1beta1PredictRequest = ...,
+            body: GoogleCloudAiplatformV1beta1PredictRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1PredictResponseHttpRequest: ...
         def predictLongRunning(
             self,
             *,
             endpoint: str,
-            body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest = ...,
+            body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def streamGenerateContent(
             self,
             *,
             model: str,
-            body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+            body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest: ...
         def chat(self) -> ChatResource: ...
@@ -614,10 +614,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -626,7 +626,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -645,10 +645,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -673,10 +673,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -685,7 +685,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -704,10 +704,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -716,7 +716,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -735,10 +735,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -747,7 +747,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -769,10 +769,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -781,7 +781,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -803,10 +803,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -815,7 +815,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -837,10 +837,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -849,7 +849,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -870,10 +870,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -882,7 +882,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -901,10 +901,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -913,7 +913,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -930,10 +930,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -942,7 +942,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def featureMonitors(self) -> FeatureMonitorsResource: ...
@@ -965,10 +965,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -977,7 +977,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -994,10 +994,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1006,7 +1006,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def featureViews(self) -> FeatureViewsResource: ...
@@ -1033,10 +1033,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -1045,7 +1045,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -1065,10 +1069,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -1077,7 +1081,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def features(self) -> FeaturesResource: ...
@@ -1098,10 +1102,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1110,7 +1114,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def entityTypes(self) -> EntityTypesResource: ...
@@ -1133,10 +1137,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1145,7 +1149,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1167,10 +1171,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1179,7 +1183,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1201,10 +1205,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1213,7 +1217,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1227,18 +1231,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            includeInput: bool = ...,
-            lastEventId: str = ...,
-            stream: bool = ...,
+            includeInput: bool | None = ...,
+            lastEventId: str | None = ...,
+            stream: bool | None = ...,
             **kwargs: typing.Any,
         ) -> GenaiVertexV1beta1InteractionHttpRequest: ...
         def getStream(
             self,
             *,
             name: str,
-            includeInput: bool = ...,
-            lastEventId: str = ...,
-            stream: bool = ...,
+            includeInput: bool | None = ...,
+            lastEventId: str | None = ...,
+            stream: bool | None = ...,
             **kwargs: typing.Any,
         ) -> GenaiVertexV1beta1InteractionStreamingEventHttpRequest: ...
 
@@ -1248,7 +1252,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             self,
             *,
             parent: str,
-            body: GoogleCloudAiplatformV1beta1UploadRagFileRequest = ...,
+            body: GoogleCloudAiplatformV1beta1UploadRagFileRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1UploadRagFileResponseHttpRequest: ...
 
@@ -1271,10 +1275,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -1283,7 +1287,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -1305,10 +1309,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -1317,7 +1321,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -1339,10 +1343,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -1351,7 +1355,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -1371,10 +1375,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1383,7 +1387,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def artifacts(self) -> ArtifactsResource: ...
@@ -1408,10 +1412,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1420,7 +1424,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1442,10 +1446,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1454,7 +1458,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1476,10 +1480,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1488,7 +1492,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1512,10 +1516,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -1524,7 +1528,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -1544,10 +1548,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1556,7 +1560,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def evaluations(self) -> EvaluationsResource: ...
@@ -1579,10 +1583,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1591,7 +1595,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1613,10 +1617,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1625,7 +1629,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1647,10 +1651,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1659,7 +1663,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1681,10 +1685,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1693,7 +1697,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1712,11 +1716,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            name: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            returnPartialSuccess: bool = ...,
+            filter: str | None = ...,
+            name: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            returnPartialSuccess: bool | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
         def list_next(
@@ -1725,7 +1729,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             previous_response: GoogleLongrunningListOperationsResponse,
         ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
         def wait(
-            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+            self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
         ) -> GoogleLongrunningOperationHttpRequest: ...
 
     @typing.type_check_only
@@ -1745,10 +1749,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1757,7 +1761,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1779,10 +1783,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -1791,7 +1795,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -1808,8 +1812,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1AgentAnomalyDetectionScope = ...,
-                    agentAnomalyDetectionScopeId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1AgentAnomalyDetectionScope,
+                    agentAnomalyDetectionScopeId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -1824,8 +1828,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListAgentAnomalyDetectionScopesResponseHttpRequest: ...
                 def list_next(
@@ -1854,10 +1858,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -1866,14 +1870,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Agent = ...,
+                    body: GoogleCloudAiplatformV1beta1Agent,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -1886,9 +1894,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListAgentsResponseHttpRequest: ...
                 def list_next(
@@ -1902,8 +1910,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Agent = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Agent,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1AgentHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -1925,10 +1933,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -1937,7 +1945,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -1948,14 +1960,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelBatchPredictionJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelBatchPredictionJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1BatchPredictionJob = ...,
+                    body: GoogleCloudAiplatformV1beta1BatchPredictionJob,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1BatchPredictionJobHttpRequest: ...
                 def delete(
@@ -1968,10 +1980,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListBatchPredictionJobsResponseHttpRequest: ...
                 def list_next(
@@ -1989,7 +2001,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1CachedContent = ...,
+                    body: GoogleCloudAiplatformV1beta1CachedContent,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1CachedContentHttpRequest: ...
                 def delete(
@@ -2002,8 +2014,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListCachedContentsResponseHttpRequest
@@ -2020,8 +2032,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CachedContent = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1CachedContent,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1CachedContentHttpRequest: ...
 
@@ -2042,10 +2054,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -2054,21 +2066,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def cancel(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelCustomJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelCustomJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1CustomJob = ...,
+                    body: GoogleCloudAiplatformV1beta1CustomJob,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1CustomJobHttpRequest: ...
                 def delete(
@@ -2081,10 +2097,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListCustomJobsResponseHttpRequest: ...
                 def list_next(
@@ -2113,10 +2129,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -2125,21 +2141,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def cancel(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelDataLabelingJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelDataLabelingJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1DataLabelingJob = ...,
+                    body: GoogleCloudAiplatformV1beta1DataLabelingJob,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1DataLabelingJobHttpRequest: ...
                 def delete(
@@ -2152,11 +2172,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListDataLabelingJobsResponseHttpRequest
@@ -2190,10 +2210,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -2204,11 +2224,19 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def get(
-                        self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        readMask: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AnnotationSpecHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
 
@@ -2231,10 +2259,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                filter: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
-                                returnPartialSuccess: bool = ...,
+                                filter: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
+                                returnPartialSuccess: bool | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                             def list_next(
@@ -2249,7 +2277,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                timeout: str = ...,
+                                timeout: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -2257,11 +2285,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            readMask: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            readMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListAnnotationsResponseHttpRequest: ...
                         def list_next(
@@ -2289,10 +2317,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -2303,18 +2331,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListDataItemsResponseHttpRequest
@@ -2336,24 +2368,28 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1DatasetVersion = ...,
+                        body: GoogleCloudAiplatformV1beta1DatasetVersion,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
                         self, *, name: str, **kwargs: typing.Any
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
-                        self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        readMask: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1DatasetVersionHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListDatasetVersionsResponseHttpRequest: ...
                     def list_next(
@@ -2368,8 +2404,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1DatasetVersion = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1DatasetVersion,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1DatasetVersionHttpRequest: ...
                     def restore(
@@ -2391,10 +2427,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -2403,7 +2439,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -2423,10 +2463,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -2437,7 +2477,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def delete(
@@ -2447,11 +2491,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListSavedQueriesResponseHttpRequest
@@ -2470,21 +2514,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1AssembleDataRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1AssembleDataRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def assess(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1AssessDataRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1AssessDataRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Dataset = ...,
+                    body: GoogleCloudAiplatformV1beta1Dataset,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -2494,35 +2538,35 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ExportDataRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ExportDataRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
-                    self, *, name: str, readMask: str = ..., **kwargs: typing.Any
+                    self, *, name: str, readMask: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleCloudAiplatformV1beta1DatasetHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def import_(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ImportDataRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ImportDataRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListDatasetsResponseHttpRequest: ...
                 def list_next(
@@ -2536,27 +2580,27 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Dataset = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Dataset,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1DatasetHttpRequest: ...
                 def searchDataItems(
                     self,
                     *,
                     dataset: str,
-                    annotationFilters: str | _list[str] = ...,
-                    annotationsFilter: str = ...,
-                    annotationsLimit: int = ...,
-                    dataItemFilter: str = ...,
-                    dataLabelingJob: str = ...,
-                    fieldMask: str = ...,
-                    orderBy: str = ...,
-                    orderByAnnotation_orderBy: str = ...,
-                    orderByAnnotation_savedQuery: str = ...,
-                    orderByDataItem: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    savedQuery: str = ...,
+                    annotationFilters: str | _list[str] | None = ...,
+                    annotationsFilter: str | None = ...,
+                    annotationsLimit: int | None = ...,
+                    dataItemFilter: str | None = ...,
+                    dataLabelingJob: str | None = ...,
+                    fieldMask: str | None = ...,
+                    orderBy: str | None = ...,
+                    orderByAnnotation_orderBy: str | None = ...,
+                    orderByAnnotation_savedQuery: str | None = ...,
+                    orderByDataItem: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    savedQuery: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchDataItemsResponseHttpRequest: ...
                 def searchDataItems_next(
@@ -2571,14 +2615,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def annotationSpecs(self) -> AnnotationSpecsResource: ...
@@ -2604,10 +2648,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -2616,14 +2660,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1CreateDeploymentResourcePoolRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CreateDeploymentResourcePoolRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -2636,8 +2684,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListDeploymentResourcePoolsResponseHttpRequest: ...
                 def list_next(
@@ -2652,16 +2700,16 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1DeploymentResourcePool = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1DeploymentResourcePool,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def queryDeployedModels(
                     self,
                     *,
                     deploymentResourcePool: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1QueryDeployedModelsResponseHttpRequest
@@ -2693,10 +2741,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -2705,7 +2753,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -2718,7 +2770,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleApiHttpBody = ...,
+                        body: GoogleApiHttpBody,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -2732,7 +2784,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             endpoint: str,
                             deployedModelId: str,
                             invokeId: str,
-                            body: GoogleCloudAiplatformV1beta1InvokeRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1InvokeRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -2746,8 +2798,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             endpoint: str,
-                            body: GoogleApiHttpBody = ...,
-                            deployedModelId: str = ...,
+                            body: GoogleApiHttpBody,
+                            deployedModelId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -2760,7 +2812,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         endpoint: str,
                         invokeId: str,
-                        body: GoogleCloudAiplatformV1beta1InvokeRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1InvokeRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -2770,24 +2822,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleApiHttpBody = ...,
-                        deployedModelId: str = ...,
+                        body: GoogleApiHttpBody,
+                        deployedModelId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
                     def embeddings(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleApiHttpBody = ...,
-                        deployedModelId: str = ...,
+                        body: GoogleApiHttpBody,
+                        deployedModelId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
                     def responses(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleApiHttpBody = ...,
-                        deployedModelId: str = ...,
+                        body: GoogleApiHttpBody,
+                        deployedModelId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -2806,10 +2858,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -2818,7 +2870,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -2834,22 +2890,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1ComputeTokensRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ComputeTokensRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ComputeTokensResponseHttpRequest: ...
                 def countTokens(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1CountTokensRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CountTokensRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1CountTokensResponseHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Endpoint = ...,
-                    endpointId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Endpoint,
+                    endpointId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -2859,21 +2915,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1DeployModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1DeployModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def directPredict(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1DirectPredictRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1DirectPredictRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1DirectPredictResponseHttpRequest: ...
                 def directRawPredict(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1DirectRawPredictRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1DirectRawPredictRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1DirectRawPredictResponseHttpRequest
@@ -2882,21 +2938,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1ExplainRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ExplainRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ExplainResponseHttpRequest: ...
                 def fetchPredictOperation(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def generateContent(
                     self,
                     *,
                     model: str,
-                    body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest: ...
                 def get(
@@ -2906,18 +2962,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    gdcZone: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    gdcZone: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListEndpointsResponseHttpRequest: ...
                 def list_next(
@@ -2931,43 +2987,43 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1MutateDeployedModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1MutateDeployedModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Endpoint = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Endpoint,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EndpointHttpRequest: ...
                 def predict(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1PredictRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1PredictRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1PredictResponseHttpRequest: ...
                 def predictLongRunning(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def rawPredict(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1RawPredictRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1RawPredictRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleApiHttpBodyHttpRequest: ...
                 def serverStreamingPredict(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1StreamingPredictRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1StreamingPredictRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1StreamingPredictResponseHttpRequest
@@ -2976,42 +3032,42 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def streamGenerateContent(
                     self,
                     *,
                     model: str,
-                    body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest: ...
                 def streamRawPredict(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1StreamRawPredictRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1StreamRawPredictRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleApiHttpBodyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def undeployModel(
                     self,
                     *,
                     endpoint: str,
-                    body: GoogleCloudAiplatformV1beta1UndeployModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UndeployModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def update(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1UpdateEndpointLongRunningRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UpdateEndpointLongRunningRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def chat(self) -> ChatResource: ...
@@ -3036,10 +3092,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3048,14 +3104,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1EvaluationItem = ...,
+                    body: GoogleCloudAiplatformV1beta1EvaluationItem,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EvaluationItemHttpRequest: ...
                 def delete(
@@ -3068,10 +3128,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListEvaluationItemsResponseHttpRequest
@@ -3100,10 +3160,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3116,8 +3176,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1EvaluationMetric = ...,
-                    evaluationMetricId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1EvaluationMetric,
+                    evaluationMetricId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EvaluationMetricHttpRequest: ...
                 def delete(
@@ -3130,10 +3190,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListEvaluationMetricsResponseHttpRequest
@@ -3162,10 +3222,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3174,21 +3234,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def cancel(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelEvaluationRunRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelEvaluationRunRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1EvaluationRun = ...,
+                    body: GoogleCloudAiplatformV1beta1EvaluationRun,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EvaluationRunHttpRequest: ...
                 def delete(
@@ -3201,10 +3265,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListEvaluationRunsResponseHttpRequest
@@ -3233,10 +3297,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3245,14 +3309,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1EvaluationSet = ...,
+                    body: GoogleCloudAiplatformV1beta1EvaluationSet,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EvaluationSetHttpRequest: ...
                 def delete(
@@ -3265,17 +3333,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1ImportEvaluationSetRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ImportEvaluationSetRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListEvaluationSetsResponseHttpRequest
@@ -3292,8 +3360,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1EvaluationSet = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1EvaluationSet,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EvaluationSetHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -3312,10 +3380,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3324,7 +3392,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -3346,10 +3418,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3358,19 +3430,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    exampleStore_createTime: str = ...,
-                    exampleStore_description: str = ...,
-                    exampleStore_displayName: str = ...,
-                    exampleStore_exampleStoreConfig_vertexEmbeddingModel: str = ...,
-                    exampleStore_name: str = ...,
-                    exampleStore_updateTime: str = ...,
+                    exampleStore_createTime: str | None = ...,
+                    exampleStore_description: str | None = ...,
+                    exampleStore_displayName: str | None = ...,
+                    exampleStore_exampleStoreConfig_vertexEmbeddingModel: str
+                    | None = ...,
+                    exampleStore_name: str | None = ...,
+                    exampleStore_updateTime: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -3380,7 +3457,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     exampleStore: str,
-                    body: GoogleCloudAiplatformV1beta1FetchExamplesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1FetchExamplesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1FetchExamplesResponseHttpRequest: ...
                 def fetchExamples_next(
@@ -3397,9 +3474,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListExampleStoresResponseHttpRequest
@@ -3416,29 +3493,29 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ExampleStore = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1ExampleStore,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def removeExamples(
                     self,
                     *,
                     exampleStore: str,
-                    body: GoogleCloudAiplatformV1beta1RemoveExamplesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1RemoveExamplesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1RemoveExamplesResponseHttpRequest: ...
                 def searchExamples(
                     self,
                     *,
                     exampleStore: str,
-                    body: GoogleCloudAiplatformV1beta1SearchExamplesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1SearchExamplesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchExamplesResponseHttpRequest: ...
                 def upsertExamples(
                     self,
                     *,
                     exampleStore: str,
-                    body: GoogleCloudAiplatformV1beta1UpsertExamplesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UpsertExamplesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1UpsertExamplesResponseHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -3460,10 +3537,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3472,7 +3549,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -3494,10 +3575,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3506,7 +3587,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def delete(
@@ -3516,7 +3601,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ExecuteExtensionRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ExecuteExtensionRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ExecuteExtensionResponseHttpRequest
@@ -3528,17 +3613,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Extension = ...,
+                    body: GoogleCloudAiplatformV1beta1Extension,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListExtensionsResponseHttpRequest: ...
                 def list_next(
@@ -3552,15 +3637,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Extension = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Extension,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ExtensionHttpRequest: ...
                 def query(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1QueryExtensionRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1QueryExtensionRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1QueryExtensionResponseHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -3577,8 +3662,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1FeatureMonitorJob = ...,
-                            featureMonitorJobId: str = ...,
+                            body: GoogleCloudAiplatformV1beta1FeatureMonitorJob,
+                            featureMonitorJobId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudAiplatformV1beta1FeatureMonitorJobHttpRequest
@@ -3592,10 +3677,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListFeatureMonitorJobsResponseHttpRequest: ...
                         def list_next(
@@ -3619,10 +3704,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -3633,15 +3718,19 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1FeatureMonitor = ...,
-                        featureMonitorId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1FeatureMonitor,
+                        featureMonitorId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -3654,10 +3743,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListFeatureMonitorsResponseHttpRequest: ...
                     def list_next(
@@ -3672,8 +3761,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1FeatureMonitor = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1FeatureMonitor,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def featureMonitorJobs(self) -> FeatureMonitorJobsResource: ...
@@ -3693,10 +3782,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -3707,22 +3796,26 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def batchCreate(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1BatchCreateFeaturesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1BatchCreateFeaturesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Feature = ...,
-                        featureId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Feature,
+                        featureId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -3732,21 +3825,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        featureStatsAndAnomalySpec_latestStatsCount: int = ...,
-                        featureStatsAndAnomalySpec_statsTimeRange_endTime: str = ...,
-                        featureStatsAndAnomalySpec_statsTimeRange_startTime: str = ...,
+                        featureStatsAndAnomalySpec_latestStatsCount: int | None = ...,
+                        featureStatsAndAnomalySpec_statsTimeRange_endTime: str
+                        | None = ...,
+                        featureStatsAndAnomalySpec_statsTimeRange_startTime: str
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1FeatureHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        latestStatsCount: int = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        latestStatsCount: int | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListFeaturesResponseHttpRequest
@@ -3763,8 +3858,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1Feature = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Feature,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -3781,10 +3876,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -3793,19 +3888,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1FeatureGroup = ...,
-                    featureGroupId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1FeatureGroup,
+                    featureGroupId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -3814,17 +3913,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListFeatureGroupsResponseHttpRequest
@@ -3841,22 +3940,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1FeatureGroup = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1FeatureGroup,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def featureMonitors(self) -> FeatureMonitorsResource: ...
@@ -3876,10 +3975,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListFeatureViewSyncsResponseHttpRequest: ...
                         def list_next(
@@ -3903,10 +4002,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -3917,16 +4016,20 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1FeatureView = ...,
-                        featureViewId: str = ...,
-                        runSyncImmediately: bool = ...,
+                        body: GoogleCloudAiplatformV1beta1FeatureView,
+                        featureViewId: str | None = ...,
+                        runSyncImmediately: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -3936,21 +4039,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         featureView: str,
-                        body: GoogleCloudAiplatformV1beta1FeatureViewDirectWriteRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1FeatureViewDirectWriteRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1FeatureViewDirectWriteResponseHttpRequest: ...
                     def fetchFeatureValues(
                         self,
                         *,
                         featureView: str,
-                        body: GoogleCloudAiplatformV1beta1FetchFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1FetchFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1FetchFeatureValuesResponseHttpRequest: ...
                     def generateFetchAccessToken(
                         self,
                         *,
                         featureView: str,
-                        body: GoogleCloudAiplatformV1beta1GenerateFetchAccessTokenRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1GenerateFetchAccessTokenRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1GenerateFetchAccessTokenResponseHttpRequest: ...
                     def get(
@@ -3960,17 +4063,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListFeatureViewsResponseHttpRequest
@@ -3987,36 +4090,36 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1FeatureView = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1FeatureView,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def searchNearestEntities(
                         self,
                         *,
                         featureView: str,
-                        body: GoogleCloudAiplatformV1beta1SearchNearestEntitiesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1SearchNearestEntitiesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1SearchNearestEntitiesResponseHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: GoogleIamV1SetIamPolicyRequest = ...,
+                        body: GoogleIamV1SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def streamingFetchFeatureValues(
                         self,
                         *,
                         featureView: str,
-                        body: GoogleCloudAiplatformV1beta1StreamingFetchFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1StreamingFetchFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1StreamingFetchFeatureValuesResponseHttpRequest: ...
                     def sync(
                         self,
                         *,
                         featureView: str,
-                        body: GoogleCloudAiplatformV1beta1SyncFeatureViewRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1SyncFeatureViewRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1SyncFeatureViewResponseHttpRequest
@@ -4025,7 +4128,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        permissions: str | _list[str] = ...,
+                        permissions: str | _list[str] | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                     def featureViewSyncs(self) -> FeatureViewSyncsResource: ...
@@ -4043,10 +4146,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -4055,19 +4158,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1FeatureOnlineStore = ...,
-                    featureOnlineStoreId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1FeatureOnlineStore,
+                    featureOnlineStoreId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -4076,17 +4183,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListFeatureOnlineStoresResponseHttpRequest: ...
                 def list_next(
@@ -4101,22 +4208,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1FeatureOnlineStore = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1FeatureOnlineStore,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def featureViews(self) -> FeatureViewsResource: ...
@@ -4143,10 +4250,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                filter: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
-                                returnPartialSuccess: bool = ...,
+                                filter: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
+                                returnPartialSuccess: bool | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                             def list_next(
@@ -4161,7 +4268,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                timeout: str = ...,
+                                timeout: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -4169,15 +4276,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1BatchCreateFeaturesRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1BatchCreateFeaturesRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def create(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1Feature = ...,
-                            featureId: str = ...,
+                            body: GoogleCloudAiplatformV1beta1Feature,
+                            featureId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def delete(
@@ -4187,21 +4294,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            featureStatsAndAnomalySpec_latestStatsCount: int = ...,
-                            featureStatsAndAnomalySpec_statsTimeRange_endTime: str = ...,
-                            featureStatsAndAnomalySpec_statsTimeRange_startTime: str = ...,
+                            featureStatsAndAnomalySpec_latestStatsCount: int
+                            | None = ...,
+                            featureStatsAndAnomalySpec_statsTimeRange_endTime: str
+                            | None = ...,
+                            featureStatsAndAnomalySpec_statsTimeRange_startTime: str
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1FeatureHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            latestStatsCount: int = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            readMask: str = ...,
+                            filter: str | None = ...,
+                            latestStatsCount: int | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            readMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudAiplatformV1beta1ListFeaturesResponseHttpRequest
@@ -4218,8 +4328,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudAiplatformV1beta1Feature = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudAiplatformV1beta1Feature,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1FeatureHttpRequest: ...
                         def operations(self) -> OperationsResource: ...
@@ -4239,10 +4349,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -4253,32 +4363,40 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1EntityType = ...,
-                        entityTypeId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1EntityType,
+                        entityTypeId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
-                        self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        force: bool | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def deleteFeatureValues(
                         self,
                         *,
                         entityType: str,
-                        body: GoogleCloudAiplatformV1beta1DeleteFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1DeleteFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def exportFeatureValues(
                         self,
                         *,
                         entityType: str,
-                        body: GoogleCloudAiplatformV1beta1ExportFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ExportFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
@@ -4288,25 +4406,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def importFeatureValues(
                         self,
                         *,
                         entityType: str,
-                        body: GoogleCloudAiplatformV1beta1ImportFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ImportFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListEntityTypesResponseHttpRequest
@@ -4323,15 +4441,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1EntityType = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1EntityType,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1EntityTypeHttpRequest: ...
                     def readFeatureValues(
                         self,
                         *,
                         entityType: str,
-                        body: GoogleCloudAiplatformV1beta1ReadFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ReadFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ReadFeatureValuesResponseHttpRequest
@@ -4340,14 +4458,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GoogleIamV1SetIamPolicyRequest = ...,
+                        body: GoogleIamV1SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def streamingReadFeatureValues(
                         self,
                         *,
                         entityType: str,
-                        body: GoogleCloudAiplatformV1beta1StreamingReadFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1StreamingReadFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ReadFeatureValuesResponseHttpRequest
@@ -4356,14 +4474,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        permissions: str | _list[str] = ...,
+                        permissions: str | _list[str] | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                     def writeFeatureValues(
                         self,
                         *,
                         entityType: str,
-                        body: GoogleCloudAiplatformV1beta1WriteFeatureValuesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1WriteFeatureValuesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1WriteFeatureValuesResponseHttpRequest: ...
                     def features(self) -> FeaturesResource: ...
@@ -4384,10 +4502,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -4396,26 +4514,30 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def batchReadFeatureValues(
                     self,
                     *,
                     featurestore: str,
-                    body: GoogleCloudAiplatformV1beta1BatchReadFeatureValuesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1BatchReadFeatureValuesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Featurestore = ...,
-                    featurestoreId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Featurestore,
+                    featurestoreId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -4424,18 +4546,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1GetIamPolicyRequest = ...,
+                    body: GoogleIamV1GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListFeaturestoresResponseHttpRequest
@@ -4452,17 +4574,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Featurestore = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Featurestore,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def searchFeatures(
                     self,
                     *,
                     location: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    query: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    query: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchFeaturesResponseHttpRequest: ...
                 def searchFeatures_next(
@@ -4476,14 +4598,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1TestIamPermissionsRequest = ...,
+                    body: GoogleIamV1TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def entityTypes(self) -> EntityTypesResource: ...
@@ -4506,10 +4628,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -4518,21 +4640,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def cancel(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelHyperparameterTuningJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelHyperparameterTuningJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1HyperparameterTuningJob = ...,
+                    body: GoogleCloudAiplatformV1beta1HyperparameterTuningJob,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1HyperparameterTuningJobHttpRequest: ...
                 def delete(
@@ -4545,10 +4671,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListHyperparameterTuningJobsResponseHttpRequest: ...
                 def list_next(
@@ -4578,10 +4704,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -4590,14 +4716,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1IndexEndpoint = ...,
+                    body: GoogleCloudAiplatformV1beta1IndexEndpoint,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -4607,14 +4737,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     indexEndpoint: str,
-                    body: GoogleCloudAiplatformV1beta1DeployIndexRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1DeployIndexRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def findNeighbors(
                     self,
                     *,
                     indexEndpoint: str,
-                    body: GoogleCloudAiplatformV1beta1FindNeighborsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1FindNeighborsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1FindNeighborsResponseHttpRequest: ...
                 def get(
@@ -4624,10 +4754,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListIndexEndpointsResponseHttpRequest
@@ -4644,22 +4774,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     indexEndpoint: str,
-                    body: GoogleCloudAiplatformV1beta1DeployedIndex = ...,
+                    body: GoogleCloudAiplatformV1beta1DeployedIndex,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1IndexEndpoint = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1IndexEndpoint,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1IndexEndpointHttpRequest: ...
                 def readIndexDatapoints(
                     self,
                     *,
                     indexEndpoint: str,
-                    body: GoogleCloudAiplatformV1beta1ReadIndexDatapointsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ReadIndexDatapointsRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ReadIndexDatapointsResponseHttpRequest
@@ -4668,7 +4798,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     indexEndpoint: str,
-                    body: GoogleCloudAiplatformV1beta1UndeployIndexRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UndeployIndexRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -4690,10 +4820,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -4702,14 +4832,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Index = ...,
+                    body: GoogleCloudAiplatformV1beta1Index,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -4722,17 +4856,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ImportIndexRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ImportIndexRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListIndexesResponseHttpRequest: ...
                 def list_next(
@@ -4746,15 +4880,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Index = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Index,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def removeDatapoints(
                     self,
                     *,
                     index: str,
-                    body: GoogleCloudAiplatformV1beta1RemoveDatapointsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1RemoveDatapointsRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1RemoveDatapointsResponseHttpRequest
@@ -4763,7 +4897,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     index: str,
-                    body: GoogleCloudAiplatformV1beta1UpsertDatapointsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UpsertDatapointsRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1UpsertDatapointsResponseHttpRequest
@@ -4777,7 +4911,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     projectsId: str,
                     locationsId: str,
-                    body: GenaiVertexV1beta1CreateInteractionRequest = ...,
+                    body: GenaiVertexV1beta1CreateInteractionRequest,
                     **kwargs: typing.Any,
                 ) -> GenaiVertexV1beta1InteractionHttpRequest: ...
                 def createStream(
@@ -4785,7 +4919,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     projectsId: str,
                     locationsId: str,
-                    body: GenaiVertexV1beta1CreateInteractionRequest = ...,
+                    body: GenaiVertexV1beta1CreateInteractionRequest,
                     **kwargs: typing.Any,
                 ) -> GenaiVertexV1beta1InteractionStreamingEventHttpRequest: ...
                 def delete(
@@ -4811,10 +4945,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -4825,19 +4959,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Artifact = ...,
-                        artifactId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Artifact,
+                        artifactId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ArtifactHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -4846,10 +4984,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListArtifactsResponseHttpRequest
@@ -4866,24 +5004,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1Artifact = ...,
-                        allowMissing: bool = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Artifact,
+                        allowMissing: bool | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ArtifactHttpRequest: ...
                     def purge(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1PurgeArtifactsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PurgeArtifactsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def queryArtifactLineageSubgraph(
                         self,
                         *,
                         artifact: str,
-                        filter: str = ...,
-                        maxHops: int = ...,
+                        filter: str | None = ...,
+                        maxHops: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1LineageSubgraphHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -4905,10 +5043,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -4919,37 +5057,41 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def addContextArtifactsAndExecutions(
                         self,
                         *,
                         context: str,
-                        body: GoogleCloudAiplatformV1beta1AddContextArtifactsAndExecutionsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1AddContextArtifactsAndExecutionsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AddContextArtifactsAndExecutionsResponseHttpRequest: ...
                     def addContextChildren(
                         self,
                         *,
                         context: str,
-                        body: GoogleCloudAiplatformV1beta1AddContextChildrenRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1AddContextChildrenRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AddContextChildrenResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Context = ...,
-                        contextId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Context,
+                        contextId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ContextHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        force: bool = ...,
+                        etag: str | None = ...,
+                        force: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
@@ -4959,10 +5101,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListContextsResponseHttpRequest
@@ -4979,16 +5121,16 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1Context = ...,
-                        allowMissing: bool = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Context,
+                        allowMissing: bool | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ContextHttpRequest: ...
                     def purge(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1PurgeContextsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PurgeContextsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def queryContextLineageSubgraph(
@@ -4998,7 +5140,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         context: str,
-                        body: GoogleCloudAiplatformV1beta1RemoveContextChildrenRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1RemoveContextChildrenRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1RemoveContextChildrenResponseHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -5020,10 +5162,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -5034,26 +5176,30 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def addExecutionEvents(
                         self,
                         *,
                         execution: str,
-                        body: GoogleCloudAiplatformV1beta1AddExecutionEventsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1AddExecutionEventsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AddExecutionEventsResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Execution = ...,
-                        executionId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Execution,
+                        executionId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ExecutionHttpRequest: ...
                     def delete(
-                        self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                        self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -5062,10 +5208,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListExecutionsResponseHttpRequest
@@ -5082,16 +5228,16 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1Execution = ...,
-                        allowMissing: bool = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Execution,
+                        allowMissing: bool | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ExecutionHttpRequest: ...
                     def purge(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1PurgeExecutionsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PurgeExecutionsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def queryExecutionInputsAndOutputs(
@@ -5105,8 +5251,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1MetadataSchema = ...,
-                        metadataSchemaId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1MetadataSchema,
+                        metadataSchemaId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1MetadataSchemaHttpRequest: ...
                     def get(
@@ -5116,9 +5262,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListMetadataSchemasResponseHttpRequest: ...
                     def list_next(
@@ -5145,10 +5291,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -5157,19 +5303,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1MetadataStore = ...,
-                    metadataStoreId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1MetadataStore,
+                    metadataStoreId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -5178,8 +5328,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListMetadataStoresResponseHttpRequest
@@ -5215,10 +5365,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -5227,21 +5377,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def batchMigrate(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1BatchMigrateResourcesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1BatchMigrateResourcesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def search(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1SearchMigratableResourcesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1SearchMigratableResourcesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchMigratableResourcesResponseHttpRequest: ...
                 def search_next(
@@ -5273,10 +5427,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -5285,14 +5439,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1ModelDeploymentMonitoringJob = ...,
+                    body: GoogleCloudAiplatformV1beta1ModelDeploymentMonitoringJob,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ModelDeploymentMonitoringJobHttpRequest
@@ -5309,10 +5467,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListModelDeploymentMonitoringJobsResponseHttpRequest: ...
                 def list_next(
@@ -5327,29 +5485,29 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ModelDeploymentMonitoringJob = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1ModelDeploymentMonitoringJob,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def pause(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1PauseModelDeploymentMonitoringJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1PauseModelDeploymentMonitoringJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def resume(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ResumeModelDeploymentMonitoringJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ResumeModelDeploymentMonitoringJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def searchModelDeploymentMonitoringStatsAnomalies(
                     self,
                     *,
                     modelDeploymentMonitoringJob: str,
-                    body: GoogleCloudAiplatformV1beta1SearchModelDeploymentMonitoringStatsAnomaliesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1SearchModelDeploymentMonitoringStatsAnomaliesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchModelDeploymentMonitoringStatsAnomaliesResponseHttpRequest: ...
                 def searchModelDeploymentMonitoringStatsAnomalies_next(
@@ -5370,8 +5528,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1ModelMonitoringJob = ...,
-                        modelMonitoringJobId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1ModelMonitoringJob,
+                        modelMonitoringJobId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ModelMonitoringJobHttpRequest: ...
                     def delete(
@@ -5384,10 +5542,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListModelMonitoringJobsResponseHttpRequest: ...
                     def list_next(
@@ -5414,10 +5572,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -5426,19 +5584,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1ModelMonitor = ...,
-                    modelMonitorId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1ModelMonitor,
+                    modelMonitorId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -5447,10 +5609,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListModelMonitorsResponseHttpRequest
@@ -5467,15 +5629,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ModelMonitor = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1ModelMonitor,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def searchModelMonitoringAlerts(
                     self,
                     *,
                     modelMonitor: str,
-                    body: GoogleCloudAiplatformV1beta1SearchModelMonitoringAlertsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1SearchModelMonitoringAlertsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchModelMonitoringAlertsResponseHttpRequest: ...
                 def searchModelMonitoringAlerts_next(
@@ -5490,7 +5652,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     modelMonitor: str,
-                    body: GoogleCloudAiplatformV1beta1SearchModelMonitoringStatsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1SearchModelMonitoringStatsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1SearchModelMonitoringStatsResponseHttpRequest: ...
                 def searchModelMonitoringStats_next(
@@ -5523,10 +5685,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -5537,7 +5699,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     @typing.type_check_only
@@ -5546,7 +5712,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1BatchImportEvaluatedAnnotationsRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1BatchImportEvaluatedAnnotationsRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1BatchImportEvaluatedAnnotationsResponseHttpRequest: ...
                         def get(
@@ -5558,10 +5724,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            readMask: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            readMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListModelEvaluationSlicesResponseHttpRequest: ...
                         def list_next(
@@ -5580,17 +5746,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1ImportModelEvaluationRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ImportModelEvaluationRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ModelEvaluationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListModelEvaluationsResponseHttpRequest: ...
                     def list_next(
@@ -5619,10 +5785,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -5631,14 +5797,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def copy(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1CopyModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CopyModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -5651,7 +5821,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ExportModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ExportModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
@@ -5661,17 +5831,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListModelsResponseHttpRequest: ...
                 def list_next(
@@ -5685,8 +5855,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListModelVersionCheckpointsResponseHttpRequest: ...
                 def listCheckpoints_next(
@@ -5701,11 +5871,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListModelVersionsResponseHttpRequest
@@ -5722,43 +5892,43 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1MergeVersionAliasesRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1MergeVersionAliasesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ModelHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Model = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Model,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ModelHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def updateExplanationDataset(
                     self,
                     *,
                     model: str,
-                    body: GoogleCloudAiplatformV1beta1UpdateExplanationDatasetRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UpdateExplanationDatasetRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def upload(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1UploadModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UploadModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def evaluations(self) -> EvaluationsResource: ...
@@ -5781,8 +5951,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListAnalyzedInvocationsResponseHttpRequest: ...
                         def list_next(
@@ -5798,9 +5968,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AggregateAnalyzedSessionsResponseHttpRequest: ...
                     def aggregate_next(
@@ -5819,22 +5989,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             "ANALYZED_SESSION_VIEW_UNSPECIFIED",
                             "ANALYZED_SESSION_VIEW_BASIC",
                             "ANALYZED_SESSION_VIEW_FULL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AnalyzedSessionHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "ANALYZED_SESSION_VIEW_UNSPECIFIED",
                             "ANALYZED_SESSION_VIEW_BASIC",
                             "ANALYZED_SESSION_VIEW_FULL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListAnalyzedSessionsResponseHttpRequest: ...
                     def list_next(
@@ -5851,14 +6023,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1DisableMonitoredAgentRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1DisableMonitoredAgentRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def enable(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1EnableMonitoredAgentRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1EnableMonitoredAgentRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
@@ -5868,9 +6040,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListMonitoredAgentsResponseHttpRequest
@@ -5896,8 +6068,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListNasTrialDetailsResponseHttpRequest: ...
                     def list_next(
@@ -5913,14 +6085,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelNasJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelNasJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1NasJob = ...,
+                    body: GoogleCloudAiplatformV1beta1NasJob,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1NasJobHttpRequest: ...
                 def delete(
@@ -5933,10 +6105,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListNasJobsResponseHttpRequest: ...
                 def list_next(
@@ -5965,10 +6137,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -5977,15 +6149,19 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1NotebookExecutionJob = ...,
-                    notebookExecutionJobId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1NotebookExecutionJob,
+                    notebookExecutionJobId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -5995,7 +6171,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1GenerateAccessTokenRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1GenerateAccessTokenRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1GenerateAccessTokenResponseHttpRequest
@@ -6008,22 +6184,24 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         "NOTEBOOK_EXECUTION_JOB_VIEW_UNSPECIFIED",
                         "NOTEBOOK_EXECUTION_JOB_VIEW_BASIC",
                         "NOTEBOOK_EXECUTION_JOB_VIEW_FULL",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1NotebookExecutionJobHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "NOTEBOOK_EXECUTION_JOB_VIEW_UNSPECIFIED",
                         "NOTEBOOK_EXECUTION_JOB_VIEW_BASIC",
                         "NOTEBOOK_EXECUTION_JOB_VIEW_FULL",
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListNotebookExecutionJobsResponseHttpRequest: ...
                 def list_next(
@@ -6038,7 +6216,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ReportExecutionEventRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ReportExecutionEventRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ReportExecutionEventResponseHttpRequest
@@ -6062,10 +6240,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6074,15 +6252,19 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1NotebookRuntimeTemplate = ...,
-                    notebookRuntimeTemplateId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1NotebookRuntimeTemplate,
+                    notebookRuntimeTemplateId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -6095,18 +6277,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListNotebookRuntimeTemplatesResponseHttpRequest: ...
                 def list_next(
@@ -6121,22 +6303,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1NotebookRuntimeTemplate = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1NotebookRuntimeTemplate,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1NotebookRuntimeTemplateHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -6158,10 +6340,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6170,14 +6352,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def assign(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1AssignNotebookRuntimeRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1AssignNotebookRuntimeRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -6187,7 +6373,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1GenerateAccessTokenRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1GenerateAccessTokenRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1GenerateAccessTokenResponseHttpRequest
@@ -6199,11 +6385,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListNotebookRuntimesResponseHttpRequest
@@ -6220,7 +6406,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ReportRuntimeEventRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ReportRuntimeEventRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ReportRuntimeEventResponseHttpRequest
@@ -6229,21 +6415,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1StartNotebookRuntimeRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1StartNotebookRuntimeRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def stop(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1StopNotebookRuntimeRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1StopNotebookRuntimeRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def upgrade(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1UpgradeNotebookRuntimeRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1UpgradeNotebookRuntimeRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -6265,10 +6451,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6277,21 +6463,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def activate(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ActivateOnlineEvaluatorRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ActivateOnlineEvaluatorRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1OnlineEvaluator = ...,
+                    body: GoogleCloudAiplatformV1beta1OnlineEvaluator,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -6304,10 +6494,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListOnlineEvaluatorsResponseHttpRequest
@@ -6324,15 +6514,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1OnlineEvaluator = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1OnlineEvaluator,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def suspend(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1SuspendOnlineEvaluatorRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1SuspendOnlineEvaluatorRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -6352,10 +6542,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -6364,7 +6554,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             @typing.type_check_only
@@ -6384,10 +6574,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6396,15 +6586,19 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1PersistentResource = ...,
-                    persistentResourceId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1PersistentResource,
+                    persistentResourceId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -6417,8 +6611,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListPersistentResourcesResponseHttpRequest: ...
                 def list_next(
@@ -6433,15 +6627,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1PersistentResource = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1PersistentResource,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def reboot(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1RebootPersistentResourceRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1RebootPersistentResourceRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -6463,10 +6657,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6475,36 +6669,40 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def batchCancel(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1BatchCancelPipelineJobsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1BatchCancelPipelineJobsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def batchDelete(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1BatchDeletePipelineJobsRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1BatchDeletePipelineJobsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def cancel(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelPipelineJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelPipelineJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1PipelineJob = ...,
-                    pipelineJobId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1PipelineJob,
+                    pipelineJobId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1PipelineJobHttpRequest: ...
                 def delete(
@@ -6517,11 +6715,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListPipelineJobsResponseHttpRequest
@@ -6547,7 +6745,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             endpoint: str,
                             invokeId: str,
-                            body: GoogleCloudAiplatformV1beta1InvokeRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1InvokeRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -6555,7 +6753,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1ComputeTokensRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ComputeTokensRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ComputeTokensResponseHttpRequest
@@ -6564,14 +6762,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1CountTokensRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1CountTokensRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1CountTokensResponseHttpRequest: ...
                     def embedContent(
                         self,
                         *,
                         model: str,
-                        body: GoogleCloudAiplatformV1beta1EmbedContentRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1EmbedContentRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1EmbedContentResponseHttpRequest
@@ -6581,14 +6779,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         parent: str,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1ExportPublisherModelRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ExportPublisherModelRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def fetchPredictOperation(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def fetchPublisherModelConfig(
@@ -6600,7 +6798,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         model: str,
-                        body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest
@@ -6609,35 +6807,35 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def predict(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1PredictRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PredictRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1PredictResponseHttpRequest: ...
                     def predictLongRunning(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def rawPredict(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1RawPredictRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1RawPredictRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
                     def serverStreamingPredict(
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1StreamingPredictRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1StreamingPredictRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1StreamingPredictResponseHttpRequest
@@ -6646,14 +6844,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1SetPublisherModelConfigRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1SetPublisherModelConfigRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def streamGenerateContent(
                         self,
                         *,
                         model: str,
-                        body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest
@@ -6662,7 +6860,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         endpoint: str,
-                        body: GoogleCloudAiplatformV1beta1StreamRawPredictRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1StreamRawPredictRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
                     def invoke(self) -> InvokeResource: ...
@@ -6686,10 +6884,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6698,7 +6896,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -6707,22 +6909,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1BatchCreateRagDataSchemasRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1BatchCreateRagDataSchemasRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def batchDelete(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1BatchDeleteRagDataSchemasRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1BatchDeleteRagDataSchemasRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1RagDataSchema = ...,
-                        ragDataSchemaId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1RagDataSchema,
+                        ragDataSchemaId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1RagDataSchemaHttpRequest: ...
                     def delete(
@@ -6735,8 +6937,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListRagDataSchemasResponseHttpRequest: ...
                     def list_next(
@@ -6765,10 +6967,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -6779,7 +6981,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     @typing.type_check_only
@@ -6788,22 +6994,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1BatchCreateRagMetadataRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1BatchCreateRagMetadataRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def batchDelete(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1BatchDeleteRagMetadataRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1BatchDeleteRagMetadataRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def create(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1RagMetadata = ...,
-                            ragMetadataId: str = ...,
+                            body: GoogleCloudAiplatformV1beta1RagMetadata,
+                            ragMetadataId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1RagMetadataHttpRequest: ...
                         def delete(
@@ -6816,8 +7022,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListRagMetadataResponseHttpRequest: ...
                         def list_next(
@@ -6832,7 +7038,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudAiplatformV1beta1RagMetadata = ...,
+                            body: GoogleCloudAiplatformV1beta1RagMetadata,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1RagMetadataHttpRequest: ...
 
@@ -6840,7 +7046,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        forceDelete: bool = ...,
+                        forceDelete: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
@@ -6850,15 +7056,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1ImportRagFilesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ImportRagFilesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListRagFilesResponseHttpRequest
@@ -6878,15 +7084,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1RagCorpus = ...,
+                    body: GoogleCloudAiplatformV1beta1RagCorpus,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    force: bool = ...,
-                    forceDelete: bool = ...,
+                    force: bool | None = ...,
+                    forceDelete: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
@@ -6896,8 +7102,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListRagCorporaResponseHttpRequest: ...
                 def list_next(
@@ -6911,7 +7117,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1RagCorpus = ...,
+                    body: GoogleCloudAiplatformV1beta1RagCorpus,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -6935,10 +7141,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -6947,7 +7153,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -6963,7 +7173,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            body: dict[str, typing.Any] = ...,
+                            body: dict[str, typing.Any],
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def stream(
@@ -6971,7 +7181,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            body: dict[str, typing.Any] = ...,
+                            body: dict[str, typing.Any],
                             **kwargs: typing.Any,
                         ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -6986,7 +7196,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                historyLength: str = ...,
+                                historyLength: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
 
@@ -6995,7 +7205,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def cancel(
@@ -7003,7 +7213,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            body: dict[str, typing.Any] = ...,
+                            body: dict[str, typing.Any],
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def subscribe(
@@ -7022,7 +7232,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                body: dict[str, typing.Any] = ...,
+                                body: dict[str, typing.Any],
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def stream(
@@ -7030,7 +7240,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                body: dict[str, typing.Any] = ...,
+                                body: dict[str, typing.Any],
                                 **kwargs: typing.Any,
                             ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -7045,7 +7255,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     *,
                                     name: str,
                                     a2aEndpoint: str,
-                                    historyLength: str = ...,
+                                    historyLength: str | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> googleapiclient.http.HttpRequest: ...
 
@@ -7054,7 +7264,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                historyLength: str = ...,
+                                historyLength: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def cancel(
@@ -7062,7 +7272,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                body: dict[str, typing.Any] = ...,
+                                body: dict[str, typing.Any],
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def subscribe(
@@ -7081,7 +7291,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def extendedAgentCard(
@@ -7089,7 +7299,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def message(self) -> MessageResource: ...
@@ -7100,7 +7310,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def extendedAgentCard(
@@ -7108,7 +7318,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def message(self) -> MessageResource: ...
@@ -7123,10 +7333,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListA2aTaskEventsResponseHttpRequest: ...
                         def list_next(
@@ -7142,15 +7352,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1AppendA2aTaskEventsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1AppendA2aTaskEventsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AppendA2aTaskEventsResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1A2aTask = ...,
-                        a2aTaskId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1A2aTask,
+                        a2aTaskId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1A2aTaskHttpRequest: ...
                     def delete(
@@ -7163,10 +7373,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListA2aTasksResponseHttpRequest
@@ -7195,7 +7405,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self, *, name: str, **kwargs: typing.Any
                         ) -> GoogleLongrunningOperationHttpRequest: ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def operations(self) -> OperationsResource: ...
@@ -7217,10 +7431,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7231,7 +7445,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def operations(self) -> OperationsResource: ...
@@ -7253,10 +7471,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7267,7 +7485,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     @typing.type_check_only
@@ -7279,9 +7501,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListMemoryRevisionsResponseHttpRequest: ...
                         def list_next(
@@ -7297,8 +7519,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Memory = ...,
-                        memoryId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Memory,
+                        memoryId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -7308,7 +7530,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1GenerateMemoriesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1GenerateMemoriesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
@@ -7318,17 +7540,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1IngestEventsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1IngestEventsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListMemoriesResponseHttpRequest
@@ -7345,22 +7567,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1Memory = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Memory,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def purge(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1PurgeMemoriesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PurgeMemoriesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def retrieve(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1RetrieveMemoriesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1RetrieveMemoriesRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1RetrieveMemoriesResponseHttpRequest
@@ -7369,7 +7591,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1RetrieveProfilesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1RetrieveProfilesRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1RetrieveProfilesResponseHttpRequest
@@ -7378,7 +7600,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1RollbackMemoryRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1RollbackMemoryRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -7399,10 +7621,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -7411,7 +7633,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -7425,7 +7651,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                body: dict[str, typing.Any] = ...,
+                                body: dict[str, typing.Any],
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def stream(
@@ -7433,7 +7659,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                body: dict[str, typing.Any] = ...,
+                                body: dict[str, typing.Any],
                                 **kwargs: typing.Any,
                             ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -7448,7 +7674,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     *,
                                     name: str,
                                     a2aEndpoint: str,
-                                    historyLength: str = ...,
+                                    historyLength: str | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> googleapiclient.http.HttpRequest: ...
 
@@ -7457,7 +7683,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                historyLength: str = ...,
+                                historyLength: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def cancel(
@@ -7465,7 +7691,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                body: dict[str, typing.Any] = ...,
+                                body: dict[str, typing.Any],
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def subscribe(
@@ -7488,7 +7714,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     *,
                                     name: str,
                                     a2aEndpoint: str,
-                                    body: dict[str, typing.Any] = ...,
+                                    body: dict[str, typing.Any],
                                     **kwargs: typing.Any,
                                 ) -> googleapiclient.http.HttpRequest: ...
                                 def stream(
@@ -7496,7 +7722,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     *,
                                     name: str,
                                     a2aEndpoint: str,
-                                    body: dict[str, typing.Any] = ...,
+                                    body: dict[str, typing.Any],
                                     **kwargs: typing.Any,
                                 ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -7511,7 +7737,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                         *,
                                         name: str,
                                         a2aEndpoint: str,
-                                        historyLength: str = ...,
+                                        historyLength: str | None = ...,
                                         **kwargs: typing.Any,
                                     ) -> googleapiclient.http.HttpRequest: ...
 
@@ -7520,7 +7746,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     *,
                                     name: str,
                                     a2aEndpoint: str,
-                                    historyLength: str = ...,
+                                    historyLength: str | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> googleapiclient.http.HttpRequest: ...
                                 def cancel(
@@ -7528,7 +7754,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     *,
                                     name: str,
                                     a2aEndpoint: str,
-                                    body: dict[str, typing.Any] = ...,
+                                    body: dict[str, typing.Any],
                                     **kwargs: typing.Any,
                                 ) -> googleapiclient.http.HttpRequest: ...
                                 def subscribe(
@@ -7547,7 +7773,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                historyLength: str = ...,
+                                historyLength: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def extendedAgentCard(
@@ -7555,7 +7781,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                historyLength: str = ...,
+                                historyLength: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
                             def message(self) -> MessageResource: ...
@@ -7566,7 +7792,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def extendedAgentCard(
@@ -7574,7 +7800,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def message(self) -> MessageResource: ...
@@ -7596,10 +7822,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7610,7 +7836,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def delete(
@@ -7623,9 +7853,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListReasoningEngineRuntimeRevisionsResponseHttpRequest: ...
                     def list_next(
@@ -7640,14 +7870,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1QueryReasoningEngineResponseHttpRequest: ...
                     def streamQuery(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
                     def a2a(self) -> A2aResource: ...
@@ -7672,10 +7902,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7686,7 +7916,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def delete(
@@ -7699,9 +7933,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListSandboxEnvironmentSnapshotsResponseHttpRequest: ...
                     def list_next(
@@ -7733,10 +7967,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7747,14 +7981,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1SandboxEnvironmentTemplate = ...,
+                        body: GoogleCloudAiplatformV1beta1SandboxEnvironmentTemplate,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -7767,9 +8005,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListSandboxEnvironmentTemplatesResponseHttpRequest: ...
                     def list_next(
@@ -7799,10 +8037,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7813,14 +8051,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1SandboxEnvironment = ...,
+                        body: GoogleCloudAiplatformV1beta1SandboxEnvironment,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -7830,7 +8072,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1ExecuteSandboxEnvironmentRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ExecuteSandboxEnvironmentRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ExecuteSandboxEnvironmentResponseHttpRequest: ...
                     def get(
@@ -7840,9 +8082,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListSandboxEnvironmentsResponseHttpRequest: ...
                     def list_next(
@@ -7857,21 +8099,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1PauseSandboxEnvironmentRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1PauseSandboxEnvironmentRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def resume(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1ResumeSandboxEnvironmentRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ResumeSandboxEnvironmentRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def snapshot(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1SandboxEnvironmentSnapshot = ...,
+                        body: GoogleCloudAiplatformV1beta1SandboxEnvironmentSnapshot,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -7884,10 +8126,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudAiplatformV1beta1ListEventsResponseHttpRequest
@@ -7916,10 +8158,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -7930,22 +8172,26 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def appendEvent(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1SessionEvent = ...,
+                        body: GoogleCloudAiplatformV1beta1SessionEvent,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1AppendEventResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Session = ...,
-                        sessionId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Session,
+                        sessionId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -7958,10 +8204,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListSessionsResponseHttpRequest
@@ -7978,8 +8224,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1Session = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1Session,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1SessionHttpRequest: ...
                     def events(self) -> EventsResource: ...
@@ -7989,31 +8235,31 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1AsyncQueryReasoningEngineRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1AsyncQueryReasoningEngineRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def cancelAsyncQuery(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelAsyncQueryReasoningEngineRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelAsyncQueryReasoningEngineRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1CancelAsyncQueryReasoningEngineResponseHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1ReasoningEngine = ...,
+                    body: GoogleCloudAiplatformV1beta1ReasoningEngine,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def executeCode(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ExecuteCodeRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ExecuteCodeRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ExecuteCodeResponseHttpRequest: ...
                 def get(
@@ -8023,16 +8269,16 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListReasoningEnginesResponseHttpRequest
@@ -8049,15 +8295,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ReasoningEngine = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1ReasoningEngine,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def query(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1QueryReasoningEngineResponseHttpRequest
@@ -8066,21 +8312,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GoogleIamV1SetIamPolicyRequest = ...,
+                    body: GoogleIamV1SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1PolicyHttpRequest: ...
                 def streamQuery(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleApiHttpBodyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    permissions: str | _list[str] = ...,
+                    permissions: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                 def a2a(self) -> A2aResource: ...
@@ -8116,10 +8362,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8128,14 +8374,18 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Schedule = ...,
+                    body: GoogleCloudAiplatformV1beta1Schedule,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ScheduleHttpRequest: ...
                 def delete(
@@ -8148,10 +8398,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListSchedulesResponseHttpRequest: ...
                 def list_next(
@@ -8165,22 +8415,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Schedule = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Schedule,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ScheduleHttpRequest: ...
                 def pause(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1PauseScheduleRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1PauseScheduleRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def resume(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1ResumeScheduleRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ResumeScheduleRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -8204,10 +8454,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8216,19 +8466,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1SemanticGovernancePolicy = ...,
-                    semanticGovernancePolicyId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1SemanticGovernancePolicy,
+                    semanticGovernancePolicyId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -8239,8 +8493,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListSemanticGovernancePoliciesResponseHttpRequest: ...
                 def list_next(
@@ -8255,8 +8509,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1SemanticGovernancePolicy = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1SemanticGovernancePolicy,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -8269,7 +8523,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1DeprovisionSemanticGovernancePolicyEngineRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1DeprovisionSemanticGovernancePolicyEngineRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -8290,10 +8544,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8302,7 +8556,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def operations(self) -> OperationsResource: ...
@@ -8324,10 +8582,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8336,7 +8594,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -8348,9 +8610,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListSkillRevisionsResponseHttpRequest: ...
                     def list_next(
@@ -8366,8 +8628,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Skill = ...,
-                    skillId: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Skill,
+                    skillId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -8380,8 +8642,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListSkillsResponseHttpRequest: ...
                 def list_next(
@@ -8395,16 +8657,16 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Skill = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Skill,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def retrieve(
                     self,
                     *,
                     parent: str,
-                    query: str = ...,
-                    topK: int = ...,
+                    query: str | None = ...,
+                    topK: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1RetrieveSkillsResponseHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -8424,10 +8686,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8455,10 +8717,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8467,18 +8729,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1SpecialistPool = ...,
+                    body: GoogleCloudAiplatformV1beta1SpecialistPool,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -8487,9 +8753,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListSpecialistPoolsResponseHttpRequest
@@ -8506,8 +8772,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1SpecialistPool = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1SpecialistPool,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -8529,10 +8795,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -8541,7 +8807,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -8561,10 +8831,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -8575,35 +8845,39 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def addTrialMeasurement(
                         self,
                         *,
                         trialName: str,
-                        body: GoogleCloudAiplatformV1beta1AddTrialMeasurementRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1AddTrialMeasurementRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1TrialHttpRequest: ...
                     def checkTrialEarlyStoppingState(
                         self,
                         *,
                         trialName: str,
-                        body: GoogleCloudAiplatformV1beta1CheckTrialEarlyStoppingStateRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1CheckTrialEarlyStoppingStateRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def complete(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1CompleteTrialRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1CompleteTrialRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1TrialHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1Trial = ...,
+                        body: GoogleCloudAiplatformV1beta1Trial,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1TrialHttpRequest: ...
                     def delete(
@@ -8616,8 +8890,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListTrialsResponseHttpRequest: ...
                     def list_next(
@@ -8631,7 +8905,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1ListOptimalTrialsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1ListOptimalTrialsRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1ListOptimalTrialsResponseHttpRequest
@@ -8640,14 +8914,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1StopTrialRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1StopTrialRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1TrialHttpRequest: ...
                     def suggest(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1SuggestTrialsRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1SuggestTrialsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -8656,7 +8930,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Study = ...,
+                    body: GoogleCloudAiplatformV1beta1Study,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1StudyHttpRequest: ...
                 def delete(
@@ -8669,8 +8943,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListStudiesResponseHttpRequest: ...
                 def list_next(
@@ -8684,7 +8958,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1LookupStudyRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1LookupStudyRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1StudyHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -8709,10 +8983,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -8723,7 +8997,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     @typing.type_check_only
@@ -8743,10 +9021,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                filter: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
-                                returnPartialSuccess: bool = ...,
+                                filter: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
+                                returnPartialSuccess: bool | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                             def list_next(
@@ -8761,7 +9039,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                timeout: str = ...,
+                                timeout: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -8784,10 +9062,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     self,
                                     *,
                                     name: str,
-                                    filter: str = ...,
-                                    pageSize: int = ...,
-                                    pageToken: str = ...,
-                                    returnPartialSuccess: bool = ...,
+                                    filter: str | None = ...,
+                                    pageSize: int | None = ...,
+                                    pageToken: str | None = ...,
+                                    returnPartialSuccess: bool | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> (
                                     GoogleLongrunningListOperationsResponseHttpRequest
@@ -8804,7 +9082,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                     self,
                                     *,
                                     name: str,
-                                    timeout: str = ...,
+                                    timeout: str | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -8812,8 +9090,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 parent: str,
-                                body: GoogleCloudAiplatformV1beta1TensorboardTimeSeries = ...,
-                                tensorboardTimeSeriesId: str = ...,
+                                body: GoogleCloudAiplatformV1beta1TensorboardTimeSeries,
+                                tensorboardTimeSeriesId: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudAiplatformV1beta1TensorboardTimeSeriesHttpRequest: ...
                             def delete(
@@ -8823,7 +9101,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 tensorboardTimeSeries: str,
-                                body: GoogleCloudAiplatformV1beta1ExportTensorboardTimeSeriesDataRequest = ...,
+                                body: GoogleCloudAiplatformV1beta1ExportTensorboardTimeSeriesDataRequest,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudAiplatformV1beta1ExportTensorboardTimeSeriesDataResponseHttpRequest: ...
                             def exportTensorboardTimeSeries_next(
@@ -8841,11 +9119,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 parent: str,
-                                filter: str = ...,
-                                orderBy: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
-                                readMask: str = ...,
+                                filter: str | None = ...,
+                                orderBy: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
+                                readMask: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudAiplatformV1beta1ListTensorboardTimeSeriesResponseHttpRequest: ...
                             def list_next(
@@ -8860,23 +9138,23 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudAiplatformV1beta1TensorboardTimeSeries = ...,
-                                updateMask: str = ...,
+                                body: GoogleCloudAiplatformV1beta1TensorboardTimeSeries,
+                                updateMask: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudAiplatformV1beta1TensorboardTimeSeriesHttpRequest: ...
                             def read(
                                 self,
                                 *,
                                 tensorboardTimeSeries: str,
-                                filter: str = ...,
-                                maxDataPoints: int = ...,
+                                filter: str | None = ...,
+                                maxDataPoints: int | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudAiplatformV1beta1ReadTensorboardTimeSeriesDataResponseHttpRequest: ...
                             def readBlobData(
                                 self,
                                 *,
                                 timeSeries: str,
-                                blobIds: str | _list[str] = ...,
+                                blobIds: str | _list[str] | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudAiplatformV1beta1ReadTensorboardBlobDataResponseHttpRequest: ...
                             def operations(self) -> OperationsResource: ...
@@ -8885,15 +9163,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1BatchCreateTensorboardRunsRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1BatchCreateTensorboardRunsRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1BatchCreateTensorboardRunsResponseHttpRequest: ...
                         def create(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudAiplatformV1beta1TensorboardRun = ...,
-                            tensorboardRunId: str = ...,
+                            body: GoogleCloudAiplatformV1beta1TensorboardRun,
+                            tensorboardRunId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1TensorboardRunHttpRequest: ...
                         def delete(
@@ -8906,11 +9184,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            readMask: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            readMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1ListTensorboardRunsResponseHttpRequest: ...
                         def list_next(
@@ -8925,15 +9203,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudAiplatformV1beta1TensorboardRun = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudAiplatformV1beta1TensorboardRun,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1TensorboardRunHttpRequest: ...
                         def write(
                             self,
                             *,
                             tensorboardRun: str,
-                            body: GoogleCloudAiplatformV1beta1WriteTensorboardRunDataRequest = ...,
+                            body: GoogleCloudAiplatformV1beta1WriteTensorboardRunDataRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudAiplatformV1beta1WriteTensorboardRunDataResponseHttpRequest: ...
                         def operations(self) -> OperationsResource: ...
@@ -8943,15 +9221,15 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1BatchCreateTensorboardTimeSeriesRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1BatchCreateTensorboardTimeSeriesRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1BatchCreateTensorboardTimeSeriesResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAiplatformV1beta1TensorboardExperiment = ...,
-                        tensorboardExperimentId: str = ...,
+                        body: GoogleCloudAiplatformV1beta1TensorboardExperiment,
+                        tensorboardExperimentId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1TensorboardExperimentHttpRequest
@@ -8968,11 +9246,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1ListTensorboardExperimentsResponseHttpRequest: ...
                     def list_next(
@@ -8987,8 +9265,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAiplatformV1beta1TensorboardExperiment = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudAiplatformV1beta1TensorboardExperiment,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAiplatformV1beta1TensorboardExperimentHttpRequest
@@ -8997,7 +9275,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         tensorboardExperiment: str,
-                        body: GoogleCloudAiplatformV1beta1WriteTensorboardExperimentDataRequest = ...,
+                        body: GoogleCloudAiplatformV1beta1WriteTensorboardExperimentDataRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAiplatformV1beta1WriteTensorboardExperimentDataResponseHttpRequest: ...
                     def operations(self) -> OperationsResource: ...
@@ -9018,10 +9296,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -9030,21 +9308,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def batchRead(
                     self,
                     *,
                     tensorboard: str,
-                    timeSeries: str | _list[str] = ...,
+                    timeSeries: str | _list[str] | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1BatchReadTensorboardTimeSeriesDataResponseHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1Tensorboard = ...,
+                    body: GoogleCloudAiplatformV1beta1Tensorboard,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -9057,11 +9339,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListTensorboardsResponseHttpRequest
@@ -9078,8 +9360,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1Tensorboard = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAiplatformV1beta1Tensorboard,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def readSize(
@@ -9112,10 +9394,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -9124,21 +9406,25 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 def cancel(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelTrainingPipelineRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelTrainingPipelineRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1TrainingPipeline = ...,
+                    body: GoogleCloudAiplatformV1beta1TrainingPipeline,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1TrainingPipelineHttpRequest: ...
                 def delete(
@@ -9151,10 +9437,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListTrainingPipelinesResponseHttpRequest
@@ -9181,14 +9467,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1CancelTuningJobRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1CancelTuningJobRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1TuningJob = ...,
+                    body: GoogleCloudAiplatformV1beta1TuningJob,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1TuningJobHttpRequest: ...
                 def get(
@@ -9198,9 +9484,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListTuningJobsResponseHttpRequest: ...
                 def list_next(
@@ -9214,28 +9500,28 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1OptimizePromptRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1OptimizePromptRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1OptimizePromptResponseHttpRequest: ...
                 def processData(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1ProcessDataRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ProcessDataRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def rebaseTunedModel(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1RebaseTunedModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1RebaseTunedModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def validateReinforcementTuningReward(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAiplatformV1beta1ValidateReinforcementTuningRewardRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1ValidateReinforcementTuningRewardRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ValidateReinforcementTuningRewardResponseHttpRequest: ...
                 def operations(self) -> OperationsResource: ...
@@ -9244,63 +9530,63 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1AskContextsRequest = ...,
+                body: GoogleCloudAiplatformV1beta1AskContextsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1AskContextsResponseHttpRequest: ...
             def asyncRetrieveContexts(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1AsyncRetrieveContextsRequest = ...,
+                body: GoogleCloudAiplatformV1beta1AsyncRetrieveContextsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def augmentPrompt(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1AugmentPromptRequest = ...,
+                body: GoogleCloudAiplatformV1beta1AugmentPromptRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1AugmentPromptResponseHttpRequest: ...
             def corroborateContent(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1CorroborateContentRequest = ...,
+                body: GoogleCloudAiplatformV1beta1CorroborateContentRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1CorroborateContentResponseHttpRequest: ...
             def deploy(
                 self,
                 *,
                 destination: str,
-                body: GoogleCloudAiplatformV1beta1DeployRequest = ...,
+                body: GoogleCloudAiplatformV1beta1DeployRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def deployPublisherModel(
                 self,
                 *,
                 destination: str,
-                body: GoogleCloudAiplatformV1beta1DeployPublisherModelRequest = ...,
+                body: GoogleCloudAiplatformV1beta1DeployPublisherModelRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def evaluateDataset(
                 self,
                 *,
                 location: str,
-                body: GoogleCloudAiplatformV1beta1EvaluateDatasetRequest = ...,
+                body: GoogleCloudAiplatformV1beta1EvaluateDatasetRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def evaluateInstances(
                 self,
                 *,
                 location: str,
-                body: GoogleCloudAiplatformV1beta1EvaluateInstancesRequest = ...,
+                body: GoogleCloudAiplatformV1beta1EvaluateInstancesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1EvaluateInstancesResponseHttpRequest: ...
             def generateInstanceRubrics(
                 self,
                 *,
                 location: str,
-                body: GoogleCloudAiplatformV1beta1GenerateInstanceRubricsRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateInstanceRubricsRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1GenerateInstanceRubricsResponseHttpRequest
@@ -9309,14 +9595,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 location: str,
-                body: GoogleCloudAiplatformV1beta1GenerateLossClustersRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateLossClustersRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def generateSyntheticData(
                 self,
                 *,
                 location: str,
-                body: GoogleCloudAiplatformV1beta1GenerateSyntheticDataRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateSyntheticDataRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1GenerateSyntheticDataResponseHttpRequest
@@ -9325,7 +9611,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 location: str,
-                body: GoogleCloudAiplatformV1beta1GenerateUserScenariosRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateUserScenariosRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1GenerateUserScenariosResponseHttpRequest
@@ -9345,10 +9631,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudLocationListLocationsResponseHttpRequest: ...
             def list_next(
@@ -9360,29 +9646,29 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1RecommendSpecRequest = ...,
+                body: GoogleCloudAiplatformV1beta1RecommendSpecRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1RecommendSpecResponseHttpRequest: ...
             def retrieveContexts(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1RetrieveContextsRequest = ...,
+                body: GoogleCloudAiplatformV1beta1RetrieveContextsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1RetrieveContextsResponseHttpRequest: ...
             def updateRagEngineConfig(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1RagEngineConfig = ...,
+                body: GoogleCloudAiplatformV1beta1RagEngineConfig,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def updateSemanticGovernancePolicyEngine(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1SemanticGovernancePolicyEngine = ...,
-                updateMask: str = ...,
+                body: GoogleCloudAiplatformV1beta1SemanticGovernancePolicyEngine,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def agentAnomalyDetectionScopes(
@@ -9455,7 +9741,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1AcceptPublisherModelEulaRequest = ...,
+                body: GoogleCloudAiplatformV1beta1AcceptPublisherModelEulaRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1PublisherModelEulaAcceptanceHttpRequest
@@ -9464,7 +9750,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1CheckPublisherModelEulaAcceptanceRequest = ...,
+                body: GoogleCloudAiplatformV1beta1CheckPublisherModelEulaAcceptanceRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1PublisherModelEulaAcceptanceHttpRequest
@@ -9479,7 +9765,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     parent: str,
                     name: str,
-                    body: GoogleCloudAiplatformV1beta1EnableModelRequest = ...,
+                    body: GoogleCloudAiplatformV1beta1EnableModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1EnableModelResponseHttpRequest: ...
 
@@ -9495,14 +9781,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1SetPublisherModelConfigRequest = ...,
+            body: GoogleCloudAiplatformV1beta1SetPublisherModelConfigRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def updateCacheConfig(
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1CacheConfig = ...,
+            body: GoogleCloudAiplatformV1beta1CacheConfig,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def locations(self) -> LocationsResource: ...
@@ -9517,62 +9803,64 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 endpoint: str,
-                body: GoogleCloudAiplatformV1beta1ComputeTokensRequest = ...,
+                body: GoogleCloudAiplatformV1beta1ComputeTokensRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ComputeTokensResponseHttpRequest: ...
             def countTokens(
                 self,
                 *,
                 endpoint: str,
-                body: GoogleCloudAiplatformV1beta1CountTokensRequest = ...,
+                body: GoogleCloudAiplatformV1beta1CountTokensRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1CountTokensResponseHttpRequest: ...
             def fetchPredictOperation(
                 self,
                 *,
                 endpoint: str,
-                body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest = ...,
+                body: GoogleCloudAiplatformV1beta1FetchPredictOperationRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def generateContent(
                 self,
                 *,
                 model: str,
-                body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest: ...
             def get(
                 self,
                 *,
                 name: str,
-                huggingFaceToken: str = ...,
-                includeEquivalentModelGardenModelDeploymentConfigs: bool = ...,
-                isHuggingFaceModel: bool = ...,
-                languageCode: str = ...,
+                huggingFaceToken: str | None = ...,
+                includeEquivalentModelGardenModelDeploymentConfigs: bool | None = ...,
+                isHuggingFaceModel: bool | None = ...,
+                languageCode: str | None = ...,
                 view: typing_extensions.Literal[
                     "PUBLISHER_MODEL_VIEW_UNSPECIFIED",
                     "PUBLISHER_MODEL_VIEW_BASIC",
                     "PUBLISHER_MODEL_VIEW_FULL",
                     "PUBLISHER_MODEL_VERSION_VIEW_BASIC",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1PublisherModelHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                languageCode: str = ...,
-                listAllVersions: bool = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                languageCode: str | None = ...,
+                listAllVersions: bool | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 view: typing_extensions.Literal[
                     "PUBLISHER_MODEL_VIEW_UNSPECIFIED",
                     "PUBLISHER_MODEL_VIEW_BASIC",
                     "PUBLISHER_MODEL_VIEW_FULL",
                     "PUBLISHER_MODEL_VERSION_VIEW_BASIC",
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ListPublisherModelsResponseHttpRequest: ...
             def list_next(
@@ -9587,21 +9875,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 endpoint: str,
-                body: GoogleCloudAiplatformV1beta1PredictRequest = ...,
+                body: GoogleCloudAiplatformV1beta1PredictRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1PredictResponseHttpRequest: ...
             def predictLongRunning(
                 self,
                 *,
                 endpoint: str,
-                body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest = ...,
+                body: GoogleCloudAiplatformV1beta1PredictLongRunningRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def streamGenerateContent(
                 self,
                 *,
                 model: str,
-                body: GoogleCloudAiplatformV1beta1GenerateContentRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateContentRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1GenerateContentResponseHttpRequest: ...
 
@@ -9624,10 +9912,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -9636,7 +9924,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         @typing.type_check_only
@@ -9656,10 +9944,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -9668,7 +9956,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -9693,10 +9981,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -9705,7 +9993,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -9721,7 +10009,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    body: dict[str, typing.Any] = ...,
+                    body: dict[str, typing.Any],
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def stream(
@@ -9729,7 +10017,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    body: dict[str, typing.Any] = ...,
+                    body: dict[str, typing.Any],
                     **kwargs: typing.Any,
                 ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -9744,7 +10032,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
 
@@ -9753,7 +10041,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    historyLength: str = ...,
+                    historyLength: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def cancel(
@@ -9761,7 +10049,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    body: dict[str, typing.Any] = ...,
+                    body: dict[str, typing.Any],
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def subscribe(
@@ -9780,7 +10068,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        body: dict[str, typing.Any] = ...,
+                        body: dict[str, typing.Any],
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def stream(
@@ -9788,7 +10076,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        body: dict[str, typing.Any] = ...,
+                        body: dict[str, typing.Any],
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -9803,7 +10091,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
 
@@ -9812,7 +10100,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def cancel(
@@ -9820,7 +10108,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        body: dict[str, typing.Any] = ...,
+                        body: dict[str, typing.Any],
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def subscribe(
@@ -9835,7 +10123,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    historyLength: str = ...,
+                    historyLength: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def extendedAgentCard(
@@ -9843,7 +10131,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    historyLength: str = ...,
+                    historyLength: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def message(self) -> MessageResource: ...
@@ -9854,7 +10142,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 *,
                 name: str,
                 a2aEndpoint: str,
-                historyLength: str = ...,
+                historyLength: str | None = ...,
                 **kwargs: typing.Any,
             ) -> googleapiclient.http.HttpRequest: ...
             def extendedAgentCard(
@@ -9862,7 +10150,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 *,
                 name: str,
                 a2aEndpoint: str,
-                historyLength: str = ...,
+                historyLength: str | None = ...,
                 **kwargs: typing.Any,
             ) -> googleapiclient.http.HttpRequest: ...
             def message(self) -> MessageResource: ...
@@ -9883,7 +10171,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self, *, name: str, **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -9905,10 +10193,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -9917,7 +10205,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -9939,10 +10227,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -9951,7 +10239,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             @typing.type_check_only
@@ -9963,9 +10251,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAiplatformV1beta1ListMemoryRevisionsResponseHttpRequest
@@ -9983,8 +10271,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1Memory = ...,
-                memoryId: str = ...,
+                body: GoogleCloudAiplatformV1beta1Memory,
+                memoryId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def delete(
@@ -9994,7 +10282,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1GenerateMemoriesRequest = ...,
+                body: GoogleCloudAiplatformV1beta1GenerateMemoriesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def get(
@@ -10004,17 +10292,17 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1IngestEventsRequest = ...,
+                body: GoogleCloudAiplatformV1beta1IngestEventsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ListMemoriesResponseHttpRequest: ...
             def list_next(
@@ -10026,36 +10314,36 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1Memory = ...,
-                updateMask: str = ...,
+                body: GoogleCloudAiplatformV1beta1Memory,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def purge(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1PurgeMemoriesRequest = ...,
+                body: GoogleCloudAiplatformV1beta1PurgeMemoriesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def retrieve(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1RetrieveMemoriesRequest = ...,
+                body: GoogleCloudAiplatformV1beta1RetrieveMemoriesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1RetrieveMemoriesResponseHttpRequest: ...
             def retrieveProfiles(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1RetrieveProfilesRequest = ...,
+                body: GoogleCloudAiplatformV1beta1RetrieveProfilesRequest,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1RetrieveProfilesResponseHttpRequest: ...
             def rollback(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1RollbackMemoryRequest = ...,
+                body: GoogleCloudAiplatformV1beta1RollbackMemoryRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def operations(self) -> OperationsResource: ...
@@ -10076,10 +10364,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10088,7 +10376,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         @typing.type_check_only
@@ -10102,7 +10390,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        body: dict[str, typing.Any] = ...,
+                        body: dict[str, typing.Any],
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def stream(
@@ -10110,7 +10398,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        body: dict[str, typing.Any] = ...,
+                        body: dict[str, typing.Any],
                         **kwargs: typing.Any,
                     ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -10125,7 +10413,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
 
@@ -10134,7 +10422,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def cancel(
@@ -10142,7 +10430,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        body: dict[str, typing.Any] = ...,
+                        body: dict[str, typing.Any],
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def subscribe(
@@ -10161,7 +10449,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            body: dict[str, typing.Any] = ...,
+                            body: dict[str, typing.Any],
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def stream(
@@ -10169,7 +10457,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            body: dict[str, typing.Any] = ...,
+                            body: dict[str, typing.Any],
                             **kwargs: typing.Any,
                         ) -> GoogleApiHttpBodyHttpRequest: ...
 
@@ -10184,7 +10472,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                                 *,
                                 name: str,
                                 a2aEndpoint: str,
-                                historyLength: str = ...,
+                                historyLength: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> googleapiclient.http.HttpRequest: ...
 
@@ -10193,7 +10481,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            historyLength: str = ...,
+                            historyLength: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def cancel(
@@ -10201,7 +10489,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             *,
                             name: str,
                             a2aEndpoint: str,
-                            body: dict[str, typing.Any] = ...,
+                            body: dict[str, typing.Any],
                             **kwargs: typing.Any,
                         ) -> googleapiclient.http.HttpRequest: ...
                         def subscribe(
@@ -10216,7 +10504,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def extendedAgentCard(
@@ -10224,7 +10512,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         *,
                         name: str,
                         a2aEndpoint: str,
-                        historyLength: str = ...,
+                        historyLength: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> googleapiclient.http.HttpRequest: ...
                     def message(self) -> MessageResource: ...
@@ -10235,7 +10523,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    historyLength: str = ...,
+                    historyLength: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def extendedAgentCard(
@@ -10243,7 +10531,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     *,
                     name: str,
                     a2aEndpoint: str,
-                    historyLength: str = ...,
+                    historyLength: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> googleapiclient.http.HttpRequest: ...
                 def message(self) -> MessageResource: ...
@@ -10265,10 +10553,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -10277,14 +10565,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def query(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest = ...,
+                body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1QueryReasoningEngineResponseHttpRequest
@@ -10293,7 +10581,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest = ...,
+                body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest,
                 **kwargs: typing.Any,
             ) -> GoogleApiHttpBodyHttpRequest: ...
             def a2a(self) -> A2aResource: ...
@@ -10316,10 +10604,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -10328,7 +10616,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def delete(
@@ -10341,9 +10629,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ListSandboxEnvironmentSnapshotsResponseHttpRequest: ...
             def list_next(
@@ -10373,10 +10661,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -10385,14 +10673,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def create(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1SandboxEnvironmentTemplate = ...,
+                body: GoogleCloudAiplatformV1beta1SandboxEnvironmentTemplate,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def delete(
@@ -10405,9 +10693,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ListSandboxEnvironmentTemplatesResponseHttpRequest: ...
             def list_next(
@@ -10437,10 +10725,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -10449,14 +10737,14 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def create(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1SandboxEnvironment = ...,
+                body: GoogleCloudAiplatformV1beta1SandboxEnvironment,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def delete(
@@ -10466,7 +10754,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1ExecuteSandboxEnvironmentRequest = ...,
+                body: GoogleCloudAiplatformV1beta1ExecuteSandboxEnvironmentRequest,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1ExecuteSandboxEnvironmentResponseHttpRequest
@@ -10478,9 +10766,9 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> (
                 GoogleCloudAiplatformV1beta1ListSandboxEnvironmentsResponseHttpRequest
@@ -10497,21 +10785,21 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1PauseSandboxEnvironmentRequest = ...,
+                body: GoogleCloudAiplatformV1beta1PauseSandboxEnvironmentRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def resume(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1ResumeSandboxEnvironmentRequest = ...,
+                body: GoogleCloudAiplatformV1beta1ResumeSandboxEnvironmentRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def snapshot(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1SandboxEnvironmentSnapshot = ...,
+                body: GoogleCloudAiplatformV1beta1SandboxEnvironmentSnapshot,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def operations(self) -> OperationsResource: ...
@@ -10524,10 +10812,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAiplatformV1beta1ListEventsResponseHttpRequest: ...
                 def list_next(
@@ -10553,10 +10841,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -10565,22 +10853,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def appendEvent(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1SessionEvent = ...,
+                body: GoogleCloudAiplatformV1beta1SessionEvent,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1AppendEventResponseHttpRequest: ...
             def create(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudAiplatformV1beta1Session = ...,
-                sessionId: str = ...,
+                body: GoogleCloudAiplatformV1beta1Session,
+                sessionId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def delete(
@@ -10593,10 +10881,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1ListSessionsResponseHttpRequest: ...
             def list_next(
@@ -10608,8 +10896,8 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleCloudAiplatformV1beta1Session = ...,
-                updateMask: str = ...,
+                body: GoogleCloudAiplatformV1beta1Session,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudAiplatformV1beta1SessionHttpRequest: ...
             def events(self) -> EventsResource: ...
@@ -10619,31 +10907,31 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1AsyncQueryReasoningEngineRequest = ...,
+            body: GoogleCloudAiplatformV1beta1AsyncQueryReasoningEngineRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def cancelAsyncQuery(
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1CancelAsyncQueryReasoningEngineRequest = ...,
+            body: GoogleCloudAiplatformV1beta1CancelAsyncQueryReasoningEngineRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1CancelAsyncQueryReasoningEngineResponseHttpRequest: ...
         def create(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1ReasoningEngine = ...,
-            parent: str = ...,
+            body: GoogleCloudAiplatformV1beta1ReasoningEngine,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def delete(
-            self, *, name: str, force: bool = ..., **kwargs: typing.Any
+            self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def executeCode(
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1ExecuteCodeRequest = ...,
+            body: GoogleCloudAiplatformV1beta1ExecuteCodeRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1ExecuteCodeResponseHttpRequest: ...
         def get(
@@ -10652,10 +10940,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         def list(
             self,
             *,
-            filter: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            filter: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1ListReasoningEnginesResponseHttpRequest: ...
         def list_next(
@@ -10669,22 +10957,22 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1ReasoningEngine = ...,
-            updateMask: str = ...,
+            body: GoogleCloudAiplatformV1beta1ReasoningEngine,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def query(
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest = ...,
+            body: GoogleCloudAiplatformV1beta1QueryReasoningEngineRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1QueryReasoningEngineResponseHttpRequest: ...
         def streamQuery(
             self,
             *,
             name: str,
-            body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest = ...,
+            body: GoogleCloudAiplatformV1beta1StreamQueryReasoningEngineRequest,
             **kwargs: typing.Any,
         ) -> GoogleApiHttpBodyHttpRequest: ...
         def a2a(self) -> A2aResource: ...
@@ -10719,10 +11007,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10731,7 +11019,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -10753,10 +11041,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10765,7 +11053,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -10787,10 +11075,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10799,7 +11087,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -10821,10 +11109,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10833,7 +11121,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -10852,10 +11140,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10883,10 +11171,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10895,7 +11183,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -10917,10 +11205,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -10929,7 +11217,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         @typing.type_check_only
@@ -10949,10 +11237,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -10961,7 +11249,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             def operations(self) -> OperationsResource: ...
@@ -10988,10 +11276,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -11000,7 +11288,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                     previous_response: GoogleLongrunningListOperationsResponse,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                 def wait(
-                    self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                    self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
             @typing.type_check_only
@@ -11020,10 +11308,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        returnPartialSuccess: bool = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        returnPartialSuccess: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                     def list_next(
@@ -11032,7 +11320,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                         previous_response: GoogleLongrunningListOperationsResponse,
                     ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
                     def wait(
-                        self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        timeout: str | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
                 @typing.type_check_only
@@ -11052,10 +11344,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -11066,7 +11358,11 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                             GoogleLongrunningListOperationsResponseHttpRequest | None
                         ): ...
                         def wait(
-                            self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            timeout: str | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleLongrunningOperationHttpRequest: ...
 
                     def operations(self) -> OperationsResource: ...
@@ -11092,10 +11388,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -11104,7 +11400,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def experiments(self) -> ExperimentsResource: ...
@@ -11127,10 +11423,10 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                returnPartialSuccess: bool = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                returnPartialSuccess: bool | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
             def list_next(
@@ -11139,7 +11435,7 @@ class AiplatformResource(googleapiclient.discovery.Resource):
                 previous_response: GoogleLongrunningListOperationsResponse,
             ) -> GoogleLongrunningListOperationsResponseHttpRequest | None: ...
             def wait(
-                self, *, name: str, timeout: str = ..., **kwargs: typing.Any
+                self, *, name: str, timeout: str | None = ..., **kwargs: typing.Any
             ) -> GoogleLongrunningOperationHttpRequest: ...
 
         def operations(self) -> OperationsResource: ...
@@ -11159,19 +11455,19 @@ class AiplatformResource(googleapiclient.discovery.Resource):
         def evaluateDataset(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1EvaluateDatasetRequest = ...,
+            body: GoogleCloudAiplatformV1beta1EvaluateDatasetRequest,
             **kwargs: typing.Any,
         ) -> GoogleLongrunningOperationHttpRequest: ...
         def evaluateInstances(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1EvaluateInstancesRequest = ...,
+            body: GoogleCloudAiplatformV1beta1EvaluateInstancesRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1EvaluateInstancesResponseHttpRequest: ...
         def generateInstanceRubrics(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1GenerateInstanceRubricsRequest = ...,
+            body: GoogleCloudAiplatformV1beta1GenerateInstanceRubricsRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1GenerateInstanceRubricsResponseHttpRequest: ...
 
@@ -11186,12 +11482,12 @@ class AiplatformResource(googleapiclient.discovery.Resource):
             ): ...
 
         def retrieveExpressProject(
-            self, *, getDefaultApiKey: bool = ..., **kwargs: typing.Any
+            self, *, getDefaultApiKey: bool | None = ..., **kwargs: typing.Any
         ) -> GoogleCloudAiplatformV1beta1RetrieveExpressProjectResponseHttpRequest: ...
         def signUp(
             self,
             *,
-            body: GoogleCloudAiplatformV1beta1SignUpRequest = ...,
+            body: GoogleCloudAiplatformV1beta1SignUpRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAiplatformV1beta1ExpressProjectHttpRequest: ...
         def Eligibility(self) -> EligibilityResource: ...

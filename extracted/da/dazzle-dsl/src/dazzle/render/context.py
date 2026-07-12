@@ -98,6 +98,9 @@ class TableContext(BaseModel):
     api_endpoint: str
     search_enabled: bool = True
     create_url: str | None = None
+    # Optional override for the "New …" CTA label (from surface title /
+    # persona ``action_primary``). Empty → Fragment uses entity_title.
+    create_label: str = ""
     detail_url_template: str | None = None  # e.g. "/tasks/{id}"
     rows: list[dict[str, Any]] = Field(default_factory=list)
     total: int = 0
@@ -152,6 +155,14 @@ class TableContext(BaseModel):
     # helper which gates on ``permit:`` rules; this set gates on an
     # explicit DSL persona-variant declaration.
     persona_read_only: set[str] = Field(default_factory=set)
+    # Per-persona primary CTA from ``for <persona>: action_primary: <surface>``.
+    # Resolved at compile time for CREATE-mode targets into route + label
+    # maps; request-time resolver swaps ``create_url`` / ``create_label``.
+    # Non-CREATE targets (e.g. EDIT) are recorded in persona_action_primary
+    # only — list headers still need a record id for edit links.
+    persona_action_primary: dict[str, str] = Field(default_factory=dict)
+    persona_create_urls: dict[str, str] = Field(default_factory=dict)
+    persona_create_labels: dict[str, str] = Field(default_factory=dict)
     search_first: bool = False
     filter_values: dict[str, str] = Field(default_factory=dict)
     table_id: str = ""
@@ -239,6 +250,11 @@ class FormContext(BaseModel):
     # (handled at the page_routes level; the form should never render
     # for a read-only persona).
     persona_read_only: set[str] = Field(default_factory=set)
+    # Per-persona form field defaults from ``for <persona>: defaults:``.
+    # Values may be literals or the token ``current_user`` (resolved to the
+    # authenticated user id at request time). Applied into ``initial_values``
+    # only for keys that are still empty (CREATE fills; EDIT fills blanks).
+    persona_defaults: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class TransitionContext(BaseModel):

@@ -25,33 +25,35 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ExecuteActionRequest = ...,
+                        body: ExecuteActionRequest,
                         **kwargs: typing.Any,
                     ) -> ExecuteActionResponseHttpRequest: ...
                     def get(
                         self,
                         *,
                         name: str,
-                        executionConfig_headers: str = ...,
+                        executionConfig_headers: str | None = ...,
                         view: typing_extensions.Literal[
                             "ACTION_SCHEMA_VIEW_UNSPECIFIED",
                             "ACTION_SCHEMA_VIEW_BASIC",
                             "ACTION_SCHEMA_VIEW_ENRICHED",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ActionHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        executionConfig_headers: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        executionConfig_headers: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "ACTION_VIEW_UNSPECIFIED",
                             "ACTION_VIEW_BASIC",
                             "ACTION_VIEW_FULL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListActionsResponseHttpRequest: ...
                     def list_next(
@@ -68,42 +70,42 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: Entity = ...,
-                            executionConfig_headers: str = ...,
+                            body: Entity,
+                            executionConfig_headers: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> EntityHttpRequest: ...
                         def delete(
                             self,
                             *,
                             name: str,
-                            executionConfig_headers: str = ...,
+                            executionConfig_headers: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> EmptyHttpRequest: ...
                         def deleteEntitiesWithConditions(
                             self,
                             *,
                             entityType: str,
-                            conditions: str = ...,
-                            executionConfig_headers: str = ...,
+                            conditions: str | None = ...,
+                            executionConfig_headers: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> EmptyHttpRequest: ...
                         def get(
                             self,
                             *,
                             name: str,
-                            executionConfig_headers: str = ...,
+                            executionConfig_headers: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> EntityHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            conditions: str = ...,
-                            executionConfig_headers: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            sortBy: str | _list[str] = ...,
-                            sortOrder: str | _list[str] = ...,
+                            conditions: str | None = ...,
+                            executionConfig_headers: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            sortBy: str | _list[str] | None = ...,
+                            sortOrder: str | _list[str] | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListEntitiesResponseHttpRequest: ...
                         def list_next(
@@ -115,17 +117,17 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: Entity = ...,
-                            executionConfig_headers: str = ...,
+                            body: Entity,
+                            executionConfig_headers: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> EntityHttpRequest: ...
                         def updateEntitiesWithConditions(
                             self,
                             *,
                             entityType: str,
-                            body: Entity = ...,
-                            conditions: str = ...,
-                            executionConfig_headers: str = ...,
+                            body: Entity,
+                            conditions: str | None = ...,
+                            executionConfig_headers: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> UpdateEntitiesWithConditionsResponseHttpRequest: ...
 
@@ -133,27 +135,29 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        contextMetadata: str = ...,
-                        executionConfig_headers: str = ...,
+                        contextMetadata: str | None = ...,
+                        executionConfig_headers: str | None = ...,
                         view: typing_extensions.Literal[
                             "ENTITY_TYPE_SCHEMA_VIEW_UNSPECIFIED",
                             "ENTITY_TYPE_SCHEMA_VIEW_BASIC",
                             "ENTITY_TYPE_SCHEMA_VIEW_ENRICHED",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> EntityTypeHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        executionConfig_headers: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        executionConfig_headers: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "ENTITY_TYPE_VIEW_UNSPECIFIED",
                             "ENTITY_TYPE_VIEW_BASIC",
                             "ENTITY_TYPE_VIEW_FULL",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListEntityTypesResponseHttpRequest: ...
                     def list_next(
@@ -169,23 +173,23 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        executionConfig_headers: str = ...,
+                        executionConfig_headers: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GetResourceResponseHttpRequest: ...
                     def getResourcePost(
                         self,
                         *,
                         name: str,
-                        body: GetResourcePostRequest = ...,
+                        body: GetResourcePostRequest,
                         **kwargs: typing.Any,
                     ) -> GetResourceResponseHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        executionConfig_headers: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        executionConfig_headers: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListResourcesResponseHttpRequest: ...
                     def list_next(
@@ -200,17 +204,17 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ExecuteToolRequest = ...,
+                        body: ExecuteToolRequest,
                         **kwargs: typing.Any,
                     ) -> ExecuteToolResponseHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        executionConfig_headers: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        toolNames: str | _list[str] = ...,
+                        executionConfig_headers: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        toolNames: str | _list[str] | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListToolsResponseHttpRequest: ...
                     def list_next(
@@ -226,35 +230,35 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    executionConfig_headers: str = ...,
+                    executionConfig_headers: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> CheckStatusResponseHttpRequest: ...
                 def exchangeAuthCode(
                     self,
                     *,
                     name: str,
-                    body: ExchangeAuthCodeRequest = ...,
+                    body: ExchangeAuthCodeRequest,
                     **kwargs: typing.Any,
                 ) -> ExchangeAuthCodeResponseHttpRequest: ...
                 def executeHttpRequest(
                     self,
                     *,
                     name: str,
-                    body: ExecuteHttpRequestRequest = ...,
+                    body: ExecuteHttpRequestRequest,
                     **kwargs: typing.Any,
                 ) -> ExecuteHttpRequestResponseHttpRequest: ...
                 def executeSqlQuery(
                     self,
                     *,
                     connection: str,
-                    body: ExecuteSqlQueryRequest = ...,
+                    body: ExecuteSqlQueryRequest,
                     **kwargs: typing.Any,
                 ) -> ExecuteSqlQueryResponseHttpRequest: ...
                 def generateConnectionToolspecOverride(
                     self,
                     *,
                     name: str,
-                    body: GenerateCustomToolspecRequest = ...,
+                    body: GenerateCustomToolspecRequest,
                     **kwargs: typing.Any,
                 ) -> GenerateCustomToolspecResponseHttpRequest: ...
                 def listCustomToolNames(
@@ -264,7 +268,7 @@ class ConnectorsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: RefreshAccessTokenRequest = ...,
+                    body: RefreshAccessTokenRequest,
                     **kwargs: typing.Any,
                 ) -> RefreshAccessTokenResponseHttpRequest: ...
                 def actions(self) -> ActionsResource: ...

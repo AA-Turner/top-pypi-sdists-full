@@ -15,7 +15,7 @@ else:
         for cmd in ("sdist", "egg_info", "--name", "--version", "--help", "--help-commands")
     )
 
-VERSION: Final = "5.3.28"
+VERSION: Final = "5.3.29"
 DESCRIPTION: Final = "A faster fork of eth-utils: Common utility functions for python code that interacts with Ethereum. Implemented in C."
 
 ext_modules: list[Extension] = []
@@ -57,7 +57,7 @@ if not skip_mypyc:
         strict_dunder_typing=True,
     )
 
-MYPY_REQUIREMENT = "mypy==2.1.0"
+MYPY_REQUIREMENT = "mypy==2.2.0"
 PYTEST_REQUIREMENT = "pytest>=7.0.0"
 
 
@@ -118,7 +118,7 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        "cchecksum==0.4.4",
+        "cchecksum==0.4.5",
         "eth-hash>=0.3.1",
         "eth-typing==5.2.1",
         "eth-utils==5.3.1",
@@ -136,7 +136,10 @@ setup(
     keywords="ethereum",
     packages=find_packages(exclude=["scripts", "scripts.*", "tests", "tests.*"]),
     ext_modules=ext_modules,
-    package_data={"faster_eth_utils": ["py.typed"]},
+    package_data={
+        "faster_eth_utils": ["py.typed"],
+        "faster_eth_utils.__json": ["*.json"],
+    },
     classifiers=[
         "Intended Audience :: Developers",
         "Natural Language :: English",

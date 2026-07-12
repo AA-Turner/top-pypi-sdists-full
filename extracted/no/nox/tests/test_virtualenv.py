@@ -39,11 +39,22 @@ if TYPE_CHECKING:
     from nox.virtualenv import CondaEnv, ProcessEnv, VirtualEnv
 
 IS_WINDOWS = sys.platform.startswith("win")
+# Under MSYS2/MinGW, sys.platform is "win32" but the native venv layout is POSIX
+# ("bin"/"python"), so Windows-layout assertions must exclude this case.
+IS_MINGW = nox.virtualenv._IS_MINGW
 HAS_UV = shutil.which("uv") is not None
 RAISE_ERROR = "RAISE_ERROR"
 VIRTUALENV_VERSION = metadata.version("virtualenv")
 
 has_uv = pytest.mark.skipif(not HAS_UV, reason="Missing uv command.")
+# Under MinGW, uv cannot inspect the native interpreter, so creating a uv venv
+# from it fails. Fixed by #1117; xfail (non-strict) keeps the experimental MSYS2
+# job green until then, and lets these xpass once the fix lands.
+xfail_mingw_uv = pytest.mark.xfail(
+    IS_MINGW,
+    reason="uv can't inspect the MinGW interpreter (#1088, fixed by #1117)",
+    strict=False,
+)
 
 
 class TextProcessResult(NamedTuple):
@@ -465,6 +476,7 @@ def test_create_args_old_uv(
     assert run_mock.call_args.args[0][-1] != "--clear"
 
 
+@xfail_mingw_uv
 @has_uv
 def test_uv_creation(
     make_one: Callable[..., tuple[VirtualEnv, Path]],
@@ -591,10 +603,12 @@ def test_bin_paths(
     assert len(venv.bin_paths) == 1
     assert venv.bin_paths[0] == venv.bin
 
-    assert str(dir_.joinpath("Scripts" if IS_WINDOWS else "bin")) == venv.bin
+    win_layout = IS_WINDOWS and not IS_MINGW
+    assert str(dir_.joinpath("Scripts" if win_layout else "bin")) == venv.bin
 
 
 @mock.patch("nox.virtualenv._PLATFORM", new="win32")
+@mock.patch("nox.virtualenv._IS_MINGW", new=False)
 def test_bin_windows(
     make_one: Callable[..., tuple[VirtualEnv | ProcessEnv, Path]],
 ) -> None:
@@ -630,11 +644,17 @@ def test_create(
     assert venv.env["CONDA_PREFIX"] is None
     assert "NOT_CONDA_PREFIX" not in venv.env
 
-    if IS_WINDOWS:
+    if IS_WINDOWS and not IS_MINGW:
         assert dir_.joinpath("Scripts", "python.exe").exists()
         assert dir_.joinpath("Scripts", "pip.exe").exists()
         assert dir_.joinpath("Lib").exists()
         assert str(dir_.joinpath("Scripts")) in venv.bin_paths
+    elif IS_MINGW:
+        # MinGW uses a POSIX bin/ dir but Windows-style ``.exe`` executables.
+        assert dir_.joinpath("bin", "python.exe").exists()
+        assert dir_.joinpath("bin", "pip.exe").exists()
+        assert dir_.joinpath("lib").exists()
+        assert str(dir_.joinpath("bin")) in venv.bin_paths
     else:
         assert dir_.joinpath("bin", "python").exists()
         assert dir_.joinpath("bin", "pip").exists()
@@ -845,7 +865,7 @@ def test_micromamba_channel_environment(
         ("virtualenv", "venv", True),
         ("venv", "virtualenv", True),
         ("virtualenv", "uv", True),
-        pytest.param("uv", "virtualenv", False, marks=has_uv),
+        pytest.param("uv", "virtualenv", False, marks=[has_uv, xfail_mingw_uv]),
         pytest.param("conda", "virtualenv", False, marks=pytest.mark.conda),
     ],
 )
@@ -905,6 +925,7 @@ def test_create_reuse_stale_virtualenv_environment(
     assert not reused
 
 
+@xfail_mingw_uv
 @has_uv
 def test_create_reuse_uv_environment(
     make_one: Callable[..., tuple[VirtualEnv | ProcessEnv, Path]],
@@ -1111,11 +1132,100 @@ def test_find_uv(
         sys.modules, "uv", types.SimpleNamespace(find_uv_bin=find_uv_bin)
     )
 
-    assert nox.virtualenv.find_uv() == (
+    # Bypass the functools.cache wrapper: the suite warms find_uv() with the
+    # real environment (see conftest), and this test must not poison it.
+    assert nox.virtualenv.find_uv.__wrapped__() == (
         found,
         path,
         version.Version(vers if vers_rc == 0 else "0"),
     )
+
+
+def test_uv_detection_is_lazy() -> None:
+    """Importing nox.virtualenv must not invoke uv (or any subprocess)."""
+    code = dedent(
+        """
+        import sys
+
+        events = []
+
+        def audit_hook(event, args):
+            if event == "subprocess.Popen":
+                events.append((event, args))
+
+        sys.addaudithook(audit_hook)
+
+        import nox.virtualenv
+
+        assert not events, f"subprocess spawned during import: {events}"
+        lazy = {"HAS_UV", "UV", "UV_VERSION", "OPTIONAL_VENVS"}
+        computed = lazy & set(vars(nox.virtualenv))
+        assert not computed, f"uv detection ran during import: {computed}"
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        text=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_lazy_uv_module_attrs(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Remove any values materialized by earlier monkeypatching so that the
+    # module-level __getattr__ is exercised.
+    for name in ("HAS_UV", "UV", "UV_VERSION", "OPTIONAL_VENVS"):
+        if name in vars(nox.virtualenv):
+            monkeypatch.delattr(nox.virtualenv, name)
+
+    assert isinstance(nox.virtualenv.HAS_UV, bool)
+    assert isinstance(nox.virtualenv.UV, str)
+    assert isinstance(nox.virtualenv.UV_VERSION, version.Version)
+
+    optional_venvs = nox.virtualenv.OPTIONAL_VENVS
+    assert set(optional_venvs) == {"conda", "mamba", "micromamba", "uv"}
+    assert optional_venvs["uv"] == nox.virtualenv.HAS_UV
+
+    # A monkeypatched HAS_UV must flow into OPTIONAL_VENVS.
+    monkeypatch.setattr(nox.virtualenv, "HAS_UV", not optional_venvs["uv"])
+    assert nox.virtualenv.OPTIONAL_VENVS["uv"] == (not optional_venvs["uv"])
+
+    with pytest.raises(AttributeError, match="has no attribute 'not_a_real_attr'"):
+        _ = nox.virtualenv.not_a_real_attr
+
+
+def test_allowed_globals(
+    tmp_path: Path,
+    make_one: Callable[..., tuple[VirtualEnv, Path]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert nox.virtualenv.PassthroughEnv().allowed_globals == ()
+    assert nox.virtualenv.CondaEnv(str(tmp_path / "conda")).allowed_globals == (
+        "conda",
+        "mamba",
+        "micromamba",
+    )
+
+    venv, _ = make_one(venv_backend="uv")
+    monkeypatch.setattr(nox.virtualenv, "UV", "/some/uv")
+    assert venv.allowed_globals == ("/some/uv", "/some/uvx")
+
+
+def test_find_python_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Repeated interpreter discovery (one lookup per session) is cached."""
+    calls: list[str] = []
+
+    def fake_which(name: str) -> str | None:
+        calls.append(name)
+        return "/usr/bin/python3.99"
+
+    monkeypatch.setattr(shutil, "which", fake_which)
+
+    assert nox.virtualenv._find_python("python3.99", "3.99") == "python3.99"
+    assert nox.virtualenv._find_python("python3.99", "3.99") == "python3.99"
+    assert calls == ["python3.99"]
 
 
 @pytest.mark.parametrize(
@@ -1416,6 +1526,30 @@ def test__resolved_interpreter_windows_pyexe(
     which.assert_has_calls([mock.call(input_), mock.call("py")])
 
 
+@pytest.mark.parametrize(
+    ("interpreter", "expected_py_arg"),
+    [
+        ("3.10-32", "3.10-32"),
+        # Only a literal "-32" suffix is meaningful to the py launcher.
+        ("3.10-3", ""),
+    ],
+)
+@mock.patch("nox.virtualenv._PLATFORM", new="win32")
+@mock.patch("nox.virtualenv.locate_using_path_and_version", return_value=None)
+@mock.patch("nox.virtualenv.locate_via_py", return_value=None)
+@mock.patch.object(shutil, "which", return_value=None)
+def test_find_python_windows_32_bit_suffix(
+    which: mock.Mock,  # noqa: ARG001
+    locate_via_py_mock: mock.Mock,
+    locate_using_path_and_version_mock: mock.Mock,  # noqa: ARG001
+    interpreter: str,
+    expected_py_arg: str,
+) -> None:
+    # Only an exact "-32" suffix is preserved for the Windows py launcher.
+    assert nox.virtualenv._find_python(interpreter, "") is None
+    locate_via_py_mock.assert_called_once_with(expected_py_arg)
+
+
 @mock.patch("nox.virtualenv._PLATFORM", new="win32")
 @mock.patch.object(subprocess, "run")
 @mock.patch.object(shutil, "which")
@@ -1536,7 +1670,7 @@ def test__resolved_interpreter_cache_result(
     which.assert_called_once_with("python3.6")
     # Check the cache and call again to make sure it is used.
     assert venv._resolved == "python3.6"
-    assert venv._resolved_interpreter == "python3.6"
+    assert venv._resolved_interpreter == "python3.6"  # type: ignore[unreachable]
     assert which.call_count == 1
 
 
@@ -1756,6 +1890,10 @@ def test_download_python_failed_install(
         ("pypy", "3.8", "pypy@3.8.16", True),
         ("cpython", "3.12", "cpython@3.11.5", False),
         ("pypy", "3.11", "cpython@3.11.5", False),
+        # Exact X.Y.Z installs are stored without a suffix (version_dir=True)
+        ("cpython", "3.13.2", "cpython@3.13.2", True),
+        ("pypy", "3.10.14", "pypy@3.10.14", True),
+        ("cpython", "3.1", "cpython@3.13.2", False),
     ],
 )
 def test_find_pbs_python(
@@ -1810,6 +1948,24 @@ def test_pbs_install_python_already_installed(find_pbs_mock: mock.Mock) -> None:
 
     assert result == "/existing/python/path"
     find_pbs_mock.assert_called_once_with("cpython", "3.11")
+
+
+@mock.patch("nox.virtualenv._find_pbs_python", return_value="/existing/python/path")
+def test_pbs_install_python_no_implementation(find_pbs_mock: mock.Mock) -> None:
+    """A bare version with no implementation prefix defaults to CPython."""
+    result = nox.virtualenv.pbs_install_python("3.12")
+
+    assert result == "/existing/python/path"
+    find_pbs_mock.assert_called_once_with("cpython", "3.12")
+
+
+@pytest.mark.parametrize("python_version", ["", "cpython", "not-a-python"])
+def test_pbs_install_python_invalid_version(
+    python_version: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Version-less or unparsable requests warn and return None."""
+    assert nox.virtualenv.pbs_install_python(python_version) is None
+    assert "not a valid version" in caplog.text
 
 
 def test_pbs_install_python_success(

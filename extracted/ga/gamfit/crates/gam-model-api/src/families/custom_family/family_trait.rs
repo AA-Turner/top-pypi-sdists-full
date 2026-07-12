@@ -27,6 +27,7 @@ use gam_problem::{
 };
 use ndarray::{Array1, Array2};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Family evaluation over all parameter blocks.
 #[derive(Clone, Debug)]
@@ -68,7 +69,7 @@ pub struct ExactNewtonJointGradientEvaluation {
 pub struct BatchedOuterHessianTerms {
     /// Exact profiled outer Hessian over θ = (ρ, ψ), assembled or exposed in
     /// operator form by the family in one amortized evaluation.
-    pub outer_hessian: gam_problem::HessianResult,
+    pub outer_hessian: gam_problem::HessianValue,
 }
 
 pub struct BatchedOuterGradientTerms {
@@ -91,8 +92,72 @@ pub struct BatchedOuterGradientTerms {
 /// duplicate definition.
 pub use gam_problem::ExactNewtonOuterCurvature;
 
+/// Shared lifecycle for an unbiased sampled outer-derivative pilot.
+///
+/// Large marginal-slope objectives may use a deterministic
+/// Horvitz--Thompson row sample while the outer iterate is moving rapidly, but
+/// a fit may only be certified after optimizing the exact full-data measure.
+/// The family owns the evaluation counter; the generic outer runner owns the
+/// stage transition.  Keeping that transition explicit prevents a solver that
+/// converges before the nominal pilot budget from attempting to certify the
+/// sampled objective as though it were the exact REML/LAML criterion (#979).
+#[derive(Clone, Debug)]
+pub struct OuterDerivativePilotSchedule {
+    phase_counter: Arc<AtomicUsize>,
+    sampled_phase_budget: usize,
+}
+
+impl OuterDerivativePilotSchedule {
+    pub fn new(phase_counter: Arc<AtomicUsize>, sampled_phase_budget: usize) -> Self {
+        Self {
+            phase_counter,
+            sampled_phase_budget,
+        }
+    }
+
+    /// Enter the exact full-data phase iff at least one sampled derivative
+    /// evaluation actually ran and the family has not already transitioned.
+    ///
+    /// A compare/exchange loop makes the stage boundary single-shot even if a
+    /// future evaluator invokes the hook concurrently.  A zero counter is left
+    /// untouched: it means the problem was too small to install a sample (or a
+    /// caller supplied its own explicit measure), so no second optimization is
+    /// needed.
+    pub fn enter_exact_phase(&self) -> bool {
+        let mut observed = self.phase_counter.load(Ordering::SeqCst);
+        // `0..=budget` records how many sampled derivative points have run.
+        // `budget + 1` is the unambiguous exact-phase sentinel. In particular,
+        // `observed == budget` still means the solver may have stopped exactly
+        // after its last sampled point, before any full-data evaluation.
+        let exact_phase_sentinel = self.sampled_phase_budget.saturating_add(1);
+        loop {
+            if observed == 0 || observed >= exact_phase_sentinel {
+                return false;
+            }
+            match self.phase_counter.compare_exchange(
+                observed,
+                exact_phase_sentinel,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => return true,
+                Err(current) => observed = current,
+            }
+        }
+    }
+}
+
 /// User-defined family contract for multi-block generalized models.
 pub trait CustomFamily {
+    /// Optional sampled-derivative pilot owned by this family.
+    ///
+    /// Returning a schedule opts the family into the generic two-stage outer
+    /// solve: a cheap unbiased pilot followed unconditionally by an exact
+    /// full-data polish whenever the pilot actually installed a sample.
+    fn outer_derivative_pilot_schedule(&self) -> Option<OuterDerivativePilotSchedule> {
+        None
+    }
+
     /// Family-owned fingerprint for persistent coefficient warm-starts.
     ///
     /// The generic block specs contain design matrices, offsets, penalties,
@@ -843,7 +908,7 @@ pub trait CustomFamily {
         Ok(self
             .outer_hyper_hessian_operator(specs)
             .map(|operator| BatchedOuterHessianTerms {
-                outer_hessian: gam_problem::HessianResult::Operator(operator),
+                outer_hessian: gam_problem::HessianValue::Operator(operator),
             }))
     }
 
@@ -907,11 +972,11 @@ pub trait CustomFamily {
     /// matrix-free Hv operator — using its own directional θθ kernels and
     /// trace algebra rather than the generic per-pair enumeration — it
     /// overrides this method and returns `Some(op)`.  The unified REML/LAML
-    /// evaluator wires the operator into [`HessianResult::Operator`] via
+    /// evaluator wires the operator into [`HessianValue::Operator`] via
     /// the [`HessianDerivativeProvider::family_outer_hessian_operator`] hook
     /// the family installs on its provider; consumers see a generic
-    /// `Arc<dyn OuterHessianOperator>` (matvec / dim / mul_mat /
-    /// is_cheap_to_materialize).
+    /// `Arc<dyn HessianOperator>` (`apply_into`, `apply_mat`, `dim`, and the
+    /// explicit materialization work model).
     ///
     /// Default returns `None`, leaving the family on the existing pairwise
     /// assembly path.  This is the architectural contract for CTN, survival
@@ -921,7 +986,7 @@ pub trait CustomFamily {
     fn outer_hyper_hessian_operator(
         &self,
         specs: &[ParameterBlockSpec],
-    ) -> Option<Arc<dyn gam_problem::OuterHessianOperator>> {
+    ) -> Option<Arc<dyn gam_problem::HessianOperator>> {
         assert_valid_blockspecs(specs, "outer hyper-Hessian operator");
         None
     }

@@ -17,6 +17,7 @@ use super::dispersion_family::{
     DISPERSION_ETA_CLAMP, DISPERSION_MIN_CURVATURE, DispersionRowKernel, dispersion_row_kernel,
 };
 use super::test_support::dispersion_tweedie_nll_generic;
+use crate::fit_orchestration::{FitConfig, FitResult, fit_from_formula};
 
 /// Dense `Tower4<2>` Tweedie row NLL oracle: the #932 all-channels instantiation
 /// of the single-source [`dispersion_tweedie_nll_generic`] that production runs
@@ -33,12 +34,13 @@ fn dispersion_tweedie_nll_tower(
 ) -> gam_math::jet_tower::Tower4<2> {
     dispersion_tweedie_nll_generic::<gam_math::jet_tower::Tower4<2>>(yi, eta_mu, eta_d, p, wi)
 }
+use crate::wiggle::{
+    initializewiggle_knots_from_seed, monotone_wiggle_internal_degree, split_wiggle_penalty_orders,
+};
+use gam_data::encode_recordswith_inferred_schema;
 use gam_terms::basis::{
     CenterStrategy, Dense, KnotSource, MaternBasisSpec, MaternIdentifiability, MaternNu,
     create_basis,
-};
-use crate::wiggle::{
-    initializewiggle_knots_from_seed, monotone_wiggle_internal_degree, split_wiggle_penalty_orders,
 };
 use gam_terms::smooth::{ShapeConstraint, SmoothBasisSpec, SmoothTermSpec};
 use gam_test_support::{binomial_location_scale_base_fixture, no_densify_design};
@@ -50,10 +52,9 @@ use statrs::function::gamma::ln_gamma;
 
 pub(crate) fn intercept_block(n: usize) -> ParameterBlockInput {
     ParameterBlockInput {
-        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::from_elem(
-            (n, 1),
-            1.0,
-        ))),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+            Array2::from_elem((n, 1), 1.0),
+        )),
         offset: Array1::zeros(n),
         penalties: Vec::new(),
         nullspace_dims: vec![],
@@ -1293,10 +1294,9 @@ pub(crate) fn binomial_location_scale_loglik_uses_tail_stable_standard_links() {
     use crate::custom_family::{CustomFamily, ParameterBlockState};
 
     let n = 2usize;
-    let design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::from_elem(
-        (n, 1),
-        1.0,
-    )));
+    let design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+        Array2::from_elem((n, 1), 1.0),
+    ));
     let log_sigma = ParameterBlockState {
         beta: array![0.0],
         eta: array![0.0, 0.0],
@@ -1401,9 +1401,9 @@ pub(crate) fn gaussian_location_scale_coefficient_cost_delegates_to_joint_couple
     let specs = vec![
         ParameterBlockSpec {
             name: "mu".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::zeros((
-                n, p_mu,
-            )))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((n, p_mu)),
+            )),
             offset: Array1::zeros(n),
             penalties: Vec::new(),
             nullspace_dims: Vec::new(),
@@ -1416,10 +1416,9 @@ pub(crate) fn gaussian_location_scale_coefficient_cost_delegates_to_joint_couple
         },
         ParameterBlockSpec {
             name: "log_sigma".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::zeros((
-                n,
-                p_log_sigma,
-            )))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((n, p_log_sigma)),
+            )),
             offset: Array1::zeros(n),
             penalties: Vec::new(),
             nullspace_dims: Vec::new(),
@@ -1457,9 +1456,9 @@ pub(crate) fn large_n_gaussian_location_scale_keeps_exact_outer_hessian_plan() {
     let specs = vec![
         ParameterBlockSpec {
             name: "mu".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::zeros((
-                n, p_mu,
-            )))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((n, p_mu)),
+            )),
             offset: Array1::zeros(n),
             penalties: Vec::new(),
             nullspace_dims: Vec::new(),
@@ -1472,10 +1471,9 @@ pub(crate) fn large_n_gaussian_location_scale_keeps_exact_outer_hessian_plan() {
         },
         ParameterBlockSpec {
             name: "log_sigma".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::zeros((
-                n,
-                p_log_sigma,
-            )))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((n, p_log_sigma)),
+            )),
             offset: Array1::zeros(n),
             penalties: Vec::new(),
             nullspace_dims: Vec::new(),
@@ -1500,9 +1498,7 @@ pub(crate) fn large_n_gaussian_location_scale_keeps_exact_outer_hessian_plan() {
 
     let p_total = p_mu + p_log_sigma;
     assert!(
-        gam_solve::estimate::reml::reml_outer_engine::prefer_outer_hessian_operator(
-            n, p_total, 2
-        ),
+        gam_solve::estimate::reml::reml_outer_engine::prefer_outer_hessian_operator(n, p_total, 2),
         "the large-n work model should select the scalable explicit Hessian-operator representation"
     );
 
@@ -1546,7 +1542,8 @@ pub(crate) fn gls_workspace_fixture() -> (
     let y = Array1::from_shape_fn(n, |i| 0.5 + 0.1 * (i as f64).cos());
     let weights = Array1::from_elem(n, 1.0);
     let mu_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xmu.clone()));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
+    let log_sigma_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
     let family = GaussianLocationScaleFamily {
         y,
         weights,
@@ -1618,8 +1615,10 @@ pub(crate) fn bls_workspace_fixture() -> (
     let eta_ls = xls.dot(&beta_ls);
     let y = Array1::from_iter((0..n).map(|i| if i % 2 == 0 { 1.0 } else { 0.0 }));
     let weights = Array1::from_elem(n, 1.0);
-    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xt.clone()));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
+    let threshold_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xt.clone()));
+    let log_sigma_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
     let family = BinomialLocationScaleFamily {
         y,
         weights,
@@ -2544,8 +2543,10 @@ pub(crate) fn bls_wiggle_workspace_fixture() -> (
             .expect("wiggle block");
     let y = Array1::from_iter((0..n).map(|i| if i % 2 == 0 { 1.0 } else { 0.0 }));
     let weights = Array1::from_elem(n, 1.0);
-    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xt.clone()));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
+    let threshold_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xt.clone()));
+    let log_sigma_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
     let family = BinomialLocationScaleWiggleFamily {
         y,
         weights,
@@ -2954,7 +2955,8 @@ pub(crate) fn gaussian_location_scale_wiggle_workspace_matvec_matches_dense() {
     let y = Array1::from_shape_fn(n, |i| 0.5 + 0.1 * (i as f64).cos());
     let weights = Array1::from_elem(n, 1.0);
     let mu_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xmu.clone()));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
+    let log_sigma_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
     let family = GaussianLocationScaleWiggleFamily {
         y,
         weights,
@@ -3090,7 +3092,8 @@ pub(crate) fn gls_wiggle_workspace_fixture() -> (
     let y = Array1::from_shape_fn(n, |i| 0.5 + 0.1 * (i as f64).cos());
     let weights = Array1::from_elem(n, 1.0);
     let mu_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xmu.clone()));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
+    let log_sigma_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(xls.clone()));
     let family = GaussianLocationScaleWiggleFamily {
         y,
         weights,
@@ -3773,7 +3776,8 @@ pub(crate) fn gaussian_sigma_helper_matches_exact_exp_link() {
 #[test]
 pub(crate) fn gaussian_log_sigma_design_keeps_shared_mean_basis() {
     let shared = array![[1.0, -1.5], [1.0, -0.25], [1.0, 0.75], [1.0, 2.0],];
-    let shared_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(shared.clone()));
+    let shared_design =
+        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(shared.clone()));
     let prepared = prepared_gaussian_log_sigma_design(&shared_design, &shared_design)
         .expect("gaussian log-sigma design should accept shared columns");
     let prepared_dense = prepared.as_dense_cow();
@@ -4118,10 +4122,9 @@ pub(crate) fn binomial_location_scale_many_smoothing_params_keeps_second_order_o
     fn spec_with_penalties(name: &str, n: usize, p: usize, k: usize) -> ParameterBlockSpec {
         ParameterBlockSpec {
             name: name.to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::from_elem(
-                (n, p),
-                1.0,
-            ))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::from_elem((n, p), 1.0),
+            )),
             offset: Array1::zeros(n),
             penalties: (0..k)
                 .map(|_| PenaltyMatrix::Dense(identity_penalty(p)))
@@ -4519,6 +4522,18 @@ pub(crate) fn gaussian_location_scale_exact_newton_spatial_joint_hyper_returns_f
     let blocks = builder
         .build_blocks(&rho, &mean_design, &noise_design, None, None)
         .expect("build blocks");
+    assert_eq!(
+        builder.noise_penalty_count(&noise_design),
+        noise_design.penalties.len(),
+        "Gaussian scale-block rho layout must contain only formula-native penalties"
+    );
+    assert_eq!(
+        blocks[GaussianLocationScaleFamily::BLOCK_LOG_SIGMA]
+            .penalties
+            .len(),
+        noise_design.penalties.len(),
+        "Gaussian scale-block construction must not penalize the likelihood-identified log-sigma intercept"
+    );
     let family = builder.build_family(&mean_design, &noise_design);
     let derivative_blocks = builder
         .build_psiderivative_blocks(
@@ -4955,12 +4970,9 @@ pub(crate) fn gaussian_location_scale_smooth_noise_homoscedastic_recovers_mean()
     };
 
     // x uniform on [-3, 3] (matches the released repro grid).
-    let mut data = Array2::<f64>::zeros((n, 1));
     let mut xs = Vec::with_capacity(n);
-    for i in 0..n {
-        let x = -3.0 + 6.0 * next_unit();
-        data[[i, 0]] = x;
-        xs.push(x);
+    for _ in 0..n {
+        xs.push(-3.0 + 6.0 * next_unit());
     }
     let true_mean: Vec<f64> = xs.iter().map(|&x| 1.0 + 0.7 * x + x.sin()).collect();
     // Constant true scale: the data are homoscedastic (het = 0).
@@ -4969,29 +4981,37 @@ pub(crate) fn gaussian_location_scale_smooth_noise_homoscedastic_recovers_mean()
         let z = standard_normal_quantile(next_unit()).expect("finite probit draw");
         true_mean[i] + true_sigma * z
     }));
-    let weights = Array1::from_elem(n, 1.0);
-
-    let spec = GaussianLocationScaleTermSpec {
-        y,
-        weights,
-        // Smooth mean AND smooth log-σ block: this is the exact
-        // configuration that broke in #365 (linear noise terms were fine).
-        meanspec: simple_matern_term_collection(&[0], 0.6),
-        log_sigmaspec: simple_matern_term_collection(&[0], 0.6),
-        mean_offset: Array1::zeros(n),
-        log_sigma_offset: Array1::zeros(n),
-    };
-    let fit = fit_gaussian_location_scale_terms(
-        data.view(),
-        spec,
-        &spatial_fit_smoke_options(),
-        &spatial_kappa_options(),
+    // Exercise the exact released formula path named by the regression report.
+    // The old fixture substituted the spatial Matérn smoke helper for `s(x)`;
+    // its three-penalty, five-column mean collapsed even when the scale block was
+    // constant, so it did not isolate a location-scale failure. This dataset and
+    // formula now pass through the same thin-plate materialization, joint fit,
+    // and raw-response rescaling users invoke.
+    let headers = vec!["x".to_string(), "y".to_string()];
+    let rows = xs
+        .iter()
+        .zip(y.iter())
+        .map(|(&x, &y)| csv::StringRecord::from(vec![format!("{x:.17e}"), format!("{y:.17e}")]))
+        .collect();
+    let dataset =
+        encode_recordswith_inferred_schema(headers, rows).expect("encode homoscedastic fixture");
+    let result = fit_from_formula(
+        "y ~ s(x, bs='tp')",
+        &dataset,
+        &FitConfig {
+            family: Some("gaussian".to_string()),
+            noise_formula: Some("1 + s(x, bs='tp')".to_string()),
+            ..FitConfig::default()
+        },
     )
-    .expect("gaussian location-scale smooth-noise homoscedastic fit");
+    .expect("gaussian location-scale smooth-noise homoscedastic formula fit");
+    let FitResult::GaussianLocationScale(fit) = result else {
+        panic!("homoscedastic noise formula must route to Gaussian location-scale");
+    };
 
     // The mean block (BLOCK_MU = 0) carries identity-link η = predicted mean
     // (mean_offset is zero), so its state η is the fitted mean directly.
-    let mean_eta = &fit.fit.block_states[GaussianLocationScaleFamily::BLOCK_MU].eta;
+    let mean_eta = &fit.fit.fit.block_states[GaussianLocationScaleFamily::BLOCK_MU].eta;
     assert_eq!(mean_eta.len(), n);
     let mut sq_err = 0.0;
     for i in 0..n {
@@ -5357,12 +5377,12 @@ pub(crate) fn gaussian_log_sigma_psi_terms_match_autodiff_scalar_objective() {
     let family = GaussianLocationScaleFamily {
         y: y.clone(),
         weights: weights.clone(),
-        mu_design: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            x_mu0_mat.clone(),
-        ))),
-        log_sigma_design: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            x_ls0_mat.clone(),
-        ))),
+        mu_design: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(x_mu0_mat.clone()),
+        )),
+        log_sigma_design: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(x_ls0_mat.clone()),
+        )),
         policy: gam_runtime::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
@@ -5567,12 +5587,12 @@ pub(crate) fn gaussian_log_sigma_psi_second_order_terms_match_autodiff_scalar_ob
     let family = GaussianLocationScaleFamily {
         y: y.clone(),
         weights: weights.clone(),
-        mu_design: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            x_mu0_mat.clone(),
-        ))),
-        log_sigma_design: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            x_ls0_mat.clone(),
-        ))),
+        mu_design: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(x_mu0_mat.clone()),
+        )),
+        log_sigma_design: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(x_ls0_mat.clone()),
+        )),
         policy: gam_runtime::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
@@ -5990,12 +6010,12 @@ pub(crate) fn gaussian_row_scalar_cache_is_exact_and_eliminates_recompute() {
     let family = GaussianLocationScaleFamily {
         y: y.clone(),
         weights: weights.clone(),
-        mu_design: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            xmu.clone(),
-        ))),
-        log_sigma_design: Some(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-            x_ls.clone(),
-        ))),
+        mu_design: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(xmu.clone()),
+        )),
+        log_sigma_design: Some(DesignMatrix::Dense(
+            gam_linalg::matrix::DenseDesignMatrix::from(x_ls.clone()),
+        )),
         policy: gam_runtime::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
@@ -6431,10 +6451,12 @@ pub(crate) fn wiggle_nontrivial_fixture() -> (
         1 => (3.0 * std::f64::consts::PI * t_grid[i]).cos(),
         _ => unreachable!(),
     });
-    let threshold_design =
-        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(threshold_x.clone()));
-    let log_sigma_design =
-        DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(log_sigma_x.clone()));
+    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+        threshold_x.clone(),
+    ));
+    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+        log_sigma_x.clone(),
+    ));
     let q_seed = Array1::linspace(-1.3, 1.1, n);
     let (wiggle_block, knots) =
         BinomialLocationScaleWiggleFamily::buildwiggle_block_input(q_seed.view(), 3, 4, 2, false)
@@ -7511,24 +7533,24 @@ pub(crate) fn poisson_extreme_eta_stays_finite_with_safe_exp() {
         beta: Array1::zeros(0),
         eta: extreme_eta,
     }]);
-    if let Ok(eval) = eval_result {
-        match &eval.blockworking_sets[0] {
-            crate::custom_family::BlockWorkingSet::Diagonal {
-                working_response,
-                working_weights,
-            } => {
-                let all_finite = working_response.iter().all(|v| v.is_finite())
-                    && working_weights.iter().all(|v| v.is_finite())
-                    && eval.log_likelihood.is_finite();
-                assert!(
-                    all_finite,
-                    "Poisson evaluate should produce finite outputs for all eta, \
-                         but got non-finite values: ll={}, z={:?}, w={:?}",
-                    eval.log_likelihood, working_response, working_weights
-                );
-            }
-            _ => panic!("expected Diagonal block"),
+    let eval =
+        eval_result.expect("Poisson evaluate must succeed (finite, saturated) at extreme eta");
+    match &eval.blockworking_sets[0] {
+        crate::custom_family::BlockWorkingSet::Diagonal {
+            working_response,
+            working_weights,
+        } => {
+            let all_finite = working_response.iter().all(|v| v.is_finite())
+                && working_weights.iter().all(|v| v.is_finite())
+                && eval.log_likelihood.is_finite();
+            assert!(
+                all_finite,
+                "Poisson evaluate should produce finite outputs for all eta, \
+                     but got non-finite values: ll={}, z={:?}, w={:?}",
+                eval.log_likelihood, working_response, working_weights
+            );
         }
+        _ => panic!("expected Diagonal block"),
     }
 }
 
@@ -7870,12 +7892,13 @@ pub(crate) fn expected_info_jeffreys_does_not_reward_probit_saturation() {
     // Φ on a supplied information matrix at threshold β_t (log-σ fixed at 0,
     // so σ = 1 and q = -β_t scans the probit argument across saturation).
     let phi_on = |info: &Array2<f64>| -> f64 {
-        let (phi, _grad, _hphi) = gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
-            info.view(),
-            z.view(),
-            |_axis: &Array1<f64>| Ok(None),
-        )
-        .expect("jeffreys term value");
+        let (phi, _grad, _hphi) =
+            gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
+                info.view(),
+                z.view(),
+                |_axis: &Array1<f64>| Ok(None),
+            )
+            .expect("jeffreys term value");
         phi
     };
     let states_at = |beta_t: f64| -> Vec<ParameterBlockState> {
@@ -8056,8 +8079,8 @@ pub(crate) fn binomial_location_scale_expected_hphi_drift_matches_finite_differe
     // the 1e-7 bar. (The dropped gauge axis carries no identifiable curvature, so
     // restricting to it loses nothing the objective ever uses.)
     let z = {
-        use gam_linalg::faer_ndarray::FaerEigh;
         use faer::Side;
+        use gam_linalg::faer_ndarray::FaerEigh;
         let base_info = family
             .joint_jeffreys_information_with_specs(&states, &specs)
             .expect("base expected info")
@@ -8106,18 +8129,19 @@ pub(crate) fn binomial_location_scale_expected_hphi_drift_matches_finite_differe
             .joint_jeffreys_information_with_specs(block_states, &specs)
             .expect("expected info")
             .expect("expected info present");
-        let (_phi, _grad, hphi) = gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
-            info.view(),
-            z.view(),
-            |axis: &Array1<f64>| {
-                family.joint_jeffreys_information_directional_derivative_with_specs(
-                    block_states,
-                    &specs,
-                    axis,
-                )
-            },
-        )
-        .expect("hphi term");
+        let (_phi, _grad, hphi) =
+            gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
+                info.view(),
+                z.view(),
+                |axis: &Array1<f64>| {
+                    family.joint_jeffreys_information_directional_derivative_with_specs(
+                        block_states,
+                        &specs,
+                        axis,
+                    )
+                },
+            )
+            .expect("hphi term");
         hphi
     };
     let eps = 1e-5;
@@ -8236,9 +8260,9 @@ pub(crate) fn binomial_mean_wiggle_planner_keeps_second_order_at_large_n() {
     let specs = vec![
         ParameterBlockSpec {
             name: "eta".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::zeros((
-                n, 2,
-            )))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((n, 2)),
+            )),
             offset: Array1::zeros(n),
             penalties: vec![],
             nullspace_dims: vec![],
@@ -8251,9 +8275,9 @@ pub(crate) fn binomial_mean_wiggle_planner_keeps_second_order_at_large_n() {
         },
         ParameterBlockSpec {
             name: "wiggle".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::zeros((
-                n, 34,
-            )))),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((n, 34)),
+            )),
             offset: Array1::zeros(n),
             penalties: vec![],
             nullspace_dims: vec![],
@@ -8807,7 +8831,10 @@ fn nb_location_scale_inner_solve_converges_on_heteroscedastic_counts() {
     impl Lcg {
         fn next_u01(&mut self) -> f64 {
             // Numerical Recipes LCG constants.
-            self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             // top 53 bits → [0,1)
             ((self.0 >> 11) as f64) / ((1u64 << 53) as f64)
         }
@@ -8973,15 +9000,8 @@ fn nb_location_scale_inner_solve_converges_on_heteroscedastic_counts() {
     // when the inner solve fails to converge — the non-convergence the profile
     // objective escalates to the fatal abort. Before the fix this returns
     // `Err(Optimization{ "...inner solve did not converge..." })`.
-    let result = fit_custom_family_fixed_log_lambdas(
-        &family,
-        &specs,
-        &options,
-        None,
-        0,
-        None,
-        true,
-    );
+    let result =
+        fit_custom_family_fixed_log_lambdas(&family, &specs, &options, None, 0, None, true);
     let fit = result.unwrap_or_else(|e| {
         panic!(
             "NB location-scale inner solve must converge on heteroscedastic count data \

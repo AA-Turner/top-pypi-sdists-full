@@ -111,11 +111,10 @@ pub struct AmortizationErrorStats {
     /// summary, because the amortization gap is heavy-tailed: a handful of
     /// hard rows dominate the deployed error.
     pub coord_abs_err_quantiles: [f64; 5],
-    /// Fraction of (row, atom) pairs whose amortized ACTIVE/INACTIVE gate call
-    /// (`logit > 0`) matches the exact solver's. This is the routing the cheap
-    /// encoder would deploy; a disagreement is a mis-route the exact solve would
-    /// not make.
-    pub gate_agreement: f64,
+    /// Fraction of (row, atom) pairs whose assignment mass lies on the same side
+    /// of the caller's activity floor. Assignment masses, unlike raw logits, are
+    /// softmax-shift invariant and include threshold-gate and IBP-prior effects.
+    pub support_agreement: f64,
     /// Root-mean-square error of predicted amplitudes against exact amplitudes,
     /// pooled over every (row, atom).
     pub amplitude_rmse: f64,
@@ -360,6 +359,13 @@ fn fit_evidence_ridge(
     let energy_floor = (total_energy * f64::EPSILON).max(f64::MIN_POSITIVE);
     let mut effective_dof = 0.0_f64;
     let mut last_log_lambda = f64::NAN;
+    // SPEC 20 — the MacKay fixed point must CERTIFY, not merely terminate. The
+    // docstring's geometric-contraction argument makes the cap a safety bound,
+    // but an assumption is not a certificate: if the loop exhausts the cap
+    // without the relative log-λ residual passing `EVIDENCE_REL_TOL`, the final
+    // iterate is a NON-converged evidence state and must not be minted as an
+    // `EvidenceRidge` indistinguishable from a converged one.
+    let mut evidence_converged = false;
     for _ in 0..EVIDENCE_MAX_ITERS {
         let lambda = (alpha / beta).max(f64::MIN_POSITIVE);
         // γ = Σ_i s_i²/(s_i²+λ); pooled ‖w‖² and RSS across targets.
@@ -399,9 +405,20 @@ fn fit_evidence_ridge(
         if last_log_lambda.is_finite()
             && (log_lambda - last_log_lambda).abs() <= EVIDENCE_REL_TOL * (1.0 + log_lambda.abs())
         {
+            evidence_converged = true;
             break;
         }
         last_log_lambda = log_lambda;
+    }
+    if !evidence_converged {
+        let log_lambda = (alpha / beta).ln();
+        return Err(format!(
+            "fit_evidence_ridge: MacKay evidence iteration exhausted its \
+             {EVIDENCE_MAX_ITERS}-iteration safety cap without meeting the relative \
+             log-λ fixed-point tolerance {EVIDENCE_REL_TOL:.1e} (last log λ = \
+             {log_lambda:.6e}, previous = {last_log_lambda:.6e}); refusing to mint a \
+             non-converged evidence ridge — the cap never selects the estimator"
+        ));
     }
 
     let lambda = (alpha / beta).max(f64::MIN_POSITIVE);
@@ -440,7 +457,8 @@ fn fit_evidence_ridge(
         rss_sum += (y_energy[col] - z_energy[col]).max(0.0);
     }
     let log_evidence = t_dim as f64
-        * (0.5 * f_dim as f64 * alpha.ln() + 0.5 * n as f64 * beta.ln() - 0.5 * log_det_a
+        * (0.5 * f_dim as f64 * alpha.ln() + 0.5 * n as f64 * beta.ln()
+            - 0.5 * log_det_a
             - 0.5 * n as f64 * two_pi.ln())
         - 0.5 * beta * rss_sum
         - 0.5 * alpha * w_sq_sum;
@@ -626,8 +644,7 @@ impl LearnedAmortizedEncoder {
         if n == 0 {
             return Err("LearnedAmortizedEncoder::fit: empty training corpus".to_string());
         }
-        let (targets, coord_dims) =
-            Self::stack_targets(logits, coords, amplitudes, coord_periods)?;
+        let (targets, coord_dims) = Self::stack_targets(logits, coords, amplitudes, coord_periods)?;
         let target_std = Standardizer::fit(targets.view());
         let targets_std = target_std.apply(targets.view());
 
@@ -767,6 +784,7 @@ impl LearnedAmortizedEncoder {
         exact_logits: ArrayView2<'_, f64>,
         exact_coords: &[Array2<f64>],
         exact_amplitudes: ArrayView2<'_, f64>,
+        activity_floor: f64,
     ) -> Result<AmortizationErrorStats, String> {
         let coord_periods: Vec<AxisPeriods> = predicted
             .coords
@@ -779,6 +797,7 @@ impl LearnedAmortizedEncoder {
             exact_coords,
             exact_amplitudes,
             &coord_periods,
+            activity_floor,
         )
     }
 
@@ -796,6 +815,7 @@ impl LearnedAmortizedEncoder {
         exact_coords: &[Array2<f64>],
         exact_amplitudes: ArrayView2<'_, f64>,
         coord_periods: &[AxisPeriods],
+        activity_floor: f64,
     ) -> Result<AmortizationErrorStats, String> {
         let (n, k) = predicted.logits.dim();
         if exact_logits.dim() != (n, k) || exact_amplitudes.dim() != (n, k) {
@@ -806,6 +826,11 @@ impl LearnedAmortizedEncoder {
         }
         if coord_periods.len() != k {
             return Err("error_stats: axis-period block count mismatch".to_string());
+        }
+        if !(activity_floor.is_finite() && activity_floor >= 0.0) {
+            return Err(format!(
+                "error_stats: activity_floor must be finite and non-negative; got {activity_floor}"
+            ));
         }
         // Coordinate absolute errors pooled over (row, atom, axis), wrapped by the
         // axis period so a wrap-around discrepancy is charged its true geodesic
@@ -820,7 +845,9 @@ impl LearnedAmortizedEncoder {
                 return Err(format!("error_stats: coord block {atom} shape mismatch"));
             }
             if coord_periods[atom].len() != pc.ncols() {
-                return Err(format!("error_stats: axis-period width mismatch on atom {atom}"));
+                return Err(format!(
+                    "error_stats: axis-period width mismatch on atom {atom}"
+                ));
             }
             for row in 0..pc.nrows() {
                 for axis in 0..pc.ncols() {
@@ -844,19 +871,21 @@ impl LearnedAmortizedEncoder {
             0.0
         };
         let coord_abs_err_quantiles = quantiles_5(&mut abs_errs);
-        // Gate agreement: active/inactive (logit > 0) match rate.
+        // Support agreement is defined in assignment space. This is invariant
+        // to softmax logit shifts and automatically includes the hard threshold
+        // and ordered-IBP prior shrinkage already present in the fitted masses.
         let mut agree = 0usize;
         let total = n * k;
         for row in 0..n {
             for atom in 0..k {
-                let p_active = predicted.logits[[row, atom]] > 0.0;
-                let e_active = exact_logits[[row, atom]] > 0.0;
+                let p_active = predicted.amplitudes[[row, atom]] > activity_floor;
+                let e_active = exact_amplitudes[[row, atom]] > activity_floor;
                 if p_active == e_active {
                     agree += 1;
                 }
             }
         }
-        let gate_agreement = if total > 0 {
+        let support_agreement = if total > 0 {
             agree as f64 / total as f64
         } else {
             1.0
@@ -877,7 +906,7 @@ impl LearnedAmortizedEncoder {
         Ok(AmortizationErrorStats {
             coord_rmse,
             coord_abs_err_quantiles,
-            gate_agreement,
+            support_agreement,
             amplitude_rmse,
         })
     }
@@ -962,7 +991,7 @@ mod tests {
         let (x_te, lg_te, co_te, am_te) = make(&mut rng, 200);
         let code = enc.predict(x_te.view()).expect("predict runs");
         let stats =
-            LearnedAmortizedEncoder::error_stats(&code, lg_te.view(), &co_te, am_te.view())
+            LearnedAmortizedEncoder::error_stats(&code, lg_te.view(), &co_te, am_te.view(), 0.0)
                 .expect("stats compute");
         // Coordinate scale for a relative bar.
         let coord_scale = {
@@ -982,9 +1011,9 @@ mod tests {
             stats.coord_rmse
         );
         assert!(
-            stats.gate_agreement > 0.98,
-            "gate agreement must be near-perfect on a recovered linear map, got {}",
-            stats.gate_agreement
+            stats.support_agreement > 0.98,
+            "support agreement must be near-perfect on a recovered linear map, got {}",
+            stats.support_agreement
         );
         assert!(
             !enc.used_quadratic_head,
@@ -1028,7 +1057,7 @@ mod tests {
         let (x_te, lg_te, co_te, am_te) = make(&mut rng, 200);
         let code = enc.predict(x_te.view()).expect("predict runs");
         let stats =
-            LearnedAmortizedEncoder::error_stats(&code, lg_te.view(), &co_te, am_te.view())
+            LearnedAmortizedEncoder::error_stats(&code, lg_te.view(), &co_te, am_te.view(), 0.0)
                 .expect("stats");
         let coord_var = {
             let mut mean = 0.0;
@@ -1201,6 +1230,7 @@ mod tests {
             &co_te,
             am_te.view(),
             &periods,
+            0.0,
         )
         .expect("wrapped stats");
         let stats_raw = LearnedAmortizedEncoder::error_stats_wrapped(
@@ -1209,6 +1239,7 @@ mod tests {
             &co_te,
             am_te.view(),
             &periods,
+            0.0,
         )
         .expect("wrapped stats raw");
         assert!(
@@ -1332,6 +1363,7 @@ mod tests {
             &exact_coords,
             exact_amp.view(),
             &periods,
+            0.0,
         )
         .expect("wrapped stats");
         assert!(
@@ -1351,6 +1383,7 @@ mod tests {
             exact_logits.view(),
             &exact_coords,
             exact_amp.view(),
+            0.0,
         )
         .expect("raw stats");
         assert!(

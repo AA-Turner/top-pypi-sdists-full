@@ -96,18 +96,22 @@ impl PredictionTransform for BernoulliMarginalSlopePredictor {
                 )?;
                 let eta_se = bernoulli_eta_standard_error_from_backend(self, input, &backend)?;
                 let strategy = strategy_for_family(self.likelihood_family(), Some(&self.base_link));
-                let quadctx = gam::quadrature::QuadratureContext::new();
+                let quadctx = gam_solve::quadrature::QuadratureContext::new();
                 let mean = Array1::from_iter(
                     eta.iter()
                         .zip(eta_se.iter())
                         .map(|(&eta_i, &se)| strategy.posterior_mean(&quadctx, eta_i, se))
                         .collect::<Result<Vec<_>, _>>()?,
                 );
+                // Response-scale delta-method SE: SE(μ) = |dμ/dη|·SE(η). The
+                // η-scale SE alone lives on the link scale and must never be
+                // reported as a probability-scale SE.
+                let mean_se = eta_se.clone() * self.mean_derivative_from_eta(&eta)?;
                 Ok(LinearState {
                     eta,
                     mean,
                     eta_se: Some(eta_se),
-                    mean_se: None,
+                    mean_se: Some(mean_se),
                     covariance_corrected_used: false,
                 })
             }

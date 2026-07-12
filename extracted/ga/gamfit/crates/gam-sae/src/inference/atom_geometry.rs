@@ -104,9 +104,6 @@ pub struct AtomGeometryEntry {
     /// Number of rows on which the atom is active (assignment mass above
     /// [`SAE_TRUST_ACTIVE_MASS_FLOOR`]).
     pub n_active: usize,
-    /// The atom's amplitude `a = exp(log_amplitude)`, the physical scale of the
-    /// decoder move.
-    pub amplitude: f64,
     /// Participation ratio of the decoded-point spectrum — the effective number of
     /// ambient dimensions the curve populates over its active rows.
     pub effective_output_dim: Option<f64>,
@@ -227,7 +224,6 @@ pub fn atom_geometry(
         atoms.push(atom_geometry_entry_from_parts(
             atom.name.clone(),
             &atom.basis_kind,
-            atom.log_amplitude,
             atom.basis_values.view(),
             atom.basis_jacobian.view(),
             atom.decoder_coefficients.view(),
@@ -249,13 +245,11 @@ pub fn atom_geometry(
 pub fn atom_geometry_entry_from_parts(
     name: String,
     basis_kind: &SaeAtomBasisKind,
-    log_amplitude: f64,
     basis_values: ArrayView2<'_, f64>,
     basis_jacobian: ArrayView3<'_, f64>,
     decoder: ArrayView2<'_, f64>,
     masses: ArrayView1<'_, f64>,
 ) -> AtomGeometryEntry {
-    let amplitude = log_amplitude.exp();
     let m = basis_values.ncols();
     let latent_dim = basis_jacobian.dim().2;
     let topology = topology_name(basis_kind);
@@ -292,14 +286,14 @@ pub fn atom_geometry_entry_from_parts(
         }
 
         // Arc speed² = Σ_c (∂Φ/∂t_c)ᵀ G (∂Φ/∂t_c), summed over latent axes; the
-        // physical move is a·g so the speed carries the amplitude.
+        // Physical move speed under the decoder metric.
         let mut speed_sq = 0.0_f64;
         for c in 0..latent_dim {
             let jc = basis_jacobian.slice(s![row, .., c]);
             let gjc = gram.dot(&jc);
             speed_sq += jc.dot(&gjc);
         }
-        let speed = amplitude * speed_sq.max(0.0).sqrt();
+        let speed = speed_sq.max(0.0).sqrt();
         speed_w += w * speed;
         speed2_w += w * speed * speed;
     }
@@ -325,12 +319,13 @@ pub fn atom_geometry_entry_from_parts(
         }
         let total: f64 = energies.iter().sum();
         if total > 0.0 {
-            let (dom_idx, _) = energies
-                .iter()
-                .enumerate()
-                .fold((0usize, f64::NEG_INFINITY), |acc, (i, &e)| {
-                    if e > acc.1 { (i, e) } else { acc }
-                });
+            let (dom_idx, _) =
+                energies
+                    .iter()
+                    .enumerate()
+                    .fold((0usize, f64::NEG_INFINITY), |acc, (i, &e)| {
+                        if e > acc.1 { (i, e) } else { acc }
+                    });
             dominant_harmonic = Some(dom_idx + 1);
             if h_max >= 2 && energies[0] > 0.0 {
                 second_harmonic_ratio = Some(energies[1] / energies[0]);
@@ -344,7 +339,6 @@ pub fn atom_geometry_entry_from_parts(
         topology: topology.clone(),
         latent_dim,
         n_active,
-        amplitude,
         effective_output_dim: None,
         ideal_curve_dim: None,
         degeneracy: None,
@@ -456,6 +450,10 @@ fn ideal_curve_dim(kind: &SaeAtomBasisKind, latent_dim: usize, m: usize, p: usiz
         SaeAtomBasisKind::Sphere => d + 1.0,
         // S¹ × ℝ: a circle plane (2) tensored with a flat line (1).
         SaeAtomBasisKind::Cylinder => 2.0 + (d - 1.0).max(0.0),
+        // A Möbius band is intrinsically two-dimensional but cannot embed in
+        // the plane without self-intersection; its natural smooth ambient
+        // dimension is three.
+        SaeAtomBasisKind::Mobius => 3.0,
         // Flat / polynomial patches: one ambient direction per latent axis.
         SaeAtomBasisKind::Linear
         | SaeAtomBasisKind::EuclideanPatch
@@ -480,6 +478,7 @@ fn topology_name(kind: &SaeAtomBasisKind) -> String {
         SaeAtomBasisKind::Sphere => "sphere".to_string(),
         SaeAtomBasisKind::Torus => "torus".to_string(),
         SaeAtomBasisKind::Cylinder => "cylinder".to_string(),
+        SaeAtomBasisKind::Mobius => "mobius".to_string(),
         SaeAtomBasisKind::Linear => "linear".to_string(),
         SaeAtomBasisKind::EuclideanPatch => "euclidean_patch".to_string(),
         SaeAtomBasisKind::Poincare => "poincare".to_string(),
@@ -494,7 +493,7 @@ fn topology_name(kind: &SaeAtomBasisKind) -> String {
 fn topology_is_curved(topology: &str) -> bool {
     matches!(
         topology,
-        "periodic" | "sphere" | "torus" | "cylinder" | "poincare" | "duchon"
+        "periodic" | "sphere" | "torus" | "cylinder" | "mobius" | "poincare" | "duchon"
     )
 }
 
@@ -541,7 +540,6 @@ mod tests {
         let entry = atom_geometry_entry_from_parts(
             "c".into(),
             &SaeAtomBasisKind::Periodic,
-            0.0,
             phi.view(),
             jac.view(),
             dec.view(),
@@ -615,7 +613,6 @@ mod tests {
         let entry = atom_geometry_entry_from_parts(
             "h2".into(),
             &SaeAtomBasisKind::Periodic,
-            0.0,
             phi.view(),
             jac.view(),
             dec.view(),
@@ -631,7 +628,9 @@ mod tests {
         assert!((fracs[0] - e1 / (e1 + e2)).abs() < 1.0e-12);
         assert!((fracs[1] - e2 / (e1 + e2)).abs() < 1.0e-12);
         assert_eq!(entry.dominant_harmonic, Some(2));
-        let ratio = entry.second_harmonic_ratio.expect("both harmonics carry energy");
+        let ratio = entry
+            .second_harmonic_ratio
+            .expect("both harmonics carry energy");
         assert!((ratio - (r2 / r1).powi(2)).abs() < 1.0e-12);
     }
 
@@ -646,7 +645,6 @@ mod tests {
         let entry = atom_geometry_entry_from_parts(
             "c".into(),
             &SaeAtomBasisKind::Periodic,
-            0.0,
             phi.view(),
             jac.view(),
             dec.view(),
@@ -663,41 +661,6 @@ mod tests {
             "a circle flattened to a line is collapsed"
         );
     }
-
-    #[test]
-    fn amplitude_scales_speed_but_not_shape() {
-        let (phi, jac, dec, masses) = planted_circle(64, 1.5);
-        let base = atom_geometry_entry_from_parts(
-            "a".into(),
-            &SaeAtomBasisKind::Periodic,
-            0.0,
-            phi.view(),
-            jac.view(),
-            dec.view(),
-            masses.view(),
-        );
-        let scaled = atom_geometry_entry_from_parts(
-            "a".into(),
-            &SaeAtomBasisKind::Periodic,
-            (3.0_f64).ln(),
-            phi.view(),
-            jac.view(),
-            dec.view(),
-            masses.view(),
-        );
-        // Amplitude 3× scales the physical speed 3× ...
-        assert!(
-            (scaled.tangent_speed_mean.unwrap() - 3.0 * base.tangent_speed_mean.unwrap()).abs()
-                < 1.0e-9
-        );
-        // ... but the scale-free shape invariants are unchanged.
-        assert!(
-            (scaled.effective_output_dim.unwrap() - base.effective_output_dim.unwrap()).abs()
-                < 1.0e-9
-        );
-        assert!((scaled.nonlinearity.unwrap() - base.nonlinearity.unwrap()).abs() < 1.0e-9);
-    }
-
     #[test]
     fn inactive_atom_degrades_to_none_not_zero() {
         let (phi, jac, dec, _) = planted_circle(64, 1.0);
@@ -705,7 +668,6 @@ mod tests {
         let entry = atom_geometry_entry_from_parts(
             "dead".into(),
             &SaeAtomBasisKind::Periodic,
-            0.0,
             phi.view(),
             jac.view(),
             dec.view(),

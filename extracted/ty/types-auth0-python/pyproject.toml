@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-auth0-python"
-version = "4.10.0.20260509"
+version = "4.10.0.20260712"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for auth0-python"
@@ -30,11 +30,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.0.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [mypy](https://github.com/python/mypy/) 2.2.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`6a4075c7bcf192227421bc13558c19bc9fd2342e`](https://github.com/python/typeshed/commit/6a4075c7bcf192227421bc13558c19bc9fd2342e).
+[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

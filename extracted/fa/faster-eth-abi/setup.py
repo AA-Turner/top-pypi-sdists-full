@@ -102,7 +102,7 @@ if not skip_mypyc:
 setup(
     name="faster_eth_abi",
     # *IMPORTANT*: Don't manually change the version here. See Contributing docs for the release process.
-    version="5.2.30",
+    version="5.2.31",
     description="""A ~2-6x faster fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding. Implemented in C.""",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -124,6 +124,7 @@ setup(
     python_requires=">=3.10, <4",
     extras_require=extras_require,
     license="MIT",
+    license_files=["LICENSE"],
     zip_safe=False,
     keywords="ethereum",
     packages=find_packages(
@@ -143,7 +144,6 @@ setup(
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",

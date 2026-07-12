@@ -4,12 +4,12 @@
 //! current dictionary's encode-chart geometry; see
 //! [`RoutingPredictor::ChartGeometry`].
 
+use super::outer_objective::reconstruction_explained_variance;
 use super::*;
 use crate::amortized_encoder::{
     AmortizationGap, AmortizedCode, ExactRowSolution, LearnedAmortizedEncoder,
 };
 use crate::encode::joint_encode_fallback_fraction;
-use super::outer_objective::reconstruction_explained_variance;
 
 impl SaeManifoldTerm {
     /// #2 (reviewer condition) — fit the DISTILLED / AMORTIZED encoder against
@@ -25,7 +25,6 @@ impl SaeManifoldTerm {
     pub fn fit_amortized_encoder(
         &self,
         targets: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
     ) -> Result<LearnedAmortizedEncoder, String> {
         let n = self.n_obs();
         let k = self.k_atoms();
@@ -41,7 +40,7 @@ impl SaeManifoldTerm {
         for atom_idx in 0..k {
             coords.push(self.assignment.coords[atom_idx].as_matrix().to_owned());
         }
-        let amplitudes = self.fitted_assignment_amplitudes(rho)?;
+        let amplitudes = self.fitted_assignment_amplitudes()?;
         // Seam-invariant periodic path: circular axes are regressed through
         // their (cos, sin) embedding instead of the raw coordinate, so a chart
         // seam inside the data cloud no longer pulls predictions to the
@@ -195,6 +194,7 @@ impl SaeManifoldTerm {
             exact.coords,
             exact.amplitudes,
             &score_periods,
+            amplitude_floor,
         )?;
         let joint_multistart_fraction = joint_encode_fallback_fraction(
             &self.atoms,
@@ -239,7 +239,6 @@ impl SaeManifoldTerm {
     pub fn chart_geometry_routing_logits(
         &self,
         targets: ArrayView2<'_, f64>,
-        rho: &SaeManifoldRho,
         gate_logit_scale: f64,
     ) -> Result<Array2<f64>, String> {
         let n = self.n_obs();
@@ -253,7 +252,7 @@ impl SaeManifoldTerm {
         }
         // Per-atom amortized encode (atlas distilled from the current dictionary)
         // → predicted coords t̂ + per-row certificates.
-        let encoded = self.amortized_encode_fitted(targets, rho)?;
+        let encoded = self.amortized_encode_fitted(targets)?;
         // Start from the current logits so an uncertified ROW keeps its existing
         // routing verbatim (the predictor only overrides rows it can fully
         // certify — see the per-row gate below).
@@ -283,15 +282,15 @@ impl SaeManifoldTerm {
                     continue;
                 }
             };
-            let result = &encoded[atom_idx];
+            let coord_block = &encoded.coords[atom_idx];
             let m = atom.basis_size();
             for row in 0..n {
-                if !result.certified[row] {
+                if !encoded.converged[row] {
                     valid[row] = false;
                     continue;
                 }
                 // Reconstruct the amplitude-1 image γ_k(t̂) = Bᵀ φ(t̂).
-                let t_hat: Vec<f64> = result.coords.row(row).iter().copied().collect();
+                let t_hat: Vec<f64> = coord_block.row(row).iter().copied().collect();
                 let coord_2d = Array2::from_shape_vec((1, atom.latent_dim), t_hat)
                     .map_err(|e| format!("chart_geometry_routing_logits: coord reshape: {e}"))?;
                 let (phi, _jet) = evaluator.evaluate(coord_2d.view())?;
@@ -347,7 +346,7 @@ mod amortized_encoder_glue_tests {
     use crate::assignment::{AssignmentMode, SaeAssignment};
     use crate::manifold::{EuclideanPatchEvaluator, SaeAtomBasisKind, SaeManifoldAtom};
     use gam_terms::latent::LatentManifold;
-    use ndarray::{Array1, Array2};
+    use ndarray::Array2;
     use std::sync::Arc;
 
     struct Lcg(u64);
@@ -380,8 +379,6 @@ mod amortized_encoder_glue_tests {
         term: SaeManifoldTerm,
         /// The ambient target `x = Σ_k z_k (b0_k + t_k·b1_k)`, faithful to the term.
         target: Array2<f64>,
-        /// The term's ρ hyperparameters.
-        rho: SaeManifoldRho,
         /// Planted exact per-(row, atom) gate logits.
         logits: Array2<f64>,
         /// Planted exact per-atom coordinate blocks.
@@ -447,11 +444,9 @@ mod amortized_encoder_glue_tests {
         )
         .expect("assignment");
         let term = SaeManifoldTerm::new(atoms, assignment).expect("term");
-        let rho =
-            SaeManifoldRho::new(0.0, (0.01_f64).ln(), vec![Array1::zeros(1), Array1::zeros(1)]);
         // The exact amplitudes are the term's OWN masses; generate x from them so
         // the term's exact code reconstructs x exactly (self-consistent).
-        let amps = term.fitted_assignment_amplitudes(&rho).expect("masses");
+        let amps = term.fitted_assignment_amplitudes().expect("masses");
         let mut x = Array2::<f64>::zeros((n, p));
         for row in 0..n {
             for atom_idx in 0..k {
@@ -465,7 +460,6 @@ mod amortized_encoder_glue_tests {
         PlantedTwoAtomTerm {
             term,
             target: x,
-            rho,
             logits,
             coords: coords_blocks,
             amps,
@@ -478,14 +472,11 @@ mod amortized_encoder_glue_tests {
     #[test]
     fn amortized_encode_reaches_high_fraction_of_exact_ev() {
         let PlantedTwoAtomTerm {
-            term,
-            target: x_tr,
-            rho,
-            ..
+            term, target: x_tr, ..
         } = planted_two_atom_term(400, 7);
         // Fit the encoder on the term's own exact code (logits/coords/masses).
         let encoder = term
-            .fit_amortized_encoder(x_tr.view(), &rho)
+            .fit_amortized_encoder(x_tr.view())
             .expect("fit encoder");
 
         // Held-out rows from the SAME dictionary (identical atoms, fresh coords).
@@ -526,13 +517,13 @@ mod amortized_encoder_glue_tests {
         let ev_amortized = gap.ev_amortized.expect("amortized EV defined");
         eprintln!(
             "[ENCODE-GAP] EV_exact={:.4} EV_amortized={:.4} EV_gap={:.4} \
-             coord_rmse={:.4} gate_agreement={:.4} amp_rmse={:.4} \
+             coord_rmse={:.4} support_agreement={:.4} amp_rmse={:.4} \
              joint_multistart_frac={:.4} used_quadratic_head={} log_evidence={:.1}",
             ev_exact,
             ev_amortized,
             gap.ev_gap.unwrap_or(f64::NAN),
             gap.errors.coord_rmse,
-            gap.errors.gate_agreement,
+            gap.errors.support_agreement,
             gap.errors.amplitude_rmse,
             gap.joint_multistart_fraction,
             gap.used_quadratic_head,
@@ -561,6 +552,6 @@ mod amortized_encoder_glue_tests {
         );
         // The error-stats half of the artifact is well-formed.
         assert!(gap.errors.coord_rmse.is_finite() && gap.errors.coord_rmse >= 0.0);
-        assert!((0.0..=1.0).contains(&gap.errors.gate_agreement));
+        assert!((0.0..=1.0).contains(&gap.errors.support_agreement));
     }
 }

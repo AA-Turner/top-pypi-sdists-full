@@ -38,7 +38,7 @@ See https://github.com/SauersML/gam for the full guide.
 # - sae_manifold_assignment_summary
 # - topology_dispatch_key
 # - assemble_candidate_formula
-# - rank_topology_candidates
+# - select_topology_candidate_lifecycle
 # Rebuild or reinstall the local extension if importing from a source tree with
 # an older compiled .so.
 
@@ -101,13 +101,16 @@ from ._compare import compare_models
 from ._linear_dictionary import LinearDictionaryFit, linear_dictionary_fit
 from ._sparse_dictionary import (
     BlockSparseDictStream,
+    BlockSparseDictionaryConvergence,
     BlockSparseDictionaryFit,
     BlockSparseStreamArtifact,
     SparseDictStream,
     SparseDictStreamArtifact,
+    SparseDictionaryConvergence,
     SparseDictionaryFit,
     block_sparse_dictionary_fit,
     block_sparse_dictionary_fit_begin,
+    fixed_budget_block_sparse_dictionary_fit,
     sparse_dictionary_fit,
     sparse_dictionary_fit_begin,
 )
@@ -115,7 +118,12 @@ from ._sae_spectral import (
     AtlasNerveDiagram,
     AtomRetentionEvidence,
     BlockCoordinateReport,
+    ChartInterpNullCalibration,
+    ChartInterpNullCalibrationReport,
+    ChartInterpNullProtocol,
+    ChartInterpReadout,
     ChartInterpReport,
+    ChartInterpStatisticValue,
     ComposedContract,
     ConditionalCoactivationInfluence,
     CoordinatePosterior,
@@ -128,7 +136,6 @@ from ._sae_spectral import (
     RoutabilityFloor,
     SpectrometerReport,
     SpikeRecovery,
-    TieredFitResult,
     VarianceChargeEvidence,
     atlas_nerve_diagram,
     audit_sae,
@@ -145,7 +152,6 @@ from ._sae_spectral import (
     recover_spikes,
     routability_audit,
     routability_floor,
-    sae_manifold_fit_tiered,
     separation_limit,
     sparse_dict_dual_certificate,
 )
@@ -189,6 +195,8 @@ from ._select_topology import (
     TopologyAutoSelector,
     TopologyAutoSelectorRank,
     TopologyAutoSelectorResult,
+    TopologyCandidateFailure,
+    TopologySelectionError,
     TopologyStack,
     select_topology,
     stack_topologies,
@@ -268,6 +276,7 @@ from ._exceptions import (
     CustomFamilyError,
     DataError,
     DeviationRuntimeError,
+    DictionaryConvergenceError,
     EigendecompositionError,
     FittedModelError,
     FormulaError,
@@ -345,11 +354,8 @@ from ._tables import PredictionResult
 from ._sae_manifold import (
     GumbelTemperatureSchedule,
     ManifoldSAE,
-    SaeManifoldAtomFit,
-    SaeManifoldFitResult,
     StagewiseAtom,
     StagewiseSAE,
-    featurize,
     fit as sae_fit,
     flat_block_assignment,
     gumbel_geometric_schedule,
@@ -383,6 +389,8 @@ from .layer_transport import (
     layer_transport_fit,
     layer_transport_ladder,
 )
+from .manifold_crosscoder import sae_crosscoder_fit
+from .manifold_behavior import sae_behavior_fit
 from .checkpoint_dynamics import sae_checkpoint_dynamics
 from ._sae_spectral import audit_sae
 from .geometry import (

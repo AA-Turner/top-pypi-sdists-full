@@ -265,14 +265,20 @@ pub fn parse_certificate(
         .eigh(Side::Lower)
         .map_err(|e| format!("terracini: eigh of J_SᵀJ_S failed: {e}"))?
         .0;
+    // Attribution risk is the exact least-squares risk of the physical joint
+    // Jacobian. The per-atom whitening ridge above is a numerical device for the
+    // cross-angle diagnostic; adding it here would turn a non-identifiable parse
+    // into a finite-risk one. Resolve numerical rank relative to the observed
+    // spectrum and report infinite risk whenever J_S is singular.
+    let max_j_eig = w_j.iter().copied().fold(0.0_f64, f64::max);
+    let rank_tol = f64::EPSILON * (p.max(m) as f64) * max_j_eig;
     let mut trace_inv_j = 0.0_f64;
     for &lam in w_j.iter() {
-        let lam_c = lam + ridge;
-        trace_inv_j += if lam_c > 1.0e-300 {
-            1.0 / lam_c
-        } else {
-            f64::INFINITY
-        };
+        if !(lam.is_finite() && lam > rank_tol) {
+            trace_inv_j = f64::INFINITY;
+            break;
+        }
+        trace_inv_j += 1.0 / lam;
     }
     let attribution_risk = noise_var * trace_inv_j;
 
@@ -286,288 +292,6 @@ pub fn parse_certificate(
         whitened_excess: whitened_excess.max(0.0),
         attribution_risk,
         per_atom_logdet,
-    })
-}
-
-// ============================================================================
-// Finite-sample Terracini measurement under peeled heavy-tailed anisotropy
-// ============================================================================
-
-/// Rank-one attention-sink peel with an explicit uncertainty budget.
-#[derive(Debug, Clone)]
-pub struct SinkPeel {
-    /// Estimated sink direction in the ambient residual/tangent coordinates.
-    pub direction: Array1<f64>,
-    /// Euclidean confidence radius for the direction estimate.
-    pub direction_l2_radius: f64,
-    /// Confidence radius for the removed sink second moment.
-    pub removed_second_moment_radius: f64,
-}
-
-/// Samples after applying the rank-one sink peel, plus the induced Gram
-/// perturbation radius that must be carried into the Terracini margin.
-#[derive(Debug, Clone)]
-pub struct PostPeelSamples {
-    pub samples: Array2<f64>,
-    pub peel_gram_radius: f64,
-    pub peel_margin_radius: f64,
-}
-
-/// Apply `x ↦ x - uuᵀx` and propagate uncertainty in `u` into a Gram radius.
-pub fn post_peel_samples(
-    samples: ArrayView2<'_, f64>,
-    peel: &SinkPeel,
-) -> Result<PostPeelSamples, String> {
-    let (n, p) = samples.dim();
-    if n == 0 || p == 0 {
-        return Err("post_peel_samples: samples must be non-empty".to_string());
-    }
-    if peel.direction.len() != p {
-        return Err(format!(
-            "post_peel_samples: peel direction length {} != sample dimension {p}",
-            peel.direction.len()
-        ));
-    }
-    if !(peel.direction_l2_radius.is_finite() && peel.direction_l2_radius >= 0.0) {
-        return Err("post_peel_samples: direction_l2_radius must be finite and non-negative".to_string());
-    }
-    if !(peel.removed_second_moment_radius.is_finite()
-        && peel.removed_second_moment_radius >= 0.0)
-    {
-        return Err(
-            "post_peel_samples: removed_second_moment_radius must be finite and non-negative"
-                .to_string(),
-        );
-    }
-
-    let norm = peel.direction.iter().map(|x| x * x).sum::<f64>().sqrt();
-    if !(norm.is_finite() && norm > 0.0) {
-        return Err("post_peel_samples: peel direction must have positive norm".to_string());
-    }
-    let mut u = peel.direction.clone();
-    for x in u.iter_mut() {
-        *x /= norm;
-    }
-
-    let mut peeled = Array2::<f64>::zeros((n, p));
-    let mut second_moment = 0.0_f64;
-    for r in 0..n {
-        let mut proj = 0.0_f64;
-        let mut row_norm2 = 0.0_f64;
-        for c in 0..p {
-            let x = samples[[r, c]];
-            proj += x * u[c];
-            row_norm2 += x * x;
-        }
-        second_moment += row_norm2;
-        for c in 0..p {
-            peeled[[r, c]] = samples[[r, c]] - proj * u[c];
-        }
-    }
-    second_moment /= n as f64;
-
-    let r = peel.direction_l2_radius;
-    let peel_gram_radius =
-        ((2.0 * r + r * r) * second_moment + peel.removed_second_moment_radius).max(0.0);
-    Ok(PostPeelSamples {
-        samples: peeled,
-        peel_gram_radius,
-        peel_margin_radius: peel_gram_radius.sqrt(),
-    })
-}
-
-/// Configuration for median-of-means Gram estimation.
-#[derive(Debug, Clone, Copy)]
-pub struct MedianOfMeansConfig {
-    pub alpha: f64,
-    pub n_blocks: usize,
-}
-
-/// Robust Gram estimate and its finite-kurtosis confidence radius.
-#[derive(Debug, Clone)]
-pub struct MedianOfMeansGram {
-    pub gram: Array2<f64>,
-    pub alpha: f64,
-    pub n: usize,
-    pub n_eff: usize,
-    pub n_blocks: usize,
-    pub block_len: usize,
-    pub realized_kurtosis: f64,
-    pub entry_radius: f64,
-    pub spectral_radius: f64,
-}
-
-fn check_alpha(alpha: f64, caller: &str) -> Result<(), String> {
-    if alpha.is_finite() && alpha > 0.0 && alpha < 1.0 {
-        Ok(())
-    } else {
-        Err(format!("{caller}: alpha must lie in (0, 1)"))
-    }
-}
-
-fn median_sorted(mut values: Vec<f64>) -> Result<f64, String> {
-    if values.is_empty() {
-        return Err("median_sorted: empty input".to_string());
-    }
-    for &x in &values {
-        if !x.is_finite() {
-            return Err("median_sorted: input contains non-finite value".to_string());
-        }
-    }
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    Ok(values[values.len() / 2])
-}
-
-fn realized_coordinate_kurtosis(samples: ArrayView2<'_, f64>) -> f64 {
-    let (n, p) = samples.dim();
-    let mut worst = 0.0_f64;
-    for c in 0..p {
-        let mut mean = 0.0_f64;
-        for r in 0..n {
-            mean += samples[[r, c]];
-        }
-        mean /= n as f64;
-        let mut m2 = 0.0_f64;
-        let mut m4 = 0.0_f64;
-        for r in 0..n {
-            let z = samples[[r, c]] - mean;
-            let z2 = z * z;
-            m2 += z2;
-            m4 += z2 * z2;
-        }
-        m2 /= n as f64;
-        m4 /= n as f64;
-        if m2 > 0.0 {
-            worst = worst.max(m4 / (m2 * m2));
-        }
-    }
-    worst.max(1.0)
-}
-
-/// Entrywise median-of-means estimate of `E[xxᵀ]`, with a union-bound spectral
-/// radius. The only tail premise used by the radius is finite realized kurtosis.
-pub fn median_of_means_gram(
-    samples: ArrayView2<'_, f64>,
-    cfg: MedianOfMeansConfig,
-) -> Result<MedianOfMeansGram, String> {
-    check_alpha(cfg.alpha, "median_of_means_gram")?;
-    let (n, p) = samples.dim();
-    if n == 0 || p == 0 {
-        return Err("median_of_means_gram: samples must be non-empty".to_string());
-    }
-    if cfg.n_blocks == 0 || cfg.n_blocks > n {
-        return Err(format!(
-            "median_of_means_gram: n_blocks={} must lie in 1..={n}",
-            cfg.n_blocks
-        ));
-    }
-    let block_len = n / cfg.n_blocks;
-    if block_len == 0 {
-        return Err("median_of_means_gram: block_len is zero".to_string());
-    }
-    let n_eff = block_len * cfg.n_blocks;
-    let mut gram = Array2::<f64>::zeros((p, p));
-    for a in 0..p {
-        for b in a..p {
-            let mut means = Vec::with_capacity(cfg.n_blocks);
-            for block in 0..cfg.n_blocks {
-                let start = block * block_len;
-                let end = start + block_len;
-                let mut sum = 0.0_f64;
-                for r in start..end {
-                    sum += samples[[r, a]] * samples[[r, b]];
-                }
-                means.push(sum / block_len as f64);
-            }
-            let med = median_sorted(means)?;
-            gram[[a, b]] = med;
-            gram[[b, a]] = med;
-        }
-    }
-
-    let realized_kurtosis = realized_coordinate_kurtosis(samples);
-    let mut max_diag = 0.0_f64;
-    for c in 0..p {
-        max_diag = max_diag.max(gram[[c, c]].abs());
-    }
-    let union_terms = 2.0 * (p * p).max(1) as f64 / cfg.alpha;
-    let entry_radius =
-        (8.0 * realized_kurtosis * union_terms.ln() / n_eff as f64).sqrt() * max_diag.max(1.0e-300);
-    let spectral_radius = p as f64 * entry_radius;
-
-    Ok(MedianOfMeansGram {
-        gram,
-        alpha: cfg.alpha,
-        n,
-        n_eff,
-        n_blocks: cfg.n_blocks,
-        block_len,
-        realized_kurtosis,
-        entry_radius,
-        spectral_radius,
-    })
-}
-
-/// The theorem-shaped finite-sample Terracini certificate.
-#[derive(Debug, Clone)]
-pub struct FiniteSampleTerraciniCertificate {
-    pub margin_hat: f64,
-    pub delta: f64,
-    pub lower_margin_bound: f64,
-    pub identifiable: bool,
-    pub alpha: f64,
-    pub n_eff: usize,
-    pub realized_kurtosis: f64,
-    pub mom_spectral_radius: f64,
-    pub peel_gram_radius: f64,
-    pub theorem: String,
-}
-
-/// Compute `δ(n_eff, κ̂, α)` from the MoM radius and the peel uncertainty, then
-/// compare the measured post-peel Terracini margin against it.
-pub fn finite_sample_terracini_certificate(
-    mom: &MedianOfMeansGram,
-    peel_gram_radius: f64,
-) -> Result<FiniteSampleTerraciniCertificate, String> {
-    if !(peel_gram_radius.is_finite() && peel_gram_radius >= 0.0) {
-        return Err(
-            "finite_sample_terracini_certificate: peel_gram_radius must be finite and non-negative"
-                .to_string(),
-        );
-    }
-    let evals = mom
-        .gram
-        .eigh(Side::Lower)
-        .map_err(|e| format!("finite_sample_terracini_certificate: eigh failed: {e}"))?
-        .0;
-    let mut min_eig = f64::INFINITY;
-    for &lam in evals.iter() {
-        min_eig = min_eig.min(lam);
-    }
-    let margin_hat = min_eig.max(0.0).sqrt();
-    let total_gram_radius = mom.spectral_radius + peel_gram_radius;
-    let delta = total_gram_radius.sqrt();
-    let lower_margin_bound = (margin_hat * margin_hat - total_gram_radius).max(0.0).sqrt();
-    let identifiable = margin_hat >= delta;
-    let theorem = format!(
-        "conditional on measured margin mu_hat={margin_hat:.6e} >= delta(n_eff={}, kappa_hat={:.6e}, alpha={:.6e})={delta:.6e}, the parse is identifiable with probability >= {:.6e}",
-        mom.n_eff,
-        mom.realized_kurtosis,
-        mom.alpha,
-        1.0 - mom.alpha
-    );
-
-    Ok(FiniteSampleTerraciniCertificate {
-        margin_hat,
-        delta,
-        lower_margin_bound,
-        identifiable,
-        alpha: mom.alpha,
-        n_eff: mom.n_eff,
-        realized_kurtosis: mom.realized_kurtosis,
-        mom_spectral_radius: mom.spectral_radius,
-        peel_gram_radius,
-        theorem,
     })
 }
 
@@ -1168,12 +892,7 @@ pub fn terracini_scan_sparse_codes(
         let blocks: Vec<ParseBlock> = pattern
             .iter()
             .map(|&k| {
-                parse_block_from_term(
-                    term,
-                    k,
-                    row,
-                    sparse_code_amplitude(indices, codes, row, k),
-                )
+                parse_block_from_term(term, k, row, sparse_code_amplitude(indices, codes, row, k))
             })
             .collect();
         if cfg.pair_pass {
@@ -1232,11 +951,21 @@ mod tests {
                 0.0,
             )
             .unwrap();
-            assert!((cert.margin - (1.0 - c).sqrt()).abs() < 1e-9, "θ={theta} margin {}", cert.margin);
+            assert!(
+                (cert.margin - (1.0 - c).sqrt()).abs() < 1e-9,
+                "θ={theta} margin {}",
+                cert.margin
+            );
             let want_excess = 2.0 * c * c / (1.0 - c * c);
-            assert!((cert.whitened_excess - want_excess).abs() < 1e-9, "θ={theta} excess");
+            assert!(
+                (cert.whitened_excess - want_excess).abs() < 1e-9,
+                "θ={theta} excess"
+            );
             let want_logdet = (1.0 - c * c).ln();
-            assert!((cert.cross_gram_logdet - want_logdet).abs() < 1e-9, "θ={theta} logdet");
+            assert!(
+                (cert.cross_gram_logdet - want_logdet).abs() < 1e-9,
+                "θ={theta} logdet"
+            );
             assert_eq!(cert.pattern, vec![0, 1]);
         }
     }
@@ -1247,11 +976,19 @@ mod tests {
         // non-trivial 2-atom parse with tangents.
         let mut ta = Array2::<f64>::zeros((4, 1));
         ta[[1, 0]] = 2.0;
-        let a = ParseBlock { atom: 0, value: Array1::from_vec(vec![1.0, 0.0, 0.0, 0.0]), tangent: ta };
+        let a = ParseBlock {
+            atom: 0,
+            value: Array1::from_vec(vec![1.0, 0.0, 0.0, 0.0]),
+            tangent: ta,
+        };
         let mut tb = Array2::<f64>::zeros((4, 1));
         tb[[1, 0]] = 0.5;
         tb[[3, 0]] = 1.0;
-        let b = ParseBlock { atom: 1, value: Array1::from_vec(vec![0.0, 0.0, 1.0, 0.0]), tangent: tb };
+        let b = ParseBlock {
+            atom: 1,
+            value: Array1::from_vec(vec![0.0, 0.0, 1.0, 0.0]),
+            tangent: tb,
+        };
         let cert = parse_certificate(&[a.clone(), b.clone()], 1.0, 0.0).unwrap();
         let ka = a.stacked().unwrap();
         let kb = b.stacked().unwrap();
@@ -1266,13 +1003,19 @@ mod tests {
         let evals = jtj.eigh(Side::Lower).unwrap().0;
         let ref_logdet: f64 = evals.iter().map(|&x| x.ln()).sum();
         let split = cert.per_atom_logdet.iter().sum::<f64>() + cert.cross_gram_logdet;
-        assert!((split - ref_logdet).abs() < 1e-9, "split {split} vs {ref_logdet}");
+        assert!(
+            (split - ref_logdet).abs() < 1e-9,
+            "split {split} vs {ref_logdet}"
+        );
     }
 
     #[test]
     fn orthogonal_is_perfectly_conditioned() {
         let cert = parse_certificate(
-            &[unit_block(0, &[1.0, 0.0, 0.0]), unit_block(1, &[0.0, 1.0, 0.0])],
+            &[
+                unit_block(0, &[1.0, 0.0, 0.0]),
+                unit_block(1, &[0.0, 1.0, 0.0]),
+            ],
             2.0,
             0.0,
         )
@@ -1286,7 +1029,10 @@ mod tests {
     fn collision_diverges() {
         let eps: f64 = 1e-6;
         let cert = parse_certificate(
-            &[unit_block(0, &[1.0, 0.0]), unit_block(1, &[(eps).cos(), (eps).sin()])],
+            &[
+                unit_block(0, &[1.0, 0.0]),
+                unit_block(1, &[(eps).cos(), (eps).sin()]),
+            ],
             1.0,
             0.0,
         )
@@ -1294,6 +1040,26 @@ mod tests {
         assert!(cert.margin < 1e-3, "margin {}", cert.margin);
         assert!(cert.amplification > 1e2);
         assert!(cert.whitened_excess > 1e5);
+    }
+
+    #[test]
+    fn singular_joint_jacobian_has_infinite_attribution_risk_even_with_whitening_ridge() {
+        let mut tangent = Array2::<f64>::zeros((2, 1));
+        tangent[[0, 0]] = 1.0;
+        let cert = parse_certificate(
+            &[ParseBlock {
+                atom: 0,
+                value: Array1::from_vec(vec![1.0, 0.0]),
+                tangent,
+            }],
+            1.0,
+            1.0e-6,
+        )
+        .expect("the whitening diagnostic may regularize its own Gram");
+        assert!(
+            cert.attribution_risk.is_infinite(),
+            "an exact risk cannot hide a singular physical Jacobian behind a ridge"
+        );
     }
 
     #[test]
@@ -1322,7 +1088,10 @@ mod tests {
         )
         .unwrap();
         let collided = parse_certificate(
-            &[unit_block(2, &[1.0, 0.0]), unit_block(3, &[(0.008_f64).cos(), (0.008_f64).sin()])],
+            &[
+                unit_block(2, &[1.0, 0.0]),
+                unit_block(3, &[(0.008_f64).cos(), (0.008_f64).sin()]),
+            ],
             1.0,
             0.0,
         )
@@ -1365,150 +1134,5 @@ mod tests {
         for a in 0..=4 {
             assert!(seen.contains(&a), "atom {a} not covered");
         }
-    }
-
-    #[test]
-    fn heavy_tailed_mom_gram_ci_survives_plugin_failure() {
-        let blocks = 9usize;
-        let block_len = 24usize;
-        let mut samples = Array2::<f64>::zeros((blocks * block_len, 2));
-        for block in 0..blocks {
-            for i in 0..block_len {
-                let row = block * block_len + i;
-                if block == blocks - 1 {
-                    samples[[row, 0]] = 80.0;
-                    samples[[row, 1]] = 80.0;
-                } else if i % 2 == 0 {
-                    samples[[row, 0]] = 2.0_f64.sqrt();
-                } else {
-                    samples[[row, 1]] = 2.0_f64.sqrt();
-                }
-            }
-        }
-
-        let mom = median_of_means_gram(
-            samples.view(),
-            MedianOfMeansConfig {
-                alpha: 0.05,
-                n_blocks: blocks,
-            },
-        )
-        .unwrap();
-        assert!((mom.gram[[0, 0]] - 1.0).abs() < 1.0e-12);
-        assert!((mom.gram[[1, 1]] - 1.0).abs() < 1.0e-12);
-        assert!(mom.gram[[0, 1]].abs() < 1.0e-12);
-        assert!(mom.realized_kurtosis.is_finite());
-        assert!(mom.realized_kurtosis > 5.0);
-
-        let mut plugin = Array2::<f64>::zeros((2, 2));
-        for r in 0..samples.nrows() {
-            for a in 0..2 {
-                for b in 0..2 {
-                    plugin[[a, b]] += samples[[r, a]] * samples[[r, b]];
-                }
-            }
-        }
-        for a in 0..2 {
-            for b in 0..2 {
-                plugin[[a, b]] /= samples.nrows() as f64;
-            }
-        }
-        let plugin_subgaussian_radius =
-            (8.0_f64 * (2.0_f64 * 4.0_f64 / 0.05_f64).ln() / samples.nrows() as f64).sqrt();
-        let plugin_offdiag_error = plugin[[0, 1]].abs();
-        assert!(
-            plugin_offdiag_error > plugin_subgaussian_radius,
-            "plug-in CI should miss the clean Gram under one heavy-tailed block: error {plugin_offdiag_error}, radius {plugin_subgaussian_radius}"
-        );
-        assert!(
-            mom.gram[[0, 1]].abs() <= mom.entry_radius,
-            "MoM CI should cover the clean off-diagonal"
-        );
-    }
-
-    #[test]
-    fn finite_sample_certificate_accepts_and_refuses_by_delta() {
-        let mut good_samples = Array2::<f64>::zeros((400, 2));
-        for r in 0..good_samples.nrows() {
-            if r % 2 == 0 {
-                good_samples[[r, 0]] = 2.0_f64.sqrt();
-            } else {
-                good_samples[[r, 1]] = 2.0_f64.sqrt();
-            }
-        }
-        let good_mom = median_of_means_gram(
-            good_samples.view(),
-            MedianOfMeansConfig {
-                alpha: 0.5,
-                n_blocks: 5,
-            },
-        )
-        .unwrap();
-        let good = finite_sample_terracini_certificate(&good_mom, 0.0).unwrap();
-        assert!(
-            good.identifiable,
-            "expected mu_hat {} >= delta {}",
-            good.margin_hat,
-            good.delta
-        );
-        assert!(good.theorem.contains("conditional on measured margin"));
-        assert!(good.lower_margin_bound > 0.0);
-
-        let mut bad_samples = Array2::<f64>::zeros((400, 2));
-        for r in 0..bad_samples.nrows() {
-            bad_samples[[r, 0]] = 1.0;
-            bad_samples[[r, 1]] = if r % 2 == 0 { 1.0 } else { 1.0 + 1.0e-5 };
-        }
-        let bad_mom = median_of_means_gram(
-            bad_samples.view(),
-            MedianOfMeansConfig {
-                alpha: 0.5,
-                n_blocks: 5,
-            },
-        )
-        .unwrap();
-        let bad = finite_sample_terracini_certificate(&bad_mom, 0.0).unwrap();
-        assert!(
-            !bad.identifiable,
-            "expected mu_hat {} < delta {}",
-            bad.margin_hat,
-            bad.delta
-        );
-        assert_eq!(bad.lower_margin_bound, 0.0);
-    }
-
-    #[test]
-    fn post_peel_propagates_uncertainty_and_reports_kurtosis() {
-        let mut samples = Array2::<f64>::zeros((12, 3));
-        for r in 0..samples.nrows() {
-            samples[[r, 0]] = 100.0 + r as f64;
-            samples[[r, 1]] = if r % 2 == 0 { 1.0 } else { -1.0 };
-            samples[[r, 2]] = if r % 3 == 0 { 2.0 } else { -0.5 };
-        }
-        let peel = SinkPeel {
-            direction: Array1::from_vec(vec![1.0, 0.0, 0.0]),
-            direction_l2_radius: 0.01,
-            removed_second_moment_radius: 0.25,
-        };
-        let peeled = post_peel_samples(samples.view(), &peel).unwrap();
-        for r in 0..peeled.samples.nrows() {
-            assert!(peeled.samples[[r, 0]].abs() < 1.0e-12);
-        }
-        assert!(peeled.peel_gram_radius > 0.25);
-        assert!((peeled.peel_margin_radius.powi(2) - peeled.peel_gram_radius).abs() < 1.0e-12);
-
-        let mom = median_of_means_gram(
-            peeled.samples.view(),
-            MedianOfMeansConfig {
-                alpha: 0.25,
-                n_blocks: 3,
-            },
-        )
-        .unwrap();
-        let cert = finite_sample_terracini_certificate(&mom, peeled.peel_gram_radius).unwrap();
-        assert!(cert.realized_kurtosis.is_finite());
-        assert!(cert.realized_kurtosis >= 1.0);
-        assert_eq!(cert.peel_gram_radius, peeled.peel_gram_radius);
-        assert!(cert.theorem.contains("kappa_hat"));
     }
 }

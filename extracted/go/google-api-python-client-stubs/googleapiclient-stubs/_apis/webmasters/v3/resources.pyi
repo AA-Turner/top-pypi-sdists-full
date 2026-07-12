@@ -19,7 +19,7 @@ class WebmastersResource(googleapiclient.discovery.Resource):
             self,
             *,
             siteUrl: str,
-            body: SearchAnalyticsQueryRequest = ...,
+            body: SearchAnalyticsQueryRequest,
             **kwargs: typing.Any,
         ) -> SearchAnalyticsQueryResponseHttpRequest: ...
 
@@ -32,7 +32,7 @@ class WebmastersResource(googleapiclient.discovery.Resource):
             self, *, siteUrl: str, feedpath: str, **kwargs: typing.Any
         ) -> WmxSitemapHttpRequest: ...
         def list(
-            self, *, siteUrl: str, sitemapIndex: str = ..., **kwargs: typing.Any
+            self, *, siteUrl: str, sitemapIndex: str | None = ..., **kwargs: typing.Any
         ) -> SitemapsListResponseHttpRequest: ...
         def submit(
             self, *, siteUrl: str, feedpath: str, **kwargs: typing.Any

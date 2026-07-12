@@ -19,23 +19,24 @@ class DocsResource(googleapiclient.discovery.Resource):
             self,
             *,
             documentId: str,
-            body: BatchUpdateDocumentRequest = ...,
+            body: BatchUpdateDocumentRequest,
             **kwargs: typing.Any,
         ) -> BatchUpdateDocumentResponseHttpRequest: ...
         def create(
-            self, *, body: Document = ..., **kwargs: typing.Any
+            self, *, body: Document, **kwargs: typing.Any
         ) -> DocumentHttpRequest: ...
         def get(
             self,
             *,
             documentId: str,
-            includeTabsContent: bool = ...,
+            includeTabsContent: bool | None = ...,
             suggestionsViewMode: typing_extensions.Literal[
                 "DEFAULT_FOR_CURRENT_ACCESS",
                 "SUGGESTIONS_INLINE",
                 "PREVIEW_SUGGESTIONS_ACCEPTED",
                 "PREVIEW_WITHOUT_SUGGESTIONS",
-            ] = ...,
+            ]
+            | None = ...,
             **kwargs: typing.Any,
         ) -> DocumentHttpRequest: ...
 

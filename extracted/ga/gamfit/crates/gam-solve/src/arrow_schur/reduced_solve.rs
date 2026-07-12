@@ -130,9 +130,25 @@ pub(crate) fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
     let tiles = if assembly_work < gam_gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS {
         None
     } else {
-        gam_gpu::device_runtime::GpuRuntime::global()
-            .map(|rt| gam_gpu::pool::balanced_partition(rt, n))
-            .filter(|tiles| tiles.len() > 1)
+        gam_gpu::device_runtime::GpuRuntime::global().and_then(|rt| {
+            let tiles = gam_gpu::pool::balanced_partition(rt, n);
+            // Engage the device stacked-GEMM reduction when a MULTI-GPU pool can
+            // overlap tiles, OR — the single-GPU gap this closes — when the one
+            // stacked `(total_d×k)ᵀ(total_d×k)` GEMM clears the runtime's own
+            // `gemm_min_flops`, so `try_fast_atb_on_ordinal` will actually offload
+            // it instead of declining back to CPU. This reduction is the dense
+            // build's O(n·d·k²) cost (measured on an H100 as ~28% of the fit in
+            // `block_gemm_subtract`), and on a single GPU it previously always ran
+            // on the CPU because the tile path required `len() > 1` — the device
+            // sat idle. `assembly_work` IS the stacked GEMM's flop count (2·k²·Σd),
+            // so this is exactly `try_fast_atb`'s own offload predicate; below the
+            // GEMM floor the launch/staging tax loses to the CPU, so we keep the
+            // deterministic CPU rayon fold there. Small K (e.g. K=8) never clears
+            // the floor and stays on the CPU — magic-by-default crossover, no flag.
+            let engage =
+                tiles.len() > 1 || assembly_work >= rt.policy().gemm_min_flops as u128;
+            (engage && !tiles.is_empty()).then_some(tiles)
+        })
     };
 
     let Some(tiles) = tiles else {
@@ -587,8 +603,8 @@ fn spectral_conditioned_schur_with_factor(
             }
         }
     }
-    let factor = spectral_qr_cholesky_factor(&weighted_vt)
-        .or_else(|| cholesky_lower(&conditioned).ok())?;
+    let factor =
+        spectral_qr_cholesky_factor(&weighted_vt).or_else(|| cholesky_lower(&conditioned).ok())?;
     Some((conditioned, factor))
 }
 
@@ -670,14 +686,17 @@ pub(crate) fn solve_dense_reduced_system(
     rhs_beta: &Array1<f64>,
     options: &ArrowSolveOptions,
     metric_weights: Option<&MetricWeights>,
-) -> Result<(Array1<f64>, Option<Array2<f64>>, PcgDiagnostics), ArrowSchurError> {
-    let (factor, floored_schur) =
-        factor_dense_reduced_schur(schur, options.schur_pd_floor, options.tolerate_ill_conditioning)?;
+) -> Result<(Array1<f64>, Option<Array2<f64>>, ArrowPcgDiagnostics), ArrowSchurError> {
+    let (factor, floored_schur) = factor_dense_reduced_schur(
+        schur,
+        options.schur_pd_floor,
+        options.tolerate_ill_conditioning,
+    )?;
     if let Some(floored) = floored_schur {
         let direct = mixed_precision_reduced_beta(&floored, &factor, rhs_beta, options)
             .unwrap_or_else(|| cholesky_solve_vector(&factor, rhs_beta));
         if step_inside_trust_region(direct.view(), options.trust_region.radius, metric_weights) {
-            return Ok((direct, Some(factor), PcgDiagnostics::default()));
+            return Ok((direct, Some(factor), ArrowPcgDiagnostics::default()));
         }
         let identity = IdentityPreconditioner;
         let (delta, diag) = steihaug_dense_system(
@@ -731,7 +750,8 @@ pub(crate) fn solve_dense_reduced_system(
             // (futilely) lift a fundamentally rank-deficient dead-atom subspace.
             // Without the floor (BA / non-SAE callers) the strict refusal stands.
             if let Some(relative_floor) = options.schur_pd_floor
-                && let Some((floored, floored_factor)) = spectral_pd_floored_schur(schur, relative_floor)
+                && let Some((floored, floored_factor)) =
+                    spectral_pd_floored_schur(schur, relative_floor)
             {
                 let direct =
                     mixed_precision_reduced_beta(&floored, &floored_factor, rhs_beta, options)
@@ -741,7 +761,7 @@ pub(crate) fn solve_dense_reduced_system(
                     options.trust_region.radius,
                     metric_weights,
                 ) {
-                    return Ok((direct, Some(floored_factor), PcgDiagnostics::default()));
+                    return Ok((direct, Some(floored_factor), ArrowPcgDiagnostics::default()));
                 }
                 let identity = IdentityPreconditioner;
                 let (delta, diag) = steihaug_dense_system(
@@ -775,7 +795,7 @@ pub(crate) fn solve_dense_reduced_system(
     let direct = mixed_precision_reduced_beta(schur, &factor, rhs_beta, options)
         .unwrap_or_else(|| cholesky_solve_vector(&factor, rhs_beta));
     if step_inside_trust_region(direct.view(), options.trust_region.radius, metric_weights) {
-        return Ok((direct, Some(factor), PcgDiagnostics::default()));
+        return Ok((direct, Some(factor), ArrowPcgDiagnostics::default()));
     }
 
     // Ceres-style trust-region correction: once the dense BA solve proposes a
@@ -1278,6 +1298,142 @@ pub(crate) fn schur_matvec<B: BatchedBlockSolver + Sync>(
     }
 }
 
+/// #1017: the reduced-Schur operator `v ↦ S·v` staged ONCE per criterion
+/// evaluation and reused across EVERY shifted / warm-started solve of the
+/// rational-logdet (and SLQ) ladder — the widened-lifetime residency the #1017
+/// device design calls for.
+///
+/// The rational-logdet criterion (`matrix_free_arrow_evidence_log_det_surrogate`)
+/// walks SEVERAL shift ladders inside ONE evaluation: the `λ_max` power iteration
+/// ([`reduced_schur_lambda_max`]), the pilot / deflation-derived plan build
+/// ([`rational_reduced_schur_plan_derived`]), the value [`RationalLogdetPlan::
+/// evaluate`], and the `(probes, S⁻¹·probes)` gradient bundle
+/// ([`reduced_schur_inverse_probe_solves`]). Each formerly re-captured its own
+/// inline `schur_matvec` closure over `(sys, htt_factors, ρ_β, backend,
+/// resident)`. On CPU those captures are free; on the device lane they are the
+/// per-solve FLATTEN — every ladder would re-marshal and re-upload the
+/// ridge-independent operands (the factored `H_tt` slab, the framed `G ⊗ W`, the
+/// dense per-row cross blocks) that are INVARIANT across the whole evaluation.
+///
+/// This object is the single operator every ladder borrows: the invariant state
+/// (`sys`, the factored `H_tt` slab, the `ρ_β` border, the pre-staged CPU
+/// [`SaeResidentReducedSchur`] frame, and — when engaged — a device-resident
+/// [`GpuSchurMatvec`] whose per-row factors upload ONCE) lives for the whole
+/// evaluation, so a shifted solve reuses the resident operator instead of
+/// re-staging it. Every `apply` accumulates the SAME reduced operator
+/// `S = (H_ββ + ρ_β I) − Σ_i H_βt^(i)(H_tt^(i)+ρ_t I)⁻¹H_tβ^(i)` regardless of
+/// lane. With `gpu_matvec == None` (every current construction) the result is
+/// byte-for-byte the pre-context inline `schur_matvec` closure; the `gpu_matvec`
+/// seam is where a device operator, built once per evaluation, is threaded through
+/// the ladder (the reported #1017 next increment).
+pub(crate) struct ReducedSchurOperator<'a, B: BatchedBlockSolver + Sync> {
+    sys: &'a ArrowSchurSystem,
+    htt_factors: &'a ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &'a B,
+    resident: Option<&'a SaeResidentReducedSchur>,
+    gpu_matvec: Option<&'a GpuSchurMatvec>,
+}
+
+impl<'a, B: BatchedBlockSolver + Sync> ReducedSchurOperator<'a, B> {
+    /// The CPU/host operator — the byte-identical default. Every shifted solve in
+    /// the evaluation reuses the same pre-staged `resident` frame (or the generic
+    /// per-row `apply → solve → transpose` when `resident` is `None`).
+    pub(crate) fn new(
+        sys: &'a ArrowSchurSystem,
+        htt_factors: &'a ArrowFactorSlab,
+        ridge_beta: f64,
+        backend: &'a B,
+        resident: Option<&'a SaeResidentReducedSchur>,
+    ) -> Self {
+        Self {
+            sys,
+            htt_factors,
+            ridge_beta,
+            backend,
+            resident,
+            gpu_matvec: None,
+        }
+    }
+
+    /// Attach a device-resident [`GpuSchurMatvec`] (built ONCE per evaluation) so
+    /// the whole ladder applies `S·v` on device without a per-solve re-upload.
+    /// #1017 next increment: the caller that owns the device operand upload builds
+    /// the operator once and calls this; until then every construction is CPU
+    /// (`gpu_matvec == None`), so the lane stays byte-identical.
+    pub(crate) fn with_gpu_matvec(mut self, gpu_matvec: Option<&'a GpuSchurMatvec>) -> Self {
+        self.gpu_matvec = gpu_matvec;
+        self
+    }
+
+    /// `out = S·x`. Both lanes CLEAR and fully assign `out`, so a fresh zeroed
+    /// buffer per apply is correct (and the shift-ladder CG contract is upheld).
+    #[inline]
+    pub(crate) fn apply_into(&self, x: &Array1<f64>, out: &mut Array1<f64>) {
+        let Some(quotient) = self.sys.beta_gauge_quotient.as_ref() else {
+            if let Some(gpu) = self.gpu_matvec {
+                gpu(x, out);
+            } else {
+                schur_matvec(
+                    self.sys,
+                    self.htt_factors,
+                    self.ridge_beta,
+                    x,
+                    out,
+                    self.backend,
+                    self.resident,
+                );
+            }
+            return;
+        };
+
+        // Evidence operator on the quotient: `P S P + Q Q^T`.  Apply the
+        // original reduced Schur only to `P x`, project its result once more,
+        // then add the unit Faddeev--Popov pin. The same arithmetic is used by
+        // dense `pin_reduced_schur`, so SLQ/rational-logdet values and dense
+        // Cholesky values represent the identical operator.
+        let projected_x = quotient.project_complement(x.view());
+        if let Some(gpu) = self.gpu_matvec {
+            gpu(&projected_x, out);
+        } else {
+            schur_matvec(
+                self.sys,
+                self.htt_factors,
+                self.ridge_beta,
+                &projected_x,
+                out,
+                self.backend,
+                self.resident,
+            );
+        }
+        let mut projected_out = quotient.project_complement(out.view());
+        for direction in quotient.directions.iter() {
+            projected_out.scaled_add(direction.dot(x), direction);
+        }
+        out.assign(&projected_out);
+    }
+
+    /// `S·v` into a fresh length-`k` vector — the shift-ladder matvec-closure form
+    /// (`|v: ArrayView1| op.apply(v)`). Byte-for-byte the inline
+    /// `let x = v.to_owned(); schur_matvec(…, &x, &mut zeros(k), …)` it replaces.
+    #[inline]
+    pub(crate) fn apply(&self, v: ArrayView1<f64>) -> Array1<f64> {
+        let x = v.to_owned();
+        let mut out = Array1::<f64>::zeros(self.sys.k);
+        self.apply_into(&x, &mut out);
+        out
+    }
+
+    /// `S·x` into a fresh vector from an already-owned `&Array1` (no redundant copy
+    /// of a vector the caller already owns) — the power-iteration / CG-solve form.
+    #[inline]
+    pub(crate) fn apply_owned(&self, x: &Array1<f64>) -> Array1<f64> {
+        let mut out = Array1::<f64>::zeros(self.sys.k);
+        self.apply_into(x, &mut out);
+        out
+    }
+}
+
 /// Matrix-free reduced-Schur log-determinant `log|S|` via Stochastic Lanczos
 /// Quadrature on the exact `schur_matvec` apply `v ↦ S·v`, where
 /// `S = (H_ββ + ρ_β I) − Σ_i H_βt^(i)(H_tt^(i)+ρ_t I)⁻¹H_tβ^(i)` is the SPD
@@ -1310,35 +1466,23 @@ pub(crate) fn slq_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     num_probes: usize,
     lanczos_steps: usize,
     seed: u64,
 ) -> SlqLogDet {
     let k = sys.k;
-    slq_logdet(
-        k,
-        |v| {
-            // `schur_matvec` clears and fully assigns `out`, so a fresh zeroed
-            // buffer per apply is correct; the probes fan across rayon workers
-            // (in `slq_logdet`), and `schur_matvec`'s own row parallelism is
-            // guarded off inside a worker, so there is no nested oversubscription.
-            let x = v.to_owned();
-            let mut out = Array1::<f64>::zeros(k);
-            schur_matvec(
-                sys,
-                htt_factors,
-                ridge_beta,
-                &x,
-                &mut out,
-                backend,
-                resident,
-            );
-            out
-        },
-        num_probes,
-        lanczos_steps,
-        seed,
-    )
+    // Stage the reduced-Schur operator ONCE; every probe/Lanczos apply reuses the
+    // pre-staged residency (no per-apply operator re-capture). The probes fan
+    // across rayon workers (in `slq_logdet`), and `schur_matvec`'s own row
+    // parallelism is guarded off inside a worker, so there is no nested
+    // oversubscription. When `gpu_matvec` is `Some` (the #1017 Phase-3 device
+    // seam, built once for the whole evidence evaluation), EVERY Rademacher-probe
+    // Lanczos apply runs through the single resident device `S·v`; when `None`
+    // the byte-identical CPU `schur_matvec` lane is taken.
+    let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
+        .with_gpu_matvec(gpu_matvec);
+    slq_logdet(k, |v| op.apply(v), num_probes, lanczos_steps, seed)
 }
 
 /// One-call matrix-free arrow evidence log-determinant for an assembled system.
@@ -1373,18 +1517,84 @@ pub fn matrix_free_arrow_evidence_log_det(
             log_det_tt += 2.0 * factor[[axis, axis]].ln();
         }
     }
-    let resident = SaeResidentReducedSchur::build(sys, &htt_factors, &backend);
+    // #1017 Phase-3: build the reduced-Schur device `S·v` ONCE for the whole SLQ
+    // evaluation. Every Rademacher-probe Lanczos apply then rides that single
+    // resident operator (uploaded/pre-factored once) instead of re-capturing the
+    // CPU `schur_matvec` per apply. The device operator carries its own residency,
+    // so the CPU `SaeResidentReducedSchur` frame is only staged on the CPU lane.
+    let device_matvec = maybe_build_evidence_gpu_matvec(
+        sys,
+        ridge_t,
+        ridge_beta,
+        options,
+        num_probes.saturating_mul(lanczos_steps),
+    );
+    let gpu_matvec: Option<&GpuSchurMatvec> =
+        options.gpu_matvec.as_ref().or(device_matvec.as_ref());
+    let resident = if gpu_matvec.is_none() {
+        SaeResidentReducedSchur::build(sys, &htt_factors, &backend)
+    } else {
+        None
+    };
     let slq = slq_reduced_schur_log_det(
         sys,
         &htt_factors,
         ridge_beta,
         &backend,
         resident.as_ref(),
+        gpu_matvec,
         num_probes,
         lanczos_steps,
         seed,
     );
     Ok((log_det_tt, slq))
+}
+
+/// #1017 Phase-3: build the reduced-Schur device matvec ONCE for a matrix-free
+/// evidence log-det evaluation, so the whole rational-logdet + SLQ ladder applies
+/// `S·v` through a single device-resident operator (uploaded / pre-factored once)
+/// rather than re-capturing the CPU `schur_matvec` per probe / shifted solve. The
+/// PCG numerics are identical whether the matvec runs on host or device (same
+/// reduced Schur operator, same f64 accumulation), so engaging it changes only
+/// where the `Σ_i H_βt(H_tt)⁻¹H_tβ` flops execute.
+///
+/// Same admission contract as the PCG matvec offload ([`maybe_inject_gpu_schur_matvec`]):
+/// declines (returns `None`, so every apply stays on the byte-identical CPU lane)
+/// when cross-row penalties or streaming are present, the work predicate rejects
+/// the shape, or no live device is present. `apply_budget` is the amortising apply
+/// count for the shape predicate — the reduced-Schur matvec is `O(n·d·k)` per
+/// apply and the evidence ladder runs that apply across every probe / Lanczos /
+/// shifted-CG step, so a large budget is the honest amortisation the offload
+/// break-even is measured against.
+pub(crate) fn maybe_build_evidence_gpu_matvec(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    options: &ArrowSolveOptions,
+    apply_budget: usize,
+) -> Option<GpuSchurMatvec> {
+    // A caller-supplied operator (threaded through `options.gpu_matvec`) already
+    // owns its residency; the caller passes it directly, so never double-build.
+    if options.gpu_matvec.is_some() {
+        return None;
+    }
+    if !sys.cross_row_penalties.is_empty() || options.streaming_chunk_size.is_some() {
+        return None;
+    }
+    // Size gate BEFORE the device probe (startup-tax ordering): the predicate
+    // reads only associated constants, so a shape it rejects skips
+    // `GpuRuntime::global()` (whose first call creates a CUDA primary context on
+    // every GPU); an admitted shape probes exactly as the PCG seam does.
+    if !gam_gpu::GpuDispatchPolicy::default().reduced_schur_matvec_should_offload(
+        sys.rows.len(),
+        sys.k,
+        sys.d,
+        apply_budget.max(1),
+    ) {
+        return None;
+    }
+    gam_gpu::device_runtime::GpuRuntime::global()?;
+    crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()
 }
 
 /// Fixed configuration for the #2080 rational-surrogate evidence lane: the probe
@@ -1504,7 +1714,27 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
             log_det_tt += 2.0 * factor[[axis, axis]].ln();
         }
     }
-    let resident = SaeResidentReducedSchur::build(sys, &htt_factors, &backend);
+    // #1017 Phase-3: one device-resident reduced-Schur `S·v` for the WHOLE
+    // evaluation — the surrogate value ladder (two-sided deflation: block-power on
+    // S + inverse subspace iteration on S⁻¹ via matrix-free CG), the λ_max bracket
+    // power iteration, the SLQ probes, AND the S⁻¹·probe bundle all ride this
+    // single operator (uploaded / pre-factored once). Sized against the surrogate's
+    // per-evaluation apply budget (probe count × shifted-CG ladder depth). The
+    // device operator carries its own residency, so the CPU `SaeResidentReducedSchur`
+    // frame is only staged on the CPU lane.
+    let cfg_apply_budget = lane
+        .as_ref()
+        .map(|s| s.cfg.num_probes.saturating_mul(s.cfg.cg_max_iters))
+        .unwrap_or_else(|| slq_num_probes.saturating_mul(slq_lanczos_steps));
+    let device_matvec =
+        maybe_build_evidence_gpu_matvec(sys, ridge_t, ridge_beta, options, cfg_apply_budget);
+    let gpu_matvec: Option<&GpuSchurMatvec> =
+        options.gpu_matvec.as_ref().or(device_matvec.as_ref());
+    let resident = if gpu_matvec.is_none() {
+        SaeResidentReducedSchur::build(sys, &htt_factors, &backend)
+    } else {
+        None
+    };
 
     let log_det_schur = match lane {
         None => {
@@ -1514,6 +1744,7 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                 ridge_beta,
                 &backend,
                 resident.as_ref(),
+                gpu_matvec,
                 slq_num_probes,
                 slq_lanczos_steps,
                 slq_seed,
@@ -1533,6 +1764,7 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                     ridge_beta,
                     &backend,
                     resident.as_ref(),
+                    gpu_matvec,
                     cfg.num_probes,
                     cfg.seed,
                     cfg.rel_tol,
@@ -1563,12 +1795,21 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
             // ends. The bundle uses the plan's RAW probes v_j (not the deflation-
             // projected ones) since tr(S⁻¹·M) contracts the full S⁻¹ v_j.
             let (estimate, bundle) = {
-                let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
-                    let x = v.to_owned();
-                    let mut out = Array1::<f64>::zeros(dim);
-                    schur_matvec(sys, &htt_factors, ridge_beta, &x, &mut out, &backend, resident.as_ref());
-                    out
-                };
+                // #1017: ONE reduced-Schur operator for the whole value ladder —
+                // the frozen plan walks its shift ladder through this single
+                // resident apply instead of re-capturing a `schur_matvec` closure
+                // per shifted solve. When `gpu_matvec` is `Some` (Phase-3 device
+                // seam, built once above) every shifted apply runs on device; when
+                // `None` the byte-identical CPU `schur_matvec` lane is taken.
+                let op = ReducedSchurOperator::new(
+                    sys,
+                    &htt_factors,
+                    ridge_beta,
+                    &backend,
+                    resident.as_ref(),
+                )
+                .with_gpu_matvec(gpu_matvec);
+                let matvec = |v: ArrayView1<f64>| -> Array1<f64> { op.apply(v) };
                 let eval = plan
                     .evaluate(&matvec, state.cfg.cg_rel_tol, state.cfg.cg_max_iters)
                     .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
@@ -1582,6 +1823,7 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                         ridge_beta,
                         &backend,
                         resident.as_ref(),
+                        gpu_matvec,
                         &plan.probes,
                         state.warm_inverse_probes.as_deref(),
                         state.cfg.cg_rel_tol,
@@ -1634,6 +1876,7 @@ pub fn reduced_schur_lambda_max<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     iters: usize,
     seed: u64,
 ) -> Option<f64> {
@@ -1663,11 +1906,12 @@ pub fn reduced_schur_lambda_max<B: BatchedBlockSolver + Sync>(
         return None;
     }
     v.mapv_inplace(|x| x * inv_norm0);
-    let apply = |x: &Array1<f64>| -> Array1<f64> {
-        let mut out = Array1::<f64>::zeros(k);
-        schur_matvec(sys, htt_factors, ridge_beta, x, &mut out, backend, resident);
-        out
-    };
+    // One resident operator reused across every power-iteration apply — device
+    // seam threaded so the bracket estimate rides the SAME resident `S·v` the
+    // ladder/probes use.
+    let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
+        .with_gpu_matvec(gpu_matvec);
+    let apply = |x: &Array1<f64>| -> Array1<f64> { op.apply_owned(x) };
     for _ in 0..iters.max(1) {
         let sv = apply(&v);
         let norm = sv.dot(&sv).sqrt();
@@ -1713,6 +1957,7 @@ pub fn rational_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     num_probes: usize,
     seed: u64,
     rel_tol: f64,
@@ -1724,8 +1969,16 @@ pub fn rational_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
     if k == 0 {
         return None;
     }
-    let lambda_max =
-        reduced_schur_lambda_max(sys, htt_factors, ridge_beta, backend, resident, power_iters, seed)?;
+    let lambda_max = reduced_schur_lambda_max(
+        sys,
+        htt_factors,
+        ridge_beta,
+        backend,
+        resident,
+        gpu_matvec,
+        power_iters,
+        seed,
+    )?;
     // λ_min from the deflation floor: after unit-deflation the operative spectrum
     // is bounded below by `SPECTRAL_DEFLATION_REL_FLOOR·λ_max` (or 1.0), so this
     // is a sound lower bracket for the quadrature window sizing. The window is
@@ -1734,16 +1987,13 @@ pub fn rational_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
     // the estimate.
     let lambda_min = (SPECTRAL_DEFLATION_REL_FLOOR * lambda_max).max(f64::MIN_POSITIVE);
     let plan = RationalLogdetPlan::build(k, num_probes, seed, lambda_min, lambda_max, rel_tol)?;
-    let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
-        // `schur_matvec` clears and fully assigns `out`, so a fresh zeroed buffer
-        // per apply is correct; the probes fan across rayon workers (in
-        // `evaluate`), and `schur_matvec`'s own row parallelism is guarded off
-        // inside a worker, so there is no nested oversubscription.
-        let x = v.to_owned();
-        let mut out = Array1::<f64>::zeros(k);
-        schur_matvec(sys, htt_factors, ridge_beta, &x, &mut out, backend, resident);
-        out
-    };
+    // One resident operator; the plan's shift ladder reuses it across every
+    // shifted solve. The probes fan across rayon workers (in `evaluate`), and
+    // `schur_matvec`'s own row parallelism is guarded off inside a worker, so
+    // there is no nested oversubscription.
+    let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
+        .with_gpu_matvec(gpu_matvec);
+    let matvec = |v: ArrayView1<f64>| -> Array1<f64> { op.apply(v) };
     let eval = plan.evaluate(&matvec, cg_rel_tol, cg_max_iters)?;
     Some((plan, eval))
 }
@@ -1761,10 +2011,13 @@ pub fn rational_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
 /// `0.1 · STALL_REL_TOL`; `log|S|` is the criterion's dominant term at wide `k`
 /// so `|log|S||+1` is the right objective scale to `O(1)` and the `0.1` margin
 /// absorbs the loss/Occam remainder). The peel rank grows on a doubling schedule
-/// until the Hutchinson error bar clears the target or the `deflation_max_rank`
-/// cap is hit; `deflation_max_rank == 0` (or a pilot already under target) yields
-/// the bare-Hutchinson plan. Deterministic for fixed inputs (`Q` and probes are
-/// seed-derived). The returned plan's `Q` is FROZEN, so
+/// until the Hutchinson error bar clears the target. `deflation_max_rank` is a
+/// resource-admission ceiling, not permission to return an under-certified
+/// estimate: exhausting it before the bar clears returns `None` and the caller
+/// surfaces a typed evidence failure. `deflation_max_rank == 0` explicitly
+/// requests the bare-Hutchinson plan; a pilot already under target also returns
+/// it. Deterministic for fixed inputs (`Q` and probes are seed-derived). The
+/// returned plan's `Q` is FROZEN, so
 /// [`RationalLogdetPlan::directional_derivative`] on its evaluations is the exact
 /// surrogate gradient.
 pub fn rational_reduced_schur_plan_derived<B: BatchedBlockSolver + Sync>(
@@ -1773,6 +2026,7 @@ pub fn rational_reduced_schur_plan_derived<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     num_probes: usize,
     seed: u64,
     rel_tol: f64,
@@ -1784,41 +2038,81 @@ pub fn rational_reduced_schur_plan_derived<B: BatchedBlockSolver + Sync>(
     deflation_target_std_err_rel: f64,
 ) -> Option<RationalLogdetPlan> {
     let k = sys.k;
-    if k == 0 {
+    if k == 0
+        || !(cg_rel_tol.is_finite() && cg_rel_tol > 0.0 && cg_rel_tol < 1.0)
+        || !(deflation_target_std_err_rel.is_finite() && deflation_target_std_err_rel >= 0.0)
+    {
         return None;
     }
-    let lambda_max =
-        reduced_schur_lambda_max(sys, htt_factors, ridge_beta, backend, resident, power_iters, seed)?;
+    let lambda_max = reduced_schur_lambda_max(
+        sys,
+        htt_factors,
+        ridge_beta,
+        backend,
+        resident,
+        gpu_matvec,
+        power_iters,
+        seed,
+    )?;
     let lambda_min = (SPECTRAL_DEFLATION_REL_FLOOR * lambda_max).max(f64::MIN_POSITIVE);
-    let base_plan = RationalLogdetPlan::build(k, num_probes, seed, lambda_min, lambda_max, rel_tol)?;
-    let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
-        let x = v.to_owned();
-        let mut out = Array1::<f64>::zeros(k);
-        schur_matvec(sys, htt_factors, ridge_beta, &x, &mut out, backend, resident);
-        out
-    };
+    let base_plan =
+        RationalLogdetPlan::build(k, num_probes, seed, lambda_min, lambda_max, rel_tol)?;
+    // One resident operator across the pilot, every deflation re-solve, and the
+    // subspace-iteration `with_two_sided_deflation` applies — the whole rank-derivation
+    // ladder (the two-sided deflation: block-power on S + inverse subspace
+    // iteration on S⁻¹) reuses the same staged residency / device `S·v`.
+    let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
+        .with_gpu_matvec(gpu_matvec);
+    let matvec = |v: ArrayView1<f64>| -> Array1<f64> { op.apply(v) };
     // Rank-0 pilot: fixes the |log|S|| scale and is the answer outright when no
     // deflation is requested or the bare bar already clears the target.
     let pilot = base_plan.evaluate(&matvec, cg_rel_tol, cg_max_iters)?;
     if deflation_max_rank == 0 {
         return Some(base_plan);
     }
-    let target = deflation_target_std_err_rel.max(0.0) * (pilot.estimate.abs() + 1.0);
+    let target = deflation_target_std_err_rel * (pilot.estimate.abs() + 1.0);
     if pilot.std_err <= target {
         return Some(base_plan);
     }
-    // Grow the peel rank (doubling ⇒ log-many re-solves) until the bar clears or
-    // the cap is hit; keep the LAST plan (its frozen Q is the deepest peel tried).
+    // Grow from the smallest nonzero peel rank (doubling ⇒ log-many re-solves)
+    // until the bar clears. The caller's cap is a resource ceiling; reaching it
+    // with an over-target bar refuses the surrogate rather than silently
+    // weakening the requested statistical-accuracy contract.
     let cap = deflation_max_rank.min(k);
-    let mut rank = 4usize;
+    let mut rank = 1usize;
+    // Basis iteration only steers Q for variance reduction. Derive its looser
+    // true-residual tolerance from the evaluation solve's tolerance instead of
+    // carrying an unrelated fixed knob: √tol is strictly looser while still
+    // converging as the bottom-tail builder now requires.
+    let basis_cg_rel_tol = cg_rel_tol.sqrt();
     loop {
         let r = rank.min(cap);
-        let plan = base_plan
-            .clone()
-            .with_deflation(&matvec, r, deflation_subspace_iters, seed);
+        // Split the peel budget across BOTH spectral tails at equal total rank:
+        // the Hutchinson bar rides on ‖offdiag(P log(S/c) P)‖_F, whose mass sits
+        // symmetrically on the λ_max AND λ_min tails (|log(λ/c)| peaks equally at
+        // both ends of the bracket since c is its geometric midpoint), so top-only
+        // deflation stalls at ~½ the removable variance
+        // (`two_sided_deflation_drops_wide_kappa_std_err_below_two_percent`).
+        // The bottom-tail basis comes from inverse iteration — CG on the UNSHIFTED
+        // operator at full κ — so it gets its own LOOSE budget, not the
+        // evaluation-grade `cg_rel_tol`: an approximate bottom `Q` only relaxes
+        // the variance reduction, never biases the value (the split is exact for
+        // any orthonormal `Q`), while an evaluation-grade solve there would burn
+        // √κ-scale iterations per basis column for no accuracy in return.
+        let plan = base_plan.clone().with_two_sided_deflation(
+            &matvec,
+            r.div_ceil(2),
+            r / 2,
+            deflation_subspace_iters,
+            seed,
+            (basis_cg_rel_tol, cg_max_iters),
+        )?;
         let eval = plan.evaluate(&matvec, cg_rel_tol, cg_max_iters)?;
-        if eval.std_err <= target || r >= cap {
+        if eval.std_err <= target {
             return Some(plan);
+        }
+        if r >= cap {
+            return None;
         }
         rank = rank.saturating_mul(2);
     }
@@ -1856,20 +2150,28 @@ fn reduced_schur_cg_solve<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     b: &Array1<f64>,
     y0: &Array1<f64>,
     cg_rel_tol: f64,
     cg_max_iters: usize,
 ) -> Option<Array1<f64>> {
-    let k = sys.k;
-    let apply = |v: &Array1<f64>| -> Array1<f64> {
-        let mut out = Array1::<f64>::zeros(k);
-        schur_matvec(sys, htt_factors, ridge_beta, v, &mut out, backend, resident);
-        out
+    // One resident operator reused across every CG apply of this solve — device
+    // seam threaded so the inverse-subspace S⁻¹·probe solves ride the resident op.
+    let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
+        .with_gpu_matvec(gpu_matvec);
+    let apply = |v: &Array1<f64>| -> Array1<f64> { op.apply_owned(v) };
+    let quotient = sys.beta_gauge_quotient.as_ref();
+    let b = match quotient {
+        Some(quotient) => quotient.project_complement(b.view()),
+        None => b.clone(),
     };
-    let mut y = y0.clone();
-    let mut r = b - &apply(&y);
-    let b_norm = b.dot(b).sqrt().max(f64::MIN_POSITIVE);
+    let mut y = match quotient {
+        Some(quotient) => quotient.project_complement(y0.view()),
+        None => y0.clone(),
+    };
+    let mut r = &b - &apply(&y);
+    let b_norm = b.dot(&b).sqrt().max(f64::MIN_POSITIVE);
     let mut p = r.clone();
     let mut rs = r.dot(&r);
     if !rs.is_finite() {
@@ -1894,7 +2196,10 @@ fn reduced_schur_cg_solve<B: BatchedBlockSolver + Sync>(
         rs = rs_new;
         iters += 1;
     }
-    Some(y)
+    Some(match quotient {
+        Some(quotient) => quotient.project_complement(y.view()),
+        None => y,
+    })
 }
 
 /// Matrix-free single-rhs reduced-Schur solve `S⁻¹ rhs` (`t = 0`) via CG on
@@ -1912,6 +2217,7 @@ pub fn reduced_schur_inverse_apply<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     rhs: &Array1<f64>,
     warm: Option<&Array1<f64>>,
     cg_rel_tol: f64,
@@ -1925,11 +2231,298 @@ pub fn reduced_schur_inverse_apply<B: BatchedBlockSolver + Sync>(
         ridge_beta,
         backend,
         resident,
+        gpu_matvec,
         rhs,
         y0,
         cg_rel_tol,
         cg_max_iters,
     )
+}
+
+fn matrix_free_cache_factor_slab(cache: &ArrowFactorCache) -> &ArrowFactorSlab {
+    match &cache.htt_factors_undamped {
+        ArrowUndampedFactors::SameAsDamped => &cache.htt_factors,
+        ArrowUndampedFactors::Owned(factors) => factors,
+    }
+}
+
+fn validate_matrix_free_arrow_pair(
+    sys: &ArrowSchurSystem,
+    cache: &ArrowFactorCache,
+    operation: &str,
+) -> Result<(), ArrowSchurError> {
+    if cache.ridge_t != 0.0 || cache.ridge_beta != 0.0 || !cache.schur_factor_is_undamped {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "{operation} requires an undamped evidence cache; got ridge_t={}, \
+                 ridge_beta={}, schur_factor_is_undamped={}",
+                cache.ridge_t, cache.ridge_beta, cache.schur_factor_is_undamped
+            ),
+        });
+    }
+    if sys.k != cache.k
+        || sys.rows.len() != cache.n_rows()
+        || sys.row_dims.as_ref() != cache.row_dims.as_ref()
+        || sys.row_offsets.as_ref() != cache.row_offsets.as_ref()
+    {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "{operation} system/cache layout mismatch: system (rows={}, k={}, offsets={:?}) \
+                 vs cache (rows={}, k={}, offsets={:?})",
+                sys.rows.len(),
+                sys.k,
+                sys.row_offsets,
+                cache.n_rows(),
+                cache.k,
+                cache.row_offsets,
+            ),
+        });
+    }
+    if sys.row_hessian_fingerprint != cache.row_hessian_fingerprint
+        || sys.manifold_mode_fingerprint != cache.manifold_mode_fingerprint
+    {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "{operation} refuses a stale matrix-free system/cache pair \
+                 (row fingerprint {} vs {}, manifold fingerprint {} vs {})",
+                sys.row_hessian_fingerprint,
+                cache.row_hessian_fingerprint,
+                sys.manifold_mode_fingerprint,
+                cache.manifold_mode_fingerprint,
+            ),
+        });
+    }
+    if !sys.cross_row_penalties.is_empty()
+        || sys.ibp_cross_row.is_some()
+        || cache.cross_row_woodbury.is_some()
+    {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "{operation} supports the row-block bordered arrow only; cross-row latent or \
+                 IBP-Woodbury curvature requires its own matrix-free inverse carrier"
+            ),
+        });
+    }
+    if !cache.htbeta_available() && cache.k > 0 {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!("{operation} requires the cached H_tbeta operator"),
+        });
+    }
+    Ok(())
+}
+
+fn cholesky_factor_operator_apply(
+    factor: ArrayView2<'_, f64>,
+    vector: ArrayView1<'_, f64>,
+) -> Array1<f64> {
+    let n = factor.nrows();
+    let mut transposed = Array1::<f64>::zeros(n);
+    for col in 0..n {
+        let mut value = 0.0_f64;
+        for row in col..n {
+            value += factor[[row, col]] * vector[row];
+        }
+        transposed[col] = value;
+    }
+    let mut out = Array1::<f64>::zeros(n);
+    for row in 0..n {
+        let mut value = 0.0_f64;
+        for col in 0..=row {
+            value += factor[[row, col]] * transposed[col];
+        }
+        out[row] = value;
+    }
+    out
+}
+
+/// Apply the undamped full bordered-arrow evidence operator without forming its
+/// dense reduced Schur complement.
+///
+/// The cache supplies the authoritative conditioned row factors and `H_tbeta`
+/// operator. The system supplies the matrix-free shared block. Rather than read
+/// raw `H_betabeta` directly, this reconstructs it from
+/// `S + H_betat A^-1 H_tbeta`, where `S` is applied through the same quotient-
+/// aware reduced operator used by the matrix-free log-determinant. Value,
+/// selected-inverse traces, and this IFT operator therefore describe one `B`.
+pub fn matrix_free_arrow_operator_apply(
+    sys: &ArrowSchurSystem,
+    cache: &ArrowFactorCache,
+    vector_t: ArrayView1<'_, f64>,
+    vector_beta: ArrayView1<'_, f64>,
+) -> Result<(Array1<f64>, Array1<f64>), ArrowSchurError> {
+    validate_matrix_free_arrow_pair(sys, cache, "matrix_free_arrow_operator_apply")?;
+    if vector_t.len() != cache.delta_t_len() || vector_beta.len() != cache.k {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "matrix_free_arrow_operator_apply vector shapes (t={}, beta={}) != ({}, {})",
+                vector_t.len(),
+                vector_beta.len(),
+                cache.delta_t_len(),
+                cache.k,
+            ),
+        });
+    }
+
+    let factors = matrix_free_cache_factor_slab(cache);
+    let backend = CpuBatchedBlockSolver;
+    let reduced = ReducedSchurOperator::new(sys, factors, 0.0, &backend, None);
+    let mut out_beta = reduced.apply(vector_beta);
+    let mut out_t = Array1::<f64>::zeros(cache.delta_t_len());
+    for row in 0..cache.n_rows() {
+        let dim = cache.row_dims[row];
+        let start = cache.row_offsets[row];
+        let row_vector = vector_t.slice(ndarray::s![start..start + dim]);
+        let factor = cache.undamped_factor(row);
+        let row_applied = cholesky_factor_operator_apply(factor, row_vector);
+        for axis in 0..dim {
+            out_t[start + axis] = row_applied[axis];
+        }
+
+        if cache.k == 0 {
+            continue;
+        }
+        let mut cross = Array1::<f64>::zeros(dim);
+        if !cache.apply_htbeta_row(row, vector_beta, &mut cross) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "matrix_free_arrow_operator_apply H_tbeta row {row} apply failed"
+                ),
+            });
+        }
+        for axis in 0..dim {
+            out_t[start + axis] += cross[axis];
+        }
+        if !cache.apply_htbeta_row_transpose(row, row_vector, &mut out_beta, None) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "matrix_free_arrow_operator_apply H_betat row {row} apply failed"
+                ),
+            });
+        }
+
+        // `out_beta` already contains `S * vector_beta`; add the eliminated
+        // `H_betat A^-1 H_tbeta * vector_beta` term to recover H_betabeta.
+        let solved_cross = cholesky_solve_vector(factor, cross.view());
+        if !cache.apply_htbeta_row_transpose(row, solved_cross.view(), &mut out_beta, None) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "matrix_free_arrow_operator_apply Schur reconstruction row {row} failed"
+                ),
+            });
+        }
+    }
+    Ok((out_t, out_beta))
+}
+
+/// Solve the undamped full bordered-arrow evidence system for an arbitrary RHS
+/// using the matrix-free reduced-Schur CG primitive and exact row backsolves.
+///
+/// This is the matrix-free sibling of `ArrowFactorCache::full_inverse_apply`.
+/// It never materializes `S` or `S^-1`; the beta solve uses the same
+/// quotient-aware `S` operator as the rational log-determinant, then the latent
+/// block is recovered by standard arrow back-substitution.
+pub fn matrix_free_arrow_inverse_apply(
+    sys: &ArrowSchurSystem,
+    cache: &ArrowFactorCache,
+    rhs_t: ArrayView1<'_, f64>,
+    rhs_beta: ArrayView1<'_, f64>,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+) -> Result<(Array1<f64>, Array1<f64>), ArrowSchurError> {
+    validate_matrix_free_arrow_pair(sys, cache, "matrix_free_arrow_inverse_apply")?;
+    if rhs_t.len() != cache.delta_t_len() || rhs_beta.len() != cache.k {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "matrix_free_arrow_inverse_apply rhs shapes (t={}, beta={}) != ({}, {})",
+                rhs_t.len(),
+                rhs_beta.len(),
+                cache.delta_t_len(),
+                cache.k,
+            ),
+        });
+    }
+    if !(cg_rel_tol.is_finite() && cg_rel_tol > 0.0) || cg_max_iters == 0 {
+        return Err(ArrowSchurError::PcgFailed {
+            reason: format!(
+                "matrix_free_arrow_inverse_apply requires positive finite CG tolerance and \
+                 iteration count; got rel_tol={cg_rel_tol}, max_iters={cg_max_iters}"
+            ),
+        });
+    }
+
+    let factors = matrix_free_cache_factor_slab(cache);
+    let backend = CpuBatchedBlockSolver;
+    let mut latent_forward = Array1::<f64>::zeros(cache.delta_t_len());
+    let mut eliminated = Array1::<f64>::zeros(cache.k);
+    for row in 0..cache.n_rows() {
+        let dim = cache.row_dims[row];
+        let start = cache.row_offsets[row];
+        let solved = cholesky_solve_vector(
+            cache.undamped_factor(row),
+            rhs_t.slice(ndarray::s![start..start + dim]),
+        );
+        for axis in 0..dim {
+            latent_forward[start + axis] = solved[axis];
+        }
+        if cache.k > 0
+            && !cache.apply_htbeta_row_transpose(row, solved.view(), &mut eliminated, None)
+        {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "matrix_free_arrow_inverse_apply H_betat row {row} apply failed"
+                ),
+            });
+        }
+    }
+    // The transpose helper accumulates the eliminated term positively.
+    let mut reduced_rhs = rhs_beta.to_owned();
+    reduced_rhs -= &eliminated;
+
+    let solved_beta = if cache.k == 0 {
+        Array1::<f64>::zeros(0)
+    } else {
+        reduced_schur_inverse_apply(
+            sys,
+            factors,
+            0.0,
+            &backend,
+            None,
+            None,
+            &reduced_rhs,
+            None,
+            cg_rel_tol,
+            cg_max_iters,
+        )
+        .ok_or_else(|| ArrowSchurError::PcgFailed {
+            reason: format!(
+                "matrix_free_arrow_inverse_apply reduced-Schur solve failed \
+                 (dim={}, rel_tol={cg_rel_tol}, max_iters={cg_max_iters})",
+                cache.k
+            ),
+        })?
+    };
+
+    let mut solved_t = latent_forward;
+    for row in 0..cache.n_rows() {
+        let dim = cache.row_dims[row];
+        let start = cache.row_offsets[row];
+        if cache.k == 0 {
+            continue;
+        }
+        let mut cross = Array1::<f64>::zeros(dim);
+        if !cache.apply_htbeta_row(row, solved_beta.view(), &mut cross) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "matrix_free_arrow_inverse_apply H_tbeta row {row} apply failed"
+                ),
+            });
+        }
+        let correction = cholesky_solve_vector(cache.undamped_factor(row), cross.view());
+        for axis in 0..dim {
+            solved_t[start + axis] -= correction[axis];
+        }
+    }
+    Ok((solved_t, solved_beta))
 }
 
 /// The `S⁻¹ v_j` bundle for a fixed probe set: solves `S y_j = v_j` (`t = 0`) on
@@ -1948,6 +2541,7 @@ pub fn reduced_schur_inverse_probe_solves<B: BatchedBlockSolver + Sync>(
     ridge_beta: f64,
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
+    gpu_matvec: Option<&GpuSchurMatvec>,
     probes: &[Array1<f64>],
     warm: Option<&[Array1<f64>]>,
     cg_rel_tol: f64,
@@ -1964,6 +2558,7 @@ pub fn reduced_schur_inverse_probe_solves<B: BatchedBlockSolver + Sync>(
             ridge_beta,
             backend,
             resident,
+            gpu_matvec,
             v,
             y0,
             cg_rel_tol,
@@ -2825,8 +3420,12 @@ pub enum SchurPreconditionerKind {
     /// into bounded strongly-co-firing clusters so the dense per-cluster factor
     /// conditions the cross-atom coupling scalar Jacobi cannot see.
     CoVisibilityClusterJacobi,
-    AdditiveSchwarz { overlap: usize },
-    DiagAssembledSchwarz { overlap: usize },
+    AdditiveSchwarz {
+        overlap: usize,
+    },
+    DiagAssembledSchwarz {
+        overlap: usize,
+    },
     BlockIncompleteCholesky,
 }
 
@@ -2911,7 +3510,9 @@ pub(crate) const CLUSTER_SCHUR_FACTOR_BYTES_BUDGET: u128 = 2 * 1024 * 1024;
 /// `b×b` f64 Cholesky factor fits [`CLUSTER_SCHUR_FACTOR_BYTES_BUDGET`]. See that
 /// constant for the memory justification. Never below 1.
 pub(crate) fn covisibility_cluster_max_cols() -> usize {
-    let b = ((CLUSTER_SCHUR_FACTOR_BYTES_BUDGET / 8) as f64).sqrt().floor() as usize;
+    let b = ((CLUSTER_SCHUR_FACTOR_BYTES_BUDGET / 8) as f64)
+        .sqrt()
+        .floor() as usize;
     b.max(1)
 }
 
@@ -3997,7 +4598,7 @@ pub(crate) fn steihaug_pcg_auto<B: BatchedBlockSolver + Sync>(
     gpu_matvec: Option<&GpuSchurMatvec>,
     metric_weights: Option<&MetricWeights>,
     curvature_floor: Option<f64>,
-) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurError> {
+) -> Result<(Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError> {
     // #1017 CPU residency: stage the per-row reduced-Schur factors `(L_i, Y_i)`
     // (NOT the dense `p×p` block — `di ≪ p`, so the factored form is `O(n·di·p)`
     // memory and `2·support_i·p + 2·di·p` flops/row including the sparse
@@ -4027,7 +4628,7 @@ pub(crate) fn steihaug_pcg_auto<B: BatchedBlockSolver + Sync>(
     // small attempt cap and a relative ridge ceiling; on exhaustion the original
     // recoverable failure still reaches the outer LM loop.
     let mut effective_ridge = ridge_beta;
-    let mut x0_diag0: Option<(Array1<f64>, PcgDiagnostics)> = None;
+    let mut x0_diag0: Option<(Array1<f64>, ArrowPcgDiagnostics)> = None;
     let mut last_curvature_err: Option<ArrowSchurError> = None;
     let rhs_scale = metric_norm(rhs.view(), metric_weights).max(1.0);
     let ridge_ceiling = ridge_beta.max(SCHUR_CURVATURE_FLOOR_REL_CEILING * rhs_scale);
@@ -4301,7 +4902,7 @@ pub(crate) fn run_pcg_with_preconditioner<ApplyPrec, B: BatchedBlockSolver + Syn
     gpu_matvec: Option<&GpuSchurMatvec>,
     metric_weights: Option<&MetricWeights>,
     resident: Option<&SaeResidentReducedSchur>,
-) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurError>
+) -> Result<(Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError>
 where
     ApplyPrec: FnMut(&Array1<f64>) -> Array1<f64>,
 {
@@ -4349,7 +4950,7 @@ pub(crate) fn steihaug_dense_system(
     pcg: &ArrowPcgOptions,
     trust: &ArrowTrustRegionOptions,
     metric_weights: Option<&MetricWeights>,
-) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurError> {
+) -> Result<(Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError> {
     steihaug_cg(
         rhs,
         |p, out| dense_matvec(schur, p, out),
@@ -4369,7 +4970,7 @@ pub(crate) fn steihaug_cg<MatVec, ApplyPrec>(
     relative_tolerance: f64,
     trust_radius: f64,
     metric_weights: Option<&MetricWeights>,
-) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurError>
+) -> Result<(Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError>
 where
     MatVec: FnMut(&Array1<f64>, &mut Array1<f64>),
     ApplyPrec: FnMut(&Array1<f64>) -> Array1<f64>,
@@ -4389,15 +4990,15 @@ where
     };
     let rhs_norm = metric_norm(rhs.view(), metric_weights);
     if rhs_norm == 0.0 {
-        return Ok((Array1::<f64>::zeros(n), PcgDiagnostics::default()));
+        return Ok((Array1::<f64>::zeros(n), ArrowPcgDiagnostics::default()));
     }
     let tol = (relative_tolerance.max(0.0) * rhs_norm).max(PCG_ABSOLUTE_TOLERANCE_FLOOR);
     let mut x = Array1::<f64>::zeros(n);
     let mut r = rhs.clone();
     let mut z = apply_preconditioner(&r);
-    let mut diag = PcgDiagnostics {
+    let mut diag = ArrowPcgDiagnostics {
         precond_apply_calls: 1,
-        ..PcgDiagnostics::default()
+        ..ArrowPcgDiagnostics::default()
     };
     let mut p = z.clone();
     let mut rz = metric_dot(&r, &z, metric_weights);
@@ -4677,9 +5278,46 @@ pub(crate) fn cholesky_lower(a: &Array2<f64>) -> Result<Array2<f64>, String> {
         ));
     }
 
-    let mut maybe_device = a.clone();
-    if gam_gpu::try_cholesky_lower_inplace(&mut maybe_device).is_some() {
-        return Ok(maybe_device);
+    // Only clone for the device attempt when a GPU is actually selected;
+    // `try_cholesky_lower_inplace` returns `None` on every CPU-only host, so the
+    // former unconditional `k×k` clone (≈32 MB at the SAE border) was pure waste
+    // on the CPU path that now dominates. `cuda_selected()` is a cheap policy +
+    // runtime-presence probe.
+    if gam_gpu::cuda_selected() {
+        let mut maybe_device = a.clone();
+        if gam_gpu::try_cholesky_lower_inplace(&mut maybe_device).is_some() {
+            return Ok(maybe_device);
+        }
+    }
+
+    // CPU fast path (#1017): at the SAE border width the reduced Schur is a
+    // dense `k×k` (k≈2k–4k) whose scalar triple-loop factorization is O(k³/3)
+    // and neither blocked nor SIMD-vectorized — the dominant per-Newton-step
+    // cost on a CPU-only host. faer's blocked LLT computes the SAME `A = L Lᵀ`
+    // (to O(κ·ε), the slack the reduced solve/log-det already tolerate) an order
+    // of magnitude faster. Restrict it to `k ≥ FAER_CHOLESKY_MIN` so the many
+    // tiny per-row `d×d` blocks (d≤~8, factorization.rs) and the small dense
+    // test fixtures keep the exact scalar loop — bit-for-bit their historical
+    // factor — where faer's setup overhead would not pay off anyway. If faer
+    // declines (a non-PD blocked pivot) fall through to the scalar loop so the
+    // PD/non-PD verdict and its typed error stay exactly the historical ones
+    // (`factor_dense_reduced_schur`'s spectral-floor fallback keys only on Ok vs
+    // Err, so the boundary behavior is unchanged).
+    const FAER_CHOLESKY_MIN: usize = 128;
+    if n >= FAER_CHOLESKY_MIN {
+        let view = gam_linalg::faer_ndarray::FaerArrayView::new(a);
+        if let Ok(llt) =
+            gam_linalg::faer_ndarray::FaerLlt::new(view.as_ref(), faer::Side::Lower)
+        {
+            let l_faer = llt.L();
+            let mut l = Array2::<f64>::zeros((n, n));
+            for i in 0..n {
+                for j in 0..=i {
+                    l[[i, j]] = l_faer[(i, j)];
+                }
+            }
+            return Ok(l);
+        }
     }
 
     let mut l = Array2::<f64>::zeros((n, n));

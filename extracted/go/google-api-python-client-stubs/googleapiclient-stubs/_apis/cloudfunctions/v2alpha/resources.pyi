@@ -23,29 +23,29 @@ class CloudFunctionsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AbortFunctionUpgradeRequest = ...,
+                    body: AbortFunctionUpgradeRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def commitFunctionUpgrade(
                     self,
                     *,
                     name: str,
-                    body: CommitFunctionUpgradeRequest = ...,
+                    body: CommitFunctionUpgradeRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def commitFunctionUpgradeAsGen2(
                     self,
                     *,
                     name: str,
-                    body: CommitFunctionUpgradeAsGen2Request = ...,
+                    body: CommitFunctionUpgradeAsGen2Request,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: Function = ...,
-                    functionId: str = ...,
+                    body: Function,
+                    functionId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
@@ -55,41 +55,41 @@ class CloudFunctionsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: DetachFunctionRequest = ...,
+                    body: DetachFunctionRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def generateDownloadUrl(
                     self,
                     *,
                     name: str,
-                    body: GenerateDownloadUrlRequest = ...,
+                    body: GenerateDownloadUrlRequest,
                     **kwargs: typing.Any,
                 ) -> GenerateDownloadUrlResponseHttpRequest: ...
                 def generateUploadUrl(
                     self,
                     *,
                     parent: str,
-                    body: GenerateUploadUrlRequest = ...,
+                    body: GenerateUploadUrlRequest,
                     **kwargs: typing.Any,
                 ) -> GenerateUploadUrlResponseHttpRequest: ...
                 def get(
-                    self, *, name: str, revision: str = ..., **kwargs: typing.Any
+                    self, *, name: str, revision: str | None = ..., **kwargs: typing.Any
                 ) -> FunctionHttpRequest: ...
                 def getIamPolicy(
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListFunctionsResponseHttpRequest: ...
                 def list_next(
@@ -101,43 +101,43 @@ class CloudFunctionsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Function = ...,
-                    updateMask: str = ...,
+                    body: Function,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def redirectFunctionUpgradeTraffic(
                     self,
                     *,
                     name: str,
-                    body: RedirectFunctionUpgradeTrafficRequest = ...,
+                    body: RedirectFunctionUpgradeTrafficRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rollbackFunctionUpgradeTraffic(
                     self,
                     *,
                     name: str,
-                    body: RollbackFunctionUpgradeTrafficRequest = ...,
+                    body: RollbackFunctionUpgradeTrafficRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def setupFunctionUpgradeConfig(
                     self,
                     *,
                     name: str,
-                    body: SetupFunctionUpgradeConfigRequest = ...,
+                    body: SetupFunctionUpgradeConfigRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -150,10 +150,10 @@ class CloudFunctionsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -165,17 +165,17 @@ class CloudFunctionsResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class RuntimesResource(googleapiclient.discovery.Resource):
                 def list(
-                    self, *, parent: str, filter: str = ..., **kwargs: typing.Any
+                    self, *, parent: str, filter: str | None = ..., **kwargs: typing.Any
                 ) -> ListRuntimesResponseHttpRequest: ...
 
             def list(
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

@@ -109,8 +109,8 @@ pub(crate) use gam_solve::arrow_schur::{
     ArrowSolveOptions, BetaPenaltyOp, CompositePenaltyOp, DensePenaltyOp, DeviceSaePcgData,
     DeviceSaeSmoothBlock, FactoredFrameGBlock, FactoredFrameKroneckerOp, IbpCrossRowSource,
     IdentityRightKroneckerPenaltyOp, SparseBlockKroneckerPenaltyOp, SparseGBlock,
-    SparseRankOnePenaltyOp,
-    StreamingArrowSchur, row_sub_floor_null_directions,
+    SparseRankOnePenaltyOp, StreamingArrowSchur, matrix_free_arrow_inverse_apply,
+    matrix_free_arrow_operator_apply, prepare_sae_resident_frame, row_sub_floor_null_directions,
     solve_arrow_newton_step_with_proximal_correction, solve_streaming_reduced_beta,
     solve_with_lm_escalation_inner, streaming_cross_row_woodbury_log_det,
 };
@@ -125,15 +125,10 @@ pub(crate) use gam_terms::analytic_penalties::{
 // must be PUBLIC — pub(crate) here broke every CI test-build shard (E0603).
 pub use gam_terms::analytic_penalties::resolve_learnable_weight;
 
-pub(crate) use gam_terms::latent::{LatentCoordValues, LatentIdMode};
 pub use gam_terms::latent::LatentManifold;
+pub(crate) use gam_terms::latent::{LatentCoordValues, LatentIdMode};
 
 pub(crate) use crate::criterion_atoms::SaeCriterion;
-
-pub(crate) use crate::certificates::{
-    CriterionCertificate, DirectionalSamples, certificate_from_samples,
-    deterministic_probe_direction, probe_step,
-};
 
 pub(crate) use gam_linalg::faer_ndarray::{
     FaerCholesky, FaerCholeskyFactor, FaerEigh, FaerSvd, fast_ab, fast_abt, fast_atb,
@@ -166,9 +161,9 @@ pub(crate) use gam_solve::estimate::EstimationError;
 
 pub(crate) use gam_solve::evidence::arrow_log_det_from_cache;
 
-pub(crate) use gam_problem::{DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval};
+pub(crate) use gam_problem::{DeclaredHessianForm, Derivative, EfsEval, HessianValue, OuterEval};
 pub(crate) use gam_solve::rho_optimizer::{
-    OuterCapability, OuterEvalOrder, OuterObjective, SeedOutcome,
+    OuterCapability, OuterConvergedVia, OuterEvalOrder, OuterObjective, SeedOutcome,
 };
 
 pub(crate) use gam_solve::structure_search::{CollapseAction, CollapseEvent};
@@ -184,12 +179,16 @@ pub use crate::frames::*;
 
 mod amortized_routing;
 mod arrow_solver;
-mod basin_bundle;
 mod atom;
+mod atom_build;
+mod basin_bundle;
 mod behavior;
+mod behavior_entry;
 mod behavior_fit;
 mod behavior_isometry;
 mod certificate;
+mod chart_atlas;
+mod checkpoint;
 mod construction;
 mod construction_ard;
 mod construction_arrow_schur_assembly;
@@ -199,10 +198,16 @@ mod construction_padded_blocks;
 mod construction_reconstruction;
 mod coordinate_fidelity;
 mod cross_fit;
+mod crosscoder_drift;
+mod crosscoder_fit;
 mod curl;
 mod derivative_oracle;
 mod dual;
+mod evaluator_rebuild;
+mod fisher_metric;
 mod fit_drivers;
+mod fit_entry;
+mod fit_seed;
 mod gauge;
 mod graph_atom;
 mod inframe_curved;
@@ -210,8 +215,12 @@ mod isa_seed;
 mod kronecker;
 pub mod lift;
 mod loss;
+mod minimal_seed;
+mod oos_entry;
+mod oos_logit_seed;
 mod outer_objective;
 mod pair_kappa;
+mod pair_phase;
 mod pca_seed;
 mod penalties;
 mod persistence;
@@ -219,16 +228,20 @@ mod rho;
 mod row_layout;
 mod sandwich;
 mod schedule;
+mod seed_routing;
 mod shape_uncertainty;
 mod stagewise;
+mod stagewise_seed;
+mod steering;
 mod stratum_births;
 mod streaming_plan;
 mod streaming_seed;
 mod term;
 mod terracini;
-mod weight_frame_catalog;
+mod transport_law;
 mod wbic_audit;
 mod wbic_dynamics;
+mod weight_frame_catalog;
 
 #[cfg(test)]
 mod tests;
@@ -241,6 +254,9 @@ mod tests_chart_evaluator_jets;
 
 #[cfg(test)]
 mod tests_collapse_prevention;
+
+#[cfg(test)]
+mod tests_collapse_2132;
 
 #[cfg(test)]
 mod tests_factored_htbeta;
@@ -262,6 +278,18 @@ mod tests_startup_validation_1782;
 
 #[cfg(test)]
 mod tests_zoo_micro_local;
+
+#[cfg(test)]
+mod tests_termination_2235;
+
+#[cfg(test)]
+mod tests_steering_e4;
+
+#[cfg(test)]
+mod tests_steering_crosscoder_2234;
+
+#[cfg(test)]
+mod tests_collateral_e2_2234;
 
 #[cfg(test)]
 mod tests_schur_seed_refusal_1782;
@@ -303,10 +331,19 @@ mod tests_sure_dispersion_2133;
 mod tests_behavioral_fisher_rung1;
 
 #[cfg(test)]
+mod tests_inner_budget_trajectory_2015;
+
+#[cfg(test)]
 mod tests_two_tier_2023;
 
 #[cfg(test)]
 mod tests_tier0_shared_mean_2023;
+
+#[cfg(test)]
+mod tests_tier0_primary_path_2023;
+
+#[cfg(test)]
+mod tests_structured_residual_floor;
 
 #[cfg(test)]
 mod tests_streaming_efs_cache_1026;
@@ -357,21 +394,49 @@ mod tests_cocollapse_disjoint_2027;
 mod tests_cocollapse_reseed_2089;
 
 #[cfg(test)]
+mod tests_topk_divergence_2134;
+
+#[cfg(test)]
 mod tests_outer_reml_probe_budget_2080;
 
 #[cfg(test)]
-mod tests_outer_probe_forcing;
-
 #[cfg(test)]
 mod lambda_smooth_1556_tests;
 
 #[cfg(test)]
-mod tests_behavior_twoblock_rung2;
-#[cfg(test)]
 mod tests_behavior_isometry_2015;
+#[cfg(test)]
+mod tests_behavior_twoblock_rung2;
 
 #[cfg(test)]
 mod tests_crosscoder_multiblock;
+
+#[cfg(test)]
+mod tests_behavior_qwen_real;
+
+#[cfg(test)]
+mod tests_crosscoder_olmo;
+
+#[cfg(test)]
+mod tests_stall_diagnostic_2234;
+
+#[cfg(test)]
+mod tests_rho_structural_layout_2253;
+
+#[cfg(test)]
+mod tests_crosscoder_rho_2231;
+
+#[cfg(test)]
+mod tests_checkpoint_resume_wiring;
+
+#[cfg(test)]
+mod tests_transport_law;
+
+#[cfg(test)]
+mod tests_crosscoder_block_fd_2231;
+
+#[cfg(test)]
+mod tests_crosscoder_drift;
 
 #[cfg(test)]
 mod tests_ln_sphere_ambient_f4;
@@ -389,25 +454,33 @@ mod tests_chart_angle_fidelity_2081;
 mod tests_joint_vs_cascade_2131;
 
 #[cfg(test)]
-mod tests_outer_row_subsample;
+mod tests_quality_behavior_calibration_2015;
+
+#[cfg(test)]
+mod tests_quality_amplitude_1939;
+
+#[cfg(test)]
+mod tests_quality_scale_quotient_2099;
 
 pub use arrow_solver::*;
-pub use basin_bundle::*;
 pub use atom::*;
+pub use basin_bundle::*;
 pub use behavior::*;
+pub use behavior_entry::*;
 pub use behavior_fit::*;
 pub use behavior_isometry::*;
 pub use certificate::*;
+pub use chart_atlas::*;
 pub use construction_aux_types::*;
 pub use construction_cache_refresh::*;
 pub use construction_padded_blocks::*;
 pub use construction_reconstruction::reconstruct_persisted_atom_set;
+pub use construction_reconstruction::steer_persisted_atom_set;
 // #16/#2023 — the shared rank-charge DOF core, exposed so the hybrid-split DEMOTE
 // gate prices linear/curved candidates in the SAME currency as the joint REML fit.
 pub(crate) use construction::realised_rank_charge_dof;
-// Occupancy-scaled Jeffreys barrier: the per-assembly frozen routing support
-// (coactivation pairs + per-atom N_eff) carried on `SaeManifoldTerm` — reachable
-// crate-wide because the term's frozen-gate field is.
+// Jeffreys barrier routing support: the per-assembly frozen coactivation pairs
+// and per-atom effective sample sizes carried on `SaeManifoldTerm`.
 pub(crate) use penalties::BarrierCoactivationGate;
 
 /// Public single-currency surface for the realised rank-charge DOF: the SAME
@@ -431,19 +504,29 @@ pub fn rank_charge_dof(
     construction::realised_rank_charge_dof(gram, decoder, n_eff, p_out, dispersion, 0.0, None)
 }
 
-pub use coordinate_fidelity::*;
 pub use crate::inference::atlas_nerve::AtlasCoveringSide;
+pub use atom_build::*;
+pub use coordinate_fidelity::*;
 pub use cross_fit::*;
+pub use crosscoder_drift::*;
+pub use crosscoder_fit::*;
 pub use curl::*;
 pub use derivative_oracle::*;
+pub use evaluator_rebuild::*;
+pub use fisher_metric::*;
+pub use fit_entry::*;
+pub use fit_seed::*;
 pub use gauge::*;
 pub use graph_atom::*;
 pub use inframe_curved::*;
 pub use isa_seed::*;
 pub(crate) use kronecker::*;
 pub use loss::*;
+pub use minimal_seed::*;
+pub use oos_entry::*;
 pub use outer_objective::*;
 pub use pair_kappa::*;
+pub use pair_phase::*;
 pub use pca_seed::*;
 pub use penalties::*;
 pub use persistence::*;
@@ -451,12 +534,15 @@ pub use rho::*;
 pub use row_layout::*;
 pub use sandwich::*;
 pub use schedule::*;
+pub use seed_routing::*;
 pub use shape_uncertainty::*;
 pub use stagewise::*;
+pub use stagewise_seed::*;
 pub use stratum_births::*;
 pub use streaming_plan::*;
 pub use term::*;
 pub use terracini::*;
-pub use weight_frame_catalog::*;
+pub use transport_law::*;
 pub use wbic_audit::*;
 pub use wbic_dynamics::*;
+pub use weight_frame_catalog::*;

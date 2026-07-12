@@ -40,7 +40,7 @@
 //! 3. **Matrix-free θ-HVP** (#740). For a direction `v` over the border axes,
 //!    `H_outer · v` is computed *without* assembling the O(K²) coordinate-pair
 //!    Hessian. The family's exact outer-Hessian operator
-//!    (`HessianResult::Operator`) `matvec` realizes the IFT-corrected action
+//!    (`HessianValue::Operator`) `matvec` realizes the IFT-corrected action
 //!    `β̇ = −H⁻¹ (∂g/∂θ)·v` plus the logdet directional trace — exactly the #740
 //!    product — through one inner solve per matvec. When no exact operator is
 //!    available the shared-border correction is deferred to the decoupled
@@ -65,7 +65,8 @@ use gam_linalg::matrix::FactorizedSystem;
 use crate::estimate::EstimationError;
 use crate::rho_optimizer::{OuterCapability, OuterObjective, OuterPlan, OuterResult};
 use faer::Side;
-use gam_problem::{HessianResult, OuterHessianOperator};
+use opt::{BacktrackConfig, backtracking_line_search};
+use gam_problem::{HessianValue, HessianOperator};
 use ndarray::{Array1, Array2};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
@@ -165,6 +166,8 @@ impl PerAtomEfsResult {
             operator_stop_reason: None,
             criterion_certificate: None,
             rho_uncertainty_diagnostic: None,
+            converged_via: None,
+            flat_noise_grad_bound: None,
         }
     }
 }
@@ -299,7 +302,7 @@ pub(crate) fn sanitize_step(raw: f64) -> f64 {
 /// fallback) — when none is available the caller defers the border correction.
 pub(crate) fn border_hessian_block(
     topology: &SharedBorderTopology,
-    operator: &Arc<dyn OuterHessianOperator>,
+    operator: &Arc<dyn HessianOperator>,
     rho: &Array1<f64>,
 ) -> Result<Array2<f64>, EstimationError> {
     let m = topology.border_count();
@@ -313,18 +316,18 @@ pub(crate) fn border_hessian_block(
             rho.len()
         )));
     }
-    // Exact operator path: probes are independent operator matvecs; fan across
+    // Exact operator path: probes are independent operator applications; fan across
     // rayon. No OnceLock get_or_init is triggered inside the probe closure
-    // (matvec is a pure linear action on a captured factorization), so the
+    // (the HVP is a pure linear action on a captured factorization), so the
     // nested-rayon deadlock rule is satisfied.
     let cols: Result<Vec<(usize, Array1<f64>)>, EstimationError> = (0..m)
         .into_par_iter()
         .map(|j| {
             let mut e_j = Array1::<f64>::zeros(rho.len());
             e_j[border[j]] = 1.0;
-            let hv = operator.matvec(&e_j).map_err(|reason| {
+            let hv = operator.apply(&e_j).map_err(|reason| {
                 EstimationError::RemlOptimizationFailed(format!(
-                    "per-atom border θ-HVP operator matvec failed: {reason}"
+                    "per-atom border θ-HVP operator application failed: {reason}"
                 ))
             })?;
             Ok((j, hv))
@@ -425,7 +428,7 @@ fn solve_shared_border_block(
 /// vanishes for a well-conditioned block.
 pub(crate) fn shared_border_correction(
     topology: &SharedBorderTopology,
-    operator: &Arc<dyn OuterHessianOperator>,
+    operator: &Arc<dyn HessianOperator>,
     rho: &Array1<f64>,
     gradient: &Array1<f64>,
 ) -> Result<Array1<f64>, EstimationError> {
@@ -452,24 +455,26 @@ pub(crate) fn backtrack_cost(
     current_cost: f64,
     cfg: &PerAtomEfsConfig,
 ) -> Result<Option<(Array1<f64>, f64, f64)>, EstimationError> {
-    let mut alpha = 1.0_f64;
     let descent_slack = PER_ATOM_COST_DESCENT_TOL * current_cost.abs().max(1.0);
-    for _ in 0..=PER_ATOM_MAX_BACKTRACK {
-        let mut trial = rho.clone();
-        for i in 0..trial.len() {
-            trial[i] += alpha * full_step[i];
-        }
-        let trial = project_to_bounds(&trial, cfg);
-        match obj.eval_cost(&trial) {
-            Ok(cost) if cost.is_finite() && cost <= current_cost + descent_slack => {
-                return Ok(Some((trial, cost, alpha)));
+    // A trial whose cost evaluation errors is an INVALID trial (`Ok(None)`):
+    // the search halves and retries without consulting the acceptance test,
+    // exactly as the pre-migration loop swallowed `Err(_)`.
+    let accepted = backtracking_line_search::<_, EstimationError>(
+        BacktrackConfig {
+            max_steps: PER_ATOM_MAX_BACKTRACK + 1,
+            ..BacktrackConfig::default()
+        },
+        |alpha| {
+            let mut trial = rho.clone();
+            for i in 0..trial.len() {
+                trial[i] += alpha * full_step[i];
             }
-            Ok(_) => {}
-            Err(_) => {}
-        }
-        alpha *= 0.5;
-    }
-    Ok(None)
+            let trial = project_to_bounds(&trial, cfg);
+            Ok(obj.eval_cost(&trial).ok().map(|cost| (cost, trial)))
+        },
+        |_alpha, cost| cost.is_finite() && cost <= current_cost + descent_slack,
+    )?;
+    Ok(accepted.map(|step| (step.payload, step.value, step.step)))
 }
 
 /// Run the per-atom decoupled EFS outer iteration as the primary frontier
@@ -570,7 +575,7 @@ pub fn run_per_atom_efs(
             let gradient = outer_eval.gradient.clone();
             if gradient.len() == rho_dim {
                 let border_step_result = match &outer_eval.hessian {
-                    HessianResult::Analytic(hessian)
+                    HessianValue::Dense(hessian)
                         if hessian.nrows() == rho_dim && hessian.ncols() == rho_dim =>
                     {
                         let m = topology.border_count();
@@ -583,7 +588,7 @@ pub fn run_per_atom_efs(
                         }
                         solve_shared_border_block(topology, block, &gradient)
                     }
-                    HessianResult::Operator(op) => {
+                    HessianValue::Operator(op) => {
                         let operator = Arc::clone(op);
                         shared_border_correction(topology, &operator, &rho, &gradient)
                     }
@@ -684,12 +689,22 @@ mod tests {
         pub(crate) a: Array2<f64>,
     }
 
-    impl OuterHessianOperator for QuadraticOperator {
+    impl HessianOperator for QuadraticOperator {
         fn dim(&self) -> usize {
             self.a.nrows()
         }
-        fn matvec(&self, v: &Array1<f64>) -> Result<Array1<f64>, String> {
-            Ok(self.a.dot(v))
+        fn apply_into(
+            &self,
+            v: &Array1<f64>,
+            out: &mut Array1<f64>,
+        ) -> Result<(), opt::ObjectiveEvalError> {
+            if v.len() != self.a.ncols() || out.len() != self.a.nrows() {
+                return Err(opt::ObjectiveEvalError::fatal(
+                    "quadratic Hessian operator shape mismatch",
+                ));
+            }
+            out.assign(&self.a.dot(v));
+            Ok(())
         }
     }
 
@@ -737,7 +752,7 @@ mod tests {
             Ok(OuterEval {
                 cost: self.cost(rho),
                 gradient: self.grad(rho),
-                hessian: HessianResult::Operator(Arc::new(QuadraticOperator { a: self.a.clone() })),
+                hessian: HessianValue::Operator(Arc::new(QuadraticOperator { a: self.a.clone() })),
                 inner_beta_hint: None,
             })
         }
@@ -752,6 +767,7 @@ mod tests {
                 psi_indices: None,
                 inner_hessian_scale: None,
                 logdet_enclosure_gap: None,
+                consecutive_restored_incumbents: None,
             })
         }
         fn reset(&mut self) {}
@@ -863,7 +879,7 @@ mod tests {
         // matvec, reproducing H·v of the analytic quadratic bit-for-bit (#1440:
         // there is no finite-difference branch to approximate it).
         fn theta_hvp_matrix_free(
-            operator: &Arc<dyn OuterHessianOperator>,
+            operator: &Arc<dyn HessianOperator>,
             v: &Array1<f64>,
         ) -> Result<Array1<f64>, EstimationError> {
             if operator.dim() != v.len() {
@@ -873,9 +889,9 @@ mod tests {
                     v.len()
                 )));
             }
-            operator.matvec(v).map_err(|reason| {
+            operator.apply(v).map_err(|reason| {
                 EstimationError::RemlOptimizationFailed(format!(
-                    "per-atom θ-HVP operator matvec failed (dim={}): {reason}",
+                    "per-atom θ-HVP operator application failed (dim={}): {reason}",
                     v.len()
                 ))
             })
@@ -884,7 +900,7 @@ mod tests {
         let a = array![[2.0, 0.3, 0.0], [0.3, 1.5, -0.2], [0.0, -0.2, 4.0]];
         let v = array![0.3, -1.1, 0.9];
         let exact = a.dot(&v);
-        let op: Arc<dyn OuterHessianOperator> = Arc::new(QuadraticOperator { a: a.clone() });
+        let op: Arc<dyn HessianOperator> = Arc::new(QuadraticOperator { a: a.clone() });
         let hv_op = theta_hvp_matrix_free(&op, &v).expect("op hvp");
         for i in 0..3 {
             assert_eq!(hv_op[i].to_bits(), exact[i].to_bits());

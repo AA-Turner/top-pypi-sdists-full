@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 from ._paired import CumulativeIncidenceDraws, PairedPosteriorSamples
-from ._summary import Summary
+from ._summary import Summary, _ColumnarCoefficientRecords
 
 
 @dataclass(frozen=True, eq=False, slots=True)
@@ -45,27 +45,25 @@ class PosteriorPredictive:
     def summary(self, level: float = 0.95) -> dict[str, Any]:
         """Collapse fitted-mean draws to per-row credible bands.
 
-        Dispatches to ``posterior_eta_bands`` in Rust; quantile
-        reductions and inverse-link push-through.
+        Dispatches to ``posterior_draw_bands`` in Rust. Both matrices already
+        come from the model-class-specific prediction kernel, so the reducer
+        owns only posterior means and quantiles.
         """
         import numpy as np
 
         from ._binding import rust_module
         from ._exceptions import map_exception
 
-        eta = np.asarray(self.eta, dtype=float)
+        eta = np.ascontiguousarray(np.asarray(self.eta, dtype=np.float64))
         try:
-            raw = rust_module().posterior_eta_bands(
-                eta.ravel().tolist(),
-                int(eta.shape[0]),
-                int(eta.shape[1]),
-                self.family_kind,
+            mean = np.ascontiguousarray(np.asarray(self.mean, dtype=np.float64))
+            parsed = rust_module().posterior_draw_bands(
+                eta,
+                mean,
                 float(level),
-                self.link_spec,
             )
         except Exception as exc:
             raise map_exception(exc) from exc
-        parsed = json.loads(raw)
         return {
             "linear_predictor": np.asarray(parsed["linear_predictor"], dtype=float),
             "linear_predictor_lower": np.asarray(parsed["linear_predictor_lower"], dtype=float),
@@ -159,13 +157,16 @@ class PosteriorSamples:
     def from_ffi_payload(cls, payload: Mapping[str, Any], *, model_bytes: bytes = _NO_MODEL) -> "PosteriorSamples":
         import numpy as np
         p = payload
-        nd, nc = int(p["n_draws"]), int(p["n_coeffs"])
-        flat = np.asarray(p.get("samples_flat", []), dtype=float)
+        samples = np.asarray(p["samples"], dtype=np.float64)
         # allow-list (a): FFI input validation
-        if flat.size != nd * nc:
-            raise ValueError(f"FFI sample payload shape mismatch: got {flat.size} floats, expected {nd} * {nc}")
+        if samples.ndim != 2:
+            raise ValueError(
+                f"FFI sample payload must be a 2-D draw matrix; got shape {samples.shape}"
+            )
+        samples = np.ascontiguousarray(samples)
+        nc = int(samples.shape[1])
         names = _coefficient_names(p.get("coefficient_names", []), nc)
-        return cls(samples=flat.reshape(nd, nc), coefficient_names=names,
+        return cls(samples=samples, coefficient_names=names,
                    mean=np.asarray(p.get("posterior_mean", []), dtype=float),
                    std=np.asarray(p.get("posterior_std", []), dtype=float),
                    rhat=float(p["rhat"]), ess=float(p["ess"]), converged=bool(p["converged"]),
@@ -173,10 +174,6 @@ class PosteriorSamples:
                    family_kind=str(p.get("family_kind", "identity")),
                    link_spec=(str(p["link_spec"]) if p.get("link_spec") is not None else None),
                    config=_config_from_payload(p.get("config", {})), _model_bytes=model_bytes)
-
-    @classmethod
-    def from_ffi_json(cls, raw: str, *, model_bytes: bytes = _NO_MODEL) -> "PosteriorSamples":
-        return cls.from_ffi_payload(json.loads(raw), model_bytes=model_bytes)
 
     @property
     def n_draws(self) -> int: return int(self.samples.shape[0])
@@ -207,33 +204,38 @@ class PosteriorSamples:
 
     def interval(self, level: float = 0.95) -> Any:
         import numpy as np
-        flat = _call("posterior_credible_interval",
-                     np.asarray(self.samples, dtype=float).ravel().tolist(),
-                     self.n_draws, self.n_coeffs, float(level))
-        return np.asarray(flat, dtype=float).reshape(self.n_coeffs, 2)
+        samples = np.ascontiguousarray(np.asarray(self.samples, dtype=np.float64))
+        return np.asarray(
+            _call("posterior_credible_interval", samples, float(level)), dtype=float
+        )
 
     def summary(self, level: float = 0.95) -> Summary:
         import numpy as np
-        raw = _call(
-            "posterior_samples_summary_json",
-            json.dumps({
-                "samples_flat": np.asarray(self.samples, dtype=float).ravel().tolist(),
-                "n_draws": self.n_draws,
-                "n_coeffs": self.n_coeffs,
-                "level": float(level),
-                "coefficient_names": self.coefficient_names,
-                "posterior_mean": np.asarray(self.mean, dtype=float).tolist(),
-                "posterior_std": np.asarray(self.std, dtype=float).tolist(),
-                "rhat": float(self.rhat),
-                "ess": float(self.ess),
-                "converged": bool(self.converged),
-                "method": self.method,
-                "model_class": self.model_class,
-                "family_kind": self.family_kind,
-                "config": self.config.to_dict(),
-            }),
+
+        credible_level = float(level)
+        posterior_mean = np.ascontiguousarray(np.asarray(self.mean, dtype=np.float64))
+        posterior_std = np.ascontiguousarray(np.asarray(self.std, dtype=np.float64))
+        intervals = self.interval(credible_level)
+        coefficients = _ColumnarCoefficientRecords(
+            self.coefficient_names,
+            posterior_mean,
+            posterior_std,
+            intervals,
         )
-        return Summary.from_dict(json.loads(raw))
+        return Summary.from_dict({
+            "kind": "posterior_samples",
+            "method": self.method,
+            "model_class": self.model_class,
+            "family_kind": self.family_kind,
+            "n_draws": self.n_draws,
+            "n_coeffs": self.n_coeffs,
+            "rhat": float(self.rhat),
+            "ess": float(self.ess),
+            "converged": bool(self.converged),
+            "credible_interval": credible_level,
+            "config": self.config.to_dict(),
+            "coefficients": coefficients,
+        })
 
     def _need_model(self) -> None:
         # allow-list (a): FFI input validation
@@ -259,9 +261,15 @@ class PosteriorSamples:
         import numpy as np
         self._need_model()
         h, r = self._normalize(new_data)
-        parsed = json.loads(_call("posterior_predict_bands_table", self._model_bytes, h, r,
-                                  np.asarray(self.samples, dtype=float).ravel().tolist(),
-                                  self.n_draws, self.n_coeffs, float(level)))
+        samples = np.ascontiguousarray(np.asarray(self.samples, dtype=np.float64))
+        parsed = _call(
+            "posterior_predict_bands_table",
+            self._model_bytes,
+            h,
+            r,
+            samples,
+            float(level),
+        )
         return {
             "linear_predictor": np.asarray(parsed["linear_predictor"], dtype=float),
             "linear_predictor_lower": np.asarray(parsed["linear_predictor_lower"], dtype=float),
@@ -273,28 +281,33 @@ class PosteriorSamples:
 
     def predict_draws(self, new_data: Any) -> PosteriorPredictive:
         import numpy as np
-        eta, family_kind, model_class, link_spec = self._posterior_predict_eta(new_data)
-        mean_flat = _call("apply_inverse_link_array", eta.ravel().tolist(), family_kind, link_spec)
+        eta, mean, family_kind, model_class, link_spec = (
+            self._posterior_predict_matrices(new_data)
+        )
         return PosteriorPredictive(eta=np.asarray(eta, dtype=float),
-                                   mean=np.asarray(mean_flat, dtype=float).reshape(eta.shape),
+                                   mean=np.asarray(mean, dtype=float),
                                    family_kind=family_kind, model_class=model_class,
                                    link_spec=link_spec)
 
-    def _posterior_predict_eta(self, new_data: Any) -> tuple[Any, str, str, str | None]:
+    def _posterior_predict_matrices(
+        self, new_data: Any
+    ) -> tuple[Any, Any, str, str, str | None]:
         import numpy as np
         self._need_model()
         h, r = self._normalize(new_data)
-        p = json.loads(_call("posterior_predict_table", self._model_bytes, h, r,
-                             np.asarray(self.samples, dtype=float).ravel().tolist(),
-                             self.n_draws, self.n_coeffs))
-        nd, nr = int(p["n_draws"]), int(p["n_rows"])
-        flat = np.asarray(p.get("eta_flat", []), dtype=float)
+        samples = np.ascontiguousarray(np.asarray(self.samples, dtype=np.float64))
+        p = _call("posterior_predict_table", self._model_bytes, h, r, samples)
+        eta = np.asarray(p["eta"], dtype=float)
+        mean = np.asarray(p["mean"], dtype=float)
         # allow-list (a): FFI input validation
-        if flat.size != nd * nr:
-            raise ValueError(f"posterior predict FFI payload shape mismatch: got {flat.size} floats, expected {nd} * {nr}")
+        if eta.ndim != 2 or mean.ndim != 2 or eta.shape != mean.shape:
+            raise ValueError(
+                "posterior predict FFI payload must contain same-shaped 2-D eta "
+                f"and mean matrices; got eta={eta.shape}, mean={mean.shape}"
+            )
         link_spec = p.get("link_spec", self.link_spec)
         link_spec = str(link_spec) if link_spec is not None else None
-        return (flat.reshape(nd, nr), str(p.get("family_kind", self.family_kind)),
+        return (eta, mean, str(p.get("family_kind", self.family_kind)),
                 str(p.get("model_class", self.model_class)), link_spec)
 
     def save(self, path: str | Path) -> str:

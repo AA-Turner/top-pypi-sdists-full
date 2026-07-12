@@ -1,6 +1,8 @@
 use super::*;
 
-pub(crate) const SAE_MANIFOLD_ARMIJO_C1: f64 = 1.0e-4;
+/// Armijo sufficient-decrease constant — sourced from the shared optimizer
+/// constants so the workspace has exactly one `c₁`.
+pub(crate) const SAE_MANIFOLD_ARMIJO_C1: f64 = opt::constants::ARMIJO_C1;
 
 pub(crate) const SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS: usize = 12;
 
@@ -81,7 +83,7 @@ pub(crate) const SAE_MANIFOLD_INNER_GRAD_REL_TOL: f64 = 1.0e-5;
 /// ill-conditioned penalised bilinear fit the KKT gradient and undamped step
 /// stay above tolerance while the objective stops moving; this `√εmach`-scale
 /// floor recognises that stalled iterate as the converged inner optimum instead
-/// of grinding the refine budget to the `1e12` infeasible sentinel.
+/// of grinding the refine budget to an infeasible refusal.
 pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL: f64 = 1.0e-8;
 
 /// Fraction of the total since-entry objective reduction below which a refine
@@ -97,7 +99,6 @@ pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION: f64 = 1.0e-4;
 /// total-improvement baseline for the fraction test, but far below the full
 /// refine budget — terminating the ill-conditioned crawl early is the goal.
 pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS: usize = 3;
-
 
 /// Above this full-`B` β width, dense beta-penalty curvature is never
 /// materialized when Grassmann frames are engaged; exact curvature is probed
@@ -149,23 +150,6 @@ impl SaeBetaPenaltyAssembly {
 /// "worse than the mean" reference is genuinely wanted (arrival / incumbent gates).
 pub(crate) const SAE_FIT_DATA_COLLAPSE_EV_FLOOR: f64 = 0.10;
 
-/// #1189/#1217/#1610 — the finite BFGS INFEASIBILITY WALL substituted for a
-/// non-finite / collapsed REML criterion so the outer line search REJECTS the
-/// step and backtracks toward the feasible basin instead of aborting the whole
-/// outer solve (the `opt` BFGS treats a non-finite probe as "line search failed"
-/// and gives up at the current iterate — observed on real OLMo K=2, stall at
-/// iter 2 with |g|≈65; see [`super::outer_objective`]). It is deliberately a
-/// FINITE wall, not `∞`: an `∞` probe is non-differentiable and un-backtrackable,
-/// whereas a large finite value presents as an ordinary infeasible step. The
-/// magnitude is NOT a tuned operating point — it is a sentinel chosen only to
-/// DOMINATE any realizable REML criterion for a non-collapsed SAE fit (which is
-/// `O(N·p·log σ²)` — tens to thousands in magnitude) by many orders, so a
-/// collapsed/infeasible probe always loses the line-search comparison. `1e12`
-/// clears that with headroom while staying far below `f64::MAX` (the sum path
-/// clamps to `2·wall` so a near-`f64::MAX` finite base can never overflow to
-/// `∞`). The non-collapsed, finite-cost path is byte-for-byte unchanged.
-pub(crate) const SAE_FIT_DATA_COLLAPSE_COST: f64 = 1.0e12;
-
 /// #1026 — reconstruction EV-improvement / EV-degradation tolerance for the
 /// inner-fit reconstruction INCUMBENT. A new inner iterate is recorded as the
 /// best-reconstruction state only when its explained variance improves by more
@@ -175,19 +159,10 @@ pub(crate) const SAE_FIT_DATA_COLLAPSE_COST: f64 = 1.0e12;
 /// variance" negligibility tolerance (the SAME dimensionless negligibility point
 /// as [`crate::hybrid_split`]'s collapse gate): it debounces round-off-level EV
 /// wobble between iterates from a material EV move, without a corpus-tuned
-/// magnitude. Where it instead gates an OBJECTIVE (not an EV) it is applied
-/// scale-relative as `TOL·(1 + |objective|)` (`fit_drivers.rs` accept floor), so
-/// the same constant reads as a relative tolerance on that scale-bearing
-/// quantity.
+/// magnitude. This tolerance is intentionally EV-only: penalized-objective
+/// comparisons use [`SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL`] so the much
+/// coarser reporting-scale EV band cannot override a genuine objective descent.
 pub(crate) const SAE_FINAL_EV_DEGRADATION_TOL: f64 = 1.0e-3;
-
-/// #1026 — per-row coordinate re-projection grid resolution for the final
-/// reconstruction polish (matches the resolution the curvature-homotopy arrival
-/// polish uses in `outer_objective.rs`). The projection snaps each row's latent
-/// coordinate to the nearest point of a `resolution`-point decode grid, so a
-/// finer grid is a tighter chart re-fit; `256` is the established cost/precision
-/// point for the chart re-projection (a circle/sphere/Euclidean grid sweep).
-pub(crate) const SAE_FINAL_DECODER_POLISH_PROJECTION_RESOLUTION: usize = 256;
 
 pub(crate) const SAE_SEED_DISPERSION_FLOOR: f64 = 1.0e-12;
 
@@ -232,8 +207,8 @@ pub(crate) const SAE_SEED_DISPERSION_FLOOR: f64 = 1.0e-12;
 pub(crate) const SAE_DECODER_REPULSION_BARRIER_RATIO: f64 = 1.0e-4;
 
 // The derived decoder-repulsion strength is a dimensionless fraction
-// [`SAE_DECODER_REPULSION_BARRIER_RATIO`] of the data-derived (possibly
-// runtime-overridden) separation-barrier strength μ_C; it is computed on the
+// [`SAE_DECODER_REPULSION_BARRIER_RATIO`] of the data-derived (or explicitly
+// per-fit) separation-barrier strength μ_C; it is computed on the
 // term itself (it needs the dictionary's overcompleteness, not a global
 // constant) — see [`super::penalties::SaeManifoldTerm::decoder_repulsion_strength`].
 
@@ -272,56 +247,6 @@ pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 // anti-collapse core: they are interior-point log-barriers that DIVERGE at the
 // collapse boundary, so the inner Newton can never reach it.
 
-// #1026/#1522 — RUNTIME separation-barrier-strength override. Read through the
-// accessor below so a SINGLE compiled wheel can sweep μ_sep from Python
-// (`set_sae_barrier_overrides`) without recompiling. A quiet-NaN sentinel means
-// "unset → derive μ_C from the problem" (the data-derived overcompleteness
-// ratio), so 0.0 remains a legitimate swept value (barrier disabled). The amplitude
-// (keep-alive) barrier was removed: an over-complete dictionary's surplus
-// features SHOULD die, and a dead atom's decoder block is parked into a
-// well-conditioned state by the inner per-row Tikhonov ridge — forcing the
-// norm away from zero only over-inflated healthy atoms and fought that natural
-// death. So there is no amplitude strength or active-atom gate to override.
-static SAE_SEP_STRENGTH_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
-    std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
-/// #1026/#1522/#1610 — read the process-global override for the decoder-repulsion
-/// CONDITIONER strength `μ_C`, or `None` when unset. `None` ⇒ the evidence-derived
-/// per-pair `μ_jk` (data-fit inseparability from
-/// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]) is
-/// used. NOTE: this no longer scales the primary separation barrier — that is now
-/// the parameter-free Jeffreys prior `−½ log det F` — only the subdominant
-/// repulsion conditioner. A quiet-NaN sentinel means "unset → derive from the
-/// problem"; `0.0` stays a legitimate swept value (conditioner disabled).
-pub(crate) fn sae_separation_barrier_override() -> Option<f64> {
-    let v =
-        f64::from_bits(SAE_SEP_STRENGTH_OVERRIDE_BITS.load(std::sync::atomic::Ordering::Relaxed));
-    if v.is_nan() { None } else { Some(v) }
-}
-
-/// Set the process-global override for the SAE decoder-repulsion CONDITIONER
-/// strength `μ_C` (one wheel, many configs). NOTE: the primary separation barrier
-/// is now the parameter-free Jeffreys prior `−½ log det F` and ignores this — the
-/// override scales only the subdominant repulsion conditioner. `sep_strength` is
-/// NaN to clear the override back to the evidence-derived per-pair `μ_jk`
-/// (`γ_jk / (1 - γ_jk)`, the data-fit inseparability strength — see
-/// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]); there
-/// is no compiled-constant default any more.
-/// The amplitude (keep-alive) barrier and its active-atom gate were removed
-/// (surplus features are allowed to die into a ridge-parked state), so this
-/// takes only the conditioner strength. Called from the gamfit Python FFI.
-///
-/// CONCURRENCY: this is a PROCESS-GLOBAL atomic, so it is NOT safe to use across
-/// concurrent in-process fits — a parallel candidate/rung/layer sweep that sets
-/// different strengths in different threads will leak the override between fits
-/// (last writer wins for all readers). It is intended for a single-fit-at-a-time
-/// CLI/notebook sweep where the process runs one configuration at a time. The
-/// proper fix is to migrate this to a per-fit configuration field threaded
-/// through the solver rather than a global; that refactor is out of scope here.
-pub fn set_sae_barrier_overrides(sep_strength: f64) {
-    SAE_SEP_STRENGTH_OVERRIDE_BITS
-        .store(sep_strength.to_bits(), std::sync::atomic::Ordering::Relaxed);
-}
-
 // The SEPARATION barrier has NO strength scalar `μ_C` at all: it is the SAE decoder
 // Jeffreys prior `−½ log det F` (see [`super::penalties::BarrierComponent`]), whose
 // exponent `½` is fixed by the prior (`π(B) ∝ √det F`) and is the exact
@@ -330,8 +255,8 @@ pub fn set_sae_barrier_overrides(sep_strength: f64) {
 // historical `μ_jk = γ_jk/(1−γ_jk)` (data-fit inseparability, see
 // [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]) survives
 // ONLY as the per-dictionary strength of the subdominant decoder-repulsion CONDITIONER
-// (`decoder_repulsion_strength = ratio · μ_C`), not of the barrier. The runtime
-// override (`set_sae_barrier_overrides`) therefore now scales only that conditioner.
+// (`decoder_repulsion_strength = ratio · μ_C`), not of the barrier. An explicit
+// per-fit strength can scale that conditioner through [`SaeFitConfig`].
 
 /// SEPARATION barrier softening `ε`: the floor on the eigenvalues of the Jeffreys
 /// Fisher `F = Q ∘ O` (see [`super::penalties::BarrierComponent`]) in
@@ -372,11 +297,46 @@ pub(crate) const SAE_SEPARATION_BARRIER_EPS: f64 = 1.0e-6;
 /// value never desyncs from the step.
 pub(crate) const SAE_BARRIER_ACTIVE_NORM_REL_FLOOR: f64 = 1.0e-6;
 
+/// Allocation-only workspace for repeated nonlinear Arrow-Schur assemblies.
+///
+/// The current [`ArrowSchurSystem`] owns these buffers while it is being
+/// assembled and solved. The joint-fit driver returns them after every
+/// iteration, so the next iterate can reuse the allocations while still
+/// overwriting every Hessian/gradient entry. Device descriptors and resident
+/// frames are retained only as mutable storage handles; their numerical
+/// operands are refreshed from the newly assembled system before reuse.
+#[derive(Default)]
+pub(crate) struct SaeArrowAssemblyWorkspace {
+    pub(crate) rows: Vec<ArrowRowBlock>,
+    pub(crate) gb: Array1<f64>,
+    pub(crate) device_sae_pcg: Option<Arc<DeviceSaePcgData>>,
+    pub(crate) resident_frame:
+        Option<Arc<dyn gam_solve::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>>,
+}
+
+impl std::fmt::Debug for SaeArrowAssemblyWorkspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SaeArrowAssemblyWorkspace")
+            .field("rows", &self.rows.len())
+            .field("gb", &self.gb.len())
+            .field("device_sae_pcg", &self.device_sae_pcg.is_some())
+            .field("resident_frame", &self.resident_frame.is_some())
+            .finish()
+    }
+}
+
 /// Full SAE-manifold term.
 #[derive(Debug)]
 pub struct SaeManifoldTerm {
     pub atoms: Vec<SaeManifoldAtom>,
     pub assignment: SaeAssignment,
+    /// #1890 — multi-chart semantic atoms.  The numerical storage remains one
+    /// decoder/routing block per local chart; each entry records which blocks
+    /// form one atlas plus the fitted unit-speed transition cocycle.  Existing
+    /// gates then factor exactly into atlas activation × partition-of-unity, so
+    /// registration preserves the fitted image while retaining pole and Möbius
+    /// seams that a destructive single-chart fusion would erase.
+    pub(crate) chart_atlases: Vec<ManifoldChartAtlas>,
     pub(crate) temperature_schedule: Option<GumbelTemperatureSchedule>,
     /// Active-set row layout from the most recent `assemble_arrow_schur` call.
     /// `None` for dense modes (Softmax / IBPMap) or when not yet assembled.
@@ -417,6 +377,15 @@ pub struct SaeManifoldTerm {
     /// *evidence* about shared structure (decoder β, ρ), not to the latent
     /// priors. `None` ⇒ the exact unweighted path, bit-for-bit.
     pub(crate) row_loss_weights: Option<Vec<f64>>,
+    /// #2231 crosscoder block-relevance pricing spans `(p_x, block_dims)` in
+    /// stacked-column order, installed by
+    /// `SaeManifoldOuterObjective::with_crosscoder_blocks` so the outer-ρ
+    /// gradient assembler can build the block coordinates' IFT RHS
+    /// `∂g/∂log λ_ℓ = −½·Jᵀ(block-masked scaled target)` — the θ-response
+    /// channel that completes the analytic block gradient with the same
+    /// `−½·Γᵀθ̂_ρ` adjoint every other ρ coordinate carries. `None` on a plain
+    /// SAE (the ρ template then has no block coordinates either).
+    pub(crate) crosscoder_pricing_spans: Option<(usize, Vec<usize>)>,
     /// #972 / #977 T1: whether the MOST RECENT `assemble_arrow_schur` built the
     /// β-tier in the *factored* Grassmann-coordinate layout (border width
     /// [`Self::factored_border_dim`], the per-atom `C_k` blocks) rather than the
@@ -463,6 +432,9 @@ pub struct SaeManifoldTerm {
     /// immediately lowers the dense block into a `BetaPenaltyOp`, so the returned
     /// `ArrowSchurSystem` does not need to keep owning the allocation.
     pub(crate) border_hbb_workspace: Array2<f64>,
+    /// Reusable row/shared/device allocation pool for successive nonlinear
+    /// Arrow-Schur iterations. Numerical factors are never stored here.
+    pub(crate) arrow_assembly_workspace: SaeArrowAssemblyWorkspace,
     /// Fitted Gaussian reconstruction dispersion used only by the empirical
     /// incoherence/curvature certificate-input report. `None` for synthetic terms
     /// or legacy internal callers that have not computed post-fit dispersion.
@@ -519,22 +491,11 @@ pub struct SaeManifoldTerm {
     /// carried alongside the EV so the multi-start can break (near-)equal-EV ties
     /// on coordinate fidelity ([`prefer_candidate_basin`]).
     pub(crate) best_cocollapse_incumbent: Option<(f64, Option<f64>, SaeManifoldMutableState)>,
-    /// Fit-level keep-best across the WHOLE outer ρ search (#1026 lifted one
-    /// level). The per-call incumbent inside `run_joint_fit_arrow_schur` only
-    /// protects one call: an outer probe sequence that walks the warm-start
-    /// state into a collapse basin loses the earlier good basin across calls
-    /// (measured on the manifold-zoo arena: in-call incumbents decayed
-    /// 0.77 → 0.54 → 0.38 while every call ended in an EV-degraded restore, and
-    /// the terminal model reconstructed held-out data at R² 0.18 against its own
-    /// best-visited 0.77). This banks the best (EV, uniformity, state) at every
-    /// ACCEPTED outer iterate — same [`prefer_candidate_basin`] ordering and
-    /// `SAE_FIT_DATA_COLLAPSE_EV_FLOOR` gate as the co-collapse ledger — and
-    /// `into_fitted` restores it when the terminal state reconstructs strictly
-    /// worse. Transient like `best_cocollapse_incumbent` (never persisted;
-    /// cleared at each outer-optimization entry). Snapshot states are row-count
-    /// bound, so a subsampled search term's bank dies with that term and never
-    /// crosses the full-row seam.
-    pub(crate) best_fit_incumbent: Option<(f64, Option<f64>, SaeManifoldMutableState)>,
+    /// Exact recurrence ledger for the OBJECTIVE-keyed in-call incumbent
+    /// restore. This is convergence evidence only: the saved state is compared
+    /// for identity on the next call and is never installed across ρ values or
+    /// after the outer certificate.
+    pub(crate) best_fit_incumbent: Option<SaeFitIncumbent>,
     /// Bounded high-EV structural-collapse reseeds spent by the frame-coherence
     /// guard in the current optimization. This is separate from total decoder
     /// co-collapse: these atoms still carry decoder norm and EV, but duplicate an
@@ -587,9 +548,9 @@ pub struct SaeManifoldTerm {
     /// SAME truncated active support as `q`'s denominators. Both are functions of
     /// the routing masses (hence the logits the inner Newton solve moves), so
     /// freezing them here keeps the barrier value, gradient, and curvature reading
-    /// the SAME `Q`, the SAME occupancy scale `n_C` (the occupancy-scaled Jeffreys
-    /// weight), and the SAME data-derived softening `ε_C` across an inner line
-    /// search. The decoder overlaps `O` are NOT frozen — they are the LIVE shapes
+    /// the SAME `Q`, the SAME per-atom effective sample sizes, and therefore the
+    /// SAME data-derived softening `ε_C` across an inner line search. The decoder
+    /// overlaps `O` are NOT frozen — they are the LIVE shapes
     /// the barrier separates
     /// ([`super::penalties::SaeManifoldTerm::decoder_gram_cosine_sq`]), moving with
     /// the trial decoders. The Jeffreys exponent `½` is fixed, so there is no
@@ -638,63 +599,18 @@ pub struct SaeManifoldTerm {
     /// [`Self::set_hybrid_linear_images`]. Consulted by
     /// [`Self::hybrid_linear_image_map`] so train and OOS share one collapse map.
     pub(crate) oos_linear_images: Option<Vec<crate::hybrid_split::AtomLinearImage>>,
-    /// #1777 PER-FIT decoder-repulsion CONDITIONER strength override `μ_C` — the
-    /// source of truth for the conditioner strength when set, replacing the
-    /// process-global [`set_sae_barrier_overrides`] atomic. NOTE: the primary
+    /// #1777 PER-FIT decoder-repulsion CONDITIONER strength override `μ_C`. The
+    /// primary
     /// separation barrier is now the parameter-free Jeffreys prior `−½ log det F`
     /// and ignores this; the override scales only the subdominant repulsion
     /// conditioner. `Some(μ_C)` forces the absolute strength (bypassing the #1610
     /// evidence-derived per-pair reciprocal-margin strengths), scoped to THIS
     /// term/fit so concurrent in-process fits are isolated; `0.0` disables the
-    /// conditioner. `None` ⇒ fall back to the deprecated process-global override,
-    /// then the evidence-derived strength. Read via
+    /// conditioner. `None` uses the evidence-derived strength. Read via
     /// [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]; set from
     /// the FFI through [`SaeManifoldTerm::set_fit_config`]. Carried across clones
     /// (persisted configuration, like the assignment mode).
     pub(crate) separation_barrier_strength_override: Option<f64>,
-    /// #2022 — persisted per-fit opt-in for the SCALE-gauge quotient (default
-    /// false ⇒ bit-for-bit historical path). When true, the decoder is confined
-    /// to the unit-Frobenius sphere with its magnitude in the explicit per-atom
-    /// log-amplitude (seed/step/refit peel + sphere retract). Set from the FFI
-    /// via the typed `quotient_scale` kwarg — no env lever. Carried across clones
-    /// like the other per-fit config.
-    pub(crate) quotient_scale: bool,
-    /// #1939 — persisted per-fit opt-in for the cone-atom RECOVERY retraction
-    /// (default false ⇒ bit-for-bit historical path). When true, at each accepted
-    /// OUTER-iterate boundary any atom whose decoder has COLLAPSED relative to its
-    /// dictionary peers (`‖B_k‖ < ratio·median`) is retracted onto the unit sphere
-    /// and its amplitude re-solved, re-homing a co-vanished born decoder without
-    /// touching healthy atoms. Distinct from `quotient_scale`: this does ONLY the
-    /// stable breach-gated boundary retraction and NEVER the #2022 per-Newton fold
-    /// (fit_drivers.rs:3227), so it cannot detonate a healthy fit. Carried across
-    /// clones like the other per-fit config.
-    pub(crate) cone_atom_recovery: bool,
-    /// #5/(B) — persisted per-fit opt-in (default false ⇒ bit-for-bit historical
-    /// path) for the RANK-CHARGE evidence criterion. When true, the Laplace
-    /// complexity's per-atom COORDINATE-block term ½log|H_tt| — which mis-prices
-    /// with the `log(a²‖B‖²)` scale (over-charging real atoms, rewarding
-    /// a²‖B‖²→0) — is replaced by the honest BIC ½·d_eff·log n on the atom's
-    /// realised decoder RANK: d_eff_k = rank_eff_k · basis_edf_k, rank_eff_k =
-    /// Σ_i s_i²/(s_i²+R) over the decoder singular values with a FIXED dictionary-
-    /// relative floor R (so a vanishing atom → rank→0 → charge 0 → neutral, the
-    /// co-collapse fix). Rotation-invariant; it does NOT distinguish a clean
-    /// circle from a blend (both rank-2) — that is the producer's job. Carried
-    /// across clones like the other per-fit config.
-    pub(crate) rank_charge_evidence: bool,
-    /// Theorem K — persisted per-fit opt-in (default false ⇒ bit-for-bit historical
-    /// path) for the WBIC SOFT rank-charge ledger. Only has effect when
-    /// `rank_charge_evidence` is also on: inside that branch the per-atom coefficient
-    /// of the occupancy log-scale `ln N_eff,k` becomes the finite-n WBIC learning
-    /// coefficient `λ_k = ½·rank_soft_k·basis_edf_k` (the β=1/log n_eff likelihood-tempered, prior-untempered count on
-    /// the occupancy-corrected reconstruction spectrum) instead of the hard limit
-    /// `½·d_eff,k`. The two coincide away from the Marchenko–Pastur edge (soft→hard)
-    /// and the soft one is strictly smaller near it — the honest Watanabe correction
-    /// for near-singular curved atoms. The rank_eff==0 categorical veto (a validity
-    /// condition, not a small charge) is unchanged. Carried across clones like the
-    /// other per-fit config so a cloned candidate (e.g. a stagewise per-birth clone)
-    /// keeps the same charge currency — the field, NOT a thread-local, is the source
-    /// of truth so it propagates correctly across rayon worker threads.
-    pub(crate) soft_rank_charge: bool,
     /// #2023 — persisted per-fit opt-in for the dead-atom DATA-ROW reseed
     /// (default false). Set from the FFI via the typed `data_row_reseed` kwarg —
     /// no env lever. Carried across clones.
@@ -721,6 +637,16 @@ pub struct SaeManifoldTerm {
     /// because the augmented output shares `t` and `a` by construction. Carried
     /// across clones so a cloned candidate keeps its behavioral identity.
     pub(crate) behavior: Option<crate::manifold::BehaviorBlock>,
+    /// Crosscoder — stacked-column layout of a multi-block fit: the anchor width
+    /// `p_x`, the per-layer output-block widths/labels, and the fitted per-block
+    /// relevance `log λ_ℓ`. `Some` after a [`SaeManifoldTerm::run_multiblock_reml_fit`]
+    /// (or an explicit [`SaeManifoldTerm::set_crosscoder_layout`]); it is the single
+    /// owner of the offset bookkeeping so [`SaeManifoldTerm::layer_decoder`] returns
+    /// an honest per-layer decoder `B_k^(ℓ)` without any caller re-slicing by hand.
+    /// Pure descriptor state (which columns are which layer, and each layer's
+    /// weight) — the joint fit never reads it, so `None` is the ordinary path,
+    /// bit-for-bit unchanged. Carried across clones like the behavior block.
+    pub(crate) crosscoder_layout: Option<crate::manifold::CrosscoderLayout>,
     /// #2023 C4 — the manifold-tier analogue of [`crate::tiered::Tier0Mean`]: the
     /// single shared mean μ (length `p`) that carries the global DC for THIS term.
     /// `None` (the default) ⇒ the historical, bit-for-bit path (no Tier-0; every
@@ -738,25 +664,18 @@ pub struct SaeManifoldTerm {
     pub(crate) tier0_mean: Option<Array1<f64>>,
 }
 
-/// #1777 — PER-FIT configuration overrides the FFI sets on a term to isolate a
-/// fit from the deprecated process-global atomics
-/// ([`set_sae_barrier_overrides`] / [`crate::assignment::set_ibp_alpha_override`]).
-///
-/// This is the additive, back-compatible config surface the Python/FFI layer
-/// consumes: build it, then apply it with [`SaeManifoldTerm::set_fit_config`]. Any
-/// `None` field leaves the corresponding axis on its historical fallback
-/// (process-global override, then the compiled/data-derived default), so an
-/// all-`None` config is a strict no-op. Both fields are the SOURCE OF TRUTH for
-/// their axis when `Some`, so two terms carrying different configs produce
-/// correspondingly-different barrier/α WITHOUT touching any global — concurrent
-/// fits are isolatable.
+/// Per-fit SAE configuration consumed by the Python/FFI layer. Build it, then
+/// apply it with [`SaeManifoldTerm::set_fit_config`]. A `None` field selects the
+/// corresponding canonical data-derived or assignment-mode default. Both fields
+/// are the source of truth for their axis when `Some`, so concurrent fits remain
+/// fully isolated.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct SaeFitConfig {
-    /// Per-fit separation-barrier strength `μ_C`. `Some` bypasses both the global
-    /// override and the #1610 evidence-derived per-pair strengths (`0.0` = barrier off).
+    /// Per-fit separation-barrier strength `μ_C`. `Some` bypasses the #1610
+    /// evidence-derived per-pair strengths (`0.0` = conditioner off).
     pub separation_barrier_strength_override: Option<f64>,
-    /// Per-fit truncated-IBP concentration `α`. `Some` bypasses both the global
-    /// override and the mode's own `α` / learnable schedule.
+    /// Per-fit truncated-IBP concentration `α`. `Some` bypasses the mode's own
+    /// `α` / learnable schedule.
     pub ibp_alpha_override: Option<f64>,
 }
 
@@ -765,11 +684,13 @@ impl Clone for SaeManifoldTerm {
         Self {
             atoms: self.atoms.clone(),
             assignment: self.assignment.clone(),
+            chart_atlases: self.chart_atlases.clone(),
             temperature_schedule: self.temperature_schedule.clone(),
             last_row_layout: self.last_row_layout.clone(),
             row_metric: self.row_metric.clone(),
             collapse_events: self.collapse_events.clone(),
             row_loss_weights: self.row_loss_weights.clone(),
+            crosscoder_pricing_spans: self.crosscoder_pricing_spans.clone(),
             last_frames_active: self.last_frames_active,
             assembly_chunk_override: self.assembly_chunk_override,
             fixed_decoder_assembly: false,
@@ -777,6 +698,7 @@ impl Clone for SaeManifoldTerm {
             // clones so a cloned term optimizes the same compact top-`k` problem.
             softmax_active_cap: self.softmax_active_cap,
             border_hbb_workspace: Array2::<f64>::zeros((0, 0)),
+            arrow_assembly_workspace: SaeArrowAssemblyWorkspace::default(),
             certificate_dispersion: self.certificate_dispersion,
             curvature_walk_report: self.curvature_walk_report.clone(),
             expected_evidence_gauge_deflated_directions: self
@@ -805,16 +727,16 @@ impl Clone for SaeManifoldTerm {
             // #1777 — persisted per-fit config, carried across clones like the
             // assignment mode so a cloned term keeps the same barrier override.
             separation_barrier_strength_override: self.separation_barrier_strength_override,
-            quotient_scale: self.quotient_scale,
-            cone_atom_recovery: self.cone_atom_recovery,
-            rank_charge_evidence: self.rank_charge_evidence,
-            soft_rank_charge: self.soft_rank_charge,
             data_row_reseed: self.data_row_reseed,
             guards_enabled: self.guards_enabled,
             // Rung-2 behavioral identity is persisted configuration (like the
             // assignment mode / barrier override), carried across clones so a
             // cloned candidate fits the same augmented two-block problem.
             behavior: self.behavior.clone(),
+            // Crosscoder stacked-column layout is persisted descriptor state (like
+            // the behavior block), carried across clones so a cloned candidate
+            // reports the same per-layer decoders.
+            crosscoder_layout: self.crosscoder_layout.clone(),
             // #2023 C4 — persisted Tier-0 shared mean, carried across clones like
             // the assignment mode so a cloned candidate de-means identically.
             tier0_mean: self.tier0_mean.clone(),
@@ -823,101 +745,84 @@ impl Clone for SaeManifoldTerm {
 }
 
 /// Snapshot of exactly the mutable term state that an `apply_newton_step` +
-/// `loss` line-search trial perturbs: per-atom decoder coefficients, the
-/// `refresh_basis`-rebuilt basis evaluations (`basis_values`, `basis_jacobian`),
-/// and the live intrinsic smoothness Gram read by the objective, plus the
-/// assignment logits and latent coordinates.
+/// `loss` line-search trial perturbs, stored DIFFERENTIALLY: the CHEAP driving
+/// state — decoder coefficients, the live intrinsic smoothness Gram, and the
+/// per-atom basis-determining handles (`basis_evaluator`, `basis_second_jet`,
+/// `homotopy_eta`) — plus the assignment logits, latent coordinates, and row
+/// layout.
 ///
-/// Static fields (atom names, basis kinds, basis-evaluator `Arc`s, assignment
-/// mode, temperature schedule) are *not* snapshotted: they are invariant across
-/// an inner Newton line search, so the previous `self.clone()` per halving
-/// re-copied them needlessly. Cloning only the line-search state keeps the
-/// `O(N·M·d)` `basis_jacobian` copy off the per-halving hot path (one snapshot
-/// before the search, one restore per rejected trial) instead of firing it on
-/// every Armijo backtrack.
+/// The expensive `basis_values` (`N×M`) and `basis_jacobian` (`N×M×d`) arrays are
+/// NOT stored: they are pure deterministic functions of `(coords, basis_evaluator,
+/// homotopy_eta)` via [`SaeManifoldAtom::refresh_basis`]. At the production curved
+/// tier (K=512, N=96k, M=7, d=1) copying them was ~5.5 GB of `memcpy` per snapshot
+/// — taken once per Newton line search, per incumbent-banking improvement, per
+/// basin-bundle member, per polish round — the dominant memory-bandwidth wall.
+/// [`SaeManifoldTerm::restore_mutable_state`] reassigns the cheap state, restores
+/// the basis-determining handles, and rebuilds `basis_values`/`basis_jacobian`
+/// in place via `refresh_basis_from_current_coords` (reusing the atoms' existing
+/// buffers through `SaeBasisEvaluator::evaluate_into`). Restores happen only on
+/// REJECTED trials / incumbent rollbacks, which are rare relative to snapshots, so
+/// trading a snapshot-time `O(K·N·M·(1+d))` copy for a restore-time single basis
+/// evaluation is a large net win — and the previous restore ALSO deep-copied the
+/// basis via `.assign()`, so restore gets cheaper too.
+///
+/// The basis-determining handles are captured because `basis_values` is a function
+/// of the evaluator and `η`, not of the coordinates alone: `canonicalize_atom_
+/// affine_gauge` swaps `basis_evaluator`/`basis_second_jet`, and the curvature-
+/// homotopy walk moves `homotopy_eta`. Restoring all three makes the rebuilt basis
+/// bit-identical to the snapshotted state in every case (the affine-gauge reject
+/// and the η=0 base-topology anchor restore both re-derive the exact pre-change
+/// basis), where the previous direct `basis_values` restore left a mixed evaluator/
+/// η state. The `Arc`/`f64` handles are pointer-cheap to clone.
+///
+/// Static fields (atom names, basis kinds, assignment mode, temperature schedule)
+/// are still not snapshotted: they are invariant across a Newton line search.
+/// The profiled decoder frame is not static: the block-coordinate polar refresh
+/// changes it between Newton steps, so it is part of the canonical state below.
 ///
 /// The canonical `smooth_penalty_raw` / `smooth_penalty_order` are static, but
 /// the live intrinsic roughness Gram `smooth_penalty` is mutable state: it is
 /// refreshed by assembly from the current decoder and basis Jacobian, and the
-/// line-search objective reads it directly. Restoring it with the decoder and
-/// basis caches keeps every rejected trial's baseline and nonlinear objective
-/// on the same lagged-diffusivity quadratic.
+/// line-search objective reads it directly. Restoring it with the decoder keeps
+/// every rejected trial's baseline and nonlinear objective on the same
+/// lagged-diffusivity quadratic.
 #[derive(Debug)]
 pub(crate) struct SaeManifoldMutableState {
-    /// Per-atom `(basis_values, basis_jacobian, decoder_coefficients, smooth_penalty)`.
-    pub(crate) atoms: Vec<(Array2<f64>, Array3<f64>, Array2<f64>, Array2<f64>)>,
+    /// Per-atom differential state
+    /// `(decoder_coefficients, decoder_frame, smooth_penalty, basis_evaluator,
+    /// basis_second_jet, homotopy_eta)`. `basis_values`/`basis_jacobian` are
+    /// rebuilt on restore.
+    pub(crate) atoms: Vec<SaeManifoldAtomSnapshot>,
     pub(crate) logits: Array2<f64>,
     pub(crate) coords: Vec<LatentCoordValues>,
     pub(crate) last_row_layout: Option<SaeRowLayout>,
 }
 
-#[cfg(test)]
-mod soft_rank_charge_flag_tests {
-    use crate::manifold::{
-        AssignmentMode, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
-        SaeBasisEvaluator, SaeManifoldAtom, SaeManifoldTerm,
-    };
-    use gam_terms::latent::LatentManifold;
-    use ndarray::Array2;
-    use std::sync::Arc;
+/// Recurrent objective-incumbent identity and its outer-stationarity evidence.
+///
+/// `consecutive_inner_restores` counts successful joint-fit calls that ended by
+/// restoring exactly the same objective-keyed in-call incumbent (checked on the
+/// snapshot's decoder, gates, coordinates, evaluator handles, and homotopy
+/// dial). Any different terminal state resets the count. The EFS bridge consumes
+/// this as a typed termination certificate instead of inferring flatness from a
+/// workload-tuned relative-cost threshold.
+#[derive(Debug)]
+pub(crate) struct SaeFitIncumbent {
+    pub(crate) state: SaeManifoldMutableState,
+    pub(crate) consecutive_inner_restores: usize,
+}
 
-    /// A minimal unfitted K=1 periodic term — enough to exercise the manual
-    /// `Clone for SaeManifoldTerm` field copy (no joint fit needed).
-    fn tiny_term() -> SaeManifoldTerm {
-        let n = 8usize;
-        let p = 4usize;
-        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
-        let coords = Array2::<f64>::from_shape_fn((n, 1), |(r, _)| r as f64 / n as f64);
-        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-        let mut decoder = Array2::<f64>::zeros((3, p));
-        decoder[[1, 0]] = 1.0;
-        decoder[[2, 1]] = 1.0;
-        let atom = SaeManifoldAtom::new(
-            "circle".to_string(),
-            SaeAtomBasisKind::Periodic,
-            1,
-            phi,
-            jet,
-            decoder,
-            Array2::<f64>::eye(3),
-        )
-        .unwrap();
-        let logits = Array2::<f64>::from_elem((n, 1), 1.0);
-        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-            logits,
-            vec![coords],
-            vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::ibp_map(0.7, 1.0, false),
-        )
-        .unwrap();
-        SaeManifoldTerm::new(vec![atom], assignment).unwrap()
-    }
-
-    /// The Theorem K soft-rank-charge opt-in must default OFF (bit-identical hard
-    /// path) and, being persisted per-fit config, must PROPAGATE across the manual
-    /// `Clone` impl. Stagewise clones the term once per birth and parallel folds
-    /// hand clones to rayon workers, so a flag that failed to clone would silently
-    /// drop the soft charge in exactly those paths (the reason the earlier
-    /// thread-local gate was replaced by this field).
-    #[test]
-    fn soft_rank_charge_defaults_false_and_clones() {
-        let mut term = tiny_term();
-        assert!(
-            !term.soft_rank_charge(),
-            "soft_rank_charge must default OFF (bit-identical historical hard path)"
-        );
-        assert!(!term.clone().soft_rank_charge(), "a false flag must clone as false");
-
-        term.set_soft_rank_charge(true);
-        assert!(term.soft_rank_charge());
-        assert!(
-            term.clone().soft_rank_charge(),
-            "soft_rank_charge=true must propagate across the manual Clone (stagewise \
-             per-birth clone / rayon worker), NOT silently reset"
-        );
-
-        term.set_soft_rank_charge(false);
-        assert!(!term.soft_rank_charge());
-        assert!(!term.clone().soft_rank_charge());
-    }
+/// Per-atom differential snapshot — see [`SaeManifoldMutableState`].
+#[derive(Debug)]
+pub(crate) struct SaeManifoldAtomSnapshot {
+    pub(crate) decoder_coefficients: Array2<f64>,
+    /// Canonical profiled Grassmann frame, including the singular-value gauge
+    /// that fixes its serialized representative. Evidence-map recurrence must
+    /// compare both: a hidden polar-frame update changes the profiled criterion
+    /// even when the decoder/coordinate snapshot happens to recur (#2253).
+    pub(crate) decoder_frame: Option<GrassmannFrame>,
+    pub(crate) smooth_penalty: Array2<f64>,
+    pub(crate) basis_evaluator: Option<Arc<dyn SaeBasisEvaluator>>,
+    pub(crate) basis_second_jet: Option<Arc<dyn SaeBasisSecondJet>>,
+    pub(crate) homotopy_eta: f64,
 }

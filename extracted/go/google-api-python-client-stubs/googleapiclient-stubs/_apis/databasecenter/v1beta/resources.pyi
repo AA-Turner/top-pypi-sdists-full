@@ -16,11 +16,7 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class FoldersResource(googleapiclient.discovery.Resource):
         def aggregateQueryStats(
-            self,
-            *,
-            parent: str,
-            body: AggregateQueryStatsRequest = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: AggregateQueryStatsRequest, **kwargs: typing.Any
         ) -> AggregateQueryStatsResponseHttpRequest: ...
         def aggregateQueryStats_next(
             self,
@@ -31,11 +27,7 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class OrganizationsResource(googleapiclient.discovery.Resource):
         def aggregateQueryStats(
-            self,
-            *,
-            parent: str,
-            body: AggregateQueryStatsRequest = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: AggregateQueryStatsRequest, **kwargs: typing.Any
         ) -> AggregateQueryStatsResponseHttpRequest: ...
         def aggregateQueryStats_next(
             self,
@@ -46,11 +38,7 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class ProjectsResource(googleapiclient.discovery.Resource):
         def aggregateQueryStats(
-            self,
-            *,
-            parent: str,
-            body: AggregateQueryStatsRequest = ...,
-            **kwargs: typing.Any,
+            self, *, parent: str, body: AggregateQueryStatsRequest, **kwargs: typing.Any
         ) -> AggregateQueryStatsResponseHttpRequest: ...
         def aggregateQueryStats_next(
             self,
@@ -63,15 +51,15 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
         def aggregateFleet(
             self,
             *,
-            baselineDate_day: int = ...,
-            baselineDate_month: int = ...,
-            baselineDate_year: int = ...,
-            filter: str = ...,
-            groupBy: str = ...,
-            orderBy: str = ...,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            baselineDate_day: int | None = ...,
+            baselineDate_month: int | None = ...,
+            baselineDate_year: int | None = ...,
+            filter: str | None = ...,
+            groupBy: str | None = ...,
+            orderBy: str | None = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> AggregateFleetResponseHttpRequest: ...
         def aggregateFleet_next(
@@ -80,13 +68,10 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
             previous_response: AggregateFleetResponse,
         ) -> AggregateFleetResponseHttpRequest | None: ...
         def aggregateIssueStats(
-            self, *, body: AggregateIssueStatsRequest = ..., **kwargs: typing.Any
+            self, *, body: AggregateIssueStatsRequest, **kwargs: typing.Any
         ) -> AggregateIssueStatsResponseHttpRequest: ...
         def queryDatabaseResourceGroups(
-            self,
-            *,
-            body: QueryDatabaseResourceGroupsRequest = ...,
-            **kwargs: typing.Any,
+            self, *, body: QueryDatabaseResourceGroupsRequest, **kwargs: typing.Any
         ) -> QueryDatabaseResourceGroupsResponseHttpRequest: ...
         def queryDatabaseResourceGroups_next(
             self,
@@ -94,7 +79,7 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
             previous_response: QueryDatabaseResourceGroupsResponse,
         ) -> QueryDatabaseResourceGroupsResponseHttpRequest | None: ...
         def queryIssues(
-            self, *, body: QueryIssuesRequest = ..., **kwargs: typing.Any
+            self, *, body: QueryIssuesRequest, **kwargs: typing.Any
         ) -> QueryIssuesResponseHttpRequest: ...
         def queryIssues_next(
             self,
@@ -104,9 +89,9 @@ class DatabaseCenterResource(googleapiclient.discovery.Resource):
         def queryProducts(
             self,
             *,
-            pageSize: int = ...,
-            pageToken: str = ...,
-            parent: str = ...,
+            pageSize: int | None = ...,
+            pageToken: str | None = ...,
+            parent: str | None = ...,
             **kwargs: typing.Any,
         ) -> QueryProductsResponseHttpRequest: ...
         def queryProducts_next(

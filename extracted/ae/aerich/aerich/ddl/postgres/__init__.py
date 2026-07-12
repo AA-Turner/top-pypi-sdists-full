@@ -46,8 +46,10 @@ class PostgresDDL(BaseDDL):
             table_name=db_table,
             column=field_describe.get("db_column") or field_describe.get("raw_field"),
             comment=(
-                "'{}'".format(field_describe.get("description"))
-                if field_describe.get("description")
+                "{quote}{comment}{quote}".format(
+                    quote="'", comment=self.schema_generator._escape_comment(desc)
+                )
+                if (desc := field_describe.get("description"))
                 else "NULL"
             ),
         )
@@ -64,5 +66,5 @@ class PostgresDDL(BaseDDL):
         contraint_name = f"{table_name}_{field_name}_key"
         drop_constraint = self.drop_unique_constraint(model, contraint_name)
         # To avoid connecting db to validate INDEX/CONSTRAINT, drop both of them
-        # as the templates of drop index/contraints are using 'IF EXISTS'.
+        # as the templates of drop index/constraints are using 'IF EXISTS'.
         return [drop_normal_index, drop_constraint]

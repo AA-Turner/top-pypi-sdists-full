@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysql-replication
-Version: 1.0.15
+Version: 1.0.16
 Summary: Pure Python Implementation of MySQL replication protocol build on top of PyMYSQL.
 Home-page: https://github.com/julien-duponchelle/python-mysql-replication
 Author: Julien Duponchelle

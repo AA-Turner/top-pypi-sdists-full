@@ -22,7 +22,11 @@ use crate::custom_family::{
     ExactNewtonJointHessianWorkspace, FamilyEvaluation, ParameterBlockSpec, ParameterBlockState,
     PenaltyMatrix, fit_custom_family, fit_custom_family_fixed_log_lambdas,
 };
+use crate::fit_orchestration::drivers::freeze_term_collection_from_design;
 use crate::gamlss::{FamilyMetadata, ParameterLink};
+use crate::model_types::UnifiedFitResult;
+use crate::probability::signed_log_sum_exp;
+use crate::quadrature::{IntegratedExpectationMode, QuadratureContext};
 use crate::sigma_link::{exp_sigma_eta_for_sigma_scalar, exp_sigma_from_eta_scalar};
 use crate::survival::latent::interval::{
     LatentFrailtyResolution, LatentIntervalModel, LatentIntervalRowView,
@@ -36,15 +40,9 @@ use crate::survival::lognormal_kernel::{
     log_kernel_bundle,
 };
 use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix, SymmetricMatrix};
-use crate::model_types::UnifiedFitResult;
-use gam_solve::pirls::LinearInequalityConstraints;
-use crate::probability::signed_log_sum_exp;
-use crate::quadrature::{IntegratedExpectationMode, QuadratureContext};
-use gam_terms::smooth::{
-    TermCollectionDesign, TermCollectionSpec, build_term_collection_design,
-};
-use crate::fit_orchestration::drivers::freeze_term_collection_from_design;
 use gam_problem::MIN_WEIGHT;
+use gam_solve::pirls::LinearInequalityConstraints;
+use gam_terms::smooth::{TermCollectionDesign, TermCollectionSpec, build_term_collection_design};
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, s};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -87,9 +85,7 @@ impl_reason_error_boilerplate! {
 }
 
 impl From<crate::block_layout::block_count::BlockCountMismatch> for LatentSurvivalError {
-    fn from(
-        err: crate::block_layout::block_count::BlockCountMismatch,
-    ) -> LatentSurvivalError {
+    fn from(err: crate::block_layout::block_count::BlockCountMismatch) -> LatentSurvivalError {
         LatentSurvivalError::BlockMismatch {
             reason: err.message(),
         }
@@ -583,6 +579,9 @@ pub fn fit_latent_survival_terms(
         // Right-censored-at-L ignores the interval upper bound `R`, so the
         // (unused) `q_right` channel cannot drift the fit; leaving the right
         // design/mass in place is harmless (no interval row remains to read it).
+        // Fixed-λ surrogate: no outer smoothing loop runs here, and the inner
+        // solve is convergence-gated inside `fit_custom_family_fixed_log_lambdas`,
+        // so the assembled surrogate fit is (vacuously) outer-converged.
         let warm_fit_result = fit_custom_family_fixed_log_lambdas(
             &warm_family,
             &blocks,
@@ -590,7 +589,7 @@ pub fn fit_latent_survival_terms(
             None,
             0,
             None,
-            false,
+            true,
         );
         let warm_fit = match warm_fit_result {
             Ok(fit) => fit,
@@ -630,7 +629,7 @@ pub fn fit_latent_survival_terms(
                     None,
                     0,
                     None,
-                    false,
+                    true,
                 )
                 .map_err(|event_error| {
                     format!(
@@ -2380,24 +2379,12 @@ impl LatentSurvivalFamily {
     pub fn offset_channel_residuals(
         &self,
         block_states: &[ParameterBlockState],
-    ) -> Result<crate::survival::OffsetChannelResiduals, String> {
+    ) -> Result<crate::survival::OffsetChannelResiduals, LatentSurvivalError> {
         let n = self.event_target.len();
-        if block_states.is_empty() {
-            // Degraded-fit fallback mirroring the location-scale family: an
-            // empty block-state slate (ARC deterministic-replay stall) yields
-            // zero residuals so the outer baseline-θ BFGS sees ‖g‖ = 0 and
-            // terminates cleanly at the current θ̂ rather than panicking.
-            log::warn!(
-                "LatentSurvivalFamily::offset_channel_residuals: block_states is empty \
-                 (degraded fit); returning zero offset residuals (n={n})"
-            );
-            return Ok(crate::survival::OffsetChannelResiduals {
-                exit: Array1::<f64>::zeros(n),
-                entry: Array1::<f64>::zeros(n),
-                derivative: Array1::<f64>::zeros(n),
-                right: Array1::<f64>::zeros(n),
-            });
-        }
+        // `split_time_eta` validates the complete block slate before indexing
+        // it and returns `LatentSurvivalError::BlockMismatch` when fitted state
+        // is missing. There is deliberately no zero-residual fallback: zeros
+        // would manufacture a stationary outer baseline gradient.
         let (q_entry, q_exit, qdot_exit, mu) = self.split_time_eta(block_states)?;
         let q_right = self.time_q_right(block_states)?;
         let sigma = self.latent_sd(block_states)?;
@@ -2428,7 +2415,8 @@ impl LatentSurvivalFamily {
                 mu[row_idx],
                 sigma,
                 include_log_sigma,
-            )?;
+            )
+            .map_err(|reason| LatentSurvivalError::NumericalFailure { reason })?;
             // ∂NLL/∂o_ch = −w · ∂(log-likelihood)/∂q_ch.
             entry[row_idx] = -wi * primary_gradient[LATENT_SURVIVAL_PRIMARY_Q_ENTRY];
             exit[row_idx] = -wi * primary_gradient[LATENT_SURVIVAL_PRIMARY_Q_EXIT];
@@ -3556,20 +3544,11 @@ impl LatentBinaryFamily {
     pub fn offset_channel_residuals(
         &self,
         block_states: &[ParameterBlockState],
-    ) -> Result<crate::survival::OffsetChannelResiduals, String> {
+    ) -> Result<crate::survival::OffsetChannelResiduals, LatentSurvivalError> {
         let n = self.event_target.len();
-        if block_states.is_empty() {
-            log::warn!(
-                "LatentBinaryFamily::offset_channel_residuals: block_states is empty \
-                 (degraded fit); returning zero offset residuals (n={n})"
-            );
-            return Ok(crate::survival::OffsetChannelResiduals {
-                exit: Array1::<f64>::zeros(n),
-                entry: Array1::<f64>::zeros(n),
-                derivative: Array1::<f64>::zeros(n),
-                right: Array1::<f64>::zeros(n),
-            });
-        }
+        // `split_time_eta` returns a typed block-count error before indexing.
+        // Missing state is never translated into zero residuals, because that
+        // would falsely certify the enclosing baseline optimization.
         let (q_entry, q_exit, mu) = self.split_time_eta(block_states)?;
         let mut entry = Array1::<f64>::zeros(n);
         let mut exit = Array1::<f64>::zeros(n);
@@ -3591,7 +3570,8 @@ impl LatentBinaryFamily {
                     mu[row_idx],
                     self.latent_sd,
                     false,
-                )?;
+                )
+                .map_err(|reason| LatentSurvivalError::NumericalFailure { reason })?;
             let binary = binary_from_log_survival(row_log_survival, self.event_target[row_idx])?;
             // ∂NLL/∂o_ch = −w · grad_scale · ∂(log S)/∂q_ch.
             entry[row_idx] =
@@ -4020,6 +4000,17 @@ impl<F> ExactNewtonJointHessianWorkspace for LatentHessianWorkspace<F>
 where
     F: LatentJointHessianFamily + Send + Sync + 'static,
 {
+    fn warm_up_outer_caches_for_mode(
+        &self,
+        eval_mode: gam_problem::EvalMode,
+    ) -> Result<(), String> {
+        match eval_mode {
+            gam_problem::EvalMode::ValueOnly
+            | gam_problem::EvalMode::ValueAndGradient
+            | gam_problem::EvalMode::ValueGradientHessian => Ok(()),
+        }
+    }
+
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         self.family
             .ws_evaluate_dense(&self.block_states)
@@ -4776,6 +4767,32 @@ mod tests {
             x_mean: DesignMatrix::Dense(DenseDesignMatrix::from(array![[1.0, -0.3], [0.2, 0.9]])),
             time_linear_constraints: None,
             quadctx: Arc::new(QuadratureContext::new()),
+        }
+    }
+
+    #[test]
+    fn latent_survival_offset_residuals_reject_missing_block_state() {
+        let error = learnable_sigma_test_family()
+            .offset_channel_residuals(&[])
+            .expect_err("missing fitted blocks must not become zero residuals");
+        match error {
+            LatentSurvivalError::BlockMismatch { reason } => {
+                assert!(reason.contains("got 0"), "unexpected mismatch: {reason}");
+            }
+            other => panic!("missing fitted blocks must be a block mismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn latent_binary_offset_residuals_reject_missing_block_state() {
+        let error = fixed_sigma_binary_test_family()
+            .offset_channel_residuals(&[])
+            .expect_err("missing fitted blocks must not become zero residuals");
+        match error {
+            LatentSurvivalError::BlockMismatch { reason } => {
+                assert!(reason.contains("got 0"), "unexpected mismatch: {reason}");
+            }
+            other => panic!("missing fitted blocks must be a block mismatch, got {other:?}"),
         }
     }
 

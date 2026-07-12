@@ -1,8 +1,9 @@
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+use opt::{BacktrackConfig, armijo_roundoff_cushion, backtracking_line_search};
 
 use crate::manifold::{
     GeometryError, GeometryResult, RiemannianManifold, check_len, cholesky_spd, dot, flatten,
-    from_flat, inverse, spectral_map_spd, spectral_map_symmetric, sym,
+    from_flat, inverse, jacobi_symmetric, spectral_map_spd, spectral_map_symmetric, sym,
     tangent_basis_metric_orthonormal,
 };
 
@@ -260,38 +261,193 @@ impl RiemannianManifold for SpdManifold {
         Ok(flatten(&sym(&grad)))
     }
 
+    /// Analytic vector–Jacobian product of the affine-invariant exponential
+    /// [`exp_map`](RiemannianManifold::exp_map), hand-derived via the
+    /// Daleckii–Krein theorem.
+    ///
+    /// The forward map is the composition
+    ///
+    /// ```text
+    ///   U = sym(T),  S = P^{1/2},  S⁻ = P^{-1/2},
+    ///   M = S⁻ U S⁻,  E = exp(M),  Y = S E S,
+    /// ```
+    ///
+    /// and every non-linear stage is a primary matrix function of a symmetric
+    /// argument, whose Fréchet derivative at `A = Q Λ Qᵀ` is the Daleckii–Krein
+    /// divided-difference form `Df(A)[H] = Q (Φ_f ∘ (Qᵀ H Q)) Qᵀ` with
+    /// `Φ_f[i,j] = f[λ_i, λ_j]` (first divided difference; `f'(λ_i)` on the
+    /// diagonal and for clustered eigenvalues). That map is self-adjoint under
+    /// the Frobenius pairing, so each cotangent pulls back through the SAME
+    /// divided-difference conjugation, and the product-rule terms of
+    /// `Y = S E S`, `M = S⁻ U S⁻` transpose in closed form. The three divided
+    /// differences involved are evaluated in cancellation-free closed forms:
+    ///
+    /// * `exp`: `e^max(a,b)·[-expm1(-|a−b|)]/|a−b|` (`= e^a` at
+    ///   equality);
+    /// * `√x`: `1/(√a + √b)`;
+    /// * `x^{-1/2}`: `−1/(√a·√b·(√a + √b))`;
+    ///
+    /// so repeated/clustered eigenvalues need no branch beyond the exact
+    /// `h → 0` limit of `sinh(h)/h`. The returned pair is
+    /// `(∂⟨G, Y⟩/∂point, ∂⟨G, Y⟩/∂tangent)` for the raw flattened inputs; the
+    /// `sym` projections of the forward map are their own adjoints and are
+    /// applied to both outputs.
     fn exp_map_vjp(
         &self,
         point: ArrayView1<'_, f64>,
         tangent_vec: ArrayView1<'_, f64>,
         grad_output: ArrayView1<'_, f64>,
     ) -> GeometryResult<(Array1<f64>, Array1<f64>)> {
+        use gam_linalg::faer_ndarray::fast_ab;
         let m = self.ambient_dim();
         check_len("SPD exp_map_vjp point", point.len(), m)?;
         check_len("SPD exp_map_vjp tangent", tangent_vec.len(), m)?;
         check_len("SPD exp_map_vjp grad", grad_output.len(), m)?;
-        // The affine-invariant SPD exponential VJP requires differentiating
-        // the symmetric matrix exponential / Fréchet derivative; no closed
-        // form is wired up. Refuse rather than inherit the identity default.
-        Err(GeometryError::Unsupported(
-            "SPD exp_map_vjp: no analytic backward implemented",
-        ))
+
+        // Forward quantities, recomputed from the eigendecompositions the
+        // divided-difference pullbacks need anyway.
+        let p = self.matrix(point)?;
+        let u = sym(&from_flat(tangent_vec, self.n, self.n)?);
+        let (p_evals, p_vecs) = jacobi_symmetric(&p)?;
+        for &lam in p_evals.iter() {
+            if !(lam.is_finite() && lam > 0.0) {
+                return Err(GeometryError::InvalidPoint(
+                    "SPD eigenvalue is not positive",
+                ));
+            }
+        }
+        let sqrt_p = spectral_reconstruct(&p_vecs, &p_evals, f64::sqrt);
+        let inv_sqrt_p = spectral_reconstruct(&p_vecs, &p_evals, |x| 1.0 / x.sqrt());
+        let middle = sym(&fast_ab(&fast_ab(&inv_sqrt_p, &u), &inv_sqrt_p));
+        let (m_evals, m_vecs) = jacobi_symmetric(&middle)?;
+        let exp_middle = spectral_reconstruct(&m_vecs, &m_evals, f64::exp);
+
+        // Adjoint of the trailing `flatten(sym(·))`.
+        let g_y = sym(&from_flat(grad_output, self.n, self.n)?);
+
+        // Y = S E S: Ḡ_E = S Ḡ_Y S, Ḡ_S = Ḡ_Y S E + E S Ḡ_Y.
+        let g_e = fast_ab(&fast_ab(&sqrt_p, &g_y), &sqrt_p);
+        let g_s = &fast_ab(&fast_ab(&g_y, &sqrt_p), &exp_middle)
+            + &fast_ab(&fast_ab(&exp_middle, &sqrt_p), &g_y);
+
+        // E = exp(M): the Daleckii–Krein map is self-adjoint, so
+        // Ḡ_M = Q (Φ_exp ∘ (Qᵀ Ḡ_E Q)) Qᵀ.
+        let g_m = daleckii_krein_pullback(&m_vecs, &m_evals, exp_divided_difference, &sym(&g_e));
+
+        // M = S⁻ U S⁻: Ḡ_U = S⁻ Ḡ_M S⁻, Ḡ_{S⁻} = Ḡ_M S⁻ U + U S⁻ Ḡ_M.
+        let g_u = fast_ab(&fast_ab(&inv_sqrt_p, &g_m), &inv_sqrt_p);
+        let g_s_inv =
+            &fast_ab(&fast_ab(&g_m, &inv_sqrt_p), &u) + &fast_ab(&fast_ab(&u, &inv_sqrt_p), &g_m);
+
+        // S = P^{1/2} and S⁻ = P^{-1/2} pull back through their own
+        // divided-difference conjugations on P's eigendecomposition.
+        let g_p = &daleckii_krein_pullback(&p_vecs, &p_evals, sqrt_divided_difference, &sym(&g_s))
+            + &daleckii_krein_pullback(
+                &p_vecs,
+                &p_evals,
+                inv_sqrt_divided_difference,
+                &sym(&g_s_inv),
+            );
+
+        // Adjoints of the leading `sym` projections of point and tangent.
+        Ok((flatten(&sym(&g_p)), flatten(&sym(&g_u))))
     }
 }
 
-/// Squared metric norm `‖v‖²_P = vᵀ G(P) v = tr(P⁻¹ V P⁻¹ V)` of the (already
-/// symmetric) flat tangent vector `v` at base point `P`, computed without
-/// forming the `n²×n²` Kronecker metric. `pinv = P⁻¹`.
-fn affine_sq_norm(n: usize, pinv: &Array2<f64>, v: ArrayView1<'_, f64>) -> GeometryResult<f64> {
+/// `V · diag(f(λ)) · Vᵀ` from an eigendecomposition already in hand (the VJP
+/// needs the factors themselves, so it cannot use `spectral_map_spd`, which
+/// re-decomposes internally and discards them).
+fn spectral_reconstruct(
+    vecs: &Array2<f64>,
+    evals: &Array1<f64>,
+    f: impl Fn(f64) -> f64,
+) -> Array2<f64> {
+    use gam_linalg::faer_ndarray::{fast_ab, fast_abt};
+    let n = evals.len();
+    let mut diag = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        diag[[i, i]] = f(evals[i]);
+    }
+    fast_abt(&fast_ab(vecs, &diag), vecs)
+}
+
+/// Pull a symmetric cotangent `c` back through the Fréchet derivative of a
+/// primary matrix function at `A = Q Λ Qᵀ`: the Daleckii–Krein map
+/// `H ↦ Q (Φ ∘ (Qᵀ H Q)) Qᵀ` is self-adjoint under the Frobenius pairing
+/// (`Φ` is symmetric), so the pullback applies the same conjugation to `c`.
+fn daleckii_krein_pullback(
+    vecs: &Array2<f64>,
+    evals: &Array1<f64>,
+    divided_difference: impl Fn(f64, f64) -> f64,
+    c: &Array2<f64>,
+) -> Array2<f64> {
+    use gam_linalg::faer_ndarray::{fast_ab, fast_abt, fast_atb};
+    let n = evals.len();
+    let mut inner = fast_ab(&fast_atb(vecs, c), vecs);
+    for i in 0..n {
+        for j in 0..n {
+            inner[[i, j]] *= divided_difference(evals[i], evals[j]);
+        }
+    }
+    fast_abt(&fast_ab(vecs, &inner), vecs)
+}
+
+/// First divided difference of `exp`: `(e^a − e^b)/(a − b)`. Factoring
+/// out the larger exponential gives the cancellation-free form
+/// `e^hi·[-expm1(-gap)]/gap`, where `gap = |a−b|`. Besides resolving the
+/// clustered limit analytically, this avoids the indeterminate `0·∞` produced
+/// by the equivalent midpoint/sinh identity when both eigenvalues are very
+/// negative but far apart.
+fn exp_divided_difference(a: f64, b: f64) -> f64 {
+    if a == b {
+        return a.exp();
+    }
+    let hi = a.max(b);
+    let gap = (a - b).abs();
+    hi.exp() * (-(-gap).exp_m1() / gap)
+}
+
+/// First divided difference of `√x` on the positive axis: the subtraction-free
+/// closed form `1/(√a + √b)` (`= 1/(2√a)`, the derivative, at `a = b`).
+fn sqrt_divided_difference(a: f64, b: f64) -> f64 {
+    1.0 / (a.sqrt() + b.sqrt())
+}
+
+/// First divided difference of `x^{-1/2}` on the positive axis:
+/// `−1/(√a·√b·(√a + √b))` (`= −1/(2a^{3/2})` at `a = b`), also subtraction-free.
+fn inv_sqrt_divided_difference(a: f64, b: f64) -> f64 {
+    let (sa, sb) = (a.sqrt(), b.sqrt());
+    let (lo, hi) = if sa <= sb { (sa, sb) } else { (sb, sa) };
+    -((1.0 / hi) / (hi + lo)) / lo
+}
+
+/// Squared metric norm `‖v‖²_P = vᵀ G(P) v = ‖P⁻¹⁄² V P⁻¹⁄²‖²_F` of
+/// the symmetric flat tangent vector `v`, computed without forming either
+/// `P⁻¹` or the `n²×n²` Kronecker metric. Whitening first turns the
+/// certificate into an explicit sum of squares, avoiding cancellation in
+/// `tr((P⁻¹V)²)` and preserving affine scale invariance for uniformly tiny
+/// SPD inputs. `inv_sqrt_p = P⁻¹⁄²`.
+fn affine_sq_norm(
+    n: usize,
+    inv_sqrt_p: &Array2<f64>,
+    v: ArrayView1<'_, f64>,
+) -> GeometryResult<f64> {
     use gam_linalg::faer_ndarray::fast_ab;
     let vm = sym(&from_flat(v, n, n)?);
-    // tr(P⁻¹ V P⁻¹ V).
-    let a = fast_ab(&fast_ab(pinv, &vm), &fast_ab(pinv, &vm));
-    let mut trace = 0.0_f64;
-    for i in 0..n {
-        trace += a[[i, i]];
+    let whitened = sym(&fast_ab(&fast_ab(inv_sqrt_p, &vm), inv_sqrt_p));
+    let mut squared_norm = 0.0_f64;
+    for &value in &whitened {
+        if !value.is_finite() {
+            return Err(GeometryError::Singular(
+                "SPD affine metric norm is non-finite",
+            ));
+        }
+        squared_norm += value * value;
     }
-    Ok(trace.max(0.0))
+    if !squared_norm.is_finite() {
+        return Err(GeometryError::Singular("SPD affine metric norm overflowed"));
+    }
+    Ok(squared_norm)
 }
 
 /// Weighted Fréchet / Karcher mean of SPD matrices under the affine-invariant
@@ -311,8 +467,8 @@ fn affine_sq_norm(n: usize, pinv: &Array2<f64>, v: ArrayView1<'_, f64>) -> Geome
 /// the step-½ gradient move `t = 1` would *diverge*. The backtracking restores
 /// monotone descent there.
 ///
-/// Two numerical subtleties make a naive Armijo-on-`V` line search stall above
-/// the requested tolerance, and both are handled here:
+/// A numerical subtlety makes a naive Armijo-on-`V` line search stall above the
+/// requested tolerance and is handled here:
 ///
 ///  * **Round-off floor of `V`.** Near the minimizer `V` is flat to machine
 ///    precision: the true decrease per step is `O(‖ξ‖²)`, which underflows the
@@ -323,21 +479,11 @@ fn affine_sq_norm(n: usize, pinv: &Array2<f64>, v: ArrayView1<'_, f64>) -> Geome
 ///    ordinary sufficient decrease (Zoutendijk convergence) and near the
 ///    optimum it merely forbids an *increase* beyond round-off — letting the
 ///    convergent unit step drive `‖ξ‖_P` well below `√ε`.
-///  * **Round-off floor of `ξ`.** `ξ` is a cancelling sum of `O(1)` log-maps,
-///    so its own evaluation floor is `O(ε)`; for some data the smallest
-///    attainable `‖ξ‖_P` sits just above a very tight `tol`. No gradient method
-///    can push the residual below the round-off of its own gradient, so once
-///    the residual stops improving by more than `STALL_REL` for `STALL_PATIENCE`
-///    consecutive steps we accept the best iterate as stationary to the
-///    achievable precision rather than spuriously erroring.
 ///
-/// Returns `Ok` with the least-residual iterate once the residual reaches
-/// `tol` or stalls (no further `STALL_REL`-relative progress for
-/// `STALL_PATIENCE` steps / no step decreases `V` within round-off). The
-/// stall exit is the correct terminal state of a gradient method: the returned
-/// point minimizes the dispersion to the achievable precision. `Err` is
-/// reserved for a genuine budget shortfall — `max_iter` exhausted while the
-/// residual is still making real first-order progress.
+/// A point is returned only after the closed-form Karcher stationarity
+/// certificate `‖ξ(P)‖_P ≤ tol` passes. A line-search stall or iteration-budget
+/// exhaustion above that threshold returns [`GeometryError::NonConvergence`]
+/// carrying the achieved residual; it never mints an approximate chart origin.
 ///
 /// Caveat (first-order rate): convergence is linear with a rate set by the
 /// conditioning of `Hess V`. For well- to moderately-conditioned inputs the
@@ -376,11 +522,11 @@ pub fn spd_frechet_mean(
     // Weighted dispersion V(P) = Σ_i w_i ‖log_P(X_i)‖²_P at flat base `p`.
     let dispersion = |p: ArrayView1<'_, f64>| -> GeometryResult<f64> {
         let pm = spd.matrix(p)?;
-        let pinv = inverse(&pm)?;
+        let inv_sqrt_p = spectral_map_spd(&pm, |x| Ok(1.0 / x.sqrt()))?;
         let mut acc = 0.0_f64;
         for (i, x) in samples.iter().enumerate() {
             let lg = spd.log_map(p, x.view())?;
-            acc += w[i] * affine_sq_norm(n, &pinv, lg.view())?;
+            acc += w[i] * affine_sq_norm(n, &inv_sqrt_p, lg.view())?;
         }
         Ok(acc)
     };
@@ -395,61 +541,35 @@ pub fn spd_frechet_mean(
 
     let mut f_cur = dispersion(p.view())?;
 
-    // Best (smallest-residual) iterate seen, returned if the residual stalls at
-    // its numerical floor below the reach of `tol`.
-    let mut best_p = p.clone();
-    let mut best_grad = f64::INFINITY;
-    // Consecutive steps that failed to improve the residual by a meaningful
-    // relative margin. `STALL_REL` must sit above the residual's round-off
-    // oscillation at the floor (empirically `< 1e-3`) yet well below any
-    // genuine linear-convergence rate, so a real descent never trips it.
-    const STALL_REL: f64 = 5.0e-3;
-    const STALL_PATIENCE: usize = 10;
-    let mut stall = 0_usize;
-    // Armijo sufficient-decrease parameter c₁ (standard `1e-4`) and the
-    // backtracking-halving cap: starting from the unit Karcher step `t = 1` and
-    // halving, the budget reaches `t = 2⁻⁶⁰ ≈ 1e-18`, below `f64` resolution, so
-    // exhausting it means no positive step decreases the dispersion.
-    const ARMIJO_C1: f64 = 1.0e-4;
-    const MAX_BACKTRACK_HALVINGS: usize = 60;
-    // Round-off cushion on the Armijo test, in units of `f64::EPSILON`, so that
-    // near the flat optimum the test forbids only an increase beyond round-off.
-    const ARMIJO_ROUNDOFF_EPS_MULTIPLE: f64 = 8.0;
+    // Armijo sufficient-decrease parameter c₁ (`1e-4`), the backtracking-halving
+    // cap (`t = 1` unit Karcher step down to `t = 2⁻⁶⁰ ≈ 1e-18`), and the
+    // round-off cushion `8·ε·(1+|f|)` all live in `opt` now — this loop
+    // routes through the shared `backtracking_line_search` primitive
+    // (`BacktrackConfig::default()` supplies `t₀ = 1`, factor `0.5`, 60 steps)
+    // and the shared `armijo_roundoff_cushion` helper.
+    const ARMIJO_C1: f64 = opt::constants::ARMIJO_C1;
 
-    for _ in 0..max_iter {
-        // Riemannian descent direction ξ = Σ_i w_i log_P(X_i) (= −½ grad V).
-        let pm = spd.matrix(p.view())?;
-        let pinv = inverse(&pm)?;
+    let stationarity = |point: ArrayView1<'_, f64>| -> GeometryResult<(Array1<f64>, f64)> {
+        // Riemannian descent direction ξ = Σ_i w_i log_P(X_i) (= −½ grad V)
+        // and its exact affine-invariant metric norm.
+        let pm = spd.matrix(point)?;
+        let inv_sqrt_p = spectral_map_spd(&pm, |x| Ok(1.0 / x.sqrt()))?;
         let mut xi = Array1::<f64>::zeros(ambient);
         for (i, x) in samples.iter().enumerate() {
-            let lg = spd.log_map(p.view(), x.view())?;
+            let lg = spd.log_map(point, x.view())?;
             xi.scaled_add(w[i], &lg);
         }
-        // Stationarity residual ‖ξ‖_P: half the Riemannian gradient norm.
-        let grad_norm = affine_sq_norm(n, &pinv, xi.view())?.sqrt();
+        let residual = affine_sq_norm(n, &inv_sqrt_p, xi.view())?.sqrt();
+        Ok((xi, residual))
+    };
+
+    for iteration in 0..max_iter {
+        // Evaluate the analytic first-order certificate before every step.
+        let (xi, grad_norm) = stationarity(p.view())?;
 
         // Reached the requested first-order optimality tolerance.
         if grad_norm <= tol {
             return Ok(p);
-        }
-
-        // Track the best iterate and detect a stalled residual. A step counts
-        // as progress only if it improves the best residual by more than
-        // `STALL_REL` (relative); pure round-off wobble at the floor does not.
-        let improved = grad_norm < best_grad * (1.0 - STALL_REL);
-        if grad_norm < best_grad {
-            best_grad = grad_norm;
-            best_p.assign(&p);
-        }
-        if improved {
-            stall = 0;
-        } else {
-            stall += 1;
-            if stall >= STALL_PATIENCE {
-                // The residual cannot be driven below the round-off of its own
-                // evaluation: `best_p` is stationary to the achievable precision.
-                return Ok(best_p);
-            }
         }
 
         // Geodesic step P ← exp_P(t·ξ) with backtracking. The acceptance test
@@ -460,34 +580,62 @@ pub fn spd_frechet_mean(
         // forbids an increase beyond round-off, admitting the convergent unit
         // Karcher step so the residual keeps descending below √ε.
         let pred = grad_norm * grad_norm; // ‖ξ‖²_P > 0 here.
-        let f_tol = ARMIJO_ROUNDOFF_EPS_MULTIPLE * f64::EPSILON * (1.0 + f_cur.abs());
-        let mut t = 1.0_f64;
-        let mut accepted = false;
-        for _ in 0..MAX_BACKTRACK_HALVINGS {
-            let step = &xi * t;
-            let cand = spd.exp_map(p.view(), step.view())?;
-            let f_cand = dispersion(cand.view())?;
-            if f_cand <= f_cur - 2.0 * ARMIJO_C1 * t * pred + f_tol {
-                p = cand;
-                f_cur = f_cand;
-                accepted = true;
-                break;
+        let f_tol = armijo_roundoff_cushion(f_cur);
+        // Backtracking line search (t = 1, halving up to 60 steps) via the
+        // shared primitive. The acceptance arithmetic is inlined verbatim so the
+        // accepted step is bit-for-bit what the hand-rolled loop produced.
+        let accepted = backtracking_line_search(
+            BacktrackConfig::default(),
+            |t| -> GeometryResult<Option<(f64, Array1<f64>)>> {
+                let step = &xi * t;
+                let cand = match spd.exp_map(p.view(), step.view()) {
+                    Ok(candidate) => candidate,
+                    Err(GeometryError::InvalidPoint(_) | GeometryError::Singular(_)) => {
+                        return Ok(None);
+                    }
+                    Err(error) => return Err(error),
+                };
+                let f_cand = match dispersion(cand.view()) {
+                    Ok(value) => value,
+                    Err(GeometryError::InvalidPoint(_) | GeometryError::Singular(_)) => {
+                        return Ok(None);
+                    }
+                    Err(error) => return Err(error),
+                };
+                Ok(Some((f_cand, cand)))
+            },
+            |t, f_cand| f_cand <= f_cur - 2.0 * ARMIJO_C1 * t * pred + f_tol,
+        )?;
+        match accepted {
+            Some(step) => {
+                f_cur = step.value;
+                p = step.payload;
             }
-            t *= 0.5;
-        }
-        if !accepted {
-            // No positive step decreases V even within round-off: the iterate
-            // is stationary to machine precision. Return the best seen.
-            return Ok(best_p);
+            None => {
+                // No admissible positive step exists, but the analytic
+                // stationarity certificate above did not pass.
+                return Err(GeometryError::NonConvergence {
+                    context: "SPD Fréchet mean",
+                    iterations: iteration + 1,
+                    residual: grad_norm,
+                    tolerance: tol,
+                });
+            }
         }
     }
-    // Budget exhausted while still descending: keep the best (least-residual)
-    // iterate rather than discarding it. Consistent with the two other
-    // non-`tol` exits above (stall, rejected step) and with the generic
-    // `response_frechet_mean` driver (#2140) — `best_p` is a valid SPD point and
-    // a usable approximate Fréchet mean; erroring would needlessly abort a fit
-    // over a mere iteration-budget shortfall on the geodesically convex cone.
-    Ok(best_p)
+    // The last allowed update may itself have crossed the threshold, so certify
+    // the final iterate once before reporting typed exhaustion.
+    let (_, residual) = stationarity(p.view())?;
+    if residual <= tol {
+        Ok(p)
+    } else {
+        Err(GeometryError::NonConvergence {
+            context: "SPD Fréchet mean",
+            iterations: max_iter,
+            residual,
+            tolerance: tol,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -525,9 +673,160 @@ mod tangent_basis_tests {
 }
 
 #[cfg(test)]
-mod frechet_mean_tests {
-    use super::{SpdManifold, spd_frechet_mean};
+mod exp_map_vjp_tests {
+    use super::{SpdManifold, exp_divided_difference};
     use crate::manifold::RiemannianManifold;
+    use ndarray::{Array1, Array2};
+
+    /// Row-major flatten matching `flatten`/`from_flat`.
+    fn flat(m: &Array2<f64>) -> Array1<f64> {
+        Array1::from_iter(m.iter().copied())
+    }
+
+    /// `R diag(d) Rᵀ` with `R` a Givens-style 3-D rotation, giving an SPD
+    /// matrix with EXACTLY the prescribed eigenvalues (repeated ones included).
+    fn spd_with_eigs(d: [f64; 3], theta: f64, phi: f64) -> Array2<f64> {
+        let (c1, s1) = (theta.cos(), theta.sin());
+        let (c2, s2) = (phi.cos(), phi.sin());
+        let g1 =
+            Array2::from_shape_vec((3, 3), vec![c1, -s1, 0.0, s1, c1, 0.0, 0.0, 0.0, 1.0]).unwrap();
+        let g2 =
+            Array2::from_shape_vec((3, 3), vec![1.0, 0.0, 0.0, 0.0, c2, -s2, 0.0, s2, c2]).unwrap();
+        let r = g1.dot(&g2);
+        let mut dm = Array2::<f64>::zeros((3, 3));
+        for i in 0..3 {
+            dm[[i, i]] = d[i];
+        }
+        r.dot(&dm).dot(&r.t())
+    }
+
+    /// Central finite-difference oracle (TEST-ONLY, per SPEC 2) for the scalar
+    /// `f(P, T) = ⟨G, exp_P(T)⟩`: checks the analytic VJP pair against the FD
+    /// directional derivative along every symmetric coordinate direction of `P`
+    /// and every raw coordinate direction of `T`.
+    fn assert_vjp_matches_fd(p: &Array2<f64>, t: &Array2<f64>, g: &Array2<f64>) {
+        let spd = SpdManifold::new(3);
+        let (pf, tf, gf) = (flat(p), flat(t), flat(g));
+        let (grad_p, grad_t) = spd
+            .exp_map_vjp(pf.view(), tf.view(), gf.view())
+            .expect("SPD exp_map_vjp");
+        let scalar = |pv: &Array1<f64>, tv: &Array1<f64>| -> f64 {
+            let y = spd.exp_map(pv.view(), tv.view()).expect("exp_map");
+            y.dot(&gf)
+        };
+        let eps = 1.0e-6;
+        // Point directions: symmetric (the SPD chart rejects asymmetric points).
+        for i in 0..3 {
+            for j in i..3 {
+                let mut h = Array2::<f64>::zeros((3, 3));
+                h[[i, j]] = 1.0;
+                h[[j, i]] = 1.0;
+                let hf = flat(&h);
+                let fd = (scalar(&(&pf + &(&hf * eps)), &tf) - scalar(&(&pf - &(&hf * eps)), &tf))
+                    / (2.0 * eps);
+                let analytic = grad_p.dot(&hf);
+                assert!(
+                    (fd - analytic).abs() <= 1.0e-5 * (1.0 + fd.abs()),
+                    "grad_point mismatch along sym e({i},{j}): fd {fd:.9e} vs vjp {analytic:.9e}"
+                );
+            }
+        }
+        // Tangent directions: raw (the forward symmetrizes internally; the VJP
+        // must carry that projection's adjoint).
+        for idx in 0..9 {
+            let mut hf = Array1::<f64>::zeros(9);
+            hf[idx] = 1.0;
+            let fd = (scalar(&pf, &(&tf + &(&hf * eps))) - scalar(&pf, &(&tf - &(&hf * eps))))
+                / (2.0 * eps);
+            let analytic = grad_t.dot(&hf);
+            assert!(
+                (fd - analytic).abs() <= 1.0e-5 * (1.0 + fd.abs()),
+                "grad_tangent mismatch along e{idx}: fd {fd:.9e} vs vjp {analytic:.9e}"
+            );
+        }
+    }
+
+    #[test]
+    fn spd_exp_map_vjp_matches_fd_generic_spectrum() {
+        let p = spd_with_eigs([3.0, 1.2, 0.4], 0.7, 1.1);
+        let t =
+            Array2::from_shape_vec((3, 3), vec![0.3, -0.2, 0.5, 0.1, -0.4, 0.2, -0.3, 0.6, 0.1])
+                .unwrap();
+        let g =
+            Array2::from_shape_vec((3, 3), vec![1.0, 0.4, -0.3, 0.2, -0.8, 0.5, 0.7, -0.1, 0.9])
+                .unwrap();
+        assert_vjp_matches_fd(&p, &t, &g);
+    }
+
+    #[test]
+    fn spd_exp_map_vjp_matches_fd_clustered_point_spectrum() {
+        // Exactly repeated eigenvalues of P: the √/x^{-1/2} divided differences
+        // must hit their analytic diagonal limit, not a 0/0 subtraction.
+        let p = spd_with_eigs([2.0, 2.0, 0.5], 0.9, 0.3);
+        let t =
+            Array2::from_shape_vec((3, 3), vec![0.2, 0.1, -0.3, 0.1, -0.1, 0.4, -0.3, 0.4, 0.3])
+                .unwrap();
+        let g =
+            Array2::from_shape_vec((3, 3), vec![0.5, -0.6, 0.2, -0.6, 0.3, 0.8, 0.2, 0.8, -0.4])
+                .unwrap();
+        assert_vjp_matches_fd(&p, &t, &g);
+    }
+
+    #[test]
+    fn spd_exp_map_vjp_matches_fd_degenerate_exp_spectrum() {
+        // T ∝ P makes the whitened middle M = c·I: EVERY eigenvalue of the exp
+        // stage coincides, exercising the exp divided-difference limit e^a.
+        let p = spd_with_eigs([1.5, 0.8, 2.5], 0.4, 1.3);
+        let t = &p * 0.35;
+        let g =
+            Array2::from_shape_vec((3, 3), vec![0.9, 0.1, -0.2, 0.1, -0.5, 0.3, -0.2, 0.3, 0.6])
+                .unwrap();
+        assert_vjp_matches_fd(&p, &t, &g);
+    }
+
+    #[test]
+    fn spd_exp_map_vjp_zero_tangent_reduces_to_identity_pullback() {
+        // At T = 0 the exponential is exp_P(0) = P, so grad_point must be the
+        // symmetrized cotangent exactly and grad_tangent must equal the
+        // whitened-DK pullback (finite, symmetric).
+        let spd = SpdManifold::new(3);
+        let p = spd_with_eigs([2.0, 1.0, 0.5], 0.2, 0.8);
+        let g = Array2::from_shape_vec((3, 3), vec![1.0, 0.3, 0.0, 0.3, -0.7, 0.2, 0.0, 0.2, 0.4])
+            .unwrap();
+        let zeros = Array1::<f64>::zeros(9);
+        let (grad_p, grad_t) = spd
+            .exp_map_vjp(flat(&p).view(), zeros.view(), flat(&g).view())
+            .expect("VJP at zero tangent");
+        let gs = crate::manifold::sym(&g);
+        for (a, b) in grad_p.iter().zip(gs.iter()) {
+            assert!(
+                (a - b).abs() <= 1.0e-12,
+                "grad_point at T=0 must be sym(G): {a} vs {b}"
+            );
+        }
+        for (a, b) in grad_t.iter().zip(gs.iter()) {
+            assert!(
+                (a - b).abs() <= 1.0e-12,
+                "grad_tangent at T=0 must be sym(G): {a} vs {b}"
+            );
+        }
+    }
+
+    #[test]
+    fn exp_divided_difference_stays_finite_across_underflow_range() {
+        // The midpoint/sinh identity is mathematically equivalent but evaluates
+        // this case as `exp(-750.5) * sinh(749.5) = 0 * inf = NaN`.
+        let got = exp_divided_difference(-1.0, -1500.0);
+        let expected = (-1.0_f64).exp() / 1499.0;
+        assert!(got.is_finite());
+        assert!((got - expected).abs() <= f64::EPSILON * expected);
+    }
+}
+
+#[cfg(test)]
+mod frechet_mean_tests {
+    use super::{SpdManifold, affine_sq_norm, spd_frechet_mean};
+    use crate::manifold::{GeometryError, RiemannianManifold, spectral_map_spd};
     use ndarray::{Array1, Array2};
 
     /// Row-major flat `n×n` diagonal matrix from its diagonal.
@@ -560,8 +859,12 @@ mod frechet_mean_tests {
         for (x, &wi) in rows.iter().zip(w) {
             xi.scaled_add(wi, &spd.log_map(p.view(), x.view()).expect("log_map"));
         }
-        let g = spd.metric_tensor(p.view()).expect("metric_tensor");
-        xi.dot(&g.dot(&xi)).max(0.0).sqrt()
+        let pm = spd.matrix(p.view()).expect("SPD mean");
+        let inv_sqrt_p =
+            spectral_map_spd(&pm, |value| Ok(1.0 / value.sqrt())).expect("inverse square root");
+        affine_sq_norm(spd.n, &inv_sqrt_p, xi.view())
+            .expect("affine norm")
+            .sqrt()
     }
 
     /// CLOSED FORM, EXTREME MAGNITUDE. For mutually commuting (here diagonal)
@@ -679,18 +982,16 @@ mod frechet_mean_tests {
         }
         let m = rows.len();
 
-        // Request a tolerance below the achievable floor so success can only
-        // come from the stagnation path, not from `tol` being loose.
-        let p = spd_frechet_mean(n, stack(&rows).view(), None, 1e-14, 1000)
-            .expect("spread non-commuting frechet mean converges via safeguard");
+        let tol = 1e-9;
+        let p = spd_frechet_mean(n, stack(&rows).view(), None, tol, 1000)
+            .expect("spread non-commuting frechet mean reaches its certificate");
 
         let spd = SpdManifold::new(n);
         let w = vec![1.0 / m as f64; m];
         let r = residual(&spd, &p, &rows, &w);
         assert!(
-            r < 1e-9,
-            "spread non-commuting residual {r:.3e} did not descend below √ε \
-             (regression of #693: line search stalled at the V round-off floor)"
+            r <= tol,
+            "spread non-commuting residual {r:.3e} exceeds requested tolerance {tol:.3e}"
         );
 
         // It must also be the dispersion minimizer: V(P) below V at any sample.
@@ -713,32 +1014,63 @@ mod frechet_mean_tests {
     }
 
     #[test]
-    fn spd_frechet_mean_budget_shortfall_returns_best_iterate_not_error() {
-        // Consistency with the generic response_frechet_mean driver (#2140): a
-        // `max_iter` too small to reach the requested `tol` must STILL return
-        // the best (least-residual) SPD iterate, matching the stall and
-        // rejected-step exits — never a "did not reach stationarity within
-        // max_iter" error over a mere budget shortfall on the convex cone.
+    fn spd_frechet_mean_budget_shortfall_is_typed_non_convergence() {
+        // A `max_iter` too small to reach stationarity must carry its analytic
+        // residual as typed evidence, never mint an approximate chart origin.
         let n = 2;
         let rows = [
             diag_flat(&[4.0, 0.25]),
             Array1::from(vec![1.0, 0.5, 0.5, 3.0]),
             diag_flat(&[0.3, 6.0]),
         ];
-        let m = rows.len();
-        let p = spd_frechet_mean(n, stack(&rows).view(), None, 1e-14, 1)
-            .expect("budget=1 must return the best iterate, not an error");
+        match spd_frechet_mean(n, stack(&rows).view(), None, 1e-14, 1) {
+            Err(GeometryError::NonConvergence {
+                context,
+                iterations,
+                residual,
+                tolerance,
+            }) => {
+                assert_eq!(context, "SPD Fréchet mean");
+                assert_eq!(iterations, 1);
+                assert!(residual.is_finite() && residual > tolerance);
+                assert_eq!(tolerance, 1e-14);
+            }
+            other => panic!("expected typed SPD Fréchet exhaustion, got {other:?}"),
+        }
+    }
 
-        // The returned point is a genuine SPD matrix (a valid mean / chart
-        // origin): symmetric with strictly positive eigenvalues.
-        assert_eq!(p.len(), n * n);
-        assert!(p.iter().all(|c| c.is_finite()));
-        assert!((p[1] - p[2]).abs() < 1e-12, "SPD mean must be symmetric");
-        let spd = SpdManifold::new(n);
-        // `log_map` is only defined at an SPD base point, so its success is a
-        // positive-definiteness certificate for the returned iterate.
-        let w = vec![1.0 / m as f64; m];
-        let r = residual(&spd, &p, &rows, &w);
-        assert!(r.is_finite(), "residual at the returned mean must be finite");
+    #[test]
+    fn spd_frechet_mean_is_equivariant_at_uniformly_tiny_scale() {
+        let n = 2;
+        let rows = [
+            diag_flat(&[4.0, 0.25]),
+            Array1::from(vec![1.0, 0.4, 0.4, 2.5]),
+            diag_flat(&[0.6, 3.0]),
+        ];
+        let unit_mean =
+            spd_frechet_mean(n, stack(&rows).view(), None, 1.0e-11, 500).expect("unit-scale mean");
+
+        let scale = 1.0e-16;
+        let tiny_rows: Vec<Array1<f64>> = rows.iter().map(|row| row * scale).collect();
+        let tiny_mean = spd_frechet_mean(n, stack(&tiny_rows).view(), None, 1.0e-11, 500)
+            .expect("uniformly tiny SPD data remain valid");
+        for (&tiny, &unit) in tiny_mean.iter().zip(&unit_mean) {
+            let expected = scale * unit;
+            assert!(
+                (tiny - expected).abs() <= 2.0e-10 * expected.abs().max(scale),
+                "scale equivariance failed: tiny mean {tiny:.6e}, expected {expected:.6e}"
+            );
+        }
+
+        let weights = vec![1.0 / tiny_rows.len() as f64; tiny_rows.len()];
+        let achieved = residual(&SpdManifold::new(n), &tiny_mean, &tiny_rows, &weights);
+        assert!(achieved <= 1.0e-11, "tiny-scale residual {achieved:.3e}");
+    }
+
+    #[test]
+    fn affine_stationarity_norm_rejects_non_finite_tangents() {
+        let inv_sqrt_p = Array2::eye(2);
+        let tangent = Array1::from(vec![f64::NAN, 0.0, 0.0, 1.0]);
+        assert!(affine_sq_norm(2, &inv_sqrt_p, tangent.view()).is_err());
     }
 }

@@ -23,7 +23,7 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaCreateWorkerPoolRequest = ...,
+                    body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaCreateWorkerPoolRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -35,13 +35,13 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
                     GoogleDevtoolsRemotebuildexecutionAdminV1alphaWorkerPoolHttpRequest
                 ): ...
                 def list(
-                    self, *, parent: str, filter: str = ..., **kwargs: typing.Any
+                    self, *, parent: str, filter: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleDevtoolsRemotebuildexecutionAdminV1alphaListWorkerPoolsResponseHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaUpdateWorkerPoolRequest = ...,
+                    body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaUpdateWorkerPoolRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -49,7 +49,7 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaCreateInstanceRequest = ...,
+                body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaCreateInstanceRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def delete(
@@ -65,10 +65,10 @@ class RemoteBuildExecutionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaInstance = ...,
-                loggingEnabled: bool = ...,
-                name1: str = ...,
-                updateMask: str = ...,
+                body: GoogleDevtoolsRemotebuildexecutionAdminV1alphaInstance,
+                loggingEnabled: bool | None = ...,
+                name1: str | None = ...,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def workerpools(self) -> WorkerpoolsResource: ...

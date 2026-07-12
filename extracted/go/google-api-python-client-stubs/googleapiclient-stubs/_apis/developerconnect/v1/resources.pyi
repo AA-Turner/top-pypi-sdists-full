@@ -25,9 +25,9 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        requestId: str = ...,
-                        validateOnly: bool = ...,
+                        etag: str | None = ...,
+                        requestId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def deleteSelf(
@@ -37,7 +37,7 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         accountConnector: str,
-                        body: FetchAccessTokenRequest = ...,
+                        body: FetchAccessTokenRequest,
                         **kwargs: typing.Any,
                     ) -> FetchAccessTokenResponseHttpRequest: ...
                     def fetchSelf(
@@ -47,21 +47,21 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         accountConnector: str,
-                        googleOauthParams_scopes: str | _list[str] = ...,
-                        googleOauthParams_ticket: str = ...,
-                        googleOauthParams_versionInfo: str = ...,
-                        oauthParams_code: str = ...,
-                        oauthParams_ticket: str = ...,
+                        googleOauthParams_scopes: str | _list[str] | None = ...,
+                        googleOauthParams_ticket: str | None = ...,
+                        googleOauthParams_versionInfo: str | None = ...,
+                        oauthParams_code: str | None = ...,
+                        oauthParams_ticket: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> FinishOAuthResponseHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListUsersResponseHttpRequest: ...
                     def list_next(
@@ -77,29 +77,29 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: AccountConnector = ...,
-                    accountConnectorId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: AccountConnector,
+                    accountConnectorId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    force: bool = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    etag: str | None = ...,
+                    force: bool | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchUserRepositories(
                     self,
                     *,
                     accountConnector: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    repository: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    repository: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchUserRepositoriesResponseHttpRequest: ...
                 def fetchUserRepositories_next(
@@ -114,10 +114,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListAccountConnectorsResponseHttpRequest: ...
                 def list_next(
@@ -129,11 +129,11 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: AccountConnector = ...,
-                    allowMissing: bool = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: AccountConnector,
+                    allowMissing: bool | None = ...,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def users(self) -> UsersResource: ...
@@ -146,30 +146,31 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GitRepositoryLink = ...,
-                        gitRepositoryLinkId: str = ...,
-                        requestId: str = ...,
-                        validateOnly: bool = ...,
+                        body: GitRepositoryLink,
+                        gitRepositoryLinkId: str | None = ...,
+                        requestId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        etag: str = ...,
-                        requestId: str = ...,
-                        validateOnly: bool = ...,
+                        etag: str | None = ...,
+                        requestId: str | None = ...,
+                        validateOnly: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def fetchGitRefs(
                         self,
                         *,
                         gitRepositoryLink: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         refType: typing_extensions.Literal[
                             "REF_TYPE_UNSPECIFIED", "TAG", "BRANCH"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> FetchGitRefsResponseHttpRequest: ...
                     def fetchGitRefs_next(
@@ -181,14 +182,14 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         gitRepositoryLink: str,
-                        body: FetchReadTokenRequest = ...,
+                        body: FetchReadTokenRequest,
                         **kwargs: typing.Any,
                     ) -> FetchReadTokenResponseHttpRequest: ...
                     def fetchReadWriteToken(
                         self,
                         *,
                         gitRepositoryLink: str,
-                        body: FetchReadWriteTokenRequest = ...,
+                        body: FetchReadWriteTokenRequest,
                         **kwargs: typing.Any,
                     ) -> FetchReadWriteTokenResponseHttpRequest: ...
                     def get(
@@ -198,10 +199,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListGitRepositoryLinksResponseHttpRequest: ...
                     def list_next(
@@ -213,28 +214,28 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ProcessBitbucketCloudWebhookRequest = ...,
+                        body: ProcessBitbucketCloudWebhookRequest,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def processBitbucketDataCenterWebhook(
                         self,
                         *,
                         name: str,
-                        body: ProcessBitbucketDataCenterWebhookRequest = ...,
+                        body: ProcessBitbucketDataCenterWebhookRequest,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def processGitLabEnterpriseWebhook(
                         self,
                         *,
                         name: str,
-                        body: ProcessGitLabEnterpriseWebhookRequest = ...,
+                        body: ProcessGitLabEnterpriseWebhookRequest,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def processGitLabWebhook(
                         self,
                         *,
                         name: str,
-                        body: ProcessGitLabWebhookRequest = ...,
+                        body: ProcessGitLabWebhookRequest,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
 
@@ -242,19 +243,19 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: Connection = ...,
-                    connectionId: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: Connection,
+                    connectionId: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    etag: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def fetchGitHubInstallations(
@@ -264,8 +265,8 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     connection: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> FetchLinkableGitRepositoriesResponseHttpRequest: ...
                 def fetchLinkableGitRepositories_next(
@@ -280,10 +281,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListConnectionsResponseHttpRequest: ...
                 def list_next(
@@ -295,18 +296,18 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Connection = ...,
-                    allowMissing: bool = ...,
-                    requestId: str = ...,
-                    updateMask: str = ...,
-                    validateOnly: bool = ...,
+                    body: Connection,
+                    allowMissing: bool | None = ...,
+                    requestId: str | None = ...,
+                    updateMask: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def processGitHubEnterpriseWebhook(
                     self,
                     *,
                     parent: str,
-                    body: ProcessGitHubEnterpriseWebhookRequest = ...,
+                    body: ProcessGitHubEnterpriseWebhookRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def gitRepositoryLinks(self) -> GitRepositoryLinksResource: ...
@@ -322,10 +323,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListDeploymentEventsResponseHttpRequest: ...
                     def list_next(
@@ -338,18 +339,18 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: InsightsConfig = ...,
-                    insightsConfigId: str = ...,
-                    validateOnly: bool = ...,
+                    body: InsightsConfig,
+                    insightsConfigId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self,
                     *,
                     name: str,
-                    etag: str = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    etag: str | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -359,10 +360,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListInsightsConfigsResponseHttpRequest: ...
                 def list_next(
@@ -374,10 +375,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: InsightsConfig = ...,
-                    allowMissing: bool = ...,
-                    requestId: str = ...,
-                    validateOnly: bool = ...,
+                    body: InsightsConfig,
+                    allowMissing: bool | None = ...,
+                    requestId: str | None = ...,
+                    validateOnly: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def deploymentEvents(self) -> DeploymentEventsResource: ...
@@ -388,7 +389,7 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def delete(
@@ -401,10 +402,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -420,10 +421,10 @@ class DeveloperConnectResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

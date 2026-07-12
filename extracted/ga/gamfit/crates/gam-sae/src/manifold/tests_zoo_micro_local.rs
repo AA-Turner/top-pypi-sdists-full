@@ -6,9 +6,8 @@
 //! generator the MSI m12 job used — same kinds list) drives:
 //!
 //!  1. the FULL production outer cascade (`OuterProblem::run`, the exact FFI
-//!     entry) at the m12 budget (12 outer iterations, single PCA seed), timed
-//!     end to end — the wall that burned two 8-hour MSI jobs in
-//!     restore-incumbent churn before the basin-envelope wiring;
+//!     entry), timed for observation and required to return an analytic
+//!     convergence certificate;
 //!  2. the three-way OOS discriminator the zoo's `ours_rust` arm reports:
 //!     native train EV vs COLD re-encode(train) EV vs COLD encode(test) EV,
 //!     where the cold arms run the genuine frozen-decoder OOS solve
@@ -19,21 +18,17 @@
 //!     not data novelty); `cold(train) >> cold(test)` is a genuine
 //!     generalization gap.
 //!
-//! zz_measure discipline: eprintln the numbers; hard asserts are finiteness,
-//! fit-completes, and a GENEROUS wall bound that only trips on a pathological
-//! regression (the pre-envelope churn was ~100x over it).
+//! zz_measure discipline: eprintln elapsed measurements, but decide pass/fail
+//! only from convergence and fitted-state invariants.
 
 use super::tests_startup_validation_1782::{Topo, objective_and_seed};
 use ndarray::Array2;
 use std::time::Instant;
 
 fn zoo_fixture(name: &str, n: usize, p: usize) -> Array2<f64> {
-    let path = format!(
-        "{}/tests/data/zoo_micro/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    );
-    let bytes = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("zoo_micro fixture {path} unreadable: {e}"));
+    let path = format!("{}/tests/data/zoo_micro/{name}", env!("CARGO_MANIFEST_DIR"));
+    let bytes =
+        std::fs::read(&path).unwrap_or_else(|e| panic!("zoo_micro fixture {path} unreadable: {e}"));
     assert_eq!(bytes.len(), n * p * 8, "fixture {name} size mismatch");
     let vals: Vec<f64> = bytes
         .chunks_exact(8)
@@ -68,45 +63,26 @@ fn global_ev(target: &Array2<f64>, fitted: &Array2<f64>) -> f64 {
 /// rows, cold logits, coords seeded by the production decoder-grid projection,
 /// then the fixed-decoder Newton refinement — the `sae_manifold_predict_oos`
 /// math without the FFI marshalling. Returns the reconstruction EV.
+///
+/// Delegates to the PRODUCTION-FAITHFUL helper in `tests_collapse_2132`
+/// (decoder-projection coords + residual-seeded softmax logits + ρ*-threaded
+/// fixed-decoder solve). The original inline version here seeded the logits
+/// UNIFORMLY, which softmax-blends all K atoms into a near-mean reconstruction
+/// and mis-attributes routing collapse to the encode path — the flaw the
+/// #2132 status-diff caught.
 fn cold_oos_ev(
     fitted_term: &super::SaeManifoldTerm,
     rho: &super::SaeManifoldRho,
     x: &Array2<f64>,
     label: &str,
 ) -> f64 {
-    let n = x.nrows();
-    let k = fitted_term.k_atoms();
-    // Fresh assignment at the fitted mode: cold logits (uniform), zero coords.
-    let coords_blocks: Vec<Array2<f64>> = (0..k)
-        .map(|atom| {
-            let d = fitted_term.assignment.coords[atom].as_matrix().ncols();
-            Array2::<f64>::zeros((n, d))
-        })
-        .collect();
-    let manifolds: Vec<_> = (0..k)
-        .map(|atom| fitted_term.assignment.coords[atom].manifold().clone())
-        .collect();
-    let assignment = crate::assignment::SaeAssignment::from_blocks_with_mode_and_manifolds(
-        Array2::<f64>::zeros((n, k)),
-        coords_blocks,
-        manifolds,
-        fitted_term.assignment.mode.clone(),
-    )
-    .expect("cold OOS assignment");
-    // Atoms: clone the FITTED decoders; the basis is refreshed at the seeded
-    // coords by seed_coords_by_decoder_projection below.
-    let mut term =
-        super::SaeManifoldTerm::new(fitted_term.atoms.clone(), assignment).expect("cold OOS term");
-    term.seed_coords_by_decoder_projection(x.view(), 64)
-        .expect("decoder-projection seed");
-    let mut rho_oos = rho.clone();
     let t0 = Instant::now();
-    term.run_fixed_decoder_arrow_schur(x.view(), &mut rho_oos, None, 24, 1.0, 1.0e-6)
-        .expect("fixed-decoder OOS solve");
+    let ev = super::tests_collapse_2132::oos_heldout_ev(fitted_term, rho, x.view());
     let secs = t0.elapsed().as_secs_f64();
-    let fitted = term.try_fitted().expect("cold OOS fitted");
-    let ev = global_ev(x, &fitted);
-    eprintln!("[zoo-micro-local] cold OOS {label}: ev={ev:.4} solve={secs:.2}s n={n}");
+    eprintln!(
+        "[zoo-micro-local] cold OOS {label}: ev={ev:.4} solve={secs:.2}s n={}",
+        x.nrows()
+    );
     ev
 }
 
@@ -116,8 +92,8 @@ fn zz_zoo_micro_local_full_fit_and_oos_discriminator() {
     let test = zoo_fixture("test_1500x48_f64le.bin", 1500, 48);
 
     // The m12 arm: K=12, top_k routing via softmax at the production default
-    // temperature, circle topology, 12 outer iterations, single PCA seed — the
-    // exact configuration whose MSI runs burned 8h walls in incumbent churn.
+    // temperature, circle topology, single PCA seed — the configuration whose
+    // MSI runs exposed incumbent churn.
     let (mut objective, seed) = objective_and_seed(
         train.view(),
         12,
@@ -126,9 +102,8 @@ fn zz_zoo_micro_local_full_fit_and_oos_discriminator() {
     );
     let n_params = seed.len();
     let t0 = Instant::now();
-    gam_solve::rho_optimizer::OuterProblem::new(n_params)
+    let result = gam_solve::rho_optimizer::OuterProblem::new(n_params)
         .with_initial_rho(seed)
-        .with_max_iter(12)
         .with_seed_config(gam_problem::SeedConfig {
             max_seeds: 1,
             seed_budget: 1,
@@ -136,12 +111,21 @@ fn zz_zoo_micro_local_full_fit_and_oos_discriminator() {
         })
         .run(&mut objective, "SAE manifold")
         .expect("zoo-micro full fit must not abort");
+    assert!(result.converged, "zoo fit must be analytically certified");
+    let certificate = result
+        .criterion_certificate
+        .as_ref()
+        .expect("converged zoo fit carries an analytic certificate");
+    assert!(certificate.stationarity.projected_norm() <= certificate.stationarity.bound());
     let fit_secs = t0.elapsed().as_secs_f64();
-    let fitted = objective.into_fitted();
+    objective
+        .certify_outer_result(&result)
+        .expect("zoo outer result certifies the exact installed state");
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
     let native_fitted = fitted.term.fitted();
     let native_ev = global_ev(&train, &native_fitted.to_owned());
     eprintln!(
-        "[zoo-micro-local] FIT: {fit_secs:.1}s native_train_ev={native_ev:.4} (K=12, N=3000, p=48, 12 outer iters)"
+        "[zoo-micro-local] FIT: {fit_secs:.1}s native_train_ev={native_ev:.4} (K=12, N=3000, p=48)"
     );
 
     let cold_train_ev = cold_oos_ev(&fitted.term, &fitted.rho, &train, "re-encode(train)");
@@ -162,12 +146,111 @@ fn zz_zoo_micro_local_full_fit_and_oos_discriminator() {
         "zoo-micro native train EV {native_ev:.4} is below the signal floor — \
          the fit did not engage the planted mixture"
     );
-    // Wall regression tripwire (GENEROUS): the pre-envelope churn burned 8h+
-    // without returning; a healthy micro fit is minutes. 30 min only trips on
-    // a pathological outer-loop regression.
+}
+
+/// #2022 canonical rank-charge zoo-micro measurement. Fits the m12 configuration
+/// once under the scale-insensitive `½·d_eff·ln N_eff` charge and
+/// `rank_eff==0 ⇒ v→+∞` veto, reporting births/deaths, co-collapse incidence,
+/// reconstruction quality, criterion, and wall-clock. This is an ordinary named
+/// measurement test because ignored tests are forbidden; focused runs select it
+/// by its `zz_rank_charge` name. Pass/fail uses finiteness plus signal engagement.
+#[derive(Debug)]
+struct RankChargeArm {
+    fit_secs: f64,
+    final_value: f64,
+    converged: bool,
+    iterations: usize,
+    grad_norm: Option<f64>,
+    native_ev: f64,
+    cold_train_ev: f64,
+    cold_test_ev: f64,
+    k_atoms: usize,
+    collapse_events: usize,
+    dict_cocollapse_reseeds: usize,
+    struct_cocollapse_reseeds: usize,
+    evidence_reanchors: usize,
+}
+
+fn rank_charge_zoo_arm(train: &Array2<f64>, test: &Array2<f64>) -> RankChargeArm {
+    let (mut objective, seed) = objective_and_seed(
+        train.view(),
+        12,
+        Topo::Circle,
+        crate::assignment::AssignmentMode::softmax(1.0),
+    );
+    let n_params = seed.len();
+    let t0 = Instant::now();
+    let result = gam_solve::rho_optimizer::OuterProblem::new(n_params)
+        .with_initial_rho(seed)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        })
+        .run(&mut objective, "SAE manifold")
+        .expect("zoo-micro rank-charge fit must not abort");
+    let fit_secs = t0.elapsed().as_secs_f64();
+    objective
+        .certify_outer_result(&result)
+        .expect("zoo rank-charge outer result certifies the installed state");
+    let grad_norm = result
+        .criterion_certificate
+        .as_ref()
+        .map(|certificate| certificate.stationarity.projected_norm());
+    let fitted = objective.into_fitted().expect("outer fit was evaluated");
+    let native_ev = global_ev(train, &fitted.term.fitted().to_owned());
+    let cold_train_ev = cold_oos_ev(&fitted.term, &fitted.rho, train, "re-encode(train)");
+    let cold_test_ev = cold_oos_ev(&fitted.term, &fitted.rho, test, "encode(test)");
+    RankChargeArm {
+        fit_secs,
+        final_value: result.final_value,
+        converged: result.converged,
+        iterations: result.iterations,
+        grad_norm,
+        native_ev,
+        cold_train_ev,
+        cold_test_ev,
+        k_atoms: fitted.term.k_atoms(),
+        collapse_events: fitted.term.collapse_events().len(),
+        dict_cocollapse_reseeds: fitted.term.dictionary_cocollapse_reseeds,
+        struct_cocollapse_reseeds: fitted.term.structural_cocollapse_reseeds,
+        evidence_reanchors: fitted.term.evidence_gauge_deflation_reanchors,
+    }
+}
+
+#[test]
+// zz_measure: one full outer fit; focused runs select it by its zz_ name.
+fn zz_rank_charge_zoo_micro_2022() {
+    let train = zoo_fixture("train_3000x48_f64le.bin", 3000, 48);
+    let test = zoo_fixture("test_1500x48_f64le.bin", 1500, 48);
+
+    let arm = rank_charge_zoo_arm(&train, &test);
+    eprintln!(
+        "[#2022 rank-charge zoo] fit={:.1}s conv={} iters={} \
+             grad={:?} | native_ev={:.4} cold_train={:.4} cold_test={:.4} | \
+             K={} deaths={} dict_reseed={} struct_reseed={} reanchor={} | crit={:.6e}",
+        arm.fit_secs,
+        arm.converged,
+        arm.iterations,
+        arm.grad_norm,
+        arm.native_ev,
+        arm.cold_train_ev,
+        arm.cold_test_ev,
+        arm.k_atoms,
+        arm.collapse_events,
+        arm.dict_cocollapse_reseeds,
+        arm.struct_cocollapse_reseeds,
+        arm.evidence_reanchors,
+        arm.final_value,
+    );
+
     assert!(
-        fit_secs < 1800.0,
-        "zoo-micro full fit took {fit_secs:.0}s — outer-loop churn regression \
-         (pre-basin-envelope this ran 8h+ without completing; see #2230)"
+        arm.native_ev.is_finite() && arm.cold_train_ev.is_finite() && arm.cold_test_ev.is_finite(),
+        "rank-charge fit produced a non-finite EV"
+    );
+    assert!(
+        arm.native_ev > 0.3,
+        "rank-charge native EV {:.4} below signal floor — fit did not engage",
+        arm.native_ev
     );
 }

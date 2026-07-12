@@ -15,8 +15,8 @@ use ndarray::{Array1, Array2, ArrayView1, ArrayView2, s};
 use rand::{RngExt, SeedableRng};
 
 use super::hmc_io::{
-    FamilyNutsInputs, GlmFlatInputs, LinkWiggleSplineArtifacts, NutsFamily, SurvivalFlatInputs,
-    explicit_fit_hessian_for_whitening, run_link_wiggle_nuts_sampling,
+    FamilyNutsInputs, GlmFlatInputs, LinkWiggleFamilyParams, LinkWiggleSplineArtifacts,
+    SurvivalFlatInputs, explicit_fit_hessian_for_whitening, run_link_wiggle_nuts_sampling,
     run_nuts_sampling_flattened_family, run_survival_nuts_sampling_flattened, validate_nuts_config,
 };
 pub use super::hmc_io::{NutsConfig, NutsResult};
@@ -28,9 +28,9 @@ use gam_linalg::faer_ndarray::FaerCholesky;
 use gam_linalg::triangular::back_substitution_lower_transpose_guarded_into;
 use gam_models::survival::construction::{
     SurvivalLikelihoodMode, add_survival_time_derivative_guard_offset, build_survival_time_basis,
-    build_survival_time_offsets_for_likelihood, center_survival_time_designs_at_anchor,
-    evaluate_survival_time_basis_row, normalize_survival_time_pair,
-    resolved_survival_time_basis_config_from_build, survival_derivative_guard_for_likelihood,
+    build_survival_time_offsets_for_likelihood, evaluate_survival_time_basis_row,
+    normalize_survival_time_pair, resolved_survival_time_basis_config_from_build,
+    survival_derivative_guard_for_likelihood,
 };
 use gam_models::survival::predict::{
     fit_result_from_saved_model_for_prediction, require_saved_survival_likelihood_mode,
@@ -46,11 +46,47 @@ use gam_models::wiggle::{
     split_wiggle_penalty_orders,
 };
 use gam_problem::types::{InverseLink, LikelihoodSpec, ResponseFamily, StandardLink};
-use gam_solve::estimate::{BlockRole, UnifiedFitResult, validate_all_finite};
+use gam_runtime::resource::{MemoryGovernor, ResourcePolicy, rows_for_target_bytes};
+use gam_solve::estimate::{BlockRole, validate_all_finite};
 use gam_terms::basis::create_difference_penalty_matrix;
 use gam_terms::smooth::build_term_collection_design;
 use gam_terms::smooth::{LinearCoefficientGeometry, weighted_blockwise_penalty_sum};
 use gam_terms::term_builder::resolve_role_col;
+
+/// Entry, exit, and derivative designs are live both in the caller's final
+/// assembly and in the current WorkingModelSurvival owner.
+const SURVIVAL_DESIGN_LIVE_COPIES: usize = 2 * 3;
+
+/// Stream a design into caller-owned storage without forming an intermediate
+/// full dense matrix. The caller owns the reservation for `out`; this helper
+/// only bounds the transient row work and preserves lazy/sparse backing until
+/// the final consumer layout is assembled.
+fn stream_design_into(
+    design: &gam_linalg::matrix::DesignMatrix,
+    mut out: ndarray::ArrayViewMut2<'_, f64>,
+    row_chunk_target_bytes: usize,
+    context: &str,
+) -> Result<(), String> {
+    if out.dim() != (design.nrows(), design.ncols()) {
+        return Err(format!(
+            "{context}: output shape {}x{} does not match design {}x{}",
+            out.nrows(),
+            out.ncols(),
+            design.nrows(),
+            design.ncols(),
+        ));
+    }
+    let chunk_rows = rows_for_target_bytes(row_chunk_target_bytes, design.ncols())
+        .max(1)
+        .min(design.nrows().max(1));
+    for start in (0..design.nrows()).step_by(chunk_rows) {
+        let end = (start + chunk_rows).min(design.nrows());
+        design
+            .row_chunk_into(start..end, out.slice_mut(s![start..end, ..]))
+            .map_err(|error| format!("{context}: {error}"))?;
+    }
+    Ok(())
+}
 
 /// Reconstruct the `LinkWiggleFormulaSpec` from a saved model's
 /// baseline-time-wiggle runtime, returning `None` when the model has no
@@ -140,20 +176,49 @@ fn validate_explicit_link_wiggle_joint_hessian(
     Ok(())
 }
 
-/// Resolve the scalar generative dispersion for a fitted model.
+/// Resolve the fitted prior-weights column for saved-model sampling.
 ///
-/// Thin adapter over the single canonical
-/// [`crate::generative::family_noise_parameter`]: the replicate-sampling path
-/// here and the CLI `gam generate` path both route through that one helper, so
-/// the fitted dispersion (NB θ̂, Beta/Tweedie φ̂, Gamma k̂) can never be read
-/// inconsistently between them. A divergent second copy of this logic was the
-/// root cause of #1124.
-fn family_noise_parameter(fit: &UnifiedFitResult, likelihood: &LikelihoodSpec) -> Option<f64> {
-    crate::generative::family_noise_parameter(
-        fit.likelihood_scale,
-        fit.standard_deviation,
-        likelihood,
-    )
+/// The fit optimized a weighted likelihood; reconstructing the target with
+/// unit weights samples a DIFFERENT posterior — an intercept-only Bernoulli
+/// with `(y, w) = (1, 100), (0, 1)` has its weighted mode at `log 100`, not 0
+/// (#2245 finding 16). `None` weight column means the fit was unweighted.
+fn saved_prior_weights(
+    model: &SavedModel,
+    data: ArrayView2<'_, f64>,
+    col_map: &HashMap<String, usize>,
+) -> Result<Array1<f64>, String> {
+    match model.weight_column.as_deref() {
+        Some(name) => {
+            let idx = resolve_role_col(col_map, name, "weights")?;
+            let w = data.column(idx).to_owned();
+            if !w.iter().all(|v| v.is_finite() && *v >= 0.0) {
+                return Err(format!(
+                    "sample: prior-weights column '{name}' contains negative or non-finite values"
+                ));
+            }
+            Ok(w)
+        }
+        None => Ok(Array1::ones(data.nrows())),
+    }
+}
+
+/// Re-apply the offset the model was fit with so the posterior targets the
+/// same `η = Xβ + offset` as the fit and predict paths. The diagnostic loader
+/// keeps the saved offset column in the frame; dropping the offset silently
+/// sampled the wrong target for any `--offset-column` GLM (#882, #2245
+/// finding 16).
+fn saved_offset(
+    model: &SavedModel,
+    data: ArrayView2<'_, f64>,
+    col_map: &HashMap<String, usize>,
+) -> Result<Option<Array1<f64>>, String> {
+    match model.offset_column.as_deref() {
+        Some(name) => {
+            let idx = resolve_role_col(col_map, name, "offset")?;
+            Ok(Some(data.column(idx).to_owned()))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Refresh the Negative-Binomial overdispersion `theta` on the sampling
@@ -566,7 +631,7 @@ fn sample_standard(
         .as_ref()
         .filter(|c| c.a.nrows() > 0)
     {
-        return sample_standard_truncated(model, cfg, constraints);
+        return sample_standard_truncated(model, cfg, constraints, &design.design);
     }
 
     // (3) unconstrained Gaussian identity — saved closed-form Laplace posterior.
@@ -574,10 +639,24 @@ fn sample_standard(
         return laplace_gaussian_fallback(model, cfg, "standard gaussian posterior");
     }
 
-    // (4) unconstrained non-Gaussian GLM — exact NUTS over the raw design.
-    let weights = Array1::ones(data.nrows());
-    let dense_design_hmc = design.design.to_dense();
+    // (4) unconstrained non-Gaussian GLM — exact NUTS over the raw design,
+    // under the SAME prior weights the fit optimized (#2245 finding 16).
+    let weights = saved_prior_weights(model, data, col_map)?;
+    let dense_design_hmc = design
+        .design
+        .try_to_dense_governed("saved standard model HMC design")
+        .map_err(|error| error.to_string())?;
     let p = dense_design_hmc.ncols();
+    // Both current dense sampler routes retain one additional n×p design:
+    // NUTS owns an Arc copy and Pólya-Gamma owns its row-scaled workspace.
+    // Reserve that simultaneous copy now and keep the charge through the call.
+    let sampler_design_copy_reservation = MemoryGovernor::global()
+        .try_reserve_dense_f64(
+            dense_design_hmc.nrows(),
+            dense_design_hmc.ncols(),
+            "saved standard model sampler design copy",
+        )
+        .map_err(|error| error.to_string())?;
     let fit = fit_result_from_saved_model_for_prediction(model)?;
     // Refresh the NB overdispersion `theta` from the fit's jointly-estimated
     // `theta_hat` before sampling. The construction seed stored on the family
@@ -607,19 +686,9 @@ fn sample_standard(
     let penalty =
         weighted_blockwise_penalty_sum(&design.penalties, fit.lambdas.as_slice().unwrap(), p);
 
-    // Re-apply the offset the model was fit with so the posterior targets the
-    // same η = Xβ + offset as the fit and predict paths. The diagnostic loader
-    // keeps the saved offset column in the frame; dropping the offset silently
-    // sampled the wrong target for any `--offset-column` GLM (#882).
-    let offset_vec: Option<Array1<f64>> = match model.offset_column.as_deref() {
-        Some(name) => {
-            let idx = resolve_role_col(col_map, name, "offset")?;
-            Some(data.column(idx).to_owned())
-        }
-        None => None,
-    };
+    let offset_vec = saved_offset(model, data, col_map)?;
 
-    run_nuts_sampling_flattened_family(
+    let result = run_nuts_sampling_flattened_family(
         likelihood,
         FamilyNutsInputs::Glm(GlmFlatInputs {
             x: dense_design_hmc.view(),
@@ -633,12 +702,17 @@ fn sample_standard(
             // posterior scale selected at fit time; fixed-scale families remain
             // a no-op.
             dispersion: fit.dispersion().unwrap_or_default(),
-            firth_bias_reduction: false,
+            // The fit's optimized target: dropping the Jeffreys term Φ(β)
+            // from a Firth fit samples a different posterior (#2245
+            // finding 16). Persisted on the fit artifacts at fit time.
+            firth_bias_reduction: fit.artifacts.firth_bias_reduction,
             offset: offset_vec.as_ref().map(|o| o.view()),
         }),
         cfg,
     )
-    .map_err(|e| format!("NUTS sampling failed: {e}"))
+    .map_err(|e| format!("NUTS sampling failed: {e}"));
+    drop(sampler_design_copy_reservation);
+    result
 }
 
 /// Exact posterior draws for a standard GLM with `bounded()` coefficients.
@@ -714,13 +788,17 @@ fn sample_standard_bounded(
 /// posterior; for a non-Gaussian GLM it is the constraint-respecting Laplace
 /// approximation — the same modelling choice the `bounded()` term makes. The
 /// draws are produced by exact reflective Hamiltonian Monte Carlo
-/// ([`crate::truncated_gaussian`]), so every draw is feasible and
-/// successive draws are essentially independent (`rhat ≈ 1`, matching the other
-/// Laplace posterior paths).
+/// ([`crate::truncated_gaussian`]), so every draw is feasible and each draw's
+/// marginal law is exactly the truncated Gaussian. Successive draws are only
+/// independent when the quarter-period trajectory hits no wall; whenever a
+/// constraint is active at the mode the trajectory reflects on every draw and
+/// consecutive draws are autocorrelated, so `rhat`/`ess` are MEASURED with the
+/// split-chain Gelman–Rubin diagnostic rather than asserted.
 fn sample_standard_truncated(
     model: &SavedModel,
     cfg: &NutsConfig,
     constraints: &gam_solve::pirls::LinearInequalityConstraints,
+    design: &gam_linalg::matrix::DesignMatrix,
 ) -> Result<NutsResult, String> {
     validate_nuts_config(cfg).map_err(String::from)?;
     let fit = fit_result_from_saved_model_for_prediction(model)?;
@@ -744,7 +822,48 @@ fn sample_standard_truncated(
     let penalized_hessian =
         explicit_fit_hessian_for_whitening(&fit, p, "saved standard constrained model")?;
     let sqrt_cov_scale = fit.coefficient_covariance_scale().max(0.0).sqrt();
+
+    // Recover the UNCONSTRAINED Gaussian center of the local quadratic (#2245
+    // finding 20). A Gaussian truncated to the polytope stays centred at its
+    // pre-truncation mean `H⁻¹X′Wz`; the boundary KKT mode is not that mean.
+    // With every constraint strictly inactive at the mode the KKT gradient is
+    // zero and the two coincide, so the geometry solve is only required when a
+    // constraint is active.
+    let mode_scale = mode.iter().map(|v| v.abs()).fold(1.0_f64, f64::max);
+    let min_slack = (constraints.a.dot(&mode) - &constraints.b)
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, f64::min);
+    let center = if min_slack > 1e-8 * mode_scale {
+        mode.clone()
+    } else {
+        let geometry = fit.geometry.as_ref().ok_or_else(|| {
+            "standard constrained-coefficient posterior: an inequality constraint is active at \
+             the mode but the saved model carries no working geometry to recover the \
+             unconstrained Gaussian center; refit with exact geometry export"
+                .to_string()
+        })?;
+        let n = design.nrows();
+        if geometry.working_weights.len() != n || geometry.working_response.len() != n {
+            return Err(format!(
+                "standard constrained-coefficient posterior: saved working geometry has {} rows \
+                 but the rebuilt design has {n}",
+                geometry.working_weights.len(),
+            ));
+        }
+        let wz = &geometry.working_weights * &geometry.working_response;
+        let rhs = design.transpose_vector_multiply(&wz);
+        let chol = penalized_hessian.cholesky(Side::Lower).map_err(|e| {
+            format!(
+                "standard constrained-coefficient posterior: Cholesky of the penalised Hessian \
+                 failed while recovering the unconstrained center: {e:?}"
+            )
+        })?;
+        gam_linalg::triangular::cholesky_solve_vector(&chol.lower_triangular(), &rhs)
+    };
+
     let samples = crate::truncated_gaussian::sample_truncated_gaussian_posterior(
+        &center,
         &mode,
         &penalized_hessian,
         sqrt_cov_scale,
@@ -753,20 +872,34 @@ fn sample_standard_truncated(
         cfg.n_chains,
         chain_stream_seed(cfg.seed, 0, 0x7290_C047_5D6E_B14Du64),
     )?;
-    let n_total = cfg.n_samples.saturating_mul(cfg.n_chains);
-
     let posterior_mean = samples
         .mean_axis(ndarray::Axis(0))
         .unwrap_or_else(|| Array1::<f64>::zeros(p));
     let posterior_std = samples.std_axis(ndarray::Axis(0), 1.0);
 
+    // Reflective HMC draws are iid only while no wall is hit; an active
+    // constraint at the mode makes every trajectory reflect, correlating
+    // consecutive draws. Measure the diagnostics instead of asserting the
+    // iid triple (the sampler stacks rows chain-major: chain*n_samples+draw).
+    let mut chains = ndarray::Array3::<f64>::zeros((cfg.n_chains, cfg.n_samples, p));
+    for chain in 0..cfg.n_chains {
+        for draw in 0..cfg.n_samples {
+            let row = chain * cfg.n_samples + draw;
+            for j in 0..p {
+                chains[(chain, draw, j)] = samples[(row, j)];
+            }
+        }
+    }
+    let (rhat, ess) = super::hmc_io::compute_split_rhat_and_ess(&chains);
+    let converged = rhat < 1.1 && ess > 100.0;
+
     Ok(NutsResult {
         samples,
         posterior_mean,
         posterior_std,
-        rhat: 1.0,
-        ess: n_total as f64,
-        converged: true,
+        rhat,
+        ess,
+        converged,
     })
 }
 
@@ -885,7 +1018,17 @@ fn sample_standard_link_wiggle(
 
     let penalty_link = weighted_penalty_matrix(&wiggle_penalties, wiggle_lambdas)?;
 
-    let q0 = design.design.dot(&mode_beta);
+    // Fitted prior weights and offset, so the sampled target is exactly the
+    // fitted model's posterior (#2245 finding 16). The offset also enters the
+    // wiggle abscissa q₀ = Xβ + offset below, matching the target's basis
+    // evaluation.
+    let weights = saved_prior_weights(model, data, col_map)?;
+    let offset_vec = saved_offset(model, data, col_map)?;
+
+    let mut q0 = design.design.dot(&mode_beta);
+    if let Some(offset) = offset_vec.as_ref() {
+        q0 += offset;
+    }
     let (q0_min, q0_max) = q0
         .iter()
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
@@ -898,21 +1041,39 @@ fn sample_standard_link_wiggle(
         degree,
     };
 
-    let nuts_family = match (&likelihood.response, &likelihood.link) {
+    // Typed per-family likelihood parameters (#2245 finding 15): each family
+    // names exactly what its log-likelihood needs, read from the FITTED scale
+    // metadata. The historical single `scale` slot let Tweedie dispersion φ be
+    // consumed as the variance power p — a different posterior entirely.
+    let family = match (&likelihood.response, &likelihood.link) {
         (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::Logit)) => {
-            NutsFamily::BinomialLogit
+            LinkWiggleFamilyParams::BinomialLogit
         }
         (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::Probit)) => {
-            NutsFamily::BinomialProbit
+            LinkWiggleFamilyParams::BinomialProbit
         }
         (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::CLogLog)) => {
-            NutsFamily::BinomialCLogLog
+            LinkWiggleFamilyParams::BinomialCLogLog
         }
-        (ResponseFamily::Gaussian, _) => NutsFamily::Gaussian,
-        (ResponseFamily::Poisson, _) => NutsFamily::PoissonLog,
-        (ResponseFamily::Tweedie { .. }, _) => NutsFamily::TweedieLog,
-        (ResponseFamily::NegativeBinomial { .. }, _) => NutsFamily::NegativeBinomialLog,
-        (ResponseFamily::Gamma, _) => NutsFamily::GammaLog,
+        (ResponseFamily::Gaussian, _) => LinkWiggleFamilyParams::Gaussian {
+            sigma: fit.standard_deviation,
+        },
+        (ResponseFamily::Poisson, _) => LinkWiggleFamilyParams::PoissonLog,
+        (ResponseFamily::Tweedie { p }, _) => LinkWiggleFamilyParams::TweedieLog {
+            power: *p,
+            phi: fit.likelihood_scale.fixed_phi().unwrap_or(1.0),
+        },
+        (ResponseFamily::NegativeBinomial { theta, .. }, _) => {
+            LinkWiggleFamilyParams::NegativeBinomialLog {
+                theta: fit.likelihood_scale.negbin_theta().unwrap_or(*theta),
+            }
+        }
+        (ResponseFamily::Gamma, _) => LinkWiggleFamilyParams::GammaLog {
+            shape: fit
+                .likelihood_scale
+                .gamma_shape()
+                .unwrap_or(fit.standard_deviation),
+        },
         _ => {
             return Err(format!(
                 "NUTS sampling with link wiggle is not supported for family {}",
@@ -921,25 +1082,37 @@ fn sample_standard_link_wiggle(
         }
     };
 
-    let weights = Array1::ones(data.nrows());
-    let scale = family_noise_parameter(&fit, &likelihood).unwrap_or(fit.standard_deviation);
-
-    let wiggle_nuts_dense = design.design.as_dense_cow();
-    run_link_wiggle_nuts_sampling(
+    let wiggle_nuts_dense = design
+        .design
+        .try_to_dense_governed("saved link-wiggle HMC design")
+        .map_err(|error| error.to_string())?;
+    // LinkWigglePosterior owns one n×p copy for the duration of NUTS. Charge
+    // that simultaneous allocation before entering the sampler; the governed
+    // source matrix retains its own charge independently.
+    let sampler_design_copy_reservation = MemoryGovernor::global()
+        .try_reserve_dense_f64(
+            wiggle_nuts_dense.nrows(),
+            wiggle_nuts_dense.ncols(),
+            "saved link-wiggle sampler design copy",
+        )
+        .map_err(|error| error.to_string())?;
+    let result = run_link_wiggle_nuts_sampling(
         wiggle_nuts_dense.view(),
         y.view(),
         weights.view(),
+        offset_vec.as_ref().map(|o| o.view()),
         penalty_base.view(),
         penalty_link.view(),
         mode_beta.view(),
         mode_theta.view(),
         hessian.view(),
         spline,
-        nuts_family,
-        scale,
+        family,
         cfg,
     )
-    .map_err(|e| format!("link-wiggle NUTS sampling failed: {e}"))
+    .map_err(|e| format!("link-wiggle NUTS sampling failed: {e}"));
+    drop(sampler_design_copy_reservation);
+    result
 }
 
 fn sample_survival(
@@ -1001,7 +1174,7 @@ fn sample_survival(
         event_target[i] = if data[[i, event_col]] >= 0.5 { 1 } else { 0 };
     }
     let time_cfg = load_survival_time_basis_config_from_model(model)?;
-    let mut time_build = build_survival_time_basis(&age_entry, &age_exit, time_cfg.clone(), None)?;
+    let time_build = build_survival_time_basis(&age_entry, &age_exit, time_cfg.clone(), None)?;
     let resolved_time_cfg = resolved_survival_time_basis_config_from_build(
         &time_build.basisname,
         time_build.degree,
@@ -1009,17 +1182,17 @@ fn sample_survival(
         time_build.keep_cols.as_ref(),
         time_build.smooth_lambda,
     )?;
-    if saved_likelihood_mode == SurvivalLikelihoodMode::MarginalSlope {
+    let time_anchor_row = if saved_likelihood_mode == SurvivalLikelihoodMode::MarginalSlope {
         let time_anchor = model
             .survival_time_anchor
             .ok_or_else(|| "saved survival model missing survival_time_anchor".to_string())?;
-        let time_anchor_row = evaluate_survival_time_basis_row(time_anchor, &resolved_time_cfg)?;
-        center_survival_time_designs_at_anchor(
-            &mut time_build.x_entry_time,
-            &mut time_build.x_exit_time,
-            &time_anchor_row,
-        )?;
-    }
+        Some(evaluate_survival_time_basis_row(
+            time_anchor,
+            &resolved_time_cfg,
+        )?)
+    } else {
+        None
+    };
     let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
     let (mut eta_offset_entry, mut eta_offset_exit, mut derivative_offset_exit) =
         build_survival_time_offsets_for_likelihood(
@@ -1054,19 +1227,59 @@ fn sample_survival(
         .as_ref()
         .map(|(_, exit, _)| exit.ncols())
         .unwrap_or(0);
-    let p = p_time + p_timewiggle + p_cov;
-    let tb_entry_dense = time_build.x_entry_time.to_dense();
-    let tb_exit_dense = time_build.x_exit_time.to_dense();
-    let tb_deriv_dense = time_build.x_derivative_time.to_dense();
+    let p = p_time
+        .checked_add(p_timewiggle)
+        .and_then(|width| width.checked_add(p_cov))
+        .ok_or_else(|| "saved survival sampler design width overflow".to_string())?;
+    // At peak, the three assembled designs coexist with the three owned copies
+    // inside WorkingModelSurvival. The fit-state model and the NUTS target are
+    // constructed sequentially below, so this is the complete peak of final
+    // n×p design copies. Reserve it atomically before any final assembly.
+    let survival_design_reservation = MemoryGovernor::global()
+        .try_reserve_dense_f64_copies(
+            n,
+            p,
+            SURVIVAL_DESIGN_LIVE_COPIES,
+            "saved survival sampler design live set",
+        )
+        .map_err(|error| error.to_string())?;
     let mut x_entry = Array2::<f64>::zeros((n, p));
     let mut x_exit = Array2::<f64>::zeros((n, p));
     let mut x_derivative = Array2::<f64>::zeros((n, p));
+    let row_chunk_target_bytes = ResourcePolicy::default_library().row_chunk_target_bytes;
     if p_time > 0 {
-        x_entry.slice_mut(s![.., ..p_time]).assign(&tb_entry_dense);
-        x_exit.slice_mut(s![.., ..p_time]).assign(&tb_exit_dense);
-        x_derivative
-            .slice_mut(s![.., ..p_time])
-            .assign(&tb_deriv_dense);
+        stream_design_into(
+            &time_build.x_entry_time,
+            x_entry.slice_mut(s![.., ..p_time]),
+            row_chunk_target_bytes,
+            "saved survival entry-time design",
+        )?;
+        stream_design_into(
+            &time_build.x_exit_time,
+            x_exit.slice_mut(s![.., ..p_time]),
+            row_chunk_target_bytes,
+            "saved survival exit-time design",
+        )?;
+        stream_design_into(
+            &time_build.x_derivative_time,
+            x_derivative.slice_mut(s![.., ..p_time]),
+            row_chunk_target_bytes,
+            "saved survival derivative-time design",
+        )?;
+        if let Some(anchor_row) = time_anchor_row.as_ref() {
+            if anchor_row.len() != p_time {
+                return Err(format!(
+                    "survival time anchoring column mismatch: design={p_time}, anchor={}",
+                    anchor_row.len(),
+                ));
+            }
+            for mut row in x_entry.slice_mut(s![.., ..p_time]).rows_mut() {
+                row -= &anchor_row.view();
+            }
+            for mut row in x_exit.slice_mut(s![.., ..p_time]).rows_mut() {
+                row -= &anchor_row.view();
+            }
+        }
     }
     if let Some((entry_w, exit_w, deriv_w)) = saved_timewiggle.as_ref()
         && p_timewiggle > 0
@@ -1082,13 +1295,20 @@ fn sample_survival(
             .assign(deriv_w);
     }
     if p_cov > 0 {
-        let cov_dense = cov_design.design.to_dense();
         let cov_range = (p_time + p_timewiggle)..(p_time + p_timewiggle + p_cov);
-        x_entry
+        stream_design_into(
+            &cov_design.design,
+            x_entry.slice_mut(s![.., cov_range.clone()]),
+            row_chunk_target_bytes,
+            "saved survival covariate design",
+        )?;
+        x_exit
             .slice_mut(s![.., cov_range.clone()])
-            .assign(&cov_dense);
-        x_exit.slice_mut(s![.., cov_range]).assign(&cov_dense);
+            .assign(&x_entry.slice(s![.., cov_range]));
     }
+    // The final assembly now owns every covariate column needed by sampling.
+    // Release the rebuilt term collection before allocating model-owned copies.
+    drop(cov_design);
     let mut penalty_blocks: Vec<PenaltyBlock> = Vec::new();
     for (idx, s) in time_build.penalties.iter().enumerate() {
         if s.nrows() == p_time && s.ncols() == p_time {
@@ -1157,6 +1377,9 @@ fn sample_survival(
             }
         }
     }
+    // Wiggle columns and their penalty blocks have been copied into their final
+    // owners; the three source matrices must not overlap the sampler copies.
+    drop(saved_timewiggle);
     let ridge_lambda = model.survivalridge_lambda.ok_or_else(|| {
         "saved survival model is missing survivalridge_lambda; refusing to \
          pick a load-time default (the historical 1e-4 fallback silently \
@@ -1169,6 +1392,9 @@ fn sample_survival(
     } else {
         0
     };
+    // All time columns and penalty metadata are now represented in the final
+    // assembly. Drop the three source designs before constructing the model.
+    drop(time_build);
     if ridge_lambda > 0.0 && p > ridge_range_start {
         let dim = p - ridge_range_start;
         let mut ridge = Array2::<f64>::zeros((dim, dim));
@@ -1232,11 +1458,28 @@ fn sample_survival(
             .map_err(|e| format!("failed to enable structural monotonicity: {e}"))?;
     }
     let beta0 = fit_saved.beta.clone();
-    let state = model_surv
-        .update_state(&beta0)
-        .map_err(|e| format!("failed to evaluate survival state: {e}"))?;
-    let hessian = state.hessian.to_dense();
-    run_survival_nuts_sampling_flattened(
+    let survival_hessian_reservation = MemoryGovernor::global()
+        .try_reserve_dense_f64(p, p, "saved survival sampler Hessian")
+        .map_err(|error| error.to_string())?;
+    let hessian = {
+        let state = model_surv
+            .update_state(&beta0)
+            .map_err(|e| format!("failed to evaluate survival state: {e}"))?;
+        match state.hessian {
+            // The survival working state currently produces a dense Hessian.
+            // Move it instead of cloning it through SymmetricMatrix::to_dense.
+            gam_linalg::matrix::SymmetricMatrix::Dense(hessian) => hessian,
+            // Preserve exactness if that implementation becomes sparse: the
+            // p×p reservation above was acquired before this expansion.
+            gam_linalg::matrix::SymmetricMatrix::Sparse(hessian) => {
+                gam_linalg::matrix::SymmetricMatrix::Sparse(hessian).to_dense()
+            }
+        }
+    };
+    // The fit-state model owns three n×p copies. Release them before NUTS
+    // constructs its own three copies, keeping the reserved peak at six.
+    drop(model_surv);
+    let result = run_survival_nuts_sampling_flattened(
         SurvivalFlatInputs {
             age_entry: age_entry.view(),
             age_exit: age_exit.view(),
@@ -1259,13 +1502,130 @@ fn sample_survival(
         hessian.view(),
         cfg,
     )
-    .map_err(|e| format!("survival NUTS sampling failed: {e}"))
+    .map_err(|e| format!("survival NUTS sampling failed: {e}"));
+    drop(survival_hessian_reservation);
+    drop(survival_design_reservation);
+    result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gam_linalg::matrix::{DenseDesignMatrix, DenseDesignOperator, LinearOperator};
     use gam_problem::types::LikelihoodScaleMetadata;
+
+    struct ChunkOnlySampleDesign {
+        values: Array2<f64>,
+        row_chunk_calls: std::sync::atomic::AtomicUsize,
+        fail_rows: bool,
+    }
+
+    impl LinearOperator for ChunkOnlySampleDesign {
+        fn nrows(&self) -> usize {
+            self.values.nrows()
+        }
+
+        fn ncols(&self) -> usize {
+            self.values.ncols()
+        }
+
+        fn apply(&self, vector: &Array1<f64>) -> Array1<f64> {
+            self.values.dot(vector)
+        }
+
+        fn apply_transpose(&self, vector: &Array1<f64>) -> Array1<f64> {
+            self.values.t().dot(vector)
+        }
+
+        fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+            if weights.len() != self.nrows() {
+                return Err(format!(
+                    "weight vector has {} entries for {} design rows",
+                    weights.len(),
+                    self.nrows()
+                ));
+            }
+            Ok(Array2::zeros((self.ncols(), self.ncols())))
+        }
+    }
+
+    impl DenseDesignOperator for ChunkOnlySampleDesign {
+        fn row_chunk_into(
+            &self,
+            rows: std::ops::Range<usize>,
+            mut out: ndarray::ArrayViewMut2<'_, f64>,
+        ) -> Result<(), gam_runtime::resource::MatrixMaterializationError> {
+            self.row_chunk_calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if self.fail_rows {
+                return Err(
+                    gam_runtime::resource::MatrixMaterializationError::MissingRowChunk {
+                        context: "ChunkOnlySampleDesign test refusal",
+                    },
+                );
+            }
+            out.assign(&self.values.slice(s![rows, ..]));
+            Ok(())
+        }
+
+        fn to_dense(&self) -> Array2<f64> {
+            panic!("stream_design_into must never call to_dense")
+        }
+    }
+
+    #[test]
+    fn survival_design_streaming_uses_row_chunks_and_target_slice() {
+        let values = Array2::from_shape_fn((5, 3), |(i, j)| (10 * i + j) as f64);
+        let operator = std::sync::Arc::new(ChunkOnlySampleDesign {
+            values: values.clone(),
+            row_chunk_calls: std::sync::atomic::AtomicUsize::new(0),
+            fail_rows: false,
+        });
+        let design = gam_linalg::matrix::DesignMatrix::Dense(DenseDesignMatrix::from(
+            std::sync::Arc::clone(&operator),
+        ));
+        let mut assembled = Array2::<f64>::from_elem((5, 5), -1.0);
+
+        stream_design_into(
+            &design,
+            assembled.slice_mut(s![.., 1..4]),
+            2 * 3 * std::mem::size_of::<f64>(),
+            "streaming regression",
+        )
+        .expect("row-chunk assembly succeeds");
+
+        assert_eq!(assembled.slice(s![.., 1..4]), values.view());
+        assert!(assembled.column(0).iter().all(|&value| value == -1.0));
+        assert!(assembled.column(4).iter().all(|&value| value == -1.0));
+        assert_eq!(
+            operator
+                .row_chunk_calls
+                .load(std::sync::atomic::Ordering::SeqCst),
+            3,
+        );
+    }
+
+    #[test]
+    fn survival_design_streaming_propagates_typed_row_refusal() {
+        let operator = std::sync::Arc::new(ChunkOnlySampleDesign {
+            values: Array2::zeros((2, 2)),
+            row_chunk_calls: std::sync::atomic::AtomicUsize::new(0),
+            fail_rows: true,
+        });
+        let design = gam_linalg::matrix::DesignMatrix::Dense(DenseDesignMatrix::from(operator));
+        let mut assembled = Array2::<f64>::zeros((2, 2));
+
+        let error = stream_design_into(
+            &design,
+            assembled.view_mut(),
+            std::mem::size_of::<f64>(),
+            "streaming refusal regression",
+        )
+        .expect_err("row-chunk refusal must remain fallible");
+
+        assert!(error.contains("streaming refusal regression"));
+        assert!(error.contains("ChunkOnlySampleDesign test refusal"));
+    }
 
     /// #1463: the NB NUTS path must sample at the fit's jointly-estimated
     /// `theta_hat`, not the construction seed `theta = 1.0`. The seed only seeds

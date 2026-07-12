@@ -13,6 +13,7 @@ import json as _json
 import os as _os
 import sys as _sys
 import typing as _t
+from dataclasses import dataclass as _dataclass
 from warnings import warn as _warn
 
 import astroid as _ast
@@ -71,7 +72,8 @@ class Failures(list["Failure"]):
     """Sequence of Failure instances (one per function checked)."""
 
 
-class Failed(_t.NamedTuple):
+@_dataclass(frozen=True, order=True)
+class Diagnostic:  # pylint: disable=too-few-public-methods
     """Single reported issue."""
 
     name: str
@@ -83,7 +85,7 @@ class Failed(_t.NamedTuple):
     new: bool = False
 
 
-class Failure(list[Failed]):
+class Failure(list[Diagnostic]):
     """Collect docstring and signature failures for one function.
 
     Runs configured checks and appends Failed entries for each
@@ -137,7 +139,7 @@ class Failure(list[Failed]):
         **kwargs: _t.Any,
     ) -> None:
         self._retcode.add(int(not value.new))
-        failed = Failed(
+        failed = Diagnostic(
             self._name,
             value.ref,
             value.description.format(**kwargs),
@@ -416,15 +418,15 @@ def report(
     retcodes = RetCode()
     output = []
     obj = []
-    for failure in failures:
-        retcodes.add(failure.retcode)
+    for result in failures:
+        retcodes.add(result.retcode)
         path_prefix = f"{file}:" if file is not None else ""
-        header = f"{path_prefix}{failure.lineno} in {failure.name}"
+        header = f"{path_prefix}{result.lineno} in {result.name}"
         if not config.no_ansi and _sys.stdout.isatty():
             header = f"\033[35m{header}\033[0m"
 
         output.append(header)
-        for item in failure:
+        for item in result:
             extra = None
             if item.hint:
                 extra = f"hint: {item.hint}"
@@ -444,9 +446,9 @@ def report(
 
             obj.append(
                 {
-                    "line": None if failure.retcode == 2 else item.lineno,
+                    "line": None if result.retcode == 2 else item.lineno,
                     "message": msg,
-                    "exit": failure.retcode,
+                    "exit": result.retcode,
                 },
             )
 

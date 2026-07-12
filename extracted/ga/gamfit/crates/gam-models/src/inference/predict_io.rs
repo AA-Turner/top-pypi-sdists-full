@@ -2,16 +2,17 @@ use crate::bms::{
     EmpiricalZGrid, LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIntCalibration,
     bernoulli_marginal_link_map, empirical_intercept_from_marginal,
 };
+use crate::inference::model::{SavedCompiledFlexBlock, SavedLatentZNormalization};
 use crate::marginal_slope_shared::{
     ObservedDenestedCellPartials, eval_coeff4_at,
     probit_frailty_scale as marginal_slope_probit_frailty_scale, scale_coeff4,
 };
 use crate::survival::lognormal_kernel::FrailtySpec;
-use crate::inference::model::{SavedCompiledFlexBlock, SavedLatentZNormalization};
 use gam_linalg::matrix::DesignMatrix;
 use gam_math::probability::{normal_cdf, normal_pdf};
-use gam_solve::estimate::{EstimationError, UnifiedFitResult};
 use gam_problem::types::{InverseLink, LikelihoodSpec};
+use gam_runtime::resource::prediction_chunk_rows;
+use gam_solve::estimate::{EstimationError, UnifiedFitResult};
 use ndarray::{Array1, Array2, ArrayView1};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -54,29 +55,6 @@ pub struct BernoulliMarginalSlopePredictor {
     pub gaussian_frailty_sd: Option<f64>,
     pub latent_z_calibration: Option<LatentZRankIntCalibration>,
     pub latent_z_conditional_calibration: Option<LatentZConditionalCalibration>,
-}
-
-fn prediction_chunk_rows(parameter_dim: usize, local_dim: usize, n_rows: usize) -> usize {
-    const PREDICTION_TARGET_WORK_BYTES: usize = 2 * 1024 * 1024;
-    const PREDICTION_MIN_CHUNK_ROWS: usize = 16;
-    const PREDICTION_MAX_CHUNK_ROWS: usize = 4096;
-    if n_rows == 0 {
-        return 1;
-    }
-    let bytes_per_row = parameter_dim
-        .max(1)
-        .saturating_mul(local_dim.max(1))
-        .saturating_mul(std::mem::size_of::<f64>())
-        .saturating_mul(4);
-    let target_rows = if bytes_per_row == 0 {
-        n_rows
-    } else {
-        PREDICTION_TARGET_WORK_BYTES / bytes_per_row
-    };
-    target_rows
-        .max(PREDICTION_MIN_CHUNK_ROWS)
-        .min(PREDICTION_MAX_CHUNK_ROWS)
-        .min(n_rows.max(1))
 }
 
 /// Per-runtime predict-time anchor correction matrices.
@@ -670,60 +648,59 @@ impl BernoulliMarginalSlopePredictor {
         } else {
             Vec::new()
         };
-        let mut cells =
-            crate::cubic_cell_kernel::build_denested_partition_cells_with_tails(
-                a,
-                b,
-                &score_breaks,
-                &link_breaks,
-                |z| {
-                    if let (Some(runtime), Some(beta)) =
-                        (self.score_warp_runtime.as_ref(), beta_score_warp)
-                    {
-                        let mut span = runtime.local_cubic_at(beta, z)?;
-                        // `local_cubic_at`'s c0 is `Σ_j basis_c0[span][j] · beta[j]`.
-                        // The cross-block residual replaces basis_c0 by
-                        // basis_c0 − n_row · M, contributing a row-constant
-                        // `correction.dot(beta)` to c0. Higher coefficients
-                        // (c1..c3) depend on derivatives of the basis w.r.t.
-                        // its own argument and are untouched.
-                        if let Some(corr) = score_warp_correction_for_row {
-                            span.c0 -= corr.dot(beta);
-                        }
-                        Ok(span)
-                    } else {
-                        Ok(crate::cubic_cell_kernel::LocalSpanCubic {
-                            left: 0.0,
-                            right: 1.0,
-                            c0: 0.0,
-                            c1: 0.0,
-                            c2: 0.0,
-                            c3: 0.0,
-                        })
+        let mut cells = crate::cubic_cell_kernel::build_denested_partition_cells_with_tails(
+            a,
+            b,
+            &score_breaks,
+            &link_breaks,
+            |z| {
+                if let (Some(runtime), Some(beta)) =
+                    (self.score_warp_runtime.as_ref(), beta_score_warp)
+                {
+                    let mut span = runtime.local_cubic_at(beta, z)?;
+                    // `local_cubic_at`'s c0 is `Σ_j basis_c0[span][j] · beta[j]`.
+                    // The cross-block residual replaces basis_c0 by
+                    // basis_c0 − n_row · M, contributing a row-constant
+                    // `correction.dot(beta)` to c0. Higher coefficients
+                    // (c1..c3) depend on derivatives of the basis w.r.t.
+                    // its own argument and are untouched.
+                    if let Some(corr) = score_warp_correction_for_row {
+                        span.c0 -= corr.dot(beta);
                     }
-                },
-                |u| {
-                    if let (Some(runtime), Some(beta)) =
-                        (self.link_deviation_runtime.as_ref(), beta_link_dev)
-                    {
-                        let mut span = runtime.local_cubic_at(beta, u)?;
-                        if let Some(corr) = link_dev_correction_for_row {
-                            span.c0 -= corr.dot(beta);
-                        }
-                        Ok(span)
-                    } else {
-                        Ok(crate::cubic_cell_kernel::LocalSpanCubic {
-                            left: 0.0,
-                            right: 1.0,
-                            c0: 0.0,
-                            c1: 0.0,
-                            c2: 0.0,
-                            c3: 0.0,
-                        })
+                    Ok(span)
+                } else {
+                    Ok(crate::cubic_cell_kernel::LocalSpanCubic {
+                        left: 0.0,
+                        right: 1.0,
+                        c0: 0.0,
+                        c1: 0.0,
+                        c2: 0.0,
+                        c3: 0.0,
+                    })
+                }
+            },
+            |u| {
+                if let (Some(runtime), Some(beta)) =
+                    (self.link_deviation_runtime.as_ref(), beta_link_dev)
+                {
+                    let mut span = runtime.local_cubic_at(beta, u)?;
+                    if let Some(corr) = link_dev_correction_for_row {
+                        span.c0 -= corr.dot(beta);
                     }
-                },
-            )
-            .map_err(EstimationError::InvalidInput)?;
+                    Ok(span)
+                } else {
+                    Ok(crate::cubic_cell_kernel::LocalSpanCubic {
+                        left: 0.0,
+                        right: 1.0,
+                        c0: 0.0,
+                        c1: 0.0,
+                        c2: 0.0,
+                        c3: 0.0,
+                    })
+                }
+            },
+        )
+        .map_err(EstimationError::InvalidInput)?;
         let scale = self.probit_frailty_scale();
         if scale != 1.0 {
             for partition_cell in &mut cells {
@@ -762,20 +739,18 @@ impl BernoulliMarginalSlopePredictor {
         let mut f_aa = 0.0;
         for partition_cell in cells {
             let cell = partition_cell.cell;
-            let (dc_da_raw, _) =
-                crate::cubic_cell_kernel::denested_cell_coefficient_partials(
-                    partition_cell.score_span,
-                    partition_cell.link_span,
-                    a,
-                    slope,
-                );
-            let (d2c_da2_raw, _, _) =
-                crate::cubic_cell_kernel::denested_cell_second_partials(
-                    partition_cell.score_span,
-                    partition_cell.link_span,
-                    a,
-                    slope,
-                );
+            let (dc_da_raw, _) = crate::cubic_cell_kernel::denested_cell_coefficient_partials(
+                partition_cell.score_span,
+                partition_cell.link_span,
+                a,
+                slope,
+            );
+            let (d2c_da2_raw, _, _) = crate::cubic_cell_kernel::denested_cell_second_partials(
+                partition_cell.score_span,
+                partition_cell.link_span,
+                a,
+                slope,
+            );
             let dc_da = scale_coeff4(dc_da_raw, scale);
             let d2c_da2 = scale_coeff4(d2c_da2_raw, scale);
             // Derive the moment `max_degree` from the contractions consumed
@@ -783,10 +758,9 @@ impl BernoulliMarginalSlopePredictor {
             // derivative contraction dominates the first-derivative one, so
             // its required degree is the binding bound. Hardcoding 7 here
             // produced 8 moments while the contraction needs 10 (#321).
-            let max_degree =
-                crate::cubic_cell_kernel::cell_second_derivative_required_max_degree(
-                    &dc_da, &dc_da, &d2c_da2,
-                );
+            let max_degree = crate::cubic_cell_kernel::cell_second_derivative_required_max_degree(
+                &dc_da, &dc_da, &d2c_da2,
+            );
             let state = crate::cubic_cell_kernel::evaluate_cell_moments(cell, max_degree)
                 .map_err(EstimationError::InvalidInput)?;
             f += state.value;

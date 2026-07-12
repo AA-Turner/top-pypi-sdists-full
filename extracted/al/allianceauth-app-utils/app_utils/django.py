@@ -30,13 +30,21 @@ def users_with_permission(
         permission: required permission
         include_superusers: whether superusers are included in the returned list
     """
+    if hasattr(permission, "state_set"):
+        state_set = permission.state_set
+    else:
+        # workaround: state_set has moved to a proxy model with AA 5.2 (issue #2)
+        from allianceauth.authentication.models import Permission
+
+        perm = Permission.objects.get(pk=permission.pk)
+        state_set = perm.state_set
     users_qs = (
         permission.user_set.all()
         | User.objects.filter(
             groups__in=list(permission.group_set.values_list("pk", flat=True))
         )
         | User.objects.select_related("profile").filter(
-            profile__state__in=list(permission.state_set.values_list("pk", flat=True))
+            profile__state__in=list(state_set.values_list("pk", flat=True))
         )
     )
     if include_superusers:

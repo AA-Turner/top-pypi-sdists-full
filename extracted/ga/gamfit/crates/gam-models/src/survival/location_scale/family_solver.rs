@@ -1,4 +1,6 @@
 use super::*;
+use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, constants, escalate_ridge};
+use std::convert::Infallible;
 
 impl SurvivalLocationScaleFamily {
     /// Recompute every block's linear predictor `η_b = D_b · β_b + o_b` from
@@ -201,37 +203,20 @@ impl SurvivalLocationScaleFamily {
                 }
                 .into());
             }
-            // Source `g = ∇ℓ` from the SAME jet-tower row kernel that produces the
-            // Newton Hessian `H = −∇²ℓ` below, so the step `H δ = g` is solved on a
-            // consistent (objective, gradient, Hessian) triple for EVERY residual
-            // distribution. The legacy `evaluate_log_likelihood_and_block_gradients`
-            // hand-assembly above happens to coincide with the jet tower for the
-            // probit (lognormal) residual but diverges for the logit (log-logistic)
-            // residual, yielding a wrong Newton direction that pinned the `age`
-            // location coefficient to its cold-start 0 (gam#1110). The kernel
-            // gradient has the identical block-concatenated layout (its
-            // `jacobian_transpose_action` writes per channel into the same
-            // `joint_block_offsets` slabs), so it drops in directly; `ll` is still
-            // the scalar log-likelihood from the call above (unchanged).
-            if let Some(kernel_g) = self.exact_newton_joint_loglik_gradient(&states)? {
-                if kernel_g.len() != p_total {
-                    return Err(SurvivalLocationScaleError::DimensionMismatch {
-                        reason: format!(
-                            "direct parametric-AFT MLE: kernel gradient length {} != p_total {}",
-                            kernel_g.len(),
-                            p_total
-                        ),
-                    }
-                    .into());
-                }
-                if !kernel_g.iter().all(|v| v.is_finite()) {
-                    return Err(SurvivalLocationScaleError::NumericalFailure {
-                        reason: "direct parametric-AFT MLE: non-finite kernel gradient".to_string(),
-                    }
-                    .into());
-                }
-                g = kernel_g;
-            }
+            // The step `H δ = g` is solved on a consistent (objective, gradient,
+            // Hessian) triple for EVERY residual distribution: `g = ∇ℓ` above is
+            // the block-gradient hand assembler
+            // (`evaluate_log_likelihood_and_block_gradients`) and `H = −∇²ℓ` below
+            // is `assemble_joint_hessian_from_quantities`, but both are pinned to
+            // the ONE single-sourced `sls_row_nll` jet to ≤1e-9 by the analytic
+            // oracles (`survival_ls_block_gradient_matches_single_sourced_tower_932`
+            // for the gradient across Gaussian/Gumbel/Logistic on the every-channel
+            // time-varying shape;
+            // `survival_ls_time_varying_joint_hessian_matches_single_sourced_tower_932`
+            // for the Hessian). This closes gam#1110, where an earlier hand block
+            // gradient diverged from the jet for the logit (log-logistic) residual
+            // and pinned the `age` location coefficient to its cold-start 0: the
+            // oracle now forbids any dropped cross-channel term from reappearing.
             // Retained for diagnostics only — the stopping test is the Newton
             // decrement computed below, NOT this raw summed-gradient sup-norm
             // (whose attainable floor scales with `n`; see the doc comment /
@@ -261,32 +246,46 @@ impl SurvivalLocationScaleFamily {
                 .iter()
                 .fold(0.0_f64, |acc, &v| acc.max(v.abs()))
                 .max(1.0);
-            let mut tau = 0.0_f64;
-            let delta = loop {
+            let try_damped = |tau: f64| -> Option<Array1<f64>> {
                 let mut damped = h.clone();
                 if tau > 0.0 {
                     for i in 0..p_total {
                         damped[[i, i]] += tau;
                     }
                 }
-                match damped.cholesky(faer::Side::Lower) {
-                    Ok(chol) => break chol.solvevec(&g),
-                    Err(_) => {
-                        tau = if tau == 0.0 {
-                            LEVENBERG_INITIAL_DAMPING_REL * h_scale
-                        } else {
-                            tau * LEVENBERG_DAMPING_GROWTH
-                        };
-                        if tau > LEVENBERG_MAX_DAMPING_REL * h_scale {
-                            return Err(SurvivalLocationScaleError::NumericalFailure {
-                                reason:
-                                    "direct parametric-AFT MLE: Hessian not factorizable even with maximal damping"
-                                        .to_string(),
-                            }
-                            .into());
-                        }
-                    }
-                }
+                damped
+                    .cholesky(faer::Side::Lower)
+                    .ok()
+                    .map(|chol| chol.solvevec(&g))
+            };
+            // Bare (undamped) Newton solve first; on failure escalate τ
+            // geometrically across the damping span [INITIAL, MAX]·h_scale —
+            // the trial count is that span's decade count, INCLUSIVE of the
+            // final τ ≈ MAX·h_scale. The pre-primitive loop compared its
+            // FP-accumulated τ chain against the single product `MAX·h_scale`
+            // and, for ~40% of h_scale values, dropped the final decade by one
+            // ulp; the deterministic count realizes the documented cap for
+            // every h_scale.
+            let damping_trials = (LEVENBERG_MAX_DAMPING_REL / LEVENBERG_INITIAL_DAMPING_REL)
+                .log10()
+                .ceil() as usize
+                + 1;
+            let delta = match try_damped(0.0) {
+                Some(delta) => delta,
+                None => escalate_ridge(
+                    RidgeSchedule {
+                        initial: LEVENBERG_INITIAL_DAMPING_REL * h_scale,
+                        growth: LEVENBERG_DAMPING_GROWTH,
+                        max_escalations: damping_trials,
+                    },
+                    try_damped,
+                )
+                .map(|success| success.value)
+                .map_err(|_| SurvivalLocationScaleError::NumericalFailure {
+                    reason:
+                        "direct parametric-AFT MLE: Hessian not factorizable even with maximal damping"
+                            .to_string(),
+                })?,
             };
             if !delta.iter().all(|v| v.is_finite()) {
                 return Err(SurvivalLocationScaleError::NumericalFailure {
@@ -330,23 +329,49 @@ impl SurvivalLocationScaleFamily {
             // sufficient-increase condition on ℓ is well posed. The directional
             // derivative is exactly the Newton decrement computed above.
             let directional = newton_decrement;
-            const ARMIJO_C: f64 = 1e-4;
-            const BACKTRACK: f64 = 0.5;
             const MIN_ALPHA: f64 = 1e-12;
-            let mut accepted: Option<(Array1<f64>, Vec<ParameterBlockState>, f64)> = None;
-            while alpha >= MIN_ALPHA {
-                let trial_theta = &theta + &(alpha * &delta);
-                if let Ok(cand_states) = self.parametric_aft_states_from_theta(&trial_theta, specs)
-                    && let Ok(cand_ll) = self.log_likelihood_only(&cand_states)
-                    && cand_ll.is_finite()
-                    && cand_ll >= ll + ARMIJO_C * alpha * directional
-                {
-                    accepted = Some((trial_theta, cand_states, cand_ll));
-                    break;
+            // The pre-migration loop halved from the feasibility-capped α
+            // while `alpha >= MIN_ALPHA`; count those trials by the same
+            // halving recurrence (exact, unlike a log — zero trials when α₀
+            // already sits below the floor, leaving the search exhausted).
+            let max_steps = {
+                let mut n = 0_usize;
+                let mut a = alpha;
+                while a >= MIN_ALPHA {
+                    n += 1;
+                    a *= 0.5;
                 }
-                alpha *= BACKTRACK;
-            }
-            match accepted {
+                n
+            };
+            // A trial whose block-state rebuild or likelihood evaluation errors
+            // is INVALID (`Ok(None)`): halve without consulting the Armijo test.
+            let accepted = match backtracking_line_search::<_, Infallible>(
+                BacktrackConfig {
+                    initial_step: alpha,
+                    max_steps,
+                    ..BacktrackConfig::default()
+                },
+                |alpha| {
+                    let trial_theta = &theta + &(alpha * &delta);
+                    let Ok(cand_states) =
+                        self.parametric_aft_states_from_theta(&trial_theta, specs)
+                    else {
+                        return Ok(None);
+                    };
+                    let Ok(cand_ll) = self.log_likelihood_only(&cand_states) else {
+                        return Ok(None);
+                    };
+                    Ok(Some((cand_ll, (trial_theta, cand_states))))
+                },
+                |alpha, cand_ll| {
+                    cand_ll.is_finite()
+                        && cand_ll >= ll + constants::ARMIJO_C1 * alpha * directional
+                },
+            ) {
+                Ok(result) => result,
+                Err(never) => match never {},
+            };
+            match accepted.map(|step| (step.payload.0, step.payload.1, step.value)) {
                 Some((new_theta, new_states, new_ll)) => {
                     theta = new_theta;
                     states = new_states;
@@ -646,6 +671,25 @@ impl SurvivalLocationScaleFamily {
         Ok(blocks)
     }
 
+    /// LIVE production joint Hessian `H = −∇²ℓ` for the non-wiggle survival-LS
+    /// model (the wiggle case is single-sourced through the §13 warp kernel).
+    ///
+    /// #932 MEASURED PERF EXCEPTION: this is a sparse hand assembler, NOT the
+    /// single-source `Order2<9>` jet row kernel. Routing the joint Hessian
+    /// through the dense jet (`RowKernel::<9>::row_kernel` over `sls_row_nll`) is
+    /// ~3.8–5.3× SLOWER (standalone ns/row + `--emit asm` op counts): a dense
+    /// order-2 tower over 9 channels cannot recover the 3-functionally-
+    /// independent-index × ≤5-touched-channel sparsity this assembler hard-codes.
+    /// The exception is kept HONEST, not a divergence risk: this hand assembler
+    /// is pinned bit-for-bit (≤1e-9) to the ONE single-sourced `sls_row_nll` jet
+    /// by non-ignored analytic oracles —
+    /// `survival_ls_row_kernel_matches_bespoke_assembly` (#921, simple shape +
+    /// FD directional witness) and
+    /// `survival_ls_time_varying_joint_hessian_matches_single_sourced_tower_932`
+    /// (every-channel time-varying shape, Gaussian/Gumbel/Logistic). The block
+    /// gradient is likewise pinned by
+    /// `survival_ls_block_gradient_matches_single_sourced_tower_932`. A future
+    /// cutover requires a sparsity-aware packed jet that closes the measured gap.
     pub(crate) fn assemble_joint_hessian_from_quantities(
         &self,
         q: &SurvivalJointQuantities,
@@ -1068,21 +1112,15 @@ impl SurvivalLocationScaleFamily {
             let dynamic = self.build_dynamic_geometry(block_states)?;
             return Ok(Some((
                 super::row_kernel::survival_ls_wiggle_joint_hessian_dense(
-                    self, &q, &dynamic, log_scale,
+                    self, &dynamic, log_scale,
                 )?,
                 log_scale,
             )));
         }
-        if self.row_kernel_joint_hessian_supported() {
-            let dynamic = self.build_dynamic_geometry(block_states)?;
-            let kernel = self.survival_ls_row_kernel_rescaled(&q, &dynamic, log_scale);
-            let rows = crate::row_kernel::RowSet::All;
-            let cache = crate::row_kernel::build_row_kernel_cache(&kernel, &rows)?;
-            return Ok(Some((
-                crate::row_kernel::row_kernel_hessian_dense(&kernel, &cache, &rows),
-                log_scale,
-            )));
-        }
+        // #932 measured perf exception: the non-wiggle joint Hessian ships the
+        // sparse `assemble_joint_hessian_from_quantities`, NOT the dense
+        // `Order2<9>` single-source row kernel. See that method's doc for the
+        // 3.8–5.3× measurement and the analytic oracles that pin it to the jet.
         Ok(self
             .assemble_joint_hessian_from_quantities(&q, block_states)?
             .map(|h| (h, log_scale)))
@@ -1094,11 +1132,9 @@ impl SurvivalLocationScaleFamily {
         d_beta_flat: &Array1<f64>,
         log_rescale: f64,
     ) -> Result<Option<Array2<f64>>, String> {
-        let q = self.collect_joint_quantities_rescaled(block_states, log_rescale)?;
         let dynamic = self.build_dynamic_geometry(block_states)?;
         self.exact_newton_joint_hessian_directional_derivative_rescaled_from_parts(
             d_beta_flat,
-            &q,
             &dynamic,
             log_rescale,
         )
@@ -1106,22 +1142,19 @@ impl SurvivalLocationScaleFamily {
 
     /// `_from_parts` variant of
     /// [`Self::exact_newton_joint_hessian_directional_derivative_rescaled`]
-    /// that receives the precomputed `q` and `dynamic` instead of recomputing
-    /// them on every call. This is the workspace-friendly entry point used by
+    /// that receives the precomputed dynamic geometry instead of recomputing it
+    /// on every call. This is the workspace-friendly entry point used by
     /// `SurvivalLocationScaleExactNewtonJointHessianWorkspace` to avoid the
-    /// ~300 redundant `collect_joint_quantities_rescaled` /
-    /// `build_dynamic_geometry` sweeps the outer Hessian pair loop would
+    /// ~300 redundant `build_dynamic_geometry` sweeps the outer Hessian pair loop would
     /// otherwise trigger per evaluation.
     pub(crate) fn exact_newton_joint_hessian_directional_derivative_rescaled_from_parts(
         &self,
         d_beta_flat: &Array1<f64>,
-        q: &SurvivalJointQuantities,
         dynamic: &SurvivalDynamicGeometry,
         deriv_log_scale: f64,
     ) -> Result<Option<Array2<f64>>, String> {
         self.exact_newton_joint_hessian_directional_derivative_rescaled_from_parts_masked(
             d_beta_flat,
-            q,
             dynamic,
             deriv_log_scale,
             None,
@@ -1136,7 +1169,6 @@ impl SurvivalLocationScaleFamily {
     pub(crate) fn exact_newton_joint_hessian_directional_derivative_rescaled_from_parts_masked(
         &self,
         d_beta_flat: &Array1<f64>,
-        q: &SurvivalJointQuantities,
         dynamic: &SurvivalDynamicGeometry,
         deriv_log_scale: f64,
         row_mask: Option<&Array1<f64>>,
@@ -1156,7 +1188,7 @@ impl SurvivalLocationScaleFamily {
         }
 
         if self.row_kernel_directional_supported() {
-            let kernel = self.survival_ls_row_kernel_rescaled(q, dynamic, deriv_log_scale);
+            let kernel = self.survival_ls_row_kernel_rescaled(dynamic, deriv_log_scale);
             let rows = row_set_from_survival_mask(row_mask, self.n);
             return crate::row_kernel::row_kernel_directional_derivative(
                 &kernel,
@@ -1185,7 +1217,6 @@ impl SurvivalLocationScaleFamily {
         Ok(Some(
             super::row_kernel::survival_ls_wiggle_directional_derivative_dense(
                 self,
-                q,
                 dynamic,
                 deriv_log_scale,
                 &rows,
@@ -1600,7 +1631,6 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             return Ok(None);
         }
         let log_rescale = self.hessian_deriv_log_rescale(block_states);
-        let q = self.collect_joint_quantities_rescaled(block_states, log_rescale)?;
         let dynamic = self.build_dynamic_geometry(block_states)?;
 
         // Base (non-wiggle) path: sweep every canonical axis through the batched
@@ -1617,11 +1647,10 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         // branch keeps the bespoke per-axis dense path the dispatcher does not
         // cover.
         if self.row_kernel_directional_supported() {
-            let kernel = self.survival_ls_row_kernel_rescaled(&q, &dynamic, log_rescale);
+            let kernel = self.survival_ls_row_kernel_rescaled(&dynamic, log_rescale);
             let rows = crate::row_kernel::RowSet::All;
-            let axes = crate::row_kernel::row_kernel_directional_derivative_all_axes(
-                &kernel, &rows,
-            )?;
+            let axes =
+                crate::row_kernel::row_kernel_directional_derivative_all_axes(&kernel, &rows)?;
             return Ok(Some(axes));
         }
 
@@ -1631,7 +1660,6 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             e_a[a] = 1.0;
             match self.exact_newton_joint_hessian_directional_derivative_rescaled_from_parts(
                 &e_a,
-                &q,
                 &dynamic,
                 log_rescale,
             )? {
@@ -1731,36 +1759,6 @@ impl CustomFamily for SurvivalLocationScaleFamily {
     }
 
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        if self.row_kernel_joint_hessian_supported() {
-            let q = self.collect_joint_quantities(block_states)?;
-            let dynamic = self.build_dynamic_geometry(block_states)?;
-            let kernel = self.survival_ls_row_kernel(&q, &dynamic);
-            let rows = crate::row_kernel::RowSet::All;
-            let cache = crate::row_kernel::build_row_kernel_cache(&kernel, &rows)?;
-            let ll = crate::row_kernel::row_kernel_log_likelihood(&cache, &rows);
-            let gradient =
-                -crate::row_kernel::row_kernel_gradient(&kernel, &cache, &rows);
-            let hessian =
-                crate::row_kernel::row_kernel_hessian_dense(&kernel, &cache, &rows);
-            let offsets = self.joint_block_offsets();
-            let blockworking_sets = (0..self.expected_blocks())
-                .map(|block_idx| {
-                    let start = offsets[block_idx];
-                    let end = offsets[block_idx + 1];
-                    BlockWorkingSet::ExactNewton {
-                        gradient: gradient.slice(s![start..end]).to_owned(),
-                        hessian: SymmetricMatrix::Dense(
-                            hessian.slice(s![start..end, start..end]).to_owned(),
-                        ),
-                    }
-                })
-                .collect();
-            return Ok(FamilyEvaluation {
-                log_likelihood: ll,
-                blockworking_sets,
-            });
-        }
-
         let (ll, block_gradients) =
             self.evaluate_log_likelihood_and_block_gradients(block_states)?;
 
@@ -1938,57 +1936,12 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             // kernel; non-wiggle rows keep the bespoke path below.
             let dynamic = self.build_dynamic_geometry(block_states)?;
             return Ok(Some(
-                super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &q, &dynamic, 0.0)?,
+                super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &dynamic, 0.0)?,
             ));
         }
-        if self.row_kernel_joint_hessian_supported() {
-            let dynamic = self.build_dynamic_geometry(block_states)?;
-            let kernel = self.survival_ls_row_kernel(&q, &dynamic);
-            let rows = crate::row_kernel::RowSet::All;
-            let cache = crate::row_kernel::build_row_kernel_cache(&kernel, &rows)?;
-            return Ok(Some(crate::row_kernel::row_kernel_hessian_dense(
-                &kernel, &cache, &rows,
-            )));
-        }
+        // #932 measured perf exception: sparse hand assembler, pinned to the
+        // single-source jet by the analytic oracles (see the method doc).
         self.assemble_joint_hessian_from_quantities(&q, block_states)
-    }
-
-    /// Block-concatenated log-likelihood gradient `g = ∇ℓ(θ)` assembled from the
-    /// SAME per-row jet-tower kernel that [`Self::exact_newton_joint_hessian`]
-    /// uses for `H = −∇²ℓ`. Overrides the `CustomFamily` default (which returns
-    /// `None`), so the damped Newton `H δ = g` in `fit_parametric_aft_direct_mle`
-    /// is solved on a consistent (objective, gradient, Hessian) triple.
-    ///
-    /// If `g` were assembled by one code path
-    /// (`evaluate_log_likelihood_and_block_gradients`) and `H` by another (the
-    /// row-kernel jet tower), any divergence between the two — even a single
-    /// dropped cross-channel term — would yield a Newton direction that is not
-    /// the true ascent step, so a covariate could stall at its cold-start value
-    /// and never move (gam#1110: the log-logistic AFT `age` coefficient pinned to
-    /// exactly 0 while the lognormal/probit path, whose hand-coded and jet-tower
-    /// gradients happen to coincide, recovers it). Sourcing both from
-    /// `row_kernel_*` over one cache makes the objective, its gradient, and its
-    /// Hessian provably consistent for every residual distribution.
-    ///
-    /// `row_kernel_gradient` returns `∇(nll) = −∇ℓ` (the cached per-row jets are
-    /// of the negative log-likelihood, pulled back by `jacobian_transpose_action`
-    /// — exactly the pullback `row_kernel_hessian_dense` consumes), so we negate
-    /// it to return `∇ℓ`. Returns `None` only when the row-kernel joint-Hessian
-    /// path is unavailable (then the caller keeps the legacy gradient).
-    fn exact_newton_joint_loglik_gradient(
-        &self,
-        block_states: &[ParameterBlockState],
-    ) -> Result<Option<Array1<f64>>, String> {
-        if !self.row_kernel_joint_hessian_supported() {
-            return Ok(None);
-        }
-        let q = self.collect_joint_quantities(block_states)?;
-        let dynamic = self.build_dynamic_geometry(block_states)?;
-        let kernel = self.survival_ls_row_kernel(&q, &dynamic);
-        let rows = crate::row_kernel::RowSet::All;
-        let cache = crate::row_kernel::build_row_kernel_cache(&kernel, &rows)?;
-        let nll_grad = crate::row_kernel::row_kernel_gradient(&kernel, &cache, &rows);
-        Ok(Some(-nll_grad))
     }
 
     fn exact_newton_joint_gradient_evaluation(
@@ -2215,9 +2168,7 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         d_beta_u_flat: &Array1<f64>,
         d_beta_v_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        crate::block_layout::block_count::validate_block_count::<
-            SurvivalLocationScaleError,
-        >(
+        crate::block_layout::block_count::validate_block_count::<SurvivalLocationScaleError>(
             "SurvivalLocationScaleFamily joint Hessian second directional derivative",
             self.expected_blocks(),
             block_states.len(),
@@ -2237,7 +2188,6 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             .into());
         }
         let log_rescale = self.hessian_deriv_log_rescale(block_states);
-        let q = self.collect_joint_quantities_rescaled(block_states, log_rescale)?;
         let dynamic = self.build_dynamic_geometry(block_states)?;
         if self.x_link_wiggle.is_some() {
             // #932: single-source the wiggle SECOND directional derivative via
@@ -2248,7 +2198,6 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             return Ok(Some(
                 super::row_kernel::survival_ls_wiggle_second_directional_derivative_dense(
                     self,
-                    &q,
                     &dynamic,
                     log_rescale,
                     &crate::row_kernel::RowSet::All,
@@ -2261,7 +2210,7 @@ impl CustomFamily for SurvivalLocationScaleFamily {
                 )?,
             ));
         }
-        let kernel = self.survival_ls_row_kernel_rescaled(&q, &dynamic, log_rescale);
+        let kernel = self.survival_ls_row_kernel_rescaled(&dynamic, log_rescale);
         crate::row_kernel::row_kernel_second_directional_derivative(
             &kernel,
             &crate::row_kernel::RowSet::All,
@@ -2354,7 +2303,7 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         // (`survival_ls_row_kernel_matches_bespoke_assembly`).
         let h_joint = if self.x_link_wiggle.is_some() {
             let dynamic = self.build_dynamic_geometry(block_states)?;
-            super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &q, &dynamic, log_scale)?
+            super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &dynamic, log_scale)?
         } else {
             match self.assemble_joint_hessian_from_quantities(&q, block_states)? {
                 Some(h) => h,
@@ -3239,7 +3188,6 @@ impl ExactNewtonJointPsiWorkspace for SurvivalExactNewtonJointPsiWorkspace {
 /// location-scale joint-Hessian directional derivative operators.
 pub(crate) struct SurvivalLocationScaleExactNewtonJointHessianWorkspace {
     pub(crate) family: SurvivalLocationScaleFamily,
-    pub(crate) q: SurvivalJointQuantities,
     pub(crate) dynamic: SurvivalDynamicGeometry,
     pub(crate) deriv_log_scale: f64,
     pub(crate) row_mask: Option<Arc<Array1<f64>>>,
@@ -3251,11 +3199,9 @@ impl SurvivalLocationScaleExactNewtonJointHessianWorkspace {
         block_states: Vec<ParameterBlockState>,
     ) -> Result<Self, String> {
         let log_rescale = family.hessian_deriv_log_rescale(&block_states);
-        let q = family.collect_joint_quantities_rescaled(&block_states, log_rescale)?;
         let dynamic = family.build_dynamic_geometry(&block_states)?;
         Ok(Self {
             family,
-            q,
             dynamic,
             deriv_log_scale: log_rescale,
             row_mask: None,
@@ -3282,6 +3228,17 @@ impl SurvivalLocationScaleExactNewtonJointHessianWorkspace {
 }
 
 impl ExactNewtonJointHessianWorkspace for SurvivalLocationScaleExactNewtonJointHessianWorkspace {
+    fn warm_up_outer_caches_for_mode(
+        &self,
+        eval_mode: gam_problem::EvalMode,
+    ) -> Result<(), String> {
+        match eval_mode {
+            gam_problem::EvalMode::ValueOnly
+            | gam_problem::EvalMode::ValueAndGradient
+            | gam_problem::EvalMode::ValueGradientHessian => Ok(()),
+        }
+    }
+
     fn directional_derivative(
         &self,
         d_beta_flat: &Array1<f64>,
@@ -3289,7 +3246,6 @@ impl ExactNewtonJointHessianWorkspace for SurvivalLocationScaleExactNewtonJointH
         self.family
             .exact_newton_joint_hessian_directional_derivative_rescaled_from_parts_masked(
                 d_beta_flat,
-                &self.q,
                 &self.dynamic,
                 self.deriv_log_scale,
                 self.row_mask.as_deref(),
@@ -3304,7 +3260,6 @@ impl ExactNewtonJointHessianWorkspace for SurvivalLocationScaleExactNewtonJointH
             .family
             .exact_newton_joint_hessian_directional_derivative_rescaled_from_parts_masked(
                 d_beta_flat,
-                &self.q,
                 &self.dynamic,
                 self.deriv_log_scale,
                 self.row_mask.as_deref(),
@@ -3335,13 +3290,12 @@ impl ExactNewtonJointHessianWorkspace for SurvivalLocationScaleExactNewtonJointH
         let rows = row_set_from_survival_mask(self.row_mask.as_deref(), self.family.n);
         if self.family.x_link_wiggle.is_some() {
             // #932: single-source the wiggle workspace SECOND directional
-            // derivative through the §13 warp kernel (`TwoSeed<KW>`) — `self.q`
-            // / `self.dynamic` already carry the wiggle geometry + βw, so no
+            // derivative through the §13 warp kernel (`TwoSeed<KW>`) — the
+            // cached dynamic geometry already carries the wiggle geometry + βw, so no
             // `block_states` re-thread is needed. Previously returned `None`.
             return Ok(Some(
                 super::row_kernel::survival_ls_wiggle_second_directional_derivative_dense(
                     &self.family,
-                    &self.q,
                     &self.dynamic,
                     self.deriv_log_scale,
                     &rows,
@@ -3356,11 +3310,9 @@ impl ExactNewtonJointHessianWorkspace for SurvivalLocationScaleExactNewtonJointH
                 )?,
             ));
         }
-        let kernel = self.family.survival_ls_row_kernel_rescaled(
-            &self.q,
-            &self.dynamic,
-            self.deriv_log_scale,
-        );
+        let kernel = self
+            .family
+            .survival_ls_row_kernel_rescaled(&self.dynamic, self.deriv_log_scale);
         crate::row_kernel::row_kernel_second_directional_derivative(
             &kernel,
             &rows,

@@ -9,10 +9,17 @@
 // from `construction.rs` so they keep the SAME module scope (`use super::*`),
 // the same `impl SaeManifoldTerm` surface, and full private-field access.
 
+thread_local! {
+    /// One reusable packed-jet arena per worker thread. Non-softmax row programs
+    /// copy their derivative channels into owned `SaeRowJets` before returning,
+    /// so the arena can be reset for the next row with no borrowed state escape.
+    static SAE_ROW_JET_ARENA: std::cell::RefCell<gam_math::jet_scalar::DynamicJetArena> =
+        std::cell::RefCell::new(gam_math::jet_scalar::DynamicJetArena::new());
+}
+
 impl SaeManifoldTerm {
     pub(crate) fn reconstruction_row_program_for_logdet(
         &self,
-        rho: &SaeManifoldRho,
         row: usize,
         vars: &[SaeLocalRowVar],
         assignments: ArrayView1<'_, f64>,
@@ -64,6 +71,13 @@ impl SaeManifoldTerm {
             }
         }
 
+        let active_atoms = self
+            .last_row_layout
+            .as_ref()
+            .map(|layout| layout.active_atoms[row].as_slice());
+        let atom_is_active = |atom_idx: usize| {
+            active_atoms.is_none_or(|active| active.binary_search(&atom_idx).is_ok())
+        };
         let atoms: Vec<AtomRowBasisJet> = self
             .atoms
             .iter()
@@ -97,7 +111,13 @@ impl SaeManifoldTerm {
                     decoder: (0..m)
                         .map(|basis_col| {
                             (0..p)
-                                .map(|out_col| atom.decoder_coefficients[[basis_col, out_col]])
+                                .map(|out_col| {
+                                    if atom_is_active(atom_idx) {
+                                        atom.decoder_coefficients[[basis_col, out_col]]
+                                    } else {
+                                        0.0
+                                    }
+                                })
                                 .collect()
                         })
                         .collect(),
@@ -119,7 +139,14 @@ impl SaeManifoldTerm {
         // covers both cases (the same mask the arrow-Schur assembly uses).
         let fixed_gate_value: Vec<Option<f64>> = (0..k_atoms)
             .map(|k| {
-                if self.assignment.logit_is_fixed(k) {
+                if !atom_is_active(k) {
+                    // A compact reconstruction is the fixed-support map
+                    // sum_{k in A_i} a_ik g_k.  Dropped atoms are identically
+                    // zero functions (including all beta derivatives), even
+                    // though their full-softmax probabilities still enter the
+                    // normalization and therefore the active gates' logit jets.
+                    Some(0.0)
+                } else if self.assignment.logit_is_fixed(k) {
                     Some(assignments[k])
                 } else {
                     None
@@ -134,21 +161,13 @@ impl SaeManifoldTerm {
                 vec![0.0; k_atoms],
                 vec![1.0; k_atoms],
             ),
-            AssignmentMode::IBPMap {
-                temperature, alpha, ..
-            } => {
-                let effective_alpha = self
-                    .assignment
-                    .resolved_ibp_alpha(rho)
-                    .unwrap_or(alpha);
-                (
-                    RowGate::PerAtomLogistic {
-                        inv_tau: 1.0 / temperature,
-                    },
-                    vec![0.0; k_atoms],
-                    ordered_geometric_shrinkage_prior(k_atoms, effective_alpha).to_vec(),
-                )
-            }
+            AssignmentMode::IBPMap { temperature, .. } => (
+                RowGate::PerAtomLogistic {
+                    inv_tau: 1.0 / temperature,
+                },
+                vec![0.0; k_atoms],
+                vec![1.0; k_atoms],
+            ),
             AssignmentMode::ThresholdGate {
                 temperature,
                 threshold,
@@ -186,8 +205,9 @@ impl SaeManifoldTerm {
         })
     }
 
-    fn fill_reconstruction_channels_from_program<const K: usize>(
+    fn fill_reconstruction_channels_from_program_dynamic(
         program: &crate::row_jet_program::SaeReconstructionRowProgram,
+        arena: &gam_math::jet_scalar::DynamicJetArena,
         sqrt_row_w: f64,
         first: &mut [Vec<f64>],
         second: &mut [Vec<Vec<f64>>],
@@ -197,50 +217,23 @@ impl SaeManifoldTerm {
         // the basis jets are column-independent, so this removes the `out_dim×`
         // redundant recomputation the per-column path incurred (~9× faster at
         // K=8, out_dim=16). Bit-identical to per-column `_packed` assembly.
-        let columns = program.reconstruction_all_columns_packed::<K>();
+        let q = program.n_primaries;
+        let columns = program.reconstruction_all_columns_dynamic(arena);
         for (out_col, tower) in columns.iter().enumerate() {
             let g = tower.g();
             let h = tower.h();
-            for a in 0..K {
+            for a in 0..q {
                 first[a][out_col] = sqrt_row_w * g[a];
-                for b in 0..K {
-                    second[a][b][out_col] = sqrt_row_w * h[a][b];
+                for b in 0..q {
+                    second[a][b][out_col] = sqrt_row_w * h[a * q + b];
                 }
             }
         }
     }
 
-    fn fill_reconstruction_channels_from_program_dynamic(
+    fn fill_beta_border_channels_from_program_dynamic(
         program: &crate::row_jet_program::SaeReconstructionRowProgram,
-        sqrt_row_w: f64,
-        first: &mut [Vec<f64>],
-        second: &mut [Vec<Vec<f64>>],
-    ) -> Result<(), String> {
-        macro_rules! dispatch {
-            ($($k:literal),* $(,)?) => {
-                match program.n_primaries {
-                    $(
-                        $k => {
-                            Self::fill_reconstruction_channels_from_program::<$k>(
-                                program,
-                                sqrt_row_w,
-                                first,
-                                second,
-                            );
-                            Ok(())
-                        }
-                    )*
-                    q => Err(format!(
-                        "SAE row reconstruction Tower4 production path supports at most 16 row primaries, got {q}"
-                    )),
-                }
-            };
-        }
-        dispatch!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
-    }
-
-    fn fill_beta_border_channels_from_program<const K: usize>(
-        program: &crate::row_jet_program::SaeReconstructionRowProgram,
+        arena: &gam_math::jet_scalar::DynamicJetArena,
         sqrt_row_w: f64,
         border: &[SaeBorderChannel],
         beta: &mut [Vec<f64>],
@@ -258,16 +251,20 @@ impl SaeManifoldTerm {
         // first-order `Order1<K>` (value + grad), skipping the K×K Hessian the
         // `Order2` path would compute and discard. `Order1`'s value/grad are
         // bit-identical to `Order2`'s (#1591 order1 oracle).
-        let chans: Vec<(usize, usize)> = border.iter().map(|c| (c.atom, c.basis_col)).collect();
-        let sjets = program.beta_border_order1_packed::<K>(&chans);
+        let chans = arena.alloc_slice_fill_with(border.len(), |index| {
+            let channel = &border[index];
+            (channel.atom, channel.basis_col)
+        });
+        let q = program.n_primaries;
+        let sjets = program.beta_border_order1_dynamic(chans, arena);
         for (beta_pos, channel) in border.iter().enumerate() {
             let s = &sjets[beta_pos];
-            let s_v = s.value();
+            let s_v = s.v;
             let s_g = s.g();
             for out_col in 0..p {
                 let out_c = channel.output[out_col];
                 beta[beta_pos][out_col] = sqrt_row_w * s_v * out_c;
-                for a in 0..K {
+                for a in 0..q {
                     // Reconstruction is linear in β, so beta_deriv and
                     // beta_l_deriv are the identical mixed ∂²ẑ_c/∂β∂p_a channel.
                     let mixed = sqrt_row_w * s_g[a] * out_c;
@@ -276,39 +273,6 @@ impl SaeManifoldTerm {
                 }
             }
         }
-    }
-
-    fn fill_beta_border_channels_from_program_dynamic(
-        program: &crate::row_jet_program::SaeReconstructionRowProgram,
-        sqrt_row_w: f64,
-        border: &[SaeBorderChannel],
-        beta: &mut [Vec<f64>],
-        beta_deriv: &mut [Vec<Vec<f64>>],
-        beta_l_deriv: &mut [Vec<Vec<f64>>],
-    ) -> Result<(), String> {
-        macro_rules! dispatch {
-            ($($k:literal),* $(,)?) => {
-                match program.n_primaries {
-                    $(
-                        $k => {
-                            Self::fill_beta_border_channels_from_program::<$k>(
-                                program,
-                                sqrt_row_w,
-                                border,
-                                beta,
-                                beta_deriv,
-                                beta_l_deriv,
-                            );
-                            Ok(())
-                        }
-                    )*
-                    q => Err(format!(
-                        "SAE β border Tower4 production path supports at most 16 row primaries, got {q}"
-                    )),
-                }
-            };
-        }
-        dispatch!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
     }
 
     /// `∂²g_k/∂t_{ik,axis_a}∂t_{ik,axis_b}` for one row/atom: the decoded second
@@ -375,6 +339,13 @@ impl SaeManifoldTerm {
         let p = self.output_dim();
         let q = vars.len();
         let k_atoms = self.k_atoms();
+        let active_atoms = self
+            .last_row_layout
+            .as_ref()
+            .map(|layout| layout.active_atoms[row].as_slice());
+        let atom_is_active = |atom_idx: usize| {
+            active_atoms.is_none_or(|active| active.binary_search(&atom_idx).is_ok())
+        };
 
         // Softmax gate derivatives (closed form; NO exps — the K softmax values
         // `assignments` are precomputed upstream).
@@ -426,6 +397,9 @@ impl SaeManifoldTerm {
             .collect();
         let mut scratch = vec![0.0_f64; p];
         for k in 0..k_atoms {
+            if !atom_is_active(k) {
+                continue;
+            }
             self.atoms[k].fill_decoded_row(row, &mut decoded[k]);
             for axis in 0..self.atoms[k].latent_dim {
                 self.atoms[k].fill_decoded_derivative_row(row, axis, &mut d1[k][axis]);
@@ -451,6 +425,9 @@ impl SaeManifoldTerm {
             match *var {
                 SaeLocalRowVar::Logit { .. } => {
                     for k in 0..k_atoms {
+                        if !atom_is_active(k) {
+                            continue;
+                        }
                         let coeff = dz[idx][k] * sqrt_row_w;
                         if coeff == 0.0 {
                             continue;
@@ -477,6 +454,9 @@ impl SaeManifoldTerm {
                 match (vars[a], vars[b]) {
                     (SaeLocalRowVar::Logit { .. }, SaeLocalRowVar::Logit { .. }) => {
                         for k in 0..k_atoms {
+                            if !atom_is_active(k) {
+                                continue;
+                            }
                             let coeff = d2z[a][b][k] * sqrt_row_w;
                             if coeff == 0.0 {
                                 continue;
@@ -525,6 +505,9 @@ impl SaeManifoldTerm {
         // map is linear in β).
         for (beta_pos, channel) in border.iter().enumerate() {
             let atom = channel.atom;
+            if !atom_is_active(atom) {
+                continue;
+            }
             let phi = self.atoms[atom].basis_values[[row, channel.basis_col]];
             let base = assignments[atom] * phi * sqrt_row_w;
             for out_col in 0..p {
@@ -576,7 +559,6 @@ impl SaeManifoldTerm {
 
     pub(crate) fn row_jets_for_logdet(
         &self,
-        rho: &SaeManifoldRho,
         row: usize,
         vars: Vec<SaeLocalRowVar>,
         assignments: ArrayView1<'_, f64>,
@@ -628,26 +610,31 @@ impl SaeManifoldTerm {
                 // (`assignment_coord_dim() == 0`), so the program simply carries
                 // no gate channels.
                 let program = self.reconstruction_row_program_for_logdet(
-                    rho,
                     row,
                     &vars,
                     assignments,
                     second_jets,
                 )?;
-                Self::fill_reconstruction_channels_from_program_dynamic(
-                    &program,
-                    sqrt_row_w,
-                    &mut first,
-                    &mut second,
-                )?;
-                Self::fill_beta_border_channels_from_program_dynamic(
-                    &program,
-                    sqrt_row_w,
-                    border,
-                    &mut beta,
-                    &mut beta_deriv,
-                    &mut beta_l_deriv,
-                )?;
+                SAE_ROW_JET_ARENA.with(|cell| {
+                    let mut arena = cell.borrow_mut();
+                    arena.reset();
+                    Self::fill_reconstruction_channels_from_program_dynamic(
+                        &program,
+                        &arena,
+                        sqrt_row_w,
+                        &mut first,
+                        &mut second,
+                    );
+                    Self::fill_beta_border_channels_from_program_dynamic(
+                        &program,
+                        &arena,
+                        sqrt_row_w,
+                        border,
+                        &mut beta,
+                        &mut beta_deriv,
+                        &mut beta_l_deriv,
+                    );
+                });
             }
         }
 
@@ -659,148 +646,6 @@ impl SaeManifoldTerm {
             beta_deriv,
             beta_l_deriv,
         })
-    }
-}
-
-/// Test-only oracle (#932 revert): the demoted 4-row SIMD jet batch, retained as
-/// a live cross-check of the production hand `row_jets_for_logdet`. It lives in a
-/// `#[cfg(test)]` module (rather than carrying a bare `#[cfg(test)]` on the items
-/// inside the production `impl`) so the first-party dead-code / hygiene gates see
-/// it as test support rather than an unreferenced production item.
-#[cfg(test)]
-mod batch4_oracle_tests {
-    use super::*;
-
-    impl SaeManifoldTerm {
-        /// Build [`SaeRowJets`] for FOUR rows at once via the 4-row SIMD batch
-        /// (#932), returning `None` when the four rows are not softmax-aligned (same
-        /// primary layout / temperature). Each lane's `SaeRowJets` is BIT-IDENTICAL
-        /// to `row_jets_for_logdet` on that row: the batch primitives
-        /// (`reconstruction_all_columns_batch4` / `beta_border_order1_batch4`) are
-        /// proven lane-`i` `to_bits`-identical to the scalar `*_packed` paths, and the
-        /// `√w` / `output_c` scaling here mirrors the scalar fills term-for-term.
-        ///
-        /// DEMOTED TO ORACLE (#932 revert): no longer on the production hot path —
-        /// `refill_jet_window` now builds the hand `row_jets_for_logdet` per row (the
-        /// jet was a 25–57× regression). Retained as the live cross-check of the hand
-        /// path (`batch4_jet_lanes_match_scalar_hand_row_jets`).
-        pub(crate) fn row_jets_for_logdet_batch4(
-            &self,
-            rho: &SaeManifoldRho,
-            rows: [usize; 4],
-            cache: &ArrowFactorCache,
-            second_jets: &[Array4<f64>],
-            border: &[SaeBorderChannel],
-        ) -> Result<Option<[SaeRowJets; 4]>, String> {
-            let p = self.output_dim();
-            let k_atoms = self.k_atoms();
-            let mut progs: Vec<crate::row_jet_program::SaeReconstructionRowProgram> =
-                Vec::with_capacity(4);
-            let mut vars_each: Vec<Vec<SaeLocalRowVar>> = Vec::with_capacity(4);
-            let mut sqrt_w = [1.0_f64; 4];
-            for (i, &row) in rows.iter().enumerate() {
-                let vars = self.row_vars_for_cache_row(row, cache)?;
-                let mut a = Array1::<f64>::zeros(k_atoms);
-                self.assignment.try_assignments_row_for_rho_into(
-                    row,
-                    rho,
-                    a.as_slice_mut().expect("contiguous assignment scratch"),
-                )?;
-                let prog = self.reconstruction_row_program_for_logdet(
-                    rho,
-                    row,
-                    &vars,
-                    a.view(),
-                    second_jets,
-                )?;
-                sqrt_w[i] = self
-                    .row_loss_weights
-                    .as_deref()
-                    .map_or(1.0, |w| w[row].sqrt());
-                vars_each.push(vars);
-                progs.push(prog);
-            }
-            let refs = [&progs[0], &progs[1], &progs[2], &progs[3]];
-            macro_rules! dispatch {
-            ($($k:literal),* $(,)?) => {
-                match progs[0].n_primaries {
-                    $( $k => Self::batch4_assemble::<$k>(refs, &vars_each, &sqrt_w, border, p), )*
-                    _ => Ok(None),
-                }
-            };
-        }
-            dispatch!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
-        }
-
-        /// Assemble the four lanes of a SIMD batch into per-row [`SaeRowJets`],
-        /// applying the identical `√w` / `output_c` scaling the scalar fills use.
-        /// Returns `None` if the rows are not batchable (the batch primitives
-        /// decline). Test-only oracle helper for `row_jets_for_logdet_batch4`.
-        fn batch4_assemble<const K: usize>(
-            rows: [&crate::row_jet_program::SaeReconstructionRowProgram; 4],
-            vars_each: &[Vec<SaeLocalRowVar>],
-            sqrt_w: &[f64; 4],
-            border: &[SaeBorderChannel],
-            p: usize,
-        ) -> Result<Option<[SaeRowJets; 4]>, String> {
-            use crate::row_jet_program::SaeReconstructionRowProgram;
-            let recon =
-                match SaeReconstructionRowProgram::reconstruction_all_columns_batch4::<K>(rows) {
-                    Some(r) => r,
-                    None => return Ok(None),
-                };
-            let chans: Vec<(usize, usize)> = border.iter().map(|c| (c.atom, c.basis_col)).collect();
-            let bjets =
-                match SaeReconstructionRowProgram::beta_border_order1_batch4::<K>(rows, &chans) {
-                    Some(b) => b,
-                    None => return Ok(None),
-                };
-            let mut outs: Vec<SaeRowJets> = Vec::with_capacity(4);
-            for lane in 0..4 {
-                let sqrt = sqrt_w[lane];
-                let mut first = vec![vec![0.0_f64; p]; K];
-                let mut second = vec![vec![vec![0.0_f64; p]; K]; K];
-                for (out_col, tower) in recon[lane].iter().enumerate() {
-                    let g = tower.g();
-                    let h = tower.h();
-                    for a in 0..K {
-                        first[a][out_col] = sqrt * g[a];
-                        for b in 0..K {
-                            second[a][b][out_col] = sqrt * h[a][b];
-                        }
-                    }
-                }
-                let mut beta = vec![vec![0.0_f64; p]; border.len()];
-                let mut beta_deriv = vec![vec![vec![0.0_f64; p]; border.len()]; K];
-                let mut beta_l_deriv = vec![vec![vec![0.0_f64; p]; border.len()]; K];
-                for (beta_pos, channel) in border.iter().enumerate() {
-                    let s = &bjets[lane][beta_pos];
-                    let s_v = s.value();
-                    let s_g = s.g();
-                    for out_col in 0..p {
-                        let out_c = channel.output[out_col];
-                        beta[beta_pos][out_col] = sqrt * s_v * out_c;
-                        for a in 0..K {
-                            let mixed = sqrt * s_g[a] * out_c;
-                            beta_deriv[a][beta_pos][out_col] = mixed;
-                            beta_l_deriv[a][beta_pos][out_col] = mixed;
-                        }
-                    }
-                }
-                outs.push(SaeRowJets {
-                    vars: vars_each[lane].clone(),
-                    first,
-                    second,
-                    beta,
-                    beta_deriv,
-                    beta_l_deriv,
-                });
-            }
-            let arr: [SaeRowJets; 4] = outs
-                .try_into()
-                .map_err(|_| "batch4_assemble produced wrong lane count".to_string())?;
-            Ok(Some(arr))
-        }
     }
 }
 
@@ -816,7 +661,6 @@ impl SaeManifoldTerm {
     /// time); `cache` stays in the signature for `row_vars_for_cache_row`.
     fn refill_jet_window(
         &self,
-        rho: &SaeManifoldRho,
         start: usize,
         cache: &ArrowFactorCache,
         second_jets: &[Array4<f64>],
@@ -825,12 +669,11 @@ impl SaeManifoldTerm {
     ) -> Result<usize, String> {
         let vars = self.row_vars_for_cache_row(start, cache)?;
         let mut a = Array1::<f64>::zeros(self.k_atoms());
-        self.assignment.try_assignments_row_for_rho_into(
+        self.assignment.try_assignments_row_into(
             start,
-            rho,
             a.as_slice_mut().expect("contiguous assignment scratch"),
         )?;
-        let jets = self.row_jets_for_logdet(rho, start, vars, a.view(), second_jets, border)?;
+        let jets = self.row_jets_for_logdet(start, vars, a.view(), second_jets, border)?;
         window.push_back(jets);
         Ok(start + 1)
     }

@@ -85,7 +85,7 @@ pub enum PcgStopReason {
 /// ignore the value. The struct is Copy so passing it through return tuples
 /// is zero-overhead.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct PcgDiagnostics {
+pub struct ArrowPcgDiagnostics {
     /// Number of CG iterations executed.
     pub iterations: usize,
     /// Total calls to the Schur matvec A·p.
@@ -291,6 +291,20 @@ pub struct ArrowSolveOptions {
     /// caller of [`super::reduced_solve::solve_dense_reduced_system`]); the
     /// InexactPCG path is unaffected.
     pub schur_pd_floor: Option<f64>,
+    /// #1017 device-resident framed SAE frame for the LM ridge ladder.
+    ///
+    /// When set (by [`super::newton_step::solve_with_lm_escalation_inner`] on a
+    /// device-admitted matrix-free SAE system), both the Direct SAE-PCG seam
+    /// ([`super::newton_step::try_device_arrow_direct_sae_pcg`]) and the native
+    /// large-border InexactPCG branch recompute only the ridge-dependent per-row
+    /// `ainv` per ladder trial and reuse the resident ridge-independent operand
+    /// buffers, instead of re-marshalling and re-uploading every operand through
+    /// `flatten_device_sae_frame_data` on each trial. The solve is bit-identical;
+    /// only the redundant per-trial upload is removed. `None` (default) keeps the
+    /// per-trial re-flatten path. A trait object (like [`GpuSchurMatvec`]) keeps
+    /// the CUDA-only device buffers out of these cfg-independent options.
+    pub sae_resident_frame:
+        Option<std::sync::Arc<dyn crate::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>>,
 }
 
 impl std::fmt::Debug for ArrowSolveOptions {
@@ -305,6 +319,7 @@ impl std::fmt::Debug for ArrowSolveOptions {
             .field("tolerate_ill_conditioning", &self.tolerate_ill_conditioning)
             .field("solve_precision", &self.solve_precision)
             .field("schur_pd_floor", &self.schur_pd_floor)
+            .field("sae_resident_frame", &self.sae_resident_frame.is_some())
             .finish()
     }
 }
@@ -381,6 +396,7 @@ impl ArrowSolveOptions {
             tolerate_ill_conditioning: false,
             solve_precision: ArrowSolvePrecisionPolicy::F64Only,
             schur_pd_floor: None,
+            sae_resident_frame: None,
         }
     }
 
@@ -397,6 +413,7 @@ impl ArrowSolveOptions {
             tolerate_ill_conditioning: false,
             solve_precision: ArrowSolvePrecisionPolicy::F64Only,
             schur_pd_floor: None,
+            sae_resident_frame: None,
         }
     }
 
@@ -412,6 +429,7 @@ impl ArrowSolveOptions {
             tolerate_ill_conditioning: false,
             solve_precision: ArrowSolvePrecisionPolicy::F64Only,
             schur_pd_floor: None,
+            sae_resident_frame: None,
         }
     }
 
@@ -427,6 +445,7 @@ impl ArrowSolveOptions {
             tolerate_ill_conditioning: false,
             solve_precision: ArrowSolvePrecisionPolicy::F64Only,
             schur_pd_floor: None,
+            sae_resident_frame: None,
         }
     }
 
@@ -533,6 +552,133 @@ pub struct ArrowRowGaugeDeflation {
     pub directions: Arc<[Vec<Array1<f64>>]>,
 }
 
+/// Orthonormal gauge basis on the reduced shared `beta` border.
+///
+/// Evidence factors use this as a Faddeev--Popov pin: for
+/// `Q = [q_1, ..., q_r]` and `P = I - Q Q^T`, the represented reduced
+/// operator is
+///
+/// `S_quot = P S P + Q Q^T`.
+///
+/// The quotient directions therefore contribute exactly `log(1) = 0` to the
+/// Laplace log-determinant, while inverse/trace consumers apply
+/// `P S_quot^-1 P`.  Ordinary Newton solves do not consult this carrier; it is
+/// an evidence-coordinate contract only.
+#[derive(Debug, Clone)]
+pub struct ArrowBetaGaugeQuotient {
+    pub directions: Arc<[Array1<f64>]>,
+}
+
+impl ArrowBetaGaugeQuotient {
+    /// Orthonormalize a non-empty set of same-width border directions.
+    ///
+    /// A zero or linearly-dependent direction is a malformed gauge declaration,
+    /// not a numerical condition to hide, so construction fails loudly.
+    pub fn new(directions: Vec<Array1<f64>>) -> Result<Self, String> {
+        if directions.is_empty() {
+            return Err("ArrowBetaGaugeQuotient requires at least one direction".to_string());
+        }
+        let dim = directions[0].len();
+        if dim == 0 {
+            return Err("ArrowBetaGaugeQuotient directions must be non-empty".to_string());
+        }
+        let mut basis: Vec<Array1<f64>> = Vec::with_capacity(directions.len());
+        for (direction_idx, mut direction) in directions.into_iter().enumerate() {
+            if direction.len() != dim {
+                return Err(format!(
+                    "ArrowBetaGaugeQuotient direction {direction_idx} length {} != {dim}",
+                    direction.len()
+                ));
+            }
+            if direction.iter().any(|value| !value.is_finite()) {
+                return Err(format!(
+                    "ArrowBetaGaugeQuotient direction {direction_idx} contains a non-finite value"
+                ));
+            }
+            for existing in &basis {
+                let coefficient = direction.dot(existing);
+                direction.scaled_add(-coefficient, existing);
+            }
+            let norm_sq = direction.dot(&direction);
+            if !(norm_sq.is_finite() && norm_sq > 0.0) {
+                return Err(format!(
+                    "ArrowBetaGaugeQuotient direction {direction_idx} is zero or linearly dependent"
+                ));
+            }
+            direction *= norm_sq.sqrt().recip();
+            basis.push(direction);
+        }
+        Ok(Self {
+            directions: Arc::from(basis.into_boxed_slice()),
+        })
+    }
+
+    pub fn dimension(&self) -> usize {
+        self.directions.len()
+    }
+
+    pub(crate) fn border_dim(&self) -> usize {
+        self.directions[0].len()
+    }
+
+    /// `P x`, where `P = I - Q Q^T`.
+    pub fn project_complement(&self, x: ArrayView1<'_, f64>) -> Array1<f64> {
+        assert_eq!(x.len(), self.border_dim());
+        let mut out = x.to_owned();
+        for direction in self.directions.iter() {
+            let coefficient = out.dot(direction);
+            out.scaled_add(-coefficient, direction);
+        }
+        out
+    }
+
+    /// Dense Faddeev--Popov pin `P S P + Q Q^T`.
+    pub fn pin_reduced_schur(&self, schur: ArrayView2<'_, f64>) -> Array2<f64> {
+        let dim = self.border_dim();
+        assert_eq!(schur.dim(), (dim, dim));
+
+        // Apply P on the right, then on the left. Keeping the two projections
+        // explicit makes the implementation the exact matrix analogue of the
+        // matrix-free apply and avoids materializing a dense projector.
+        let mut right = schur.to_owned();
+        for direction in self.directions.iter() {
+            let schur_q = right.dot(direction);
+            for row in 0..dim {
+                for col in 0..dim {
+                    right[[row, col]] -= schur_q[row] * direction[col];
+                }
+            }
+        }
+        let mut pinned = right;
+        for direction in self.directions.iter() {
+            let q_t_s = direction.dot(&pinned);
+            for row in 0..dim {
+                for col in 0..dim {
+                    pinned[[row, col]] -= direction[row] * q_t_s[col];
+                }
+            }
+        }
+        for direction in self.directions.iter() {
+            for row in 0..dim {
+                for col in 0..dim {
+                    pinned[[row, col]] += direction[row] * direction[col];
+                }
+            }
+        }
+        // Both the input Schur and the mathematical pin are symmetric. Clear
+        // the last-bit asymmetry from the two ordered dense projections before
+        // Cholesky so direct and matrix-free paths expose one self-adjoint op.
+        for row in 0..dim {
+            for col in (row + 1)..dim {
+                let value = 0.5 * (pinned[[row, col]] + pinned[[col, row]]);
+                pinned[[row, col]] = value;
+                pinned[[col, row]] = value;
+            }
+        }
+        pinned
+    }
+}
+
 impl ArrowRowGaugeDeflation {
     pub fn new(directions: Vec<Vec<Array1<f64>>>) -> Self {
         Self {
@@ -582,16 +728,43 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
         {
             return Ok(batched);
         }
-        let mut out = Vec::with_capacity(rows.len());
-        for (row_idx, row) in rows.iter().enumerate() {
-            out.push(factor_one_row(
-                row,
-                ridge_t,
-                d,
-                row_idx,
-                tolerate_ill_conditioning,
-            )?);
-        }
+        // Per-row Cholesky factorizations are INDEPENDENT (each reads only its own
+        // read-only `rows[i]` block), so factor rows in parallel then collect in
+        // row order — the ordered `collect` reproduces the serial push order
+        // bit-for-bit (no cross-row reduction; each block factored once). #1557 —
+        // pin any nested faer GEMM inside each row worker to `Par::Seq`.
+        let n = rows.len();
+        let parallel =
+            n >= SCHUR_MATVEC_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
+        let out = if parallel {
+            use rayon::prelude::*;
+            (0..n)
+                .into_par_iter()
+                .map(|row_idx| {
+                    gam_problem::with_nested_parallel(|| {
+                        factor_one_row(
+                            &rows[row_idx],
+                            ridge_t,
+                            d,
+                            row_idx,
+                            tolerate_ill_conditioning,
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, ArrowSchurError>>()?
+        } else {
+            let mut out = Vec::with_capacity(n);
+            for (row_idx, row) in rows.iter().enumerate() {
+                out.push(factor_one_row(
+                    row,
+                    ridge_t,
+                    d,
+                    row_idx,
+                    tolerate_ill_conditioning,
+                )?);
+            }
+            out
+        };
         Ok(ArrowFactorSlab::from_blocks(out))
     }
 

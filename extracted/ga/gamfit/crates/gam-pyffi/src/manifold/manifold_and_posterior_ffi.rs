@@ -8,14 +8,6 @@ fn normalize_coefficient_names_value(
     }
 }
 
-fn normalize_coefficient_names_vec(names: Vec<String>, n_coeffs: usize) -> Vec<String> {
-    if names.len() == n_coeffs {
-        names
-    } else {
-        default_coefficient_names(n_coeffs)
-    }
-}
-
 fn posterior_coefficient_names_json_impl(request_json: &str) -> Result<String, String> {
     let request: PosteriorCoefficientNamesRequest = serde_json::from_str(request_json)
         .map_err(|err| format!("posterior_coefficient_names_json: parse request: {err}"))?;
@@ -23,84 +15,6 @@ fn posterior_coefficient_names_json_impl(request_json: &str) -> Result<String, S
         normalize_coefficient_names_value(request.coefficient_names.as_ref(), request.n_coeffs);
     serde_json::to_string(&names)
         .map_err(|err| format!("posterior_coefficient_names_json: serialise names: {err}"))
-}
-
-#[derive(Deserialize)]
-struct PosteriorSamplesSummaryRequest {
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
-    level: f64,
-    coefficient_names: Vec<String>,
-    posterior_mean: Vec<f64>,
-    posterior_std: Vec<f64>,
-    rhat: f64,
-    ess: f64,
-    converged: bool,
-    method: String,
-    model_class: String,
-    family_kind: String,
-    config: serde_json::Value,
-}
-
-fn require_len(actual: usize, expected: usize, label: &str) -> Result<(), String> {
-    if actual != expected {
-        return Err(format!(
-            "{label} length mismatch: got {actual}, expected {expected}"
-        ));
-    }
-    Ok(())
-}
-
-fn posterior_samples_summary_json_impl(request_json: &str) -> Result<String, String> {
-    let request: PosteriorSamplesSummaryRequest = serde_json::from_str(request_json)
-        .map_err(|err| format!("posterior_samples_summary_json: parse request: {err}"))?;
-    require_len(
-        request.posterior_mean.len(),
-        request.n_coeffs,
-        "posterior_mean",
-    )?;
-    require_len(
-        request.posterior_std.len(),
-        request.n_coeffs,
-        "posterior_std",
-    )?;
-    let ci = posterior_credible_interval_impl(
-        request.samples_flat,
-        request.n_draws,
-        request.n_coeffs,
-        request.level,
-    )?;
-    require_len(ci.len(), request.n_coeffs * 2, "credible interval")?;
-    let names = normalize_coefficient_names_vec(request.coefficient_names, request.n_coeffs);
-    let coefficients: Vec<serde_json::Value> = (0..request.n_coeffs)
-        .map(|j| {
-            serde_json::json!({
-                "index": j,
-                "name": names[j],
-                "estimate": request.posterior_mean[j],
-                "std_error": request.posterior_std[j],
-                "ci_lower": ci[j * 2],
-                "ci_upper": ci[j * 2 + 1],
-            })
-        })
-        .collect();
-    let payload = serde_json::json!({
-        "kind": "posterior_samples",
-        "method": request.method,
-        "model_class": request.model_class,
-        "family_kind": request.family_kind,
-        "n_draws": request.n_draws,
-        "n_coeffs": request.n_coeffs,
-        "rhat": request.rhat,
-        "ess": request.ess,
-        "converged": request.converged,
-        "credible_interval": request.level,
-        "config": request.config,
-        "coefficients": coefficients,
-    });
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("posterior_samples_summary_json: serialise payload: {err}"))
 }
 
 #[derive(Deserialize)]
@@ -172,13 +86,11 @@ fn posterior_trace_selection_json_impl(request_json: &str) -> Result<String, Str
 }
 
 fn posterior_eta_bands_impl(
-    eta_flat: Vec<f64>,
-    n_draws: usize,
-    n_rows: usize,
+    eta: Array2<f64>,
     family_kind: &str,
     level: f64,
     link_spec: Option<&str>,
-) -> Result<String, String> {
+) -> Result<PosteriorPredictBandsPayload, String> {
     // Prefer the typed link spec when supplied so the parameterized links
     // (`Sas`, `Mixture`, `LatentCLogLog`, `BetaLogistic`) push their per-fit
     // state through to the response-scale bands; otherwise fall back to the
@@ -194,295 +106,135 @@ fn posterior_eta_bands_impl(
         Some(link) => posterior_bands::LinkSelector::Spec(link),
         None => posterior_bands::LinkSelector::Tag(family_kind),
     };
-    let payload =
-        posterior_bands::posterior_eta_bands_link(eta_flat, n_draws, n_rows, selector, level)?;
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("failed to serialize posterior_eta_bands payload: {err}"))
+    let (n_draws, n_rows) = eta.dim();
+    let family_kind = match selector {
+        posterior_bands::LinkSelector::Tag(tag) => tag.to_string(),
+        posterior_bands::LinkSelector::Spec(spec) => spec.link_function().name().to_string(),
+    };
+    let (
+        linear_predictor,
+        linear_predictor_lower,
+        linear_predictor_upper,
+        mean,
+        mean_lower,
+        mean_upper,
+    ) = posterior_bands::eta_bands_from_matrix_link(eta.view(), selector, level)?;
+    Ok(PosteriorPredictBandsPayload {
+        linear_predictor,
+        linear_predictor_lower,
+        linear_predictor_upper,
+        mean,
+        mean_lower,
+        mean_upper,
+        n_rows,
+        n_draws,
+        model_class: String::new(),
+        family_kind,
+    })
 }
 
-fn posterior_predict_bands_table_impl(
-    model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
+fn posterior_draw_bands_impl(
+    eta: Array2<f64>,
+    mean: Array2<f64>,
     level: f64,
-) -> Result<String, String> {
-    // Reuse the existing predict pipeline to get an eta matrix, then collapse
-    // to per-row bands inside Rust so the predict() path never materializes
-    // the (n_draws, n_rows) matrix on the Python side.
-    let raw =
-        posterior_predict_table_impl(model_bytes, headers, rows, samples_flat, n_draws, n_coeffs)?;
-    let parsed: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|err| format!("failed to parse posterior predict payload: {err}"))?;
-    let n_draws_out = parsed
-        .get("n_draws")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| "posterior predict payload missing n_draws".to_string())?
-        as usize;
-    let n_rows_out = parsed
-        .get("n_rows")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| "posterior predict payload missing n_rows".to_string())?
-        as usize;
-    let family_kind = parsed
-        .get("family_kind")
-        .and_then(|v| v.as_str())
-        .unwrap_or("identity")
-        .to_string();
-    let model_class = parsed
-        .get("model_class")
-        .and_then(|v| v.as_str())
-        .unwrap_or("standard")
-        .to_string();
-    let eta_flat: Vec<f64> = parsed
-        .get("eta_flat")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| "posterior predict payload missing eta_flat".to_string())?
-        .iter()
-        .map(|v| v.as_f64().unwrap_or(0.0))
-        .collect();
-    // Prefer the typed link spec carried by the predict payload so the
-    // parameterized links push their per-fit state through to response-scale
-    // bands; otherwise fall back to the bare `family_kind` tag (issue #1133).
-    let parsed_link: Option<InverseLink> = match parsed.get("link_spec").and_then(|v| v.as_str()) {
-        Some(spec_json) => Some(
-            serde_json::from_str(spec_json)
-                .map_err(|err| format!("failed to parse link_spec for posterior bands: {err}"))?,
-        ),
-        None => None,
-    };
-    let selector = match parsed_link.as_ref() {
-        Some(link) => posterior_bands::LinkSelector::Spec(link),
-        None => posterior_bands::LinkSelector::Tag(family_kind.as_str()),
-    };
-    let eta = Array2::<f64>::from_shape_vec((n_draws_out, n_rows_out), eta_flat)
-        .map_err(|err| format!("failed to reshape eta matrix: {err}"))?;
+) -> Result<PosteriorPredictBandsPayload, String> {
+    let (n_draws, n_rows) = eta.dim();
+    let (
+        linear_predictor,
+        linear_predictor_lower,
+        linear_predictor_upper,
+        mean,
+        mean_lower,
+        mean_upper,
+    ) = posterior_bands::draw_bands_from_matrices(eta.view(), mean.view(), level)?;
+    Ok(PosteriorPredictBandsPayload {
+        linear_predictor,
+        linear_predictor_lower,
+        linear_predictor_upper,
+        mean,
+        mean_lower,
+        mean_upper,
+        n_rows,
+        n_draws,
+        model_class: String::new(),
+        family_kind: String::new(),
+    })
+}
+
+/// Typed result of a posterior-predictive η evaluation. Carried as ndarray /
+/// plain fields between the predict and bands paths and converted to numpy at
+/// the pyfunction edge; the `(n_draws, n_rows)` matrix never rides JSON.
+struct PosteriorPredictResult {
+    eta: Array2<f64>,
+    mean: Array2<f64>,
+    model_class: String,
+    family_kind: String,
+    /// Serialized parameterized `InverseLink` metadata for callers that inspect
+    /// the fitted link. Response draws themselves come from the polymorphic core
+    /// predictor and never reconstruct a mean from this metadata.
+    link_spec: Option<String>,
+}
+
+fn posterior_predict_bands_encoded_table_impl(
+    model_bytes: &[u8],
+    source: EncodedDataset,
+    samples: Array2<f64>,
+    level: f64,
+) -> Result<PosteriorPredictBandsPayload, String> {
+    // Reuse the polymorphic core prediction pipeline, then collapse both its
+    // canonical-predictor and response-mean matrices inside Rust so predict()
+    // never materializes either draw matrix on the Python side.
+    let result = posterior_predict_encoded_table_impl(model_bytes, source, samples)?;
+    let (n_draws, n_rows) = result.eta.dim();
     let (eta_mean, eta_lower, eta_upper, mean, mean_lower, mean_upper) =
-        posterior_bands::eta_bands_from_matrix_link(eta.view(), selector, level)?;
-    let payload = PosteriorPredictBandsPayload {
+        posterior_bands::draw_bands_from_matrices(result.eta.view(), result.mean.view(), level)?;
+    Ok(PosteriorPredictBandsPayload {
         linear_predictor: eta_mean,
         linear_predictor_lower: eta_lower,
         linear_predictor_upper: eta_upper,
         mean,
         mean_lower,
         mean_upper,
-        n_rows: n_rows_out,
-        n_draws: n_draws_out,
-        model_class,
-        family_kind,
-    };
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("failed to serialize posterior_predict_bands payload: {err}"))
+        n_rows,
+        n_draws,
+        model_class: result.model_class,
+        family_kind: result.family_kind,
+    })
 }
 
-/// Posterior predictive η matrix for a bernoulli marginal-slope model (#1049).
-///
-/// Unlike a standard GAM (`η = X·β`), the marginal-slope linear predictor is a
-/// nonlinear rigid-kernel map of the marginal + logslope coefficient blocks and
-/// the latent-z column. We propagate the full β-posterior through that map: for
-/// each saved Laplace draw `θ_k` (in the saved `[marginal | logslope |
-/// score_warp? | link_dev?]` block order) we evaluate the exact per-row final η
-/// via `BernoulliMarginalSlopePredictor::final_eta_from_theta`. The resulting
-/// `(n_draws × n_rows)` η matrix is collapsed by the shared eta→bands path with
-/// the probit inverse link (`μ = Φ(η)`), identical to the point predict path, so
-/// the credible band and the point predictor agree by construction.
-fn posterior_predict_marginal_slope_eta(
-    model: &FittedModel,
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
-) -> Result<String, String> {
-    let predictor = model.bernoulli_marginal_slope_predictor()?;
-    let theta_len = predictor.theta_len();
-    if n_coeffs != theta_len {
-        return Err(format!(
-            "posterior_predict coefficient count mismatch: samples have {n_coeffs} coefficients \
-             but the marginal-slope predictor consumes {theta_len} (marginal + logslope + any \
-             score-warp / link-deviation blocks). The posterior was likely produced from a \
-             different fit than this model; rerun model.sample(...) on the same model."
-        ));
-    }
-    let dataset = dataset_with_model_schema(model, &headers, &rows)?;
-    drop(rows);
-    drop(headers);
+fn posterior_predict_encoded_table_impl(
+    model_bytes: &[u8],
+    source: EncodedDataset,
+    samples: Array2<f64>,
+) -> Result<PosteriorPredictResult, String> {
+    let model = load_model_impl(model_bytes)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
     let col_map = dataset.column_map();
-    let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
-    let offset_noise =
-        resolve_offset_column(&dataset, &col_map, model.noise_offset_column.as_deref())?;
-    let predict_input = build_predict_input_for_model(
-        model,
+    let prediction = gam_predict::predict_posterior_draws(
+        &model,
         dataset.values.view(),
         &col_map,
         model.training_headers.as_ref(),
-        &offset,
-        &offset_noise,
-        false,
-    )?;
-    let samples = Array2::<f64>::from_shape_vec((n_draws, n_coeffs), samples_flat)
-        .map_err(|err| format!("failed to reshape samples: {err}"))?;
-    // Per-draw final η. Each row of `samples` is one posterior draw of the full
-    // coefficient vector; map it through the marginal-slope kernel to its η
-    // surface over the prediction rows.
-    let mut eta_rows: Vec<Array1<f64>> = Vec::with_capacity(n_draws);
-    let mut n_rows = 0usize;
-    for k in 0..n_draws {
-        let theta = samples.row(k).to_owned();
-        let eta = predictor
-            .final_eta_from_theta(&predict_input, &theta)
-            .map_err(|err| format!("marginal-slope posterior predict draw {k}: {err}"))?;
-        if k == 0 {
-            n_rows = eta.len();
-        } else if eta.len() != n_rows {
-            return Err(format!(
-                "marginal-slope posterior predict draw {k} produced {} rows, expected {n_rows}",
-                eta.len()
-            ));
-        }
-        eta_rows.push(eta);
-    }
-    let mut eta_flat: Vec<f64> = Vec::with_capacity(n_draws * n_rows);
-    for eta in &eta_rows {
-        eta_flat.extend(eta.iter().copied());
-    }
-    let payload = PosteriorPredictPayload {
-        eta_flat,
-        n_draws,
-        n_rows,
-        model_class: prediction_model_class_label(model),
-        family_kind: family_link_kind(&model_likelihood_spec(model)).to_string(),
-        link_spec: model_link_spec_json(model),
-    };
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("failed to serialize posterior_predict payload: {err}"))
-}
-
-fn posterior_predict_table_impl(
-    model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
-) -> Result<String, String> {
-    // Validation up front. The Python wrapper is expected to ship samples that
-    // already match the saved coefficient count; we catch shape mismatches
-    // here so the error surface stays consistent with the rest of the FFI
-    // surface instead of failing inside a matmul.
-    if samples_flat.len() != n_draws * n_coeffs {
-        return Err(format!(
-            "posterior_predict samples shape mismatch: got {} floats, expected {} * {}",
-            samples_flat.len(),
-            n_draws,
-            n_coeffs
-        ));
-    }
-    let model = load_model_impl(model_bytes)?;
-    // Bernoulli marginal-slope posterior predictive (#1049): η is not X·β —
-    // each draw must be mapped through the marginal-slope rigid kernel — so it
-    // gets its own per-draw eta path. The Laplace draws already exist
-    // (sample() works); we propagate the full β-posterior through the
-    // marginal-slope link to get a principled predictive η matrix.
-    if matches!(
-        model.predict_model_class(),
-        PredictModelClass::BernoulliMarginalSlope
-    ) {
-        return posterior_predict_marginal_slope_eta(
-            &model,
-            headers,
-            rows,
-            samples_flat,
-            n_draws,
-            n_coeffs,
-        );
-    }
-    if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
-        return Err(format!(
-            "posterior_predict currently supports only standard GAM and bernoulli \
-             marginal-slope models; got '{}'. Per-class posterior-predict paths for \
-             location-scale / transformation-normal will be wired in a follow-up.",
-            prediction_model_class_label(&model)
-        ));
-    }
-    if model.has_link_wiggle() {
-        return Err(
-            "posterior_predict does not yet support link-wiggle models. The basis \
-             chain rule q0 + B(q0)·theta means eta is not X·beta and per-draw \
-             evaluation needs the link-wiggle runtime, which is a follow-up."
-                .to_string(),
-        );
-    }
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
-    drop(rows);
-    drop(headers);
-    let col_map = dataset.column_map();
-    let training_headers = model.training_headers.as_ref();
-    let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
-        &model.resolved_termspec,
-        training_headers,
-        &col_map,
-        "resolved_termspec",
-    )?;
-    let design = gam::terms::smooth::build_term_collection_design(dataset.values.view(), &spec)
-        .map_err(|err| format!("failed to build design matrix: {err}"))?;
-    let base_dense = design
-        .design
-        .try_to_dense_by_chunks("posterior_predict design")?;
-    let dense = append_deployment_extension_columns(
-        model.payload(),
-        dataset.values.view(),
-        &col_map,
-        training_headers,
-        base_dense,
-    )?;
-    let n_rows = dense.nrows();
-    if dense.ncols() != n_coeffs {
-        return Err(format!(
-            "posterior_predict coefficient count mismatch: samples have {} coefficients \
-             but rebuilt design has {} columns. The posterior was likely produced from a \
-             different fit than this model; rerun model.sample(...) on the same model.",
-            n_coeffs,
-            dense.ncols()
-        ));
-    }
-    let samples = Array2::<f64>::from_shape_vec((n_draws, n_coeffs), samples_flat)
-        .map_err(|err| format!("failed to reshape samples: {err}"))?;
-    // A GLM fitted with `offset=...` targets the linear predictor η = X·β + offset.
-    // The point-predict path (`design.dot(beta) + input.offset`) and the
-    // coefficient sampler (#882) both re-apply that offset; the posterior-
-    // *predictive* η must too. Omitting it made every draw an offset-less X·β, so
-    // a rate model's predictive mean came out exp(-offset)× too small and silently
-    // reproduced the offset-less prediction.
-    let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
-    // eta[k, i] = sum_j samples[k, j] * X[i, j] + offset[i]
-    //           = (samples · Xᵀ)[k, i] + offset[i]  (offset broadcasts over draws).
-    let eta = samples.dot(&dense.t()) + &offset;
-    let eta_flat: Vec<f64> = eta.iter().copied().collect();
-    let payload = PosteriorPredictPayload {
-        eta_flat,
-        n_draws,
-        n_rows,
+        samples.view(),
+    )
+    .map_err(|error| error.to_string())?;
+    let matrices = prediction.into_matrices();
+    Ok(PosteriorPredictResult {
+        eta: matrices.eta,
+        mean: matrices.mean,
         model_class: prediction_model_class_label(&model),
         family_kind: family_link_kind(&model_likelihood_spec(&model)).to_string(),
         link_spec: model_link_spec_json(&model),
-    };
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("failed to serialize posterior_predict payload: {err}"))
+    })
 }
 
-fn sample_table_impl(
+fn sample_encoded_table_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
     options_json: Option<&str>,
-) -> Result<String, String> {
+) -> Result<SamplePayload, String> {
     let model = load_model_impl(model_bytes)?;
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
-    drop(rows);
-    drop(headers);
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
     let options = parse_sample_options(options_json)?;
     let cfg = resolve_nuts_config(&model, options);
     let col_map = dataset.column_map();
@@ -494,7 +246,7 @@ fn sample_table_impl(
         training_headers,
         &cfg,
     )?;
-    serialize_sample_payload(&model, &nuts, &cfg)
+    Ok(build_sample_payload(&model, nuts, &cfg))
 }
 
 /// plain string on the Python side (the Rust `LikelihoodSpec` itself is
@@ -579,29 +331,14 @@ fn nuts_method_label(model: &FittedModel) -> &'static str {
     }
 }
 
-fn serialize_sample_payload(
-    model: &FittedModel,
-    nuts: &NutsResult,
-    cfg: &NutsConfig,
-) -> Result<String, String> {
-    let payload = build_sample_payload(model, nuts, cfg);
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("failed to serialize sample payload: {err}"))
-}
-
-fn build_sample_payload(model: &FittedModel, nuts: &NutsResult, cfg: &NutsConfig) -> SamplePayload {
-    let n_draws = nuts.samples.nrows();
+fn build_sample_payload(model: &FittedModel, nuts: NutsResult, cfg: &NutsConfig) -> SamplePayload {
     let n_coeffs = nuts.samples.ncols();
-    // Row-major flatten — ndarray's iter visits row-major already.
-    let samples_flat: Vec<f64> = nuts.samples.iter().copied().collect();
     let coefficient_names: Vec<String> = (0..n_coeffs).map(|j| format!("beta_{j}")).collect();
     SamplePayload {
-        samples_flat,
-        n_draws,
-        n_coeffs,
+        samples: nuts.samples,
         coefficient_names,
-        posterior_mean: nuts.posterior_mean.to_vec(),
-        posterior_std: nuts.posterior_std.to_vec(),
+        posterior_mean: nuts.posterior_mean,
+        posterior_std: nuts.posterior_std,
         rhat: nuts.rhat,
         ess: nuts.ess,
         converged: nuts.converged,
@@ -954,52 +691,22 @@ fn term_blocks_for_model_impl(
     Ok(blocks)
 }
 
-#[derive(Deserialize)]
-struct DifferenceSmoothRequest {
-    view: String,
-    group: Option<String>,
-    pairs: Option<Vec<(serde_json::Value, serde_json::Value)>>,
-    n: usize,
-    level: f64,
-    simultaneous: bool,
-    n_sim: usize,
-    seed: Option<u64>,
-    marginalise_random: bool,
-    group_means: bool,
-    template: Option<BTreeMap<String, serde_json::Value>>,
-}
-
-#[derive(Serialize)]
-struct DifferenceSmoothRequestJson<'a> {
-    view: &'a str,
-    group: Option<String>,
-    pairs: Option<Vec<(String, String)>>,
-    n: usize,
-    level: f64,
-    simultaneous: bool,
-    n_sim: usize,
-    seed: Option<u64>,
-    marginalise_random: bool,
-    group_means: bool,
-    template: Option<HashMap<String, String>>,
-}
-
 #[pyfunction]
 fn build_difference_smooth_request_json(
     view: &str,
     group: Option<String>,
     pairs: Option<Vec<(String, String)>>,
     n: usize,
-    level: f64,
+    level: Option<f64>,
     simultaneous: bool,
-    n_sim: usize,
+    n_sim: Option<usize>,
     seed: Option<u64>,
     marginalise_random: bool,
     group_means: bool,
     template: Option<HashMap<String, String>>,
 ) -> PyResult<String> {
-    let payload = DifferenceSmoothRequestJson {
-        view,
+    let payload = gam::inference::difference_smooth::DifferenceSmoothRequest {
+        view: view.to_string(),
         group,
         pairs,
         n,
@@ -1009,7 +716,7 @@ fn build_difference_smooth_request_json(
         seed,
         marginalise_random,
         group_means,
-        template,
+        template: template.map(|values| values.into_iter().collect()),
     };
     serde_json::to_string(&payload).map_err(|err| {
         py_value_error(format!(
@@ -1018,605 +725,45 @@ fn build_difference_smooth_request_json(
     })
 }
 
-fn json_value_to_row_string(value: &serde_json::Value) -> Option<String> {
-    match value {
-        serde_json::Value::Null => None,
-        serde_json::Value::String(text) => Some(text.clone()),
-        serde_json::Value::Number(number) => Some(number.to_string()),
-        serde_json::Value::Bool(flag) => Some(flag.to_string()),
-        other => Some(other.to_string()),
-    }
-}
-
-fn json_value_to_difference_level(value: &serde_json::Value) -> String {
-    match value {
-        serde_json::Value::Null => "None".to_string(),
-        serde_json::Value::Bool(flag) => {
-            if *flag {
-                "True".to_string()
-            } else {
-                "False".to_string()
-            }
-        }
-        serde_json::Value::Number(number) => number.to_string(),
-        serde_json::Value::String(text) => text.clone(),
-        other => other.to_string(),
-    }
-}
-
-fn difference_schema_columns<'a>(
-    state: &'a serde_json::Value,
-) -> Result<&'a Vec<serde_json::Value>, String> {
-    state
-        .get("schema")
-        .and_then(|schema| schema.get("columns"))
-        .and_then(|columns| columns.as_array())
-        .ok_or_else(|| "difference_smooth requires a saved model schema".to_string())
-}
-
-fn difference_json_ranges(
-    state: &serde_json::Value,
-    key: &str,
-) -> Result<Vec<(usize, usize)>, String> {
-    let Some(raw_ranges) = state.get(key).and_then(|raw| raw.as_array()) else {
-        return Ok(Vec::new());
-    };
-    raw_ranges
-        .iter()
-        .enumerate()
-        .map(|(idx, raw)| {
-            let values = raw
-                .as_array()
-                .ok_or_else(|| format!("{key}[{idx}] must be a two-element array"))?;
-            if values.len() != 2 {
-                return Err(format!("{key}[{idx}] must be a two-element array"));
-            }
-            let start = values[0]
-                .as_u64()
-                .ok_or_else(|| format!("{key}[{idx}][0] must be an unsigned integer"))?
-                as usize;
-            let end = values[1]
-                .as_u64()
-                .ok_or_else(|| format!("{key}[{idx}][1] must be an unsigned integer"))?
-                as usize;
-            Ok((start, end))
-        })
-        .collect()
-}
-
-fn difference_training_ranges(state: &serde_json::Value) -> Vec<(f64, f64)> {
-    state
-        .get("training_feature_ranges")
-        .and_then(|raw| raw.as_array())
-        .map(|ranges| {
-            ranges
-                .iter()
-                .map(|raw| {
-                    let pair = raw.as_array();
-                    let lo = pair
-                        .and_then(|values| values.first())
-                        .and_then(|value| value.as_f64())
-                        .unwrap_or(0.0);
-                    let hi = pair
-                        .and_then(|values| values.get(1))
-                        .and_then(|value| value.as_f64())
-                        .unwrap_or(1.0);
-                    (lo, hi)
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn difference_smooth_covariance(
-    state: &serde_json::Value,
-    beta_len: usize,
-) -> Result<(Array2<f64>, String, bool), String> {
-    let corrected = state.get("covariance_corrected_flat").is_some()
-        || state.get("covariance_corrected_n").is_some();
-    let (flat_key, n_key, kind) = if corrected {
-        (
-            "covariance_corrected_flat",
-            "covariance_corrected_n",
-            "corrected",
-        )
-    } else {
-        ("covariance_flat", "covariance_n", "conditional")
-    };
-    let cov_n = state
-        .get(n_key)
-        .and_then(|raw| raw.as_u64())
-        .ok_or_else(|| format!("model coefficient state does not include {n_key}"))?
-        as usize;
-    let cov_flat = json_f64_vec(state, flat_key)?;
-    if cov_flat.len() != cov_n * cov_n || beta_len != cov_n {
-        return Err("coefficient covariance payload has inconsistent dimensions".to_string());
-    }
-    let cov = Array2::from_shape_vec((cov_n, cov_n), cov_flat)
-        .map_err(|err| format!("failed to reshape coefficient covariance: {err}"))?;
-    Ok((cov, kind.to_string(), corrected))
-}
-
-fn difference_group_ranges(
-    state: &serde_json::Value,
-    group: &str,
-) -> Result<Vec<(usize, usize)>, String> {
-    let Some(blocks) = state.get("term_blocks").and_then(|raw| raw.as_array()) else {
-        return Ok(Vec::new());
-    };
-    let mut ranges = Vec::new();
-    for block in blocks {
-        let Some(obj) = block.as_object() else {
-            continue;
-        };
-        if obj
-            .get("kind")
-            .and_then(|raw| raw.as_str())
-            .is_some_and(|kind| kind == "random_effect")
-            && obj
-                .get("name")
-                .and_then(|raw| raw.as_str())
-                .is_some_and(|name| name == group)
-        {
-            let start = obj
-                .get("start")
-                .and_then(|raw| raw.as_u64())
-                .ok_or_else(|| "term_blocks entry is missing start".to_string())?
-                as usize;
-            let end = obj
-                .get("end")
-                .and_then(|raw| raw.as_u64())
-                .ok_or_else(|| "term_blocks entry is missing end".to_string())?
-                as usize;
-            ranges.push((start, end));
-        }
-    }
-    Ok(ranges)
-}
-
-/// Remove the columns covered by `exclude` from `ranges`, returning the remaining
-/// half-open `(start, end)` spans. Used so that random-effect marginalisation skips
-/// the compared factor's own group-mean columns when `group_means` is requested.
-fn subtract_design_ranges(
-    ranges: &[(usize, usize)],
-    exclude: &[(usize, usize)],
-) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    for &(start, end) in ranges {
-        let mut segments = vec![(start, end)];
-        for &(ex_start, ex_end) in exclude {
-            if ex_start >= ex_end {
-                continue;
-            }
-            let mut next = Vec::new();
-            for (seg_start, seg_end) in segments {
-                // No overlap: keep the segment intact.
-                if ex_end <= seg_start || ex_start >= seg_end {
-                    next.push((seg_start, seg_end));
-                    continue;
-                }
-                // Left remainder before the excluded span.
-                if seg_start < ex_start {
-                    next.push((seg_start, ex_start));
-                }
-                // Right remainder after the excluded span.
-                if ex_end < seg_end {
-                    next.push((ex_end, seg_end));
-                }
-            }
-            segments = next;
-        }
-        for (seg_start, seg_end) in segments {
-            if seg_start < seg_end {
-                out.push((seg_start, seg_end));
-            }
-        }
-    }
-    out
-}
-
-fn zero_design_ranges(x: &mut Array2<f64>, ranges: &[(usize, usize)]) {
-    let ncols = x.ncols();
-    for &(start, end) in ranges {
-        let start = start.min(ncols);
-        let end = end.min(ncols);
-        if start < end {
-            x.slice_mut(s![.., start..end]).fill(0.0);
-        }
-    }
-}
-
-struct SplitMixNormalRng {
-    state: u64,
-    spare: Option<f64>,
-}
-
-impl SplitMixNormalRng {
-    fn new(seed: u64) -> Self {
-        Self {
-            state: seed,
-            spare: None,
-        }
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    fn uniform_open01(&mut self) -> f64 {
-        let value = self.next_u64() >> 11;
-        ((value as f64) + 0.5) * (1.0 / ((1_u64 << 53) as f64))
-    }
-
-    fn uniform_range(&mut self, lo: f64, hi: f64) -> f64 {
-        lo + (hi - lo) * self.uniform_open01()
-    }
-
-    fn bernoulli(&mut self, p: f64) -> bool {
-        self.uniform_open01() < p.clamp(0.0, 1.0)
-    }
-
-    fn standard_normal(&mut self) -> f64 {
-        if let Some(value) = self.spare.take() {
-            return value;
-        }
-        let u1 = self.uniform_open01();
-        let u2 = self.uniform_open01();
-        let radius = (-2.0 * u1.ln()).sqrt();
-        let angle = std::f64::consts::TAU * u2;
-        self.spare = Some(radius * angle.sin());
-        radius * angle.cos()
-    }
-
-    fn normal(&mut self, mean: f64, sd: f64) -> f64 {
-        mean + sd * self.standard_normal()
-    }
-}
-
-fn difference_quantile(mut values: Vec<f64>, level: f64) -> Result<f64, String> {
-    values.retain(|value| value.is_finite());
-    if values.is_empty() {
-        return Err(
-            "simultaneous difference_smooth simulation produced no finite draws".to_string(),
-        );
-    }
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    if values.len() == 1 {
-        return Ok(values[0]);
-    }
-    let pos = level * ((values.len() - 1) as f64);
-    let lo = pos.floor() as usize;
-    let hi = pos.ceil() as usize;
-    if lo == hi {
-        Ok(values[lo])
-    } else {
-        let weight = pos - (lo as f64);
-        Ok(values[lo] * (1.0 - weight) + values[hi] * weight)
-    }
-}
-
-fn difference_simultaneous_critical(
-    beta: &Array1<f64>,
-    cov: &Array2<f64>,
-    xd: &Array2<f64>,
-    diff: &Array1<f64>,
-    se: &Array1<f64>,
-    n_sim: usize,
-    seed: u64,
-    level: f64,
-) -> Result<f64, String> {
-    if n_sim == 0 {
-        return Err(
-            "difference_smooth n_sim must be at least 1 when simultaneous=True".to_string(),
-        );
-    }
-    let sym = (cov.to_owned() + cov.t()) * 0.5;
-    let chol = sym
-        .cholesky(Side::Lower)
-        .map_err(|err| format!("coefficient covariance Cholesky failed: {err}"))?;
-    let lower = chol.lower_triangular();
-    let n_coeff = beta.len();
-    let n_rows = xd.nrows();
-    let mut rng = SplitMixNormalRng::new(seed);
-    let mut z = vec![0.0; n_coeff];
-    let mut draw = vec![0.0; n_coeff];
-    let mut max_devs = Vec::with_capacity(n_sim);
-    for _ in 0..n_sim {
-        for value in &mut z {
-            *value = rng.standard_normal();
-        }
-        for row in 0..n_coeff {
-            let mut value = beta[row];
-            for col in 0..=row {
-                value += lower[[row, col]] * z[col];
-            }
-            draw[row] = value;
-        }
-        let mut max_dev = 0.0_f64;
-        for i in 0..n_rows {
-            let denom = if se[i] > 0.0 { se[i] } else { f64::INFINITY };
-            let mut draw_diff = 0.0;
-            for j in 0..n_coeff {
-                draw_diff += draw[j] * xd[[i, j]];
-            }
-            let dev = ((draw_diff - diff[i]) / denom).abs();
-            if dev.is_finite() && dev > max_dev {
-                max_dev = dev;
-            }
-        }
-        max_devs.push(max_dev);
-    }
-    difference_quantile(max_devs, level)
-}
-
 fn difference_smooth_json_impl(model_bytes: &[u8], request_json: &str) -> Result<String, String> {
-    use statrs::distribution::ContinuousCDF;
-
-    let state_json = coefficient_state_json_impl(model_bytes)?;
-    let state: serde_json::Value = serde_json::from_str(&state_json)
-        .map_err(|err| format!("failed to parse coefficient state json: {err}"))?;
-    let request: DifferenceSmoothRequest = serde_json::from_str(request_json)
-        .map_err(|err| format!("failed to parse difference_smooth request json: {err}"))?;
-    if !(0.0 < request.level && request.level < 1.0) {
-        return Err("difference_smooth level must be in (0, 1)".to_string());
-    }
-    if request.n < 2 {
-        return Err("difference_smooth n must be at least 2".to_string());
-    }
-
-    let schema_cols = difference_schema_columns(&state)?;
-    let headers = schema_cols
-        .iter()
-        .map(|column| {
-            column
-                .get("name")
-                .and_then(|raw| raw.as_str())
-                .map(|name| name.to_string())
-                .ok_or_else(|| "saved model schema column is missing name".to_string())
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let view_idx = headers
-        .iter()
-        .position(|name| name == &request.view)
-        .ok_or_else(|| {
-            format!(
-                "view column {:?} not found in model schema: {:?}",
-                request.view, headers
-            )
-        })?;
-    let group = match request.group {
-        Some(group) => group,
-        None => schema_cols
-            .iter()
-            .find_map(|column| {
-                let name = column.get("name").and_then(|raw| raw.as_str())?;
-                let kind = column.get("kind").and_then(|raw| raw.as_str())?;
-                (kind == "categorical" && name != request.view).then(|| name.to_string())
-            })
-            .ok_or_else(|| {
-                "difference_smooth could not infer a categorical group column; pass group="
-                    .to_string()
-            })?,
-    };
-    let group_idx = headers
-        .iter()
-        .position(|name| name == &group)
-        .ok_or_else(|| {
-            format!(
-                "group column {:?} not found in model schema: {:?}",
-                group, headers
-            )
-        })?;
-    let group_col = &schema_cols[group_idx];
-    let levels = group_col
-        .get("levels")
-        .and_then(|raw| raw.as_array())
-        .map(|values| {
-            values
-                .iter()
-                .filter_map(json_value_to_row_string)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    if levels.len() < 2 {
-        return Err(format!(
-            "group column {group:?} must have at least two saved levels"
-        ));
-    }
-    let pairs = match request.pairs {
-        Some(pairs) => pairs
-            .into_iter()
-            .map(|(left, right)| {
-                (
-                    json_value_to_difference_level(&left),
-                    json_value_to_difference_level(&right),
-                )
-            })
-            .collect::<Vec<_>>(),
-        None => {
-            let mut out = Vec::new();
-            for i in 0..levels.len() {
-                for j in (i + 1)..levels.len() {
-                    out.push((levels[i].clone(), levels[j].clone()));
-                }
-            }
-            out
-        }
-    };
-
-    let ranges = difference_training_ranges(&state);
-    let (mut lo, mut hi) = ranges.get(view_idx).copied().unwrap_or((0.0, 1.0));
-    if !(lo.is_finite() && hi.is_finite()) || lo == hi {
-        lo = 0.0;
-        hi = 1.0;
-    }
-    let step = (hi - lo) / ((request.n - 1) as f64);
-    let grid = (0..request.n)
-        .map(|idx| lo + step * (idx as f64))
-        .collect::<Vec<_>>();
-
-    let mut template = request
-        .template
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|(key, value)| json_value_to_row_string(&value).map(|text| (key, text)))
-        .collect::<BTreeMap<_, _>>();
-    for (idx, column) in schema_cols.iter().enumerate() {
-        let name = &headers[idx];
-        if template.contains_key(name) {
-            continue;
-        }
-        match column.get("kind").and_then(|raw| raw.as_str()) {
-            Some("categorical") => {
-                let value = column
-                    .get("levels")
-                    .and_then(|raw| raw.as_array())
-                    .and_then(|values| values.first())
-                    .and_then(json_value_to_row_string)
-                    .unwrap_or_else(|| "0".to_string());
-                template.insert(name.clone(), value);
-            }
-            Some("binary") => {
-                template.insert(name.clone(), "0".to_string());
-            }
-            _ => {
-                let value = ranges
-                    .get(idx)
-                    .map(|(a, b)| 0.5 * (a + b))
-                    .filter(|value| value.is_finite())
-                    .unwrap_or(0.0);
-                template.insert(name.clone(), value.to_string());
-            }
-        }
-    }
-
-    let beta = Array1::from_vec(json_f64_vec(&state, "beta")?);
-    let (cov, cov_kind, cov_corrected) = difference_smooth_covariance(&state, beta.len())?;
-    let random_ranges = difference_json_ranges(&state, "random_column_ranges")?;
-    let group_ranges = difference_group_ranges(&state, &group)?;
-    let normal = statrs::distribution::Normal::new(0.0, 1.0)
-        .map_err(|err| format!("failed to construct standard normal: {err}"))?;
-    let pointwise_crit = normal.inverse_cdf(0.5 + request.level / 2.0);
+    let request: gam::inference::difference_smooth::DifferenceSmoothRequest =
+        serde_json::from_str(request_json)
+            .map_err(|err| format!("failed to parse difference_smooth request json: {err}"))?;
     let model = load_model_impl(model_bytes)?;
-    let mut rows_out = Vec::<serde_json::Value>::new();
-
-    for (level_1, level_2) in pairs {
-        let mut rows_left = Vec::with_capacity(grid.len());
-        let mut rows_right = Vec::with_capacity(grid.len());
-        for x in &grid {
-            let mut row_left = template.clone();
-            let mut row_right = template.clone();
-            row_left.insert(request.view.clone(), x.to_string());
-            row_right.insert(request.view.clone(), x.to_string());
-            row_left.insert(group.clone(), level_1.clone());
-            row_right.insert(group.clone(), level_2.clone());
-            rows_left.push(
-                headers
-                    .iter()
-                    .map(|header| row_left.get(header).cloned().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            );
-            rows_right.push(
-                headers
-                    .iter()
-                    .map(|header| row_right.get(header).cloned().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            );
-        }
-        let dataset_left = dataset_with_model_schema(&model, &headers, &rows_left)?;
-        let dataset_right = dataset_with_model_schema(&model, &headers, &rows_right)?;
-        let xl = design_matrix_dense(&model, dataset_left)?;
-        let xr = design_matrix_dense(&model, dataset_right)?;
-        // Sign contract: `xl` is built from `level_1` (`row_left`) and `xr` from
-        // `level_2` (`row_right`), and every output row is labelled
-        // `level_1`/`level_2`. A user reads the pair `(level_1, level_2)` as the
-        // contrast `ŝ(level_1) − ŝ(level_2)` (the mgcv `plot_diff(model, a, b)`
-        // convention). The design difference must therefore be
-        // `design(level_1) − design(level_2)`, so `diff = xd·β = f(level_1) −
-        // f(level_2)` carries the labelled sign. Forming `&xr - &xl` returned the
-        // negation `f(level_2) − f(level_1)` while the row still said
-        // `level_1`/`level_2` (correlation −1 with `predict(level_1) −
-        // predict(level_2)`). The variance below is the quadratic form `xdᵀ Σ xd`,
-        // invariant to this sign, so only the reported centre flips.
-        let mut xd = &xl - &xr;
-        if request.marginalise_random {
-            // The compared factor is itself fitted as a random_effect term, so its
-            // columns appear in `random_ranges`. Marginalising random effects is meant
-            // for *nuisance* effects orthogonal to the comparison; it must not silently
-            // drop the group-mean offset the caller asked to keep. When `group_means` is
-            // true we therefore exclude the compared factor's own columns
-            // (`group_ranges`) from the random-marginalisation pass, leaving them to be
-            // governed solely by the `group_means` flag below.
-            let random_to_zero = if request.group_means {
-                subtract_design_ranges(&random_ranges, &group_ranges)
-            } else {
-                random_ranges.clone()
-            };
-            zero_design_ranges(&mut xd, &random_to_zero);
-        }
-        if !request.group_means {
-            zero_design_ranges(&mut xd, &group_ranges);
-        }
-        let diff = xd.dot(&beta);
-        let tmp = xd.dot(&cov);
-        let mut var = Array1::<f64>::zeros(xd.nrows());
-        for i in 0..xd.nrows() {
-            let mut value = 0.0;
-            for j in 0..xd.ncols() {
-                value += tmp[[i, j]] * xd[[i, j]];
-            }
-            var[i] = value;
-        }
-        let se = var.mapv(|value| value.max(0.0).sqrt());
-        let crit = if request.simultaneous {
-            difference_simultaneous_critical(
-                &beta,
-                &cov,
-                &xd,
-                &diff,
-                &se,
-                request.n_sim,
-                request.seed.unwrap_or(12345),
-                request.level,
-            )?
-        } else {
-            pointwise_crit
-        };
-        for (idx, x) in grid.iter().enumerate() {
-            let lower = diff[idx] - crit * se[idx];
-            let upper = diff[idx] + crit * se[idx];
-            let mut row = serde_json::Map::new();
-            row.insert(request.view.clone(), serde_json::json!(x));
-            row.insert("group".to_string(), serde_json::json!(group.clone()));
-            row.insert("level_1".to_string(), serde_json::json!(level_1.clone()));
-            row.insert("level_2".to_string(), serde_json::json!(level_2.clone()));
-            row.insert("diff".to_string(), serde_json::json!(diff[idx]));
-            row.insert("se".to_string(), serde_json::json!(se[idx]));
-            row.insert("lower".to_string(), serde_json::json!(lower));
-            row.insert("upper".to_string(), serde_json::json!(upper));
-            row.insert("level".to_string(), serde_json::json!(request.level));
-            row.insert(
-                "simultaneous".to_string(),
-                serde_json::json!(request.simultaneous),
-            );
-            row.insert("critical".to_string(), serde_json::json!(crit));
-            row.insert(
-                "covariance_kind".to_string(),
-                serde_json::json!(cov_kind.clone()),
-            );
-            row.insert(
-                "covariance_corrected".to_string(),
-                serde_json::json!(cov_corrected),
-            );
-            rows_out.push(serde_json::Value::Object(row));
-        }
-    }
-
-    serde_json::to_string(&rows_out)
+    let fit = fit_result_from_saved_model_for_prediction(&model)?;
+    let selected_covariance = gam::inference::effects::select_covariance(
+        &fit,
+        gam::inference::effects::CovarianceSelection::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let payload = model.payload();
+    let schema = payload
+        .data_schema
+        .as_ref()
+        .ok_or_else(|| "difference_smooth requires a saved model schema".to_string())?;
+    let training_feature_ranges = payload
+        .training_feature_ranges
+        .as_deref()
+        .ok_or_else(|| "difference_smooth requires saved training feature ranges".to_string())?;
+    let termspec = payload.resolved_termspec.as_ref().ok_or_else(|| {
+        "difference_smooth requires a saved resolved term specification".to_string()
+    })?;
+    let rows = gam::inference::difference_smooth::difference_smooth_report(
+        gam::inference::difference_smooth::DifferenceSmoothInputs {
+            schema,
+            training_feature_ranges,
+            termspec,
+            beta: fit.beta.view(),
+            covariance: selected_covariance.matrix,
+            covariance_source: selected_covariance.source,
+        },
+        request,
+        |headers, rows| {
+            let dataset = dataset_with_model_schema(&model, headers, rows)?;
+            design_matrix_dense(&model, dataset)
+        },
+    )?;
+    serde_json::to_string(&rows)
         .map_err(|err| format!("failed to serialize difference_smooth rows: {err}"))
 }
 
@@ -1863,10 +1010,7 @@ fn frozen_factor_levels_by_col(
     // Walk the (possibly nested) basis, accumulating factor columns. The DSL
     // wraps the geometric core in `ByVariable`/`FactorSumToZero`/`BySmooth`
     // envelopes, so recurse through them exactly like `smooth_basis_feature_cols`.
-    fn walk(
-        basis: &SmoothBasisSpec,
-        record: &mut dyn FnMut(usize, &[u64]),
-    ) {
+    fn walk(basis: &SmoothBasisSpec, record: &mut dyn FnMut(usize, &[u64])) {
         match basis {
             SmoothBasisSpec::FactorSumToZero {
                 inner,
@@ -1936,11 +1080,7 @@ fn representative_data_from_ranges(
 ) -> Array2<f64> {
     const REP_ROWS_MIN: usize = 16;
     // Enough rows that the widest factor has every level represented.
-    let max_levels = factor_levels
-        .values()
-        .map(|lv| lv.len())
-        .max()
-        .unwrap_or(0);
+    let max_levels = factor_levels.values().map(|lv| lv.len()).max().unwrap_or(0);
     let rep_rows = REP_ROWS_MIN.max(max_levels).max(1);
     let n_cols = ranges.len();
     let mut data = Array2::<f64>::zeros((rep_rows, n_cols));
@@ -2095,11 +1235,7 @@ mod whitening_gram_tests {
     fn categorical_columns_cycle_every_frozen_level() {
         let ranges = [(0.0_f64, 1.0_f64), (0.0, 0.0)];
         let mut levels = BTreeMap::new();
-        let lv = vec![
-            1.0_f64.to_bits(),
-            2.0_f64.to_bits(),
-            3.0_f64.to_bits(),
-        ];
+        let lv = vec![1.0_f64.to_bits(), 2.0_f64.to_bits(), 3.0_f64.to_bits()];
         levels.insert(1usize, lv.clone());
         let data = whitening_data_from_ranges(&ranges, &levels, 64);
         let allowed: Vec<f64> = lv.iter().map(|&b| f64::from_bits(b)).collect();
@@ -2633,10 +1769,9 @@ fn curvature_verdict_label(v: gam::geometry::CurvatureVerdict) -> &'static str {
 /// materialize a Standard fit request from the model's training formula + data,
 /// then swap in the model's fitted spec and family so the profile oracle refits
 /// at the EXACT estimand the model was fitted under — only κ moves.
-fn curvature_inference_json_impl(
+fn curvature_inference_dataset_json_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    dataset: EncodedDataset,
     level: f64,
 ) -> Result<String, String> {
     use gam::terms::smooth::SmoothBasisSpec;
@@ -2674,7 +1809,6 @@ fn curvature_inference_json_impl(
     // Materialize responses/weights/offset/options from the training data under
     // the model's own family. We replace the materialized (default-κ) spec with
     // the FITTED spec so the V_p oracle profiles around κ̂ — only κ moves.
-    let dataset = dataset_with_inferred_schema(headers, rows)?;
     let fit_config = postfit_standard_materialization_config(&model)?;
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let standard = match materialized.request {
@@ -2739,10 +1873,9 @@ fn curvature_inference_json_impl(
 /// + data, swap in the model's fitted (frozen) spec and family, then run the
 /// core LR + Bartlett driver. The fitted spec carries the exact estimand the
 /// model was fitted under.
-fn smooth_term_lr_inference_json_impl(
+fn smooth_term_lr_inference_dataset_json_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    dataset: EncodedDataset,
 ) -> Result<String, String> {
     let model = load_model_impl(model_bytes)?;
     let formula = model.payload().formula.clone();
@@ -2763,7 +1896,6 @@ fn smooth_term_lr_inference_json_impl(
             .map_err(|err| format!("failed to serialize smooth-term LR inference: {err}"));
     }
 
-    let dataset = dataset_with_inferred_schema(headers, rows)?;
     let fit_config = postfit_standard_materialization_config(&model)?;
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let standard = match materialized.request {
@@ -2813,19 +1945,15 @@ fn smooth_term_lr_inference_json_impl(
 }
 
 fn postfit_standard_materialization_config(model: &FittedModel) -> Result<FitConfig, String> {
-    let (mut fit_config, _table_kind) = parse_fit_config(None)?;
+    let mut fit_config = parse_fit_config(None)?;
     fit_config.weight_column = model.weight_column.clone();
     fit_config.offset_column = model.offset_column.clone();
     Ok(fit_config)
 }
 
-fn check_json_impl(
-    model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-) -> Result<String, String> {
+fn check_dataset_json_impl(model_bytes: &[u8], dataset: EncodedDataset) -> Result<String, String> {
     let model = load_model_impl(model_bytes)?;
-    let check = schema_check(&model, &headers, &rows)?;
+    let check = schema_check_encoded(&model, &dataset)?;
     serde_json::to_string(&check).map_err(|err| format!("failed to serialize schema check: {err}"))
 }
 
@@ -2915,8 +2043,12 @@ fn report_html_impl(model_bytes: &[u8]) -> Result<String, String> {
         deviance: fit.deviance,
         reml_score: fit.reml_score,
         iterations: fit.outer_iterations,
-        convergence_status: fit.pirls_status.label().to_string(),
-        converged: fit.pirls_status.is_converged(),
+        convergence_status: fit
+            .convergence_evidence()
+            .inner_status()
+            .label()
+            .to_string(),
+        converged: true,
         outer_gradient_norm: fit.outer_gradient_norm,
         criterion_certificate: None,
         smoothing_forensics: Vec::new(),
@@ -3084,28 +2216,23 @@ fn gumbel_schedule_tau(schedule: &Bound<'_, PyDict>, iter: usize) -> PyResult<f6
 
 /// IBP-MAP concrete-relaxation activations and their diagonal logit Jacobian.
 ///
-/// Returns `(z, dz_dl)` where `z_k = σ(l_k/τ) · π_k` (consistent stick-breaking
-/// prior mean `π_k = (α/(α+1))^(k+1)`) and `dz_dl_k = ∂z_k/∂l_k`. The map is
-/// diagonal in `k`,
+/// Returns `(z, dz_dl)` where `z_k = σ(l_k/τ)` is the posterior-mean Bernoulli
+/// activation and `dz_dl_k = ∂z_k/∂l_k`. Ordered stick-breaking shrinkage is
+/// scored by the Rust IBP prior rather than multiplied into reconstruction.
+/// The map is diagonal in `k`,
 /// so torch's autograd `Function` multiplies the upstream gradient elementwise
 /// by `dz_dl`. This is the single source of truth shared with the closed-form
 /// `SaeAssignment` IBP path so torch IBP-Gumbel applies the same prior and
 /// temperature scaling as the Rust fit.
-#[pyfunction(signature = (logits, temperature, alpha))]
+#[pyfunction(signature = (logits, temperature))]
 fn sae_ibp_map_value_grad<'py>(
     py: Python<'py>,
     logits: PyReadonlyArray1<'py, f64>,
     temperature: f64,
-    alpha: f64,
 ) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
     if !(temperature.is_finite() && temperature > 0.0) {
         return Err(py_value_error(format!(
             "sae_ibp_map_value_grad: temperature must be finite and positive; got {temperature}"
-        )));
-    }
-    if !(alpha.is_finite() && alpha > 0.0) {
-        return Err(py_value_error(format!(
-            "sae_ibp_map_value_grad: alpha must be finite and positive; got {alpha}"
         )));
     }
     let logits_view = logits.as_array();
@@ -3117,7 +2244,36 @@ fn sae_ibp_map_value_grad<'py>(
         }
     }
     let (value, grad) =
-        gam::terms::sae::assignment::ibp_map_row_value_grad(logits_view.view(), temperature, alpha);
+        gam::terms::sae::assignment::ibp_map_row_value_grad(logits_view.view(), temperature);
+    Ok((
+        value.into_pyarray(py).unbind(),
+        grad.into_pyarray(py).unbind(),
+    ))
+}
+
+/// Batched sibling of [`sae_ibp_map_value_grad`] for a complete `(N, K)`
+/// tensor crossing the Python/Rust boundary once per forward pass.
+#[pyfunction(signature = (logits, temperature))]
+fn sae_ibp_map_batch_value_grad<'py>(
+    py: Python<'py>,
+    logits: PyReadonlyArray2<'py, f64>,
+    temperature: f64,
+) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray2<f64>>)> {
+    if !(temperature.is_finite() && temperature > 0.0) {
+        return Err(py_value_error(format!(
+            "sae_ibp_map_batch_value_grad: temperature must be finite and positive; got {temperature}"
+        )));
+    }
+    let logits_view = logits.as_array();
+    for ((row, col), &v) in logits_view.indexed_iter() {
+        if !v.is_finite() {
+            return Err(py_value_error(format!(
+                "sae_ibp_map_batch_value_grad: non-finite logit at row {row} atom {col}: {v}"
+            )));
+        }
+    }
+    let (value, grad) =
+        gam::terms::sae::assignment::ibp_map_batch_value_grad(logits_view.view(), temperature);
     Ok((
         value.into_pyarray(py).unbind(),
         grad.into_pyarray(py).unbind(),
@@ -3229,7 +2385,10 @@ fn sae_jumprelu_batch_value_grad<'py>(
         temperature,
         thresholds_view.view(),
     );
-    Ok((value.into_pyarray(py).unbind(), grad.into_pyarray(py).unbind()))
+    Ok((
+        value.into_pyarray(py).unbind(),
+        grad.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Top-k SAE activation value+grad over an `(N, K)` logit matrix — the single
@@ -3263,7 +2422,10 @@ fn sae_topk_activation_value_grad<'py>(
         logits_view.view(),
         temperature,
     );
-    Ok((value.into_pyarray(py).unbind(), grad.into_pyarray(py).unbind()))
+    Ok((
+        value.into_pyarray(py).unbind(),
+        grad.into_pyarray(py).unbind(),
+    ))
 }
 
 #[pyfunction(signature = (
@@ -3383,7 +2545,10 @@ fn harmonic_roughness_evidence_weight<'py>(
             "harmonic_roughness_evidence_weight: target must be finite".to_string(),
         ));
     }
-    if !row_weights_view.iter().all(|value| value.is_finite() && *value >= 0.0) {
+    if !row_weights_view
+        .iter()
+        .all(|value| value.is_finite() && *value >= 0.0)
+    {
         return Err(py_value_error(
             "harmonic_roughness_evidence_weight: row_weights must be finite and non-negative"
                 .to_string(),
@@ -3688,10 +2853,9 @@ fn manifold_exp_map<'py>(
 /// ``(grad_points, grad_vecs)`` — the analytic pullbacks w.r.t. ``points`` and
 /// ``vecs``. This is the backward used by the Python ``torch.autograd.Function``
 /// wrapping ``manifold_exp_map``; it routes through the canonical Rust
-/// ``RiemannianManifold::exp_map_vjp`` so curved manifolds (Sphere, products
-/// containing a Sphere) get their true analytic Jacobi-field gradients instead
-/// of a silent straight-through identity. Manifolds with no closed-form
-/// backward (Grassmann, Stiefel, SPD) raise rather than return wrong grads.
+/// ``RiemannianManifold::exp_map_vjp`` so Sphere, Grassmann, Stiefel, SPD, and
+/// products of supported components get their true analytic pullbacks instead
+/// of a silent straight-through identity.
 #[pyfunction(signature = (manifold_json, points, vecs, grad_output))]
 fn manifold_exp_map_vjp<'py>(
     py: Python<'py>,
@@ -3881,9 +3045,8 @@ fn periodic_harmonic_basis_derivative<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
-fn parse_fit_config(config_json: Option<&str>) -> Result<(FitConfig, Option<String>), String> {
-    let resolved = gam::config_resolve::parse_fit_config_json(config_json)?;
-    Ok((resolved.fit_config, resolved.training_table_kind))
+fn parse_fit_config(config_json: Option<&str>) -> Result<FitConfig, String> {
+    gam::config_resolve::parse_fit_config_json(config_json)
 }
 
 fn request_metadata(request: &FitRequest<'_>) -> (&'static str, &'static str, bool) {
@@ -3953,174 +3116,6 @@ fn parse_predict_options(options_json: Option<&str>) -> Result<PyPredictOptions,
     Ok(options)
 }
 
-/// Process-wide cache of inferred-schema-encoded columns, keyed by a 128-bit
-/// content fingerprint of the column's raw string fields + its header name.
-///
-/// A batch run fits many models against the SAME base cohort (e.g. 17 diseases
-/// sharing identical PCs / sex / ages / geography columns; only the event
-/// column + PRS-z differ between fits). Without this cache every invariant
-/// column is re-inferred and re-encoded once per fit — the encode pass parses
-/// `n_rows` strings to `f64` per column, so 16/17 of that work is pure
-/// redundancy. The fingerprint is content-addressed: two columns share a cache
-/// entry iff their header name and every field byte agree, so a hit returns the
-/// byte-identical `(SchemaColumn, Vec<f64>)` the miss path would have produced.
-/// The `Arc<Vec<f64>>` payload is shared, so a hit copies the values once into
-/// the output `Array2` (unavoidable — the dataset owns a dense matrix) but skips
-/// all parsing and level-map construction.
-type ColumnCacheKey = (u64, u64);
-type ColumnCacheValue = Arc<(SchemaColumn, Vec<f64>)>;
-
-fn encoded_column_cache() -> &'static Mutex<HashMap<ColumnCacheKey, ColumnCacheValue>> {
-    static CACHE: OnceLock<Mutex<HashMap<ColumnCacheKey, ColumnCacheValue>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-/// 128-bit content fingerprint of a column: the header name plus every raw
-/// field, each prefixed by its byte length so distinct field splits can never
-/// alias (e.g. `["ab","c"]` vs `["a","bc"]`). Two independent seeds widen the
-/// key to 128 bits, making accidental collisions across a batch negligible.
-fn column_fingerprint(name: &str, column: &[&str]) -> ColumnCacheKey {
-    use std::hash::{Hash, Hasher};
-    let mut lo = std::collections::hash_map::DefaultHasher::new();
-    let mut hi = seeded_hasher();
-    name.len().hash(&mut lo);
-    name.hash(&mut lo);
-    name.len().hash(&mut hi);
-    name.hash(&mut hi);
-    column.len().hash(&mut lo);
-    column.len().hash(&mut hi);
-    for field in column {
-        field.len().hash(&mut lo);
-        field.hash(&mut lo);
-        field.len().hash(&mut hi);
-        field.hash(&mut hi);
-    }
-    (lo.finish(), hi.finish())
-}
-
-/// Second hasher pre-seeded with a fixed constant so its 64-bit output is
-/// statistically independent of the unseeded `DefaultHasher`, widening the
-/// content key to 128 bits.
-fn seeded_hasher() -> std::collections::hash_map::DefaultHasher {
-    use std::hash::Hash;
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    0x9E37_79B9_7F4A_7C15u64.hash(&mut h);
-    h
-}
-
-fn dataset_with_inferred_schema(
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-) -> Result<EncodedDataset, String> {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-
-    let n_rows = rows.len();
-    let n_cols = headers.len();
-    if headers.is_empty() {
-        return Err("table must have at least one column".to_string());
-    }
-    if headers.iter().any(|header| header.trim().is_empty()) {
-        return Err("table headers must be non-empty strings".to_string());
-    }
-    {
-        let mut unique = BTreeSet::<&str>::new();
-        for header in &headers {
-            if !unique.insert(header.as_str()) {
-                return Err(format!("duplicate column name '{header}'"));
-            }
-        }
-    }
-    if rows.is_empty() {
-        return Err("table data cannot be empty".to_string());
-    }
-    for (index, row) in rows.iter().enumerate() {
-        if row.len() != n_cols {
-            return Err(format!(
-                "row {} has width {} but expected {}",
-                index + 1,
-                row.len(),
-                n_cols
-            ));
-        }
-    }
-
-    // Column-major view over the row-major Python frame. Borrowing `&str` here
-    // avoids the per-cell `String` clone the old `StringRecord` path paid
-    // (n_rows * n_cols allocations) before any encoding even began.
-    let t_encode = std::time::Instant::now();
-    let columns: Vec<Vec<&str>> = (0..n_cols)
-        .map(|j| {
-            rows.iter()
-                .map(|row| row[j].as_str())
-                .collect::<Vec<&str>>()
-        })
-        .collect();
-
-    // Encode each column independently and in parallel. A column whose content
-    // fingerprint is already cached (an invariant cohort column reused across
-    // fits) skips inference + encode entirely and reuses the shared payload.
-    let encoded: Vec<ColumnCacheValue> = headers
-        .par_iter()
-        .zip(columns.par_iter())
-        .map(|(name, column)| {
-            let key = column_fingerprint(name, column);
-            if let Ok(cache) = encoded_column_cache().lock() {
-                if let Some(hit) = cache.get(&key) {
-                    return Ok(Arc::clone(hit));
-                }
-            }
-            let (schema_col, values) = infer_and_encode_column_major(name, column, 0)?;
-            let entry: ColumnCacheValue = Arc::new((schema_col, values));
-            if let Ok(mut cache) = encoded_column_cache().lock() {
-                // Bound resident memory: a long-lived process fitting many
-                // distinct cohorts would otherwise accumulate every column ever
-                // encoded. Clearing (rather than evicting one entry) only ever
-                // forfeits the perf benefit — never correctness, since every
-                // entry is content-addressed and recomputable on demand. The
-                // cap counts cached entries, not cells; one base cohort's worth
-                // of columns is tens of entries, far under the ceiling.
-                const MAX_CACHED_COLUMNS: usize = 4096;
-                if cache.len() >= MAX_CACHED_COLUMNS && !cache.contains_key(&key) {
-                    cache.clear();
-                }
-                cache.entry(key).or_insert_with(|| Arc::clone(&entry));
-            }
-            Ok::<ColumnCacheValue, String>(entry)
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-
-    let mut schema_cols = Vec::<SchemaColumn>::with_capacity(n_cols);
-    let mut column_kinds = Vec::<ColumnKindTag>::with_capacity(n_cols);
-    let mut values = Array2::<f64>::zeros((n_rows, n_cols));
-    for (j, entry) in encoded.iter().enumerate() {
-        let (schema_col, column) = entry.as_ref();
-        schema_cols.push(schema_col.clone());
-        column_kinds.push(schema_col.kind);
-        values
-            .column_mut(j)
-            .assign(&ndarray::ArrayView1::from(&column[..]));
-    }
-    let result = EncodedDataset {
-        headers,
-        values,
-        schema: DataSchema {
-            columns: schema_cols,
-        },
-        column_kinds,
-    };
-
-    let encode_ms = t_encode.elapsed().as_secs_f64() * 1000.0;
-    if encode_ms > 100.0 {
-        log::info!(
-            "[DATA-LOAD] ffi_encode_inferred | n_rows={} | n_cols={} | {:.1}ms",
-            n_rows,
-            n_cols,
-            encode_ms
-        );
-    }
-    Ok(result)
-}
-
 fn dataset_with_model_schema(
     model: &FittedModel,
     headers: &[String],
@@ -4148,29 +3143,6 @@ fn dataset_with_model_schema(
     let policy =
         UnseenCategoryPolicy::encode_unknown_for_columns(model.random_effect_group_columns());
     encode_recordswith_schema(headers, records, schema, policy)
-}
-
-/// [`dataset_with_model_schema`] with the missing-required-column case lifted
-/// into a typed [`PredictError::SchemaMismatch`] so the predict FFI can raise
-/// the documented `SchemaMismatchError` (issue #343) instead of flattening the
-/// rejection to a generic `GamError`. The header/required-column diff is the
-/// same set difference `dataset_with_model_schema` performs internally; every
-/// other failure (encoding, schema load) stays `PredictError::Other`.
-pub(crate) fn dataset_with_model_schema_typed(
-    model: &FittedModel,
-    headers: &[String],
-    rows: &[Vec<String>],
-) -> Result<EncodedDataset, PredictError> {
-    let expected_names = required_prediction_columns(model).map_err(PredictError::Other)?;
-    let present_names = headers.iter().cloned().collect::<BTreeSet<_>>();
-    let missing = expected_names
-        .difference(&present_names)
-        .map(|name| format!("missing required column '{name}'"))
-        .collect::<Vec<_>>();
-    if !missing.is_empty() {
-        return Err(PredictError::SchemaMismatch(missing.join(" ")));
-    }
-    dataset_with_model_schema(model, headers, rows).map_err(PredictError::Other)
 }
 
 fn dataset_from_xy_arrays(
@@ -4406,86 +3378,6 @@ fn infer_numeric_array_column_kind(column: ArrayView1<'_, f64>) -> ColumnKindTag
     }
 }
 
-fn schema_check(
-    model: &FittedModel,
-    headers: &[String],
-    rows: &[Vec<String>],
-) -> Result<SchemaCheckPayload, String> {
-    let schema = model.require_data_schema()?;
-    let expected_names = required_prediction_columns(model)?;
-    let present_names = headers.iter().cloned().collect::<BTreeSet<_>>();
-    let mut issues = Vec::<SchemaIssue>::new();
-
-    for missing in expected_names.difference(&present_names) {
-        issues.push(SchemaIssue {
-            kind: "missing_column".to_string(),
-            message: format!("missing required column '{missing}'"),
-            column: Some(missing.clone()),
-        });
-    }
-
-    if issues.is_empty() {
-        // Validate only the columns the model references; unrelated frame
-        // columns are not part of the model's input contract (#840) and must
-        // not trip the strict schema re-encode.
-        let (proj_headers, proj_rows) = project_frame_to_model_columns(model, headers, rows)?;
-        let records = string_records_from_rows(&proj_headers, &proj_rows)?;
-        let policy =
-            UnseenCategoryPolicy::encode_unknown_for_columns(model.random_effect_group_columns());
-        if let Err(message) = encode_recordswith_schema(proj_headers, records, schema, policy) {
-            issues.push(SchemaIssue {
-                kind: "schema_error".to_string(),
-                message,
-                column: None,
-            });
-        }
-
-        // A numeric-coded `factor(year)` is a fixed factor whose column is
-        // `Continuous` in the schema, so the typed encode above has no level set
-        // to validate — its unseen-level guard is silently skipped (#2137). Here
-        // the schema layer enforces the same fixed-factor contract the design
-        // operator does, validating the frame's values against the frozen
-        // numeric vocabulary so `check` reports an out-of-vocabulary code as a
-        // non-`ok` issue (consistent with the string-factor path and with
-        // `predict`, which raises on the same input).
-        for (column, vocab) in model.numeric_fixed_factor_vocabularies() {
-            let Some(col_idx) = headers.iter().position(|h| h == &column) else {
-                continue;
-            };
-            for row in rows {
-                let Some(cell) = row.get(col_idx) else {
-                    continue;
-                };
-                let trimmed = cell.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                let Ok(value) = trimmed.parse::<f64>() else {
-                    // A non-numeric cell in a numeric factor column is caught by
-                    // the typed encode above; nothing to add here.
-                    continue;
-                };
-                if !vocab.contains(&gam::data::canonical_level_bits(value)) {
-                    issues.push(SchemaIssue {
-                        kind: "schema_error".to_string(),
-                        message: format!(
-                            "unseen level '{trimmed}' in fixed factor column '{column}'; \
-                             the factor's levels were fixed at fit time"
-                        ),
-                        column: Some(column.clone()),
-                    });
-                    break;
-                }
-            }
-        }
-    }
-
-    Ok(SchemaCheckPayload {
-        ok: issues.is_empty(),
-        issues,
-    })
-}
-
 fn response_column_name(formula: &str) -> Option<String> {
     let candidate = formula.split('~').next()?.trim();
     if candidate.is_empty() || candidate.starts_with("Surv(") {
@@ -4680,15 +3572,11 @@ fn periodic_bspline_basis_dense_via_spec(
             "periodic B-spline domain must be a finite ordered interval; got ({left}, {right})"
         ));
     }
-    // The FFI returns only the dense basis matrix; the penalty matrix is
-    // not exposed here, so `penalty_order` does not affect the output. Use
-    // 2 (curvature/second-difference) — the same default every internal
-    // call site uses — because `validate_periodic_bspline_spec` rejects
-    // `penalty_order == 0`, which is what we used to pass and which made
-    // every `bspline_basis(..., periodic=True)` call from Python fail with
-    // "Penalty order (0) must be positive and less than the number of
-    // basis functions".
-    let spec = PeriodicBSplineBasisSpec::new(degree, num_basis, period, left, 2);
+    // The FFI returns only the dense value basis, but the shared periodic spec
+    // validator requires a realizable derivative order. Use curvature when
+    // the polynomial degree supports it and slope roughness otherwise.
+    let penalty_order = degree.min(2);
+    let spec = PeriodicBSplineBasisSpec::new(degree, num_basis, period, left, penalty_order);
     build_periodic_bspline_basis_1d(t, &spec)
         .map_err(|err| format!("failed to evaluate periodic B-spline basis: {err}"))
 }
@@ -4787,22 +3675,80 @@ fn bspline_basis_derivative_impl(
     Ok((*basis).clone())
 }
 
-fn duchon_basis_1d_impl(
+/// Compute the data-metric Duchon radial chart once over the complete position
+/// collection. Strict operator policy forces the raw-Gram pass through row
+/// chunks, so this never constructs the concatenated `n × p` design that the
+/// position-batched API is designed to avoid.
+fn duchon_position_radial_reparam_streamed(
     t: ArrayView1<'_, f64>,
     centers: ArrayView1<'_, f64>,
     m: usize,
     periodic: bool,
     period: Option<f64>,
+) -> Result<Option<Array2<f64>>, String> {
+    validate_vector("t", t)?;
+    validate_vector("centers", centers)?;
+    if m == 0 {
+        return Err("Duchon m must be at least 1".to_string());
+    }
+    if periodic {
+        return Ok(None);
+    }
+    if period.is_some() {
+        return Err("Duchon period is only valid when periodic=true".to_string());
+    }
+    let data = column_array(t);
+    let center_matrix = column_array(centers);
+    let spec = DuchonBasisSpec {
+        radial_reparam: None,
+        center_strategy: CenterStrategy::UserProvided(center_matrix),
+        periodic: None,
+        length_scale: None,
+        power: 0.0,
+        nullspace_order: duchon_nullspace_from_m(m),
+        identifiability: SpatialIdentifiability::None,
+        aniso_log_scales: None,
+        operator_penalties: Default::default(),
+        boundary: OneDimensionalBoundary::Open,
+    };
+    let mut workspace = gam::terms::basis::BasisWorkspace::with_policy(
+        gam::ResourcePolicy::analytic_operator_required(),
+    );
+    let built =
+        gam::terms::basis::build_duchon_basiswithworkspace(data.view(), &spec, &mut workspace)
+            .map_err(|err| format!("failed to freeze global Duchon radial chart: {err}"))?;
+    match built.metadata {
+        gam::terms::basis::BasisMetadata::Duchon { radial_reparam, .. } => Ok(radial_reparam),
+        other => Err(format!(
+            "global Duchon radial-chart build returned unexpected metadata {:?}",
+            std::mem::discriminant(&other)
+        )),
+    }
+}
+
+fn duchon_basis_1d_impl_with_radial_reparam(
+    t: ArrayView1<'_, f64>,
+    centers: ArrayView1<'_, f64>,
+    m: usize,
+    periodic: bool,
+    period: Option<f64>,
+    radial_reparam: Option<&Array2<f64>>,
 ) -> Result<Array2<f64>, String> {
     validate_vector("t", t)?;
     validate_vector("centers", centers)?;
     if m == 0 {
         return Err("Duchon m must be at least 1".to_string());
     }
+    if periodic && radial_reparam.is_some() {
+        return Err(
+            "periodic Duchon positions do not admit an open-domain radial reparameterization"
+                .to_string(),
+        );
+    }
     let data = column_array(t);
     let center_matrix = column_array(centers);
     let spec = DuchonBasisSpec {
-        radial_reparam: None,
+        radial_reparam: radial_reparam.cloned(),
         center_strategy: CenterStrategy::UserProvided(center_matrix),
         periodic: None,
         length_scale: None,
@@ -4837,26 +3783,28 @@ fn duchon_basis_1d_impl(
         .map_err(|err| format!("failed to evaluate Duchon basis: {err}"))
 }
 
-fn duchon_basis_1d_derivative_impl(
+fn duchon_basis_1d_derivative_impl_with_radial_reparam(
     t: ArrayView1<'_, f64>,
     centers: ArrayView1<'_, f64>,
     m: usize,
     order: usize,
     periodic: bool,
     period: Option<f64>,
+    radial_reparam: Option<&Array2<f64>>,
 ) -> Result<Array2<f64>, String> {
     validate_vector("t", t)?;
     validate_vector("centers", centers)?;
     if m == 0 {
         return Err("Duchon m must be at least 1".to_string());
     }
-    create_duchon_basis_1d_derivative_dense(
+    gam::terms::basis::create_duchon_basis_1d_derivative_dense_with_radial_reparam(
         t,
         centers,
         0.0,
         duchon_nullspace_from_m(m),
         periodic,
         if periodic { period } else { None },
+        radial_reparam.map(|v| v.view()),
         order,
     )
     .map_err(|err| format!("failed to evaluate Duchon basis derivative: {err}"))
@@ -4874,9 +3822,7 @@ fn smoothness_penalty_impl(
             knots.len()
         ));
     }
-    let num_basis = knots.len() - degree - 1;
-    let greville = greville_abscissae(knots, degree, num_basis)?;
-    let penalty = create_difference_penalty_matrix(num_basis, order, Some(greville.view()))
+    let penalty = bspline_derivative_penalty_matrix(knots, degree, order)
         .map_err(|err| format!("failed to build smoothness penalty: {err}"))?;
     let (null_basis, _) = gam::linalg::faer_ndarray::rrqr_nullspace_basis(
         &penalty,
@@ -5670,25 +4616,6 @@ fn resolve_duchon_hybrid_config(
 
 fn column_array(values: ArrayView1<'_, f64>) -> Array2<f64> {
     values.to_owned().insert_axis(Axis(1))
-}
-
-fn greville_abscissae(
-    knots: ArrayView1<'_, f64>,
-    degree: usize,
-    num_basis: usize,
-) -> Result<Array1<f64>, String> {
-    if degree == 0 {
-        return Err("smoothness_penalty requires degree >= 1".to_string());
-    }
-    let mut out = Array1::<f64>::zeros(num_basis);
-    for i in 0..num_basis {
-        let mut acc = 0.0;
-        for j in 1..=degree {
-            acc += knots[i + j];
-        }
-        out[i] = acc / degree as f64;
-    }
-    Ok(out)
 }
 
 fn fit_with_null_space_logdet(
@@ -6955,7 +5882,7 @@ fn predict_competing_risks_survival_result(
     options: &PyPredictOptions,
 ) -> Result<gam::families::survival::predict::CompetingRisksPredictResult, String> {
     use gam::families::survival::predict::{
-        SurvivalPredictRequest, predict_competing_risks_survival,
+        SurvivalPredictEstimand, SurvivalPredictRequest, predict_competing_risks_survival,
     };
 
     let col_map = dataset.column_map();
@@ -6977,6 +5904,7 @@ fn predict_competing_risks_survival_result(
         // `interval=`. The inner kernel keeps its own boolean knob — that
         // is an internal cost-control, not a public API flag.
         with_uncertainty: options.interval.is_some(),
+        estimand: SurvivalPredictEstimand::PosteriorMean,
     };
     Ok(predict_competing_risks_survival(request)?)
 }
@@ -6986,7 +5914,9 @@ fn predict_survival_result(
     dataset: &EncodedDataset,
     options: &PyPredictOptions,
 ) -> Result<gam::families::survival::predict::SurvivalPredictResult, String> {
-    use gam::families::survival::predict::{SurvivalPredictRequest, predict_survival};
+    use gam::families::survival::predict::{
+        SurvivalPredictEstimand, SurvivalPredictRequest, predict_survival,
+    };
 
     let col_map = dataset.column_map();
     let payload = model.payload();
@@ -7016,6 +5946,7 @@ fn predict_survival_result(
         // `interval=`. The inner kernel keeps its own boolean knob — that
         // is an internal cost-control, not a public API flag.
         with_uncertainty: options.interval.is_some(),
+        estimand: SurvivalPredictEstimand::PosteriorMean,
     };
     Ok(predict_survival(request)?)
 }
@@ -7217,8 +6148,11 @@ fn decoder_channel_cov_factors<'py>(
     decoder_covariance: PyReadonlyArray2<'py, f64>,
     m_basis: i64,
 ) -> Option<Py<PyArray3<f64>>> {
-    crate::manifold::manifold_sae_coercion::channel_cov_factors(decoder_covariance.as_array(), m_basis)
-        .map(|blocks| blocks.into_pyarray(py).unbind())
+    crate::manifold::manifold_sae_coercion::channel_cov_factors(
+        decoder_covariance.as_array(),
+        m_basis,
+    )
+    .map(|blocks| blocks.into_pyarray(py).unbind())
 }
 
 /// Rebuild the full-shape `(M·p, M·p)` decoder covariance from the compact
@@ -7279,11 +6213,13 @@ fn sae_canonical_n_harmonics(
             decoder_widths.len()
         )));
     }
-    Ok(crate::manifold::manifold_sae_coercion::canonical_n_harmonics(
-        &basis_kinds,
-        &raw_n_harmonics,
-        &decoder_widths,
-    ))
+    Ok(
+        crate::manifold::manifold_sae_coercion::canonical_n_harmonics(
+            &basis_kinds,
+            &raw_n_harmonics,
+            &decoder_widths,
+        ),
+    )
 }
 
 /// Rust owner of the SAE atom-topology naming (#2091). Given the resolved
@@ -7365,8 +6301,8 @@ fn sae_coercion_json_roundtrip(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResu
 /// `sae_manifold_fit_minimal` payload — the design-A coercion that lets
 /// `sae_manifold_fit` return the pyclass with no Python dataclass (#2091).
 ///
-/// `raw_json` is the raw payload marshalled to JSON (numpy `.tolist()`-flattened
-/// via `_jsonable`, then `json.dumps`); `x` is the training matrix (for
+/// `raw_payload` is the raw Python mapping; Rust converts numpy arrays/scalars
+/// through `py_any_to_json_value` without a Python JSON/schema pass. `x` is the training matrix (for
 /// `training_mean = x.mean(0)`); the remaining args are the fit-config scalars
 /// `from_payload` receives (`assignment` already canonical). `fisher_factors`
 /// `(n, p, r)` + `fisher_provenance` are the retained output-Fisher shard
@@ -7375,21 +6311,17 @@ fn sae_coercion_json_roundtrip(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResu
 /// relabel (also a post-`from_payload` step). Reproduces `from_payload` ∘
 /// `to_dict` bit-for-bit for the full fit — the fit-return flip just calls this.
 ///
-/// The JSON parse rejects non-finite values exactly as `ManifoldSaeCore::new`
-/// does, so this path is NaN-consistent with the legacy reader. The raw-payload
-/// JSON marshal is a per-fit round-trip measured in milliseconds against fits
-/// that run seconds-to-hours; a direct-read variant (via `py_any_to_json_value`)
-/// is a DEFERRED-UNTIL-MEASURED follow-up — justified only if a real fit profile
-/// ever shows the marshal as a cost, which no current shape does.
+/// Non-finite values become JSON null in the Rust conversion and are then
+/// rejected when encountered in a required numeric schema field.
 #[pyfunction(signature = (
-    raw_json, x, topology_fallback, assignment, assignment_label, penalties,
+    raw_payload, x, topology_fallback, assignment, assignment_label, penalties,
     alpha, learnable_alpha, tau, sparsity_strength, smoothness, learning_rate,
     max_iter, random_state, top_k, jumprelu_threshold,
     fisher_factors=None, fisher_provenance=None, declared_bases=None
 ))]
-fn sae_manifold_core_from_fit_payload(
+fn sae_manifold_from_fit_payload(
     py: Python<'_>,
-    raw_json: &str,
+    raw_payload: &Bound<'_, PyAny>,
     x: PyReadonlyArray2<'_, f64>,
     topology_fallback: String,
     assignment: String,
@@ -7409,11 +6341,7 @@ fn sae_manifold_core_from_fit_payload(
     fisher_provenance: Option<String>,
     declared_bases: Option<Vec<String>>,
 ) -> PyResult<Py<ManifoldSaeCore>> {
-    let raw: serde_json::Value = serde_json::from_str(raw_json).map_err(|e| {
-        py_value_error(format!(
-            "sae_manifold_core_from_fit_payload: raw payload JSON parse: {e}"
-        ))
-    })?;
+    let raw = crate::manifold::manifold_sae_coercion::py_any_to_json_value(raw_payload)?;
     let x_view = x.as_array();
     // training_mean = x.mean(axis=0) (n >= 2 in every real fit); shared reduction
     // core so the SAC lift's `sae_manifold_training_mean` uses the identical math.
@@ -7444,40 +6372,32 @@ fn sae_manifold_core_from_fit_payload(
         fisher_provenance,
         declared_bases,
     };
-    let payload =
-        crate::manifold::manifold_sae_coercion::build_manifold_sae_payload(&raw, training_mean, &cfg)
-            .map_err(py_value_error)?;
-    Py::new(py, ManifoldSaeCore { inner: payload })
+    let payload = crate::manifold::manifold_sae_coercion::build_manifold_sae_payload(
+        &raw,
+        training_mean,
+        &cfg,
+    )
+    .map_err(py_value_error)?;
+    Py::new(py, ManifoldSaeCore::from_payload(payload)?)
 }
 
 /// Round-trip a `ManifoldSAE.to_dict()` JSON payload through the Rust-owned
 /// serde schema (`ManifoldSaePayload`, issue #2091) and return the re-serialized
-/// payload. This is the load-bearing `to_dict`/`from_dict` seam moving into Rust:
-/// it enforces the `"gamfit.ManifoldSAE/v1"` schema tag, the
-/// `penalized_loss_score`/`reml_score` write-alias, and the write-dropped
-/// `structured_residual_diagnostics` asymmetry. The Python facade will delegate
-/// its save/load round-trip here at cutover; an unsupported schema or malformed
-/// payload raises `ValueError` with the same message the Python guard produced.
+/// payload. The v3 boundary is exact: all fields are required, runtime
+/// diagnostics are persisted, and unknown/deprecated keys are rejected.
 #[pyfunction(signature = (payload_json))]
 fn sae_manifold_payload_roundtrip(payload_json: &str) -> PyResult<String> {
     crate::manifold::manifold_sae_payload::roundtrip_json(payload_json).map_err(py_value_error)
 }
 
-// --- #[pyclass] ManifoldSAE skeleton (issue #2091 cutover) ----------------
+// --- Rust-owned #[pyclass] ManifoldSAE (issue #2091) ----------------------
 //
 // The Rust-owned model handle. It wraps the serde `ManifoldSaePayload` and
 // exposes the flat attribute surface consumers read (dense arrays, config
-// scalars, diagnostic/certificate report blocks) via `#[getter]`s, plus the
-// `to_dict`/`from_dict` round-trip delegating through the same serde schema the
-// `sae_manifold_payload_roundtrip` seam uses.
-//
-// SCOPE (this increment): the flat surface only. The per-atom object surface
-// (`.atoms` — a list of `SaeManifoldAtomFit`, read as attributes ~200× across
-// consumers), the OOS/steering *methods* (`steer` / `reconstruct` / `encode` /
-// `attach_fisher`), and `fit`-returns-pyclass are deliberately NOT here: they
-// either change a type consumers depend on or drive the heavy Rust cores, so
-// they land as separate build-loop-validated increments while the Python
-// dataclass stays as the adapter (deletion LAST).
+// scalars, diagnostic/certificate report blocks, and per-atom objects) via
+// `#[getter]`s. Serialization, OOS encoding/reconstruction, steering, Fisher
+// attachment, and native fit construction all terminate on this class; there
+// is no Python model adapter or alternate payload schema.
 
 /// Build a numpy `(N,)` array from a flat `Vec<f64>`.
 fn manifold_sae_vec1<'py>(py: Python<'py>, v: &[f64]) -> Bound<'py, PyArray1<f64>> {
@@ -7485,10 +6405,7 @@ fn manifold_sae_vec1<'py>(py: Python<'py>, v: &[f64]) -> Bound<'py, PyArray1<f64
 }
 
 /// Build a numpy `(R, C)` array from nested `Vec`s, rejecting a ragged payload.
-fn manifold_sae_vec2<'py>(
-    py: Python<'py>,
-    v: &[Vec<f64>],
-) -> PyResult<Bound<'py, PyArray2<f64>>> {
+fn manifold_sae_vec2<'py>(py: Python<'py>, v: &[Vec<f64>]) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let rows = v.len();
     let cols = v.first().map_or(0, Vec::len);
     let mut flat = Vec::with_capacity(rows * cols);
@@ -7630,6 +6547,68 @@ fn manifold_sae_owned3(v: &[Vec<Vec<f64>>]) -> PyResult<Array3<f64>> {
     Array3::from_shape_vec((d0, d1, d2), flat).map_err(|e| py_value_error(e.to_string()))
 }
 
+/// Build the packed row metric owned by a fitted model and validate the
+/// serialized Fisher fields as one coherent state.  This runs exactly once at
+/// construction/load time (and once for each explicit `attach_fisher` call),
+/// never from `steer`.
+fn manifold_sae_resident_fisher_metric(
+    payload: &crate::manifold::manifold_sae_payload::ManifoldSaePayload,
+) -> PyResult<Option<gam::inference::row_metric::RowMetric>> {
+    let n_rows = payload.fitted.len();
+    let p_out = payload.fitted.first().map_or(0, Vec::len);
+    match &payload.fisher_factors {
+        None => {
+            if payload.fisher_provenance.is_some() || payload.fisher_mass_residual.is_some() {
+                return Err(py_value_error(
+                    "ManifoldSAE: Fisher provenance and residual mass require retained fisher_factors"
+                        .to_string(),
+                ));
+            }
+            match payload.metric_provenance.as_str() {
+                // A structured-residual fit uses its estimated whitening metric
+                // while fitting, but the artifact retains no output-behavior
+                // shard. Steering is therefore geometry-only after load, just as
+                // it is for Euclidean fits; the persisted provenance remains an
+                // honest account of the metric used to fit the dictionary.
+                "Euclidean" | "WhitenedStructured" => Ok(None),
+                provenance => Err(py_value_error(format!(
+                    "ManifoldSAE: metric provenance {provenance:?} requires retained fisher_factors"
+                ))),
+            }
+        }
+        Some(factors) => {
+            let provenance = payload.fisher_provenance.as_deref().ok_or_else(|| {
+                py_value_error(
+                    "ManifoldSAE: fisher_provenance is required when fisher_factors are present"
+                        .to_string(),
+                )
+            })?;
+            let factors = manifold_sae_owned3(factors)?;
+            let mass = payload
+                .fisher_mass_residual
+                .as_ref()
+                .map(|values| Array1::from(values.clone()));
+            let request = SaeFisherRowMetricRequest::from_tag(
+                factors.view(),
+                n_rows,
+                p_out,
+                Some(provenance),
+                mass.as_ref().map(|values| values.view()),
+            )
+            .map_err(py_value_error)?;
+            let metric = build_sae_fisher_row_metric(request).map_err(py_value_error)?;
+            let label = gam::terms::sae::manifold::metric_provenance_label(metric.provenance());
+            if payload.metric_provenance != label {
+                return Err(py_value_error(format!(
+                    "ManifoldSAE: metric_provenance {:?} disagrees with Fisher metric {:?}",
+                    payload.metric_provenance, label
+                )));
+            }
+            Ok(Some(metric))
+        }
+    }
+}
+
 /// Parse a JSON array of numbers into an owned `Array1` (for the hybrid-split
 /// linear-image `b0`/`b1`/`v` vectors read from the stored payload).
 fn manifold_sae_json_vec1(value: Option<&serde_json::Value>) -> PyResult<Array1<f64>> {
@@ -7674,11 +6653,9 @@ fn manifold_sae_hybrid_linear_images(
         if li.is_null() || is_empty_container {
             continue;
         }
-        let atom_idx = li
-            .get("atom_idx")
-            .and_then(|v| v.as_f64())
-            .ok_or_else(|| py_value_error("hybrid_split linear_image missing atom_idx".to_string()))?
-            as usize;
+        let atom_idx = li.get("atom_idx").and_then(|v| v.as_f64()).ok_or_else(|| {
+            py_value_error("hybrid_split linear_image missing atom_idx".to_string())
+        })? as usize;
         let t_bar = li
             .get("t_bar")
             .and_then(|v| v.as_f64())
@@ -7692,7 +6669,11 @@ fn manifold_sae_hybrid_linear_images(
         };
         images.push((atom_idx, t_bar, b0, b1, v));
     }
-    Ok(if images.is_empty() { None } else { Some(images) })
+    Ok(if images.is_empty() {
+        None
+    } else {
+        Some(images)
+    })
 }
 
 /// A single fitted atom's object surface (#2091). Mirrors the attributes
@@ -7761,20 +6742,14 @@ impl AtomCore {
         }
     }
     #[getter]
-    fn shape_band_mean<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> PyResult<Option<Bound<'py, PyArray2<f64>>>> {
+    fn shape_band_mean<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray2<f64>>>> {
         match &self.inner.shape_band_mean {
             None => Ok(None),
             Some(v) => Ok(Some(manifold_sae_vec2(py, v)?)),
         }
     }
     #[getter]
-    fn shape_band_sd<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> PyResult<Option<Bound<'py, PyArray2<f64>>>> {
+    fn shape_band_sd<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray2<f64>>>> {
         match &self.inner.shape_band_sd {
             None => Ok(None),
             Some(v) => Ok(Some(manifold_sae_vec2(py, v)?)),
@@ -7786,14 +6761,32 @@ impl AtomCore {
     }
 }
 
-/// Rust-owned fitted `ManifoldSAE` model handle (#2091). Flat surface only in
-/// this increment; see the module comment above.
-#[pyclass(module = "gamfit._rust", name = "ManifoldSaeCore")]
+/// Rust-owned fitted `ManifoldSAE` model handle (#2091).  The Python-visible
+/// type is the public model itself; there is no wrapper/adapter class.
+#[pyclass(module = "gamfit._rust", name = "ManifoldSAE")]
 pub(crate) struct ManifoldSaeCore {
     inner: crate::manifold::manifold_sae_payload::ManifoldSaePayload,
+    /// Packed, validated Fisher row metric. `RowMetric` keeps its factor matrix
+    /// behind `Arc`, so cloning it into a steering request is O(1).
+    fisher_metric: Option<gam::inference::row_metric::RowMetric>,
+    /// Observable contract counter: construction/attach increments this once;
+    /// repeated `steer` calls leave it unchanged.
+    fisher_metric_build_count: usize,
 }
 
 impl ManifoldSaeCore {
+    pub(crate) fn from_payload(
+        inner: crate::manifold::manifold_sae_payload::ManifoldSaePayload,
+    ) -> PyResult<Self> {
+        let fisher_metric = manifold_sae_resident_fisher_metric(&inner)?;
+        let fisher_metric_build_count = usize::from(fisher_metric.is_some());
+        Ok(Self {
+            inner,
+            fisher_metric,
+            fisher_metric_build_count,
+        })
+    }
+
     /// Build the OOS argument bundle from this handle's state and run the
     /// frozen-decoder Newton solve, returning the full payload dict
     /// (`assignments_z`, `on_atom_coords_t`, `logits`, `fitted`). The Rust-owned
@@ -7802,9 +6795,9 @@ impl ManifoldSaeCore {
     /// straight sub-models exactly as the Python does, so the returned arrays are
     /// bitwise-identical to the dataclass OOS path. No warm start is supplied
     /// (`initial_logits`/`initial_coords` are `None`), matching a bare
-    /// `reconstruct`/`encode` call, and the two ridge floors take the same
-    /// `1e-6` defaults the `sae_manifold_predict_oos` pyfunction applies when the
-    /// Python omits them.
+    /// `reconstruct`/`encode` call. The coordinate ridge takes the same `1e-6`
+    /// default the `sae_manifold_predict_oos` pyfunction applies when Python
+    /// omits it; there is no decoder ridge in a frozen-decoder solve.
     fn oos_payload_dict<'py>(
         &self,
         py: Python<'py>,
@@ -7822,16 +6815,20 @@ impl ManifoldSaeCore {
             .map(|c| c.as_ref().map(|m| manifold_sae_owned2(m)).transpose())
             .collect::<PyResult<_>>()?;
         let atom_dim: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
-        let basis_sizes: Vec<usize> =
-            inner.basis_sizes.iter().map(|&s| s.max(0) as usize).collect();
-        // Exact mirror of the Python OOS n_harmonics gate (case-sensitive
-        // `periodic`/`torus` only), matching the steer path above.
+        let basis_sizes: Vec<usize> = inner
+            .basis_sizes
+            .iter()
+            .map(|&s| s.max(0) as usize)
+            .collect();
+        // Exact mirror of the Python OOS n_harmonics gate. Every harmonic
+        // topology must carry its persisted order; the typed entry never
+        // guesses it from a decoder width.
         let n_harm: Vec<Option<usize>> = inner
             .basis_kinds
             .iter()
             .zip(&inner.n_harmonics)
             .map(|(kind, &h)| {
-                if kind == "periodic" || kind == "torus" {
+                if matches!(kind.as_str(), "periodic" | "torus" | "cylinder" | "mobius") {
                     Some(h.max(0) as usize)
                 } else {
                     None
@@ -7841,8 +6838,7 @@ impl ManifoldSaeCore {
         let hybrid = manifold_sae_hybrid_linear_images(&inner.hybrid_split)?;
         let decoder_views: Vec<ndarray::ArrayView2<'_, f64>> =
             decoder_owned.iter().map(|a| a.view()).collect();
-        predict_oos_from_arrays(
-            py,
+        let request = sae_oos_request_from_arrays(
             x_new.as_array(),
             inner.basis_kinds.clone(),
             atom_dim,
@@ -7853,13 +6849,10 @@ impl ManifoldSaeCore {
             inner.alpha,
             inner.tau,
             inner.assignment.clone(),
-            inner.sparsity_strength,
-            inner.smoothness,
             inner.max_iter.max(0) as usize,
             inner.learning_rate,
-            // Ridge floors: the Python `_oos_payload` omits both, so the
-            // `sae_manifold_predict_oos` pyfunction supplies its `1e-6` defaults.
-            1.0e-6,
+            // Coordinate ridge: Python `_oos_payload` omits it, so the
+            // `sae_manifold_predict_oos` pyfunction supplies this `1e-6` default.
             1.0e-6,
             None,
             None,
@@ -7871,6 +6864,10 @@ impl ManifoldSaeCore {
             inner.selected_log_ard.clone(),
             inner.learnable_alpha,
         )
+        .map_err(py_value_error)?;
+        let report =
+            gam::terms::sae::manifold::run_sae_manifold_oos(request).map_err(py_value_error)?;
+        sae_oos_report_to_pydict(py, report)
     }
 }
 
@@ -7878,21 +6875,38 @@ impl ManifoldSaeCore {
 impl ManifoldSaeCore {
     /// Construct from a `ManifoldSAE.to_dict()` payload dict. The dict is
     /// serialized (it is already JSON-able — lists, not numpy) and validated
-    /// through `ManifoldSaePayload::from_json`, enforcing the schema tag and the
-    /// `penalized_loss_score`/`reml_score` fallback.
+    /// through the strict `ManifoldSaePayload::from_json` schema.
     #[new]
     fn new(py: Python<'_>, payload: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Self::from_dict(py, payload)
+    }
+
+    #[staticmethod]
+    fn from_dict(py: Python<'_>, payload: &Bound<'_, PyDict>) -> PyResult<Self> {
         let json_mod = py.import("json")?;
         let dumped = json_mod.getattr("dumps")?.call1((payload,))?;
         let json_str: String = dumped.extract()?;
         let inner = crate::manifold::manifold_sae_payload::ManifoldSaePayload::from_json(&json_str)
             .map_err(py_value_error)?;
-        Ok(Self { inner })
+        Self::from_payload(inner)
     }
 
-    /// Re-serialize to the `to_dict` schema as a Python dict (through the serde
-    /// round-trip: `reml_score` re-duplicated, `structured_residual_diagnostics`
-    /// dropped).
+    #[staticmethod]
+    fn from_json(py: Python<'_>, payload_json: &str) -> PyResult<Py<ManifoldSaeCore>> {
+        let inner =
+            crate::manifold::manifold_sae_payload::ManifoldSaePayload::from_json(payload_json)
+                .map_err(py_value_error)?;
+        Py::new(py, Self::from_payload(inner)?)
+    }
+
+    #[staticmethod]
+    fn load(py: Python<'_>, path: std::path::PathBuf) -> PyResult<Py<ManifoldSaeCore>> {
+        let payload_json = std::fs::read_to_string(path)
+            .map_err(|error| py_value_error(format!("ManifoldSAE.load: {error}")))?;
+        Self::from_json(py, &payload_json)
+    }
+
+    /// Re-serialize the complete v3 artifact as a Python dict.
     fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
         let json_str = self.inner.to_json().map_err(py_value_error)?;
         let value: serde_json::Value =
@@ -7903,6 +6917,26 @@ impl ManifoldSaeCore {
     /// The canonical JSON payload string (what `save()` writes).
     fn to_json(&self) -> PyResult<String> {
         self.inner.to_json().map_err(py_value_error)
+    }
+
+    fn save(&self, path: std::path::PathBuf) -> PyResult<()> {
+        let payload = self.inner.to_json().map_err(py_value_error)?;
+        std::fs::write(path, payload)
+            .map_err(|error| py_value_error(format!("ManifoldSAE.save: {error}")))
+    }
+
+    fn __repr__(&self) -> String {
+        let n_rows = self.inner.fitted.len();
+        let p_out = self.inner.fitted.first().map_or(0, Vec::len);
+        format!(
+            "ManifoldSAE(K={}, n={}, p={}, topology={:?}, assignment={:?}, r2={:.3})",
+            self.inner.atoms.len(),
+            n_rows,
+            p_out,
+            self.inner.atom_topology,
+            self.inner.assignment,
+            self.inner.reconstruction_r2,
+        )
     }
 
     /// In-sample dense reconstruction `(N, p)` rebuilt from the stored per-atom
@@ -8072,17 +7106,17 @@ impl ManifoldSaeCore {
     /// (acceptance bullet 2) and the returned plan is bitwise-identical to the
     /// dataclass path. Mirrors the Python steer's exact `n_harmonics` gate
     /// (`periodic`/`torus` only) so the rebuilt basis matches the trained design.
-    #[pyo3(signature = (atom_k, t_from, t_to))]
+    #[pyo3(signature = (atom_k, metric_row, amplitude, t_from, t_to))]
     fn steer<'py>(
         &self,
         py: Python<'py>,
         atom_k: usize,
+        metric_row: usize,
+        amplitude: f64,
         t_from: PyReadonlyArray1<'py, f64>,
         t_to: PyReadonlyArray1<'py, f64>,
     ) -> PyResult<Py<PyDict>> {
         let inner = &self.inner;
-        let n_obs = inner.fitted.len();
-        let p_out = inner.fitted.first().map_or(0, Vec::len);
         let decoder_owned: Vec<Array2<f64>> = inner
             .decoder_blocks
             .iter()
@@ -8099,14 +7133,12 @@ impl ManifoldSaeCore {
             .map(|c| c.as_ref().map(|m| manifold_sae_owned2(m)).transpose())
             .collect::<PyResult<_>>()?;
         let logits_owned = manifold_sae_owned2(&inner.low_level_logits)?;
-        let fisher_owned: Option<Array3<f64>> = inner
-            .fisher_factors
-            .as_ref()
-            .map(|f| manifold_sae_owned3(f))
-            .transpose()?;
         let atom_dim: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
-        let basis_sizes: Vec<usize> =
-            inner.basis_sizes.iter().map(|&s| s.max(0) as usize).collect();
+        let basis_sizes: Vec<usize> = inner
+            .basis_sizes
+            .iter()
+            .map(|&s| s.max(0) as usize)
+            .collect();
         // Exact mirror of the Python steer's per-kind n_harmonics gate:
         // `int(h) if bk in {"periodic", "torus"} else None` (case-sensitive) — a
         // looser (e.g. lowercased) predicate would diverge the rebuilt basis.
@@ -8126,13 +7158,22 @@ impl ManifoldSaeCore {
             decoder_owned.iter().map(|a| a.view()).collect();
         let coord_views: Vec<ndarray::ArrayView2<'_, f64>> =
             coord_owned.iter().map(|a| a.view()).collect();
-        let fisher_view = fisher_owned.as_ref().map(|a| a.view());
-        let plan = steer_delta_from_arrays(
+        let top_k = inner
+            .top_k
+            .map(|support| {
+                usize::try_from(support).map_err(|_| {
+                    py_value_error(format!(
+                        "ManifoldSAE.steer: saved top_k must be non-negative; got {support}"
+                    ))
+                })
+            })
+            .transpose()?;
+        let plan = steer_delta_with_metric_from_arrays(
             atom_k,
+            metric_row,
+            amplitude,
             t_from.as_array(),
             t_to.as_array(),
-            n_obs,
-            p_out,
             &inner.basis_kinds,
             &atom_dim,
             &decoder_views,
@@ -8142,24 +7183,37 @@ impl ManifoldSaeCore {
             &coord_views,
             logits_owned.view(),
             inner.assignment.as_str(),
+            top_k,
             inner.tau,
             inner.alpha,
             inner.jumprelu_threshold,
-            fisher_view,
-            inner.fisher_provenance.as_deref(),
+            self.fisher_metric.clone(),
         )?;
         steer_plan_to_pydict(py, plan)
     }
 
     /// Held-out dense reconstruction `(N, p)` of `x_new` — the Rust-owned
     /// counterpart of `ManifoldSAE.reconstruct` for out-of-sample rows. Runs the
-    /// frozen-decoder OOS Newton solve through the SAME `predict_oos_from_arrays`
-    /// core the `sae_manifold_predict_oos` pyfunction uses, reading the trained
+    /// frozen-decoder OOS Newton solve through the SAME typed gam-sae entry the
+    /// `sae_manifold_predict_oos` pyfunction uses, reading the trained
     /// geometry, terminal ρ*, and hybrid-collapsed straight sub-models from this
     /// handle's own state (no per-call re-marshalling), and returns the payload's
     /// `fitted` array. Unlike the dataclass path there is no training-data
     /// shortcut: every call runs the OOS solve.
     fn reconstruct<'py>(
+        &self,
+        py: Python<'py>,
+        x_new: PyReadonlyArray2<'py, f64>,
+    ) -> PyResult<PyObject> {
+        let payload = self.oos_payload_dict(py, x_new)?;
+        let bound = payload.bind(py);
+        let fitted = bound
+            .get_item("fitted")?
+            .ok_or_else(|| py_value_error("OOS payload missing 'fitted'".to_string()))?;
+        Ok(fitted.unbind())
+    }
+
+    fn predict<'py>(
         &self,
         py: Python<'py>,
         x_new: PyReadonlyArray2<'py, f64>,
@@ -8214,6 +7268,18 @@ impl ManifoldSaeCore {
     fn decoder_blocks<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         manifold_sae_list2(py, &self.inner.decoder_blocks)
     }
+    /// Typed manifold-crosscoder layout and reports, or `None` for a plain SAE.
+    #[getter]
+    fn crosscoder(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match &self.inner.crosscoder {
+            Some(payload) => {
+                let value = serde_json::to_value(payload)
+                    .map_err(|error| py_value_error(error.to_string()))?;
+                json_value_to_py(py, value)
+            }
+            None => Ok(py.None()),
+        }
+    }
     /// The per-atom object surface — a list of [`AtomCore`] handles, each read by
     /// attribute (`atom.basis`, `atom.decoder_coefficients`, …), NOT a list of
     /// dicts. This preserves the `SaeManifoldAtomFit` duck-type consumers use.
@@ -8221,7 +7287,12 @@ impl ManifoldSaeCore {
     fn atoms<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let list = PyList::empty(py);
         for atom in &self.inner.atoms {
-            list.append(Py::new(py, AtomCore { inner: atom.clone() })?)?;
+            list.append(Py::new(
+                py,
+                AtomCore {
+                    inner: atom.clone(),
+                },
+            )?)?;
         }
         Ok(list)
     }
@@ -8237,46 +7308,71 @@ impl ManifoldSaeCore {
         Ok(list)
     }
     #[getter]
-    fn fisher_factors<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> PyResult<Option<Bound<'py, PyArray3<f64>>>> {
+    fn fisher_factors<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray3<f64>>>> {
         match &self.inner.fisher_factors {
             None => Ok(None),
             Some(v) => Ok(Some(manifold_sae_vec3(py, v)?)),
         }
     }
-    /// Install or replace the retained output-Fisher shard `(n, p, r)` in place —
-    /// the Rust-owned counterpart of `ManifoldSAE.attach_fisher` / the fit-time
-    /// post-attach `model.fisher_factors = ...`. Stored in the SAME nested-`Vec`
-    /// layout the payload uses (identical to the `sae_manifold_core_from_fit_payload`
-    /// build-time conversion), so `to_dict` / `to_json` / `steer` read it back
-    /// unchanged; `None` detaches the shard (reverting steering to the
-    /// geometry-only, no-dose path).
-    #[setter]
-    fn set_fisher_factors(&mut self, factors: Option<PyReadonlyArray3<'_, f64>>) {
-        self.inner.fisher_factors = factors.map(|arr| {
-            arr.as_array()
-                .outer_iter()
-                .map(|m| m.rows().into_iter().map(|r| r.to_vec()).collect())
-                .collect()
-        });
+    /// Atomically validate, pack, and install an output-Fisher shard.  No field
+    /// becomes visible until the complete `RowMetric` has been constructed, so
+    /// a failed attach leaves the prior model state untouched.
+    #[pyo3(signature = (factors, provenance, mass_residual=None))]
+    fn attach_fisher<'py>(
+        &mut self,
+        factors: PyReadonlyArray3<'py, f64>,
+        provenance: String,
+        mass_residual: Option<PyReadonlyArray1<'py, f64>>,
+    ) -> PyResult<()> {
+        let n_rows = self.inner.fitted.len();
+        let p_out = self.inner.fitted.first().map_or(0, Vec::len);
+        let request = SaeFisherRowMetricRequest::from_tag(
+            factors.as_array(),
+            n_rows,
+            p_out,
+            Some(&provenance),
+            mass_residual.as_ref().map(|values| values.as_array()),
+        )
+        .map_err(py_value_error)?;
+        let metric = build_sae_fisher_row_metric(request).map_err(py_value_error)?;
+        let metric_label =
+            gam::terms::sae::manifold::metric_provenance_label(metric.provenance()).to_string();
+        let factors_nested = factors
+            .as_array()
+            .outer_iter()
+            .map(|matrix| matrix.rows().into_iter().map(|row| row.to_vec()).collect())
+            .collect();
+        let mass_nested = mass_residual.map(|values| values.as_array().to_vec());
+
+        self.inner.fisher_factors = Some(factors_nested);
+        self.inner.fisher_mass_residual = mass_nested;
+        self.inner.fisher_provenance = Some(provenance);
+        self.inner.metric_provenance = metric_label;
+        self.fisher_metric = Some(metric);
+        self.fisher_metric_build_count += 1;
+        Ok(())
+    }
+
+    /// Explicitly remove the Fisher state.  Detach is a separate operation;
+    /// `attach_fisher(None)` is not a compatibility alias.
+    fn detach_fisher(&mut self) {
+        self.inner.fisher_factors = None;
+        self.inner.fisher_mass_residual = None;
+        self.inner.fisher_provenance = None;
+        self.inner.metric_provenance = "Euclidean".to_string();
+        self.fisher_metric = None;
+    }
+
+    #[getter]
+    fn fisher_metric_build_count(&self) -> usize {
+        self.fisher_metric_build_count
     }
     #[getter]
-    fn fisher_mass_residual<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Option<Bound<'py, PyArray1<f64>>> {
+    fn fisher_mass_residual<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray1<f64>>> {
         self.inner
             .fisher_mass_residual
             .as_ref()
             .map(|v| manifold_sae_vec1(py, v))
-    }
-    /// Set the per-row output-Fisher truncation residual `(n,)` in place, or
-    /// `None` to clear it (the Euclidean-detach branch of `attach_fisher`).
-    #[setter]
-    fn set_fisher_mass_residual(&mut self, residual: Option<PyReadonlyArray1<'_, f64>>) {
-        self.inner.fisher_mass_residual = residual.map(|arr| arr.as_array().to_vec());
     }
     #[getter]
     fn selected_log_lambda_smooth<'py>(
@@ -8323,21 +7419,9 @@ impl ManifoldSaeCore {
     fn metric_provenance(&self) -> String {
         self.inner.metric_provenance.clone()
     }
-    /// Set the installed inner-product provenance (`"Euclidean"` /
-    /// `"OutputFisher"`) in place, mirroring `attach_fisher`'s metric flip.
-    #[setter]
-    fn set_metric_provenance(&mut self, value: String) {
-        self.inner.metric_provenance = value;
-    }
     #[getter]
     fn fisher_provenance(&self) -> Option<String> {
         self.inner.fisher_provenance.clone()
-    }
-    /// Set the retained shard's pullback provenance (`"output_fisher"` /
-    /// `"output_fisher_downstream"`) in place, or `None` on detach.
-    #[setter]
-    fn set_fisher_provenance(&mut self, value: Option<String>) {
-        self.inner.fisher_provenance = value;
     }
     #[getter]
     fn structure_certificate_json(&self) -> Option<String> {
@@ -8406,11 +7490,6 @@ impl ManifoldSaeCore {
     /// The honest penalized-loss score (`None` for closed-form payloads).
     #[getter]
     fn penalized_loss_score(&self) -> Option<f64> {
-        self.inner.penalized_loss_score
-    }
-    /// Deprecated read alias for [`Self::penalized_loss_score`] (#1231).
-    #[getter]
-    fn reml_score(&self) -> Option<f64> {
         self.inner.penalized_loss_score
     }
     #[getter]
@@ -8509,6 +7588,19 @@ impl ManifoldSaeCore {
     #[getter]
     fn hybrid_split(&self, py: Python<'_>) -> PyResult<PyObject> {
         manifold_sae_report(py, &self.inner.hybrid_split)
+    }
+    /// The persisted outer-ρ termination verdict/ledger (#2235).
+    #[getter]
+    fn termination(&self, py: Python<'_>) -> PyResult<PyObject> {
+        manifold_sae_report(py, &self.inner.termination)
+    }
+    /// The persisted per-pass structured-residual alternation diagnostics (#2021).
+    #[getter]
+    fn structured_residual_diagnostics(&self, py: Python<'_>) -> PyResult<PyObject> {
+        json_value_to_py(
+            py,
+            serde_json::Value::Array(self.inner.structured_residual_diagnostics.clone()),
+        )
     }
 }
 

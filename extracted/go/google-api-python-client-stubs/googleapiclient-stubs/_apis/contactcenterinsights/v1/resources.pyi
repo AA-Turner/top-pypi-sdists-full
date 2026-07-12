@@ -23,7 +23,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1AnalysisRule = ...,
+                    body: GoogleCloudContactcenterinsightsV1AnalysisRule,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AnalysisRuleHttpRequest: ...
                 def delete(
@@ -36,8 +36,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListAnalysisRulesResponseHttpRequest: ...
                 def list_next(
@@ -52,8 +52,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1AnalysisRule = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AnalysisRule,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AnalysisRuleHttpRequest: ...
 
@@ -63,8 +63,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1AssessmentRule = ...,
-                    assessmentRuleId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AssessmentRule,
+                    assessmentRuleId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AssessmentRuleHttpRequest: ...
                 def delete(
@@ -77,8 +77,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListAssessmentRulesResponseHttpRequest: ...
                 def list_next(
@@ -93,8 +93,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1AssessmentRule = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AssessmentRule,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AssessmentRuleHttpRequest: ...
 
@@ -112,7 +112,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                     self,
                                     *,
                                     parent: str,
-                                    body: GoogleCloudContactcenterinsightsV1Note = ...,
+                                    body: GoogleCloudContactcenterinsightsV1Note,
                                     **kwargs: typing.Any,
                                 ) -> (
                                     GoogleCloudContactcenterinsightsV1NoteHttpRequest
@@ -124,8 +124,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                     self,
                                     *,
                                     parent: str,
-                                    pageSize: int = ...,
-                                    pageToken: str = ...,
+                                    pageSize: int | None = ...,
+                                    pageToken: str | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> GoogleCloudContactcenterinsightsV1ListNotesResponseHttpRequest: ...
                                 def list_next(
@@ -140,8 +140,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                     self,
                                     *,
                                     name: str,
-                                    body: GoogleCloudContactcenterinsightsV1Note = ...,
-                                    updateMask: str = ...,
+                                    body: GoogleCloudContactcenterinsightsV1Note,
+                                    updateMask: str | None = ...,
                                     **kwargs: typing.Any,
                                 ) -> (
                                     GoogleCloudContactcenterinsightsV1NoteHttpRequest
@@ -151,7 +151,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudContactcenterinsightsV1AppealAssessmentRequest = ...,
+                                body: GoogleCloudContactcenterinsightsV1AppealAssessmentRequest,
                                 **kwargs: typing.Any,
                             ) -> (
                                 GoogleCloudContactcenterinsightsV1AssessmentHttpRequest
@@ -160,7 +160,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 parent: str,
-                                body: GoogleCloudContactcenterinsightsV1Assessment = ...,
+                                body: GoogleCloudContactcenterinsightsV1Assessment,
                                 **kwargs: typing.Any,
                             ) -> (
                                 GoogleCloudContactcenterinsightsV1AssessmentHttpRequest
@@ -169,14 +169,14 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                force: bool = ...,
+                                force: bool | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleProtobufEmptyHttpRequest: ...
                             def finalize(
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudContactcenterinsightsV1FinalizeAssessmentRequest = ...,
+                                body: GoogleCloudContactcenterinsightsV1FinalizeAssessmentRequest,
                                 **kwargs: typing.Any,
                             ) -> (
                                 GoogleCloudContactcenterinsightsV1AssessmentHttpRequest
@@ -190,9 +190,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 parent: str,
-                                filter: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
+                                filter: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudContactcenterinsightsV1ListAssessmentsResponseHttpRequest: ...
                             def list_next(
@@ -207,7 +207,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudContactcenterinsightsV1PublishAssessmentRequest = ...,
+                                body: GoogleCloudContactcenterinsightsV1PublishAssessmentRequest,
                                 **kwargs: typing.Any,
                             ) -> (
                                 GoogleCloudContactcenterinsightsV1AssessmentHttpRequest
@@ -222,8 +222,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 parent: str,
-                                body: GoogleCloudContactcenterinsightsV1FeedbackLabel = ...,
-                                feedbackLabelId: str = ...,
+                                body: GoogleCloudContactcenterinsightsV1FeedbackLabel,
+                                feedbackLabelId: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudContactcenterinsightsV1FeedbackLabelHttpRequest: ...
                             def delete(
@@ -236,9 +236,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 parent: str,
-                                filter: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
+                                filter: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudContactcenterinsightsV1ListFeedbackLabelsResponseHttpRequest: ...
                             def list_next(
@@ -253,8 +253,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudContactcenterinsightsV1FeedbackLabel = ...,
-                                updateMask: str = ...,
+                                body: GoogleCloudContactcenterinsightsV1FeedbackLabel,
+                                updateMask: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudContactcenterinsightsV1FeedbackLabelHttpRequest: ...
 
@@ -262,11 +262,15 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             location: str,
-                            filter: str = ...,
+                            filter: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1CalculateStatsResponseHttpRequest: ...
                         def delete(
-                            self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                            self,
+                            *,
+                            name: str,
+                            force: bool | None = ...,
+                            **kwargs: typing.Any,
                         ) -> GoogleProtobufEmptyHttpRequest: ...
                         def generateSignedAudio(
                             self, *, name: str, **kwargs: typing.Any
@@ -277,7 +281,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             name: str,
                             view: typing_extensions.Literal[
                                 "CONVERSATION_VIEW_UNSPECIFIED", "FULL", "BASIC"
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudContactcenterinsightsV1ConversationHttpRequest
@@ -286,13 +291,14 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             view: typing_extensions.Literal[
                                 "CONVERSATION_VIEW_UNSPECIFIED", "FULL", "BASIC"
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1ListConversationsResponseHttpRequest: ...
                         def list_next(
@@ -318,10 +324,10 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            returnPartialSuccess: bool = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            returnPartialSuccess: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                         def list_next(
@@ -336,8 +342,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1AuthorizedView = ...,
-                        authorizedViewId: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1AuthorizedView,
+                        authorizedViewId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudContactcenterinsightsV1AuthorizedViewHttpRequest
@@ -349,7 +355,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         location: str,
-                        body: GoogleCloudContactcenterinsightsV1GenerativeInsightsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1GenerativeInsightsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def get(
@@ -361,17 +367,17 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ListAuthorizedViewsResponseHttpRequest: ...
                     def list_next(
@@ -386,8 +392,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1AuthorizedView = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1AuthorizedView,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudContactcenterinsightsV1AuthorizedViewHttpRequest
@@ -396,24 +402,24 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         location: str,
-                        body: GoogleCloudContactcenterinsightsV1QueryMetricsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1QueryMetricsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def queryPerformanceOverview(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1QueryPerformanceOverviewRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1QueryPerformanceOverviewRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def search(
                         self,
                         *,
                         parent: str,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        query: str = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        query: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1SearchAuthorizedViewsResponseHttpRequest: ...
                     def search_next(
@@ -428,14 +434,14 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GoogleIamV1SetIamPolicyRequest = ...,
+                        body: GoogleIamV1SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: GoogleIamV1TestIamPermissionsRequest = ...,
+                        body: GoogleIamV1TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleIamV1TestIamPermissionsResponseHttpRequest: ...
                     def conversations(self) -> ConversationsResource: ...
@@ -445,12 +451,12 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1AuthorizedViewSet = ...,
-                    authorizedViewSetId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AuthorizedViewSet,
+                    authorizedViewSetId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AuthorizedViewSetHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -459,10 +465,10 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListAuthorizedViewSetsResponseHttpRequest: ...
                 def list_next(
@@ -477,8 +483,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1AuthorizedViewSet = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AuthorizedViewSet,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AuthorizedViewSetHttpRequest: ...
                 def authorizedViews(self) -> AuthorizedViewsResource: ...
@@ -489,8 +495,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1AutoLabelingRule = ...,
-                    autoLabelingRuleId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AutoLabelingRule,
+                    autoLabelingRuleId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AutoLabelingRuleHttpRequest: ...
                 def delete(
@@ -503,8 +509,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListAutoLabelingRulesResponseHttpRequest: ...
                 def list_next(
@@ -519,15 +525,15 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1AutoLabelingRule = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1AutoLabelingRule,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1AutoLabelingRuleHttpRequest: ...
                 def test(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1TestAutoLabelingRuleRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1TestAutoLabelingRuleRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1TestAutoLabelingRuleResponseHttpRequest: ...
 
@@ -539,7 +545,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1Analysis = ...,
+                        body: GoogleCloudContactcenterinsightsV1Analysis,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -552,9 +558,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ListAnalysesResponseHttpRequest: ...
                     def list_next(
@@ -574,7 +580,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudContactcenterinsightsV1Note = ...,
+                            body: GoogleCloudContactcenterinsightsV1Note,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1NoteHttpRequest: ...
                         def delete(
@@ -584,8 +590,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1ListNotesResponseHttpRequest: ...
                         def list_next(
@@ -600,8 +606,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudContactcenterinsightsV1Note = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudContactcenterinsightsV1Note,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1NoteHttpRequest: ...
 
@@ -609,24 +615,28 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1AppealAssessmentRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1AppealAssessmentRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1AssessmentHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1Assessment = ...,
+                        body: GoogleCloudContactcenterinsightsV1Assessment,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1AssessmentHttpRequest: ...
                     def delete(
-                        self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        force: bool | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleProtobufEmptyHttpRequest: ...
                     def finalize(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1FinalizeAssessmentRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1FinalizeAssessmentRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1AssessmentHttpRequest: ...
                     def get(
@@ -636,9 +646,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ListAssessmentsResponseHttpRequest: ...
                     def list_next(
@@ -653,7 +663,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1PublishAssessmentRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1PublishAssessmentRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1AssessmentHttpRequest: ...
                     def notes(self) -> NotesResource: ...
@@ -664,8 +674,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1FeedbackLabel = ...,
-                        feedbackLabelId: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1FeedbackLabel,
+                        feedbackLabelId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1FeedbackLabelHttpRequest: ...
                     def delete(
@@ -678,9 +688,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ListFeedbackLabelsResponseHttpRequest: ...
                     def list_next(
@@ -695,8 +705,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1FeedbackLabel = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1FeedbackLabel,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1FeedbackLabelHttpRequest: ...
 
@@ -706,7 +716,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1BulkAnalyzeConversationsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1BulkAnalyzeConversationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -714,18 +724,22 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1BulkAnalyzeConversationsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1BulkAnalyzeConversationsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def bulkDelete(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1BulkDeleteConversationsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1BulkDeleteConversationsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def calculateStats(
-                    self, *, location: str, filter: str = ..., **kwargs: typing.Any
+                    self,
+                    *,
+                    location: str,
+                    filter: str | None = ...,
+                    **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudContactcenterinsightsV1CalculateStatsResponseHttpRequest
                 ): ...
@@ -733,12 +747,12 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1Conversation = ...,
-                    conversationId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1Conversation,
+                    conversationId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ConversationHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def generateSignedAudio(
                     self, *, name: str, **kwargs: typing.Any
@@ -749,27 +763,29 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     name: str,
                     view: typing_extensions.Literal[
                         "CONVERSATION_VIEW_UNSPECIFIED", "FULL", "BASIC"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ConversationHttpRequest: ...
                 def ingest(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1IngestConversationsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1IngestConversationsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     view: typing_extensions.Literal[
                         "CONVERSATION_VIEW_UNSPECIFIED", "FULL", "BASIC"
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListConversationsResponseHttpRequest: ...
                 def list_next(
@@ -784,24 +800,25 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1Conversation = ...,
-                    allowMissing: bool = ...,
-                    conversationAutoLabelingUpdateConfig_allowAutoLabelingUpdate: bool = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1Conversation,
+                    allowMissing: bool | None = ...,
+                    conversationAutoLabelingUpdateConfig_allowAutoLabelingUpdate: bool
+                    | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ConversationHttpRequest: ...
                 def sample(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1SampleConversationsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1SampleConversationsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def upload(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1UploadConversationRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1UploadConversationRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def analyses(self) -> AnalysesResource: ...
@@ -817,8 +834,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1Chart = ...,
-                        chartId: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1Chart,
+                        chartId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ChartHttpRequest: ...
                     def delete(
@@ -836,8 +853,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1Chart = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1Chart,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ChartHttpRequest: ...
 
@@ -845,8 +862,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1Dashboard = ...,
-                    dashboardId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1Dashboard,
+                    dashboardId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1DashboardHttpRequest: ...
                 def delete(
@@ -859,10 +876,10 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudContactcenterinsightsV1ListDashboardsResponseHttpRequest
@@ -879,8 +896,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1Dashboard = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1Dashboard,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1DashboardHttpRequest: ...
                 def charts(self) -> ChartsResource: ...
@@ -895,8 +912,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudContactcenterinsightsV1FeedbackLabel = ...,
-                            feedbackLabelId: str = ...,
+                            body: GoogleCloudContactcenterinsightsV1FeedbackLabel,
+                            feedbackLabelId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudContactcenterinsightsV1FeedbackLabelHttpRequest
@@ -913,9 +930,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1ListFeedbackLabelsResponseHttpRequest: ...
                         def list_next(
@@ -930,8 +947,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudContactcenterinsightsV1FeedbackLabel = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudContactcenterinsightsV1FeedbackLabel,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudContactcenterinsightsV1FeedbackLabelHttpRequest
@@ -941,18 +958,22 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1BulkDeleteConversationsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1BulkDeleteConversationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def calculateStats(
                         self,
                         *,
                         location: str,
-                        body: GoogleCloudContactcenterinsightsV1CalculateStatsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1CalculateStatsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1CalculateStatsResponseHttpRequest: ...
                     def delete(
-                        self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        force: bool | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleProtobufEmptyHttpRequest: ...
                     def generateSignedAudio(
                         self, *, name: str, **kwargs: typing.Any
@@ -963,27 +984,29 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         name: str,
                         view: typing_extensions.Literal[
                             "CONVERSATION_VIEW_UNSPECIFIED", "FULL", "BASIC"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ConversationHttpRequest: ...
                     def ingest(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1IngestConversationsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1IngestConversationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         view: typing_extensions.Literal[
                             "CONVERSATION_VIEW_UNSPECIFIED", "FULL", "BASIC"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ListConversationsResponseHttpRequest: ...
                     def list_next(
@@ -998,7 +1021,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1SampleConversationsRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1SampleConversationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def feedbackLabels(self) -> FeedbackLabelsResource: ...
@@ -1009,7 +1032,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1ExportInsightsDataRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1ExportInsightsDataRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -1017,29 +1040,29 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1BulkDeleteFeedbackLabelsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1BulkDeleteFeedbackLabelsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def bulkDownloadFeedbackLabels(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1BulkDownloadFeedbackLabelsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1BulkDownloadFeedbackLabelsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def bulkUploadFeedbackLabels(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1BulkUploadFeedbackLabelsRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1BulkUploadFeedbackLabelsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def create(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1Dataset = ...,
-                    datasetId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1Dataset,
+                    datasetId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1DatasetHttpRequest: ...
                 def delete(
@@ -1052,9 +1075,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudContactcenterinsightsV1ListDatasetsResponseHttpRequest
@@ -1071,9 +1094,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListAllFeedbackLabelsResponseHttpRequest: ...
                 def listAllFeedbackLabels_next(
@@ -1088,8 +1111,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1Dataset = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1Dataset,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1DatasetHttpRequest: ...
                 def conversations(self) -> ConversationsResource: ...
@@ -1101,7 +1124,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1InitializeEncryptionSpecRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1InitializeEncryptionSpecRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -1111,7 +1134,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1ExportInsightsDataRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1ExportInsightsDataRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -1123,7 +1146,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1Issue = ...,
+                        body: GoogleCloudContactcenterinsightsV1Issue,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def delete(
@@ -1141,8 +1164,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1Issue = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1Issue,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1IssueHttpRequest: ...
 
@@ -1153,7 +1176,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1IssueModel = ...,
+                    body: GoogleCloudContactcenterinsightsV1IssueModel,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
@@ -1163,14 +1186,14 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1DeployIssueModelRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1DeployIssueModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def export(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1ExportIssueModelRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1ExportIssueModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def get(
@@ -1180,7 +1203,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1ImportIssueModelRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1ImportIssueModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def list(
@@ -1192,15 +1215,15 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1IssueModel = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1IssueModel,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1IssueModelHttpRequest: ...
                 def undeploy(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1UndeployIssueModelRequest = ...,
+                    body: GoogleCloudContactcenterinsightsV1UndeployIssueModelRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def issues(self) -> IssuesResource: ...
@@ -1217,10 +1240,10 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -1235,7 +1258,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1PhraseMatcher = ...,
+                    body: GoogleCloudContactcenterinsightsV1PhraseMatcher,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1PhraseMatcherHttpRequest: ...
                 def delete(
@@ -1248,9 +1271,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListPhraseMatchersResponseHttpRequest: ...
                 def list_next(
@@ -1265,8 +1288,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1PhraseMatcher = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1PhraseMatcher,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1PhraseMatcherHttpRequest: ...
 
@@ -1276,8 +1299,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1QaQuestionTag = ...,
-                    qaQuestionTagId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1QaQuestionTag,
+                    qaQuestionTagId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1QaQuestionTagHttpRequest: ...
                 def delete(
@@ -1287,14 +1310,14 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self, *, name: str, **kwargs: typing.Any
                 ) -> GoogleCloudContactcenterinsightsV1QaQuestionTagHttpRequest: ...
                 def list(
-                    self, *, parent: str, filter: str = ..., **kwargs: typing.Any
+                    self, *, parent: str, filter: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleCloudContactcenterinsightsV1ListQaQuestionTagsResponseHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1QaQuestionTag = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1QaQuestionTag,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
 
@@ -1308,8 +1331,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudContactcenterinsightsV1QaQuestion = ...,
-                            qaQuestionId: str = ...,
+                            body: GoogleCloudContactcenterinsightsV1QaQuestion,
+                            qaQuestionId: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudContactcenterinsightsV1QaQuestionHttpRequest
@@ -1326,8 +1349,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudContactcenterinsightsV1ListQaQuestionsResponseHttpRequest: ...
                         def list_next(
@@ -1342,8 +1365,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudContactcenterinsightsV1QaQuestion = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudContactcenterinsightsV1QaQuestion,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudContactcenterinsightsV1QaQuestionHttpRequest
@@ -1353,20 +1376,24 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1QaScorecardRevision = ...,
-                        qaScorecardRevisionId: str = ...,
+                        body: GoogleCloudContactcenterinsightsV1QaScorecardRevision,
+                        qaScorecardRevisionId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudContactcenterinsightsV1QaScorecardRevisionHttpRequest
                     ): ...
                     def delete(
-                        self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                        self,
+                        *,
+                        name: str,
+                        force: bool | None = ...,
+                        **kwargs: typing.Any,
                     ) -> GoogleProtobufEmptyHttpRequest: ...
                     def deploy(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1DeployQaScorecardRevisionRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1DeployQaScorecardRevisionRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudContactcenterinsightsV1QaScorecardRevisionHttpRequest
@@ -1380,9 +1407,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         qaScorecardSources: typing_extensions.Literal[
                             "QA_SCORECARD_SOURCE_UNSPECIFIED",
                             "QA_SCORECARD_SOURCE_CUSTOMER_DEFINED",
@@ -1394,7 +1421,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                                 "QA_SCORECARD_SOURCE_CUSTOMER_DEFINED",
                                 "QA_SCORECARD_SOURCE_DISCOVERY_ENGINE",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudContactcenterinsightsV1ListQaScorecardRevisionsResponseHttpRequest: ...
                     def list_next(
@@ -1409,14 +1437,14 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudContactcenterinsightsV1TuneQaScorecardRevisionRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1TuneQaScorecardRevisionRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def undeploy(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudContactcenterinsightsV1UndeployQaScorecardRevisionRequest = ...,
+                        body: GoogleCloudContactcenterinsightsV1UndeployQaScorecardRevisionRequest,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudContactcenterinsightsV1QaScorecardRevisionHttpRequest
@@ -1427,12 +1455,12 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1QaScorecard = ...,
-                    qaScorecardId: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1QaScorecard,
+                    qaScorecardId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1QaScorecardHttpRequest: ...
                 def delete(
-                    self, *, name: str, force: bool = ..., **kwargs: typing.Any
+                    self, *, name: str, force: bool | None = ..., **kwargs: typing.Any
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -1441,8 +1469,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     qaScorecardSources: typing_extensions.Literal[
                         "QA_SCORECARD_SOURCE_UNSPECIFIED",
                         "QA_SCORECARD_SOURCE_CUSTOMER_DEFINED",
@@ -1454,7 +1482,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                             "QA_SCORECARD_SOURCE_CUSTOMER_DEFINED",
                             "QA_SCORECARD_SOURCE_DISCOVERY_ENGINE",
                         ]
-                    ] = ...,
+                    ]
+                    | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListQaScorecardsResponseHttpRequest: ...
                 def list_next(
@@ -1469,8 +1498,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1QaScorecard = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1QaScorecard,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1QaScorecardHttpRequest: ...
                 def revisions(self) -> RevisionsResource: ...
@@ -1481,7 +1510,7 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudContactcenterinsightsV1View = ...,
+                    body: GoogleCloudContactcenterinsightsV1View,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ViewHttpRequest: ...
                 def delete(
@@ -1494,8 +1523,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ListViewsResponseHttpRequest: ...
                 def list_next(
@@ -1510,8 +1539,8 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudContactcenterinsightsV1View = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudContactcenterinsightsV1View,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudContactcenterinsightsV1ViewHttpRequest: ...
 
@@ -1519,28 +1548,28 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudContactcenterinsightsV1BulkDeleteFeedbackLabelsRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1BulkDeleteFeedbackLabelsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def bulkDownloadFeedbackLabels(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudContactcenterinsightsV1BulkDownloadFeedbackLabelsRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1BulkDownloadFeedbackLabelsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def bulkUploadFeedbackLabels(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudContactcenterinsightsV1BulkUploadFeedbackLabelsRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1BulkUploadFeedbackLabelsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def generativeInsights(
                 self,
                 *,
                 location: str,
-                body: GoogleCloudContactcenterinsightsV1GenerativeInsightsRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1GenerativeInsightsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def getCorrelationConfig(
@@ -1556,9 +1585,9 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudContactcenterinsightsV1ListAllFeedbackLabelsResponseHttpRequest: ...
             def listAllFeedbackLabels_next(
@@ -1573,37 +1602,37 @@ class ContactcenterinsightsResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 location: str,
-                body: GoogleCloudContactcenterinsightsV1QueryMetricsRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1QueryMetricsRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def queryPerformanceOverview(
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudContactcenterinsightsV1QueryPerformanceOverviewRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1QueryPerformanceOverviewRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def testCorrelationConfig(
                 self,
                 *,
                 location: str,
-                body: GoogleCloudContactcenterinsightsV1TestCorrelationConfigRequest = ...,
+                body: GoogleCloudContactcenterinsightsV1TestCorrelationConfigRequest,
                 **kwargs: typing.Any,
             ) -> GoogleLongrunningOperationHttpRequest: ...
             def updateCorrelationConfig(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudContactcenterinsightsV1CorrelationConfig = ...,
-                updateMask: str = ...,
+                body: GoogleCloudContactcenterinsightsV1CorrelationConfig,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudContactcenterinsightsV1CorrelationConfigHttpRequest: ...
             def updateSettings(
                 self,
                 *,
                 name: str,
-                body: GoogleCloudContactcenterinsightsV1Settings = ...,
-                updateMask: str = ...,
+                body: GoogleCloudContactcenterinsightsV1Settings,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> GoogleCloudContactcenterinsightsV1SettingsHttpRequest: ...
             def analysisRules(self) -> AnalysisRulesResource: ...

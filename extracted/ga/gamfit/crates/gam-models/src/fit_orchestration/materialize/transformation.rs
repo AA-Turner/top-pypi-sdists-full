@@ -26,7 +26,7 @@ pub(crate) fn materialize_transformation_normal<'a>(
         }
         .into());
     }
-    if config.frailty.as_ref().is_some_and(|f| f.is_active()) {
+    if config.frailty.is_active() {
         return Err(WorkflowError::InvalidConfig {
             reason: "frailty is not supported for transformation-normal models".to_string(),
         }
@@ -37,7 +37,7 @@ pub(crate) fn materialize_transformation_normal<'a>(
     let y = data.values.column(y_col).to_owned();
     let mut inference_notes = Vec::new();
 
-    let policy = resolved_resource_policy(config, data, marginal_slope_hints(config));
+    let policy = resolved_resource_policy(config, marginal_slope_hints(config));
     let covariate_spec = build_termspec_with_geometry_and_overrides(
         &parsed.terms,
         data,
@@ -61,7 +61,7 @@ pub(crate) fn materialize_transformation_normal<'a>(
             covariate_spec,
             config: TransformationNormalConfig::default(),
             options: BlockwiseFitOptions::default(),
-            kappa_options: SpatialLengthScaleOptimizationOptions::default(),
+            kappa_options: config.spatial_optimization.clone(),
             warm_start: None,
         }),
         inference_notes,

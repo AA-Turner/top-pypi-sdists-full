@@ -34,7 +34,7 @@ def _plan_has_unfinished(config: dict) -> bool:
     return bool(todo) and any(status != "done" for _, status in todo)
 
 from drydock.providers import stream, AssistantTurn, ReasoningChunk, TextChunk, StallRetry, RepetitionDetected
-from drydock.tool_registry import schemas, execute
+from drydock.tool_registry import schemas, execute_structured
 from drydock.tools import register_all
 
 # Register the built-in tools as a side effect of importing the agent. This is
@@ -47,6 +47,9 @@ from drydock.compaction import (
     maybe_compact, emergency_compact, is_context_length_error, is_image_load_error,
 )
 from drydock.loop_detect import LoopTracker
+from drydock.task_state import TaskState
+from drydock.verification import looks_like_verification, parse_evidence
+from drydock.events import EventLog, emit as _emit
 from drydock.tuning import (
     filter_tool_schemas,
     hallucinated_tool_message,
@@ -80,6 +83,8 @@ class AgentState:
     last_input_tokens: int = 0  # prompt tokens the SERVER counted on the last call
     turn_count: int = 0
     current_effort: str = ""  # "high"/"low" of the in-flight LLM call (for the UI)
+    task: "TaskState" = field(default_factory=lambda: TaskState())  # structured objective
+    events: "EventLog | None" = None  # optional durable execution trace
 
 
 def drop_last_turn(messages: list) -> bool:
@@ -114,6 +119,21 @@ def run(
     """
     state.messages.append({"role": "user", "content": user_message})
 
+    # Capture the structured objective the FIRST time a task arrives, so it lives
+    # outside the transcript. The original objective is authoritative for the task.
+    if not state.task.is_set() and isinstance(user_message, str) and user_message.strip():
+        state.task = TaskState.from_objective(user_message)
+        _emit(state, "task_start", objective=state.task.objective,
+              acceptance_criteria=state.task.acceptance_criteria)
+    _emit(state, "user_message", chars=len(user_message or ""))
+    # Keep the objective + acceptance criteria in the SYSTEM PROMPT every turn, so
+    # they survive compaction (which only touches the message transcript, never the
+    # system prompt) — the model can't drift off the goal on a long task.
+    if config.get("task_anchor", True) and state.task.is_set():
+        anchor = state.task.anchor_text()
+        if anchor:
+            system_prompt = system_prompt + "\n\n" + anchor
+
     # Recipe retrieval: give the model the TECHNIQUE this task needs (forensics,
     # git-history rewrite, numpy-2.0 fix, cert gen, …) by appending the relevant
     # bundled recipes to the system prompt. Keyword-matched, so only fitting ones
@@ -139,6 +159,8 @@ def run(
         return cancel is not None and cancel.is_set()
     tool_call_count = 0
     session_has_edited = False
+    last_verification = None    # VerificationEvidence of the most recent check (gate)
+    verify_gate_nudges = 0      # bounded "verify before you finish" nudges
     leaked_call_retries = 0
     plan_continue_nudges = 0  # consecutive "you stopped mid-plan" nudges
     empty_response_nudges = 0  # consecutive "you returned nothing" nudges
@@ -264,6 +286,9 @@ def run(
         state.total_output_tokens += assistant_turn.output_tokens
         state.last_input_tokens = assistant_turn.input_tokens
         yield TurnDone(assistant_turn.input_tokens, assistant_turn.output_tokens)
+        _emit(state, "turn", in_tok=assistant_turn.input_tokens,
+              out_tok=assistant_turn.output_tokens,
+              tool_calls=len(assistant_turn.tool_calls or []))
 
         # No tool calls = conversation complete — UNLESS the model emitted a
         # tool call as text (a Gemma quirk the API can't structure). In that
@@ -318,12 +343,54 @@ def run(
                     ),
                 })
                 continue
+            # VERIFICATION GATE (PRD Epic B): a text-only "done" is not evidence.
+            # If the agent CHANGED files but never ran a test/check/its own code,
+            # don't accept completion — make it verify first. Bounded so it can't
+            # wedge; once it runs any check (ran_verification) the gate is satisfied.
+            # A text-only "done" after editing is accepted only when a check has
+            # PASSED. Never ran one → nudge to VERIFY. Ran one that FAILED → the work
+            # isn't done → nudge to REPAIR. Bounded so it can't wedge.
+            _needs_gate = (
+                config.get("verify_gate", True)
+                and allow is None            # main task only — not scoped sub-agents
+                and session_has_edited
+                and verify_gate_nudges < 2
+                and (last_verification is None or last_verification.status == "fail")
+            )
+            if _needs_gate:
+                verify_gate_nudges += 1
+                if last_verification is None:
+                    state.task.phase = "verify"
+                    _emit(state, "verify_gate", kind="unverified", nudge=verify_gate_nudges)
+                    msg = (
+                        "[SYSTEM] You changed files but have not VERIFIED the work. "
+                        "Run a concrete check now: the task's own test/eval/build "
+                        "(pytest, test.sh, make, npm test, …) or run the code you "
+                        "produced, and confirm it meets EVERY requirement."
+                    )
+                else:  # a check ran and FAILED
+                    state.task.phase = "repair"
+                    _emit(state, "verify_gate", kind="failed", nudge=verify_gate_nudges,
+                          summary=last_verification.summary)
+                    msg = (
+                        f"[SYSTEM] Your verification FAILED ({last_verification.summary}). "
+                        "The task is NOT complete. Read the failure, fix the cause, then "
+                        "re-run the SAME check until it passes."
+                    )
+                state.messages.append({"role": "user", "content": msg})
+                continue
+            if session_has_edited and last_verification and last_verification.status == "pass":
+                state.task.phase = "complete"
+            _emit(state, "done", phase=state.task.phase, edited=session_has_edited,
+                  verified=bool(last_verification and last_verification.status == "pass"))
             break
 
         # Execute each tool call
         for tc in assistant_turn.tool_calls:
             tool_call_count += 1
             if tc["name"] in ("Edit", "Write"):
+                if not session_has_edited and state.task.phase in ("understand", "discover", "plan"):
+                    state.task.phase = "implement"  # first change → building
                 session_has_edited = True
 
             # STOP pressed: don't run the remaining tools, but still record a
@@ -355,14 +422,17 @@ def run(
             halluc = hallucinated_tool_message(tc["name"])
             if halluc is not None:
                 result = halluc
+                tool_result = None
             elif allow is not None and tc["name"] not in allow:
                 result = (
                     f"[The '{tc['name']}' tool is not available here. You may use "
                     f"only: {', '.join(allow)}. Use one of those, or reply with "
                     "your final summary.]"
                 )
+                tool_result = None
             else:
-                result = execute(tc["name"], tc["input"], config)
+                tool_result = execute_structured(tc["name"], tc["input"], config)
+                result = tool_result.text
             # Track consecutive byte-identical calls — same name, args AND raw
             # result (captured before annotate prepends its note, which changes
             # each call) — for the safety valve below. A differing result
@@ -376,6 +446,30 @@ def run(
             # advisory note when the same call is made again.
             result = loop_tracker.annotate(tc["name"], tc["input"], result)
 
+            # Verification evidence: if this Bash call was a test/check/exec, parse
+            # its result so the completion gate knows whether it PASSED, not just ran.
+            if tc["name"] == "Bash":
+                _vcmd = (tc.get("input") or {}).get("command", "")
+                if looks_like_verification(_vcmd):
+                    last_verification = parse_evidence(_vcmd, result)
+                    _emit(state, "verification", status=last_verification.status,
+                          exit_code=last_verification.exit_code)
+
+            # Sync the rolling plan when the model updates its checklist, keeping
+            # stable step ids + capping pending steps; record each revision.
+            if tc["name"] == "todo" and isinstance(config.get("_todo"), list):
+                if state.task.plan.update_from_items(config["_todo"]):
+                    _emit(state, "plan", version=state.task.plan.version,
+                          steps=[(s["id"], s["status"]) for s in state.task.plan.steps])
+
+            if tool_result is not None:
+                _emit(state, "tool", input=str(tc.get("input"))[:200],
+                      **tool_result.to_event())
+            else:
+                _emit(state, "tool", name=tc["name"],
+                      input=str(tc.get("input"))[:200],
+                      result_chars=len(str(result)),
+                      status="ok")
             yield ToolEnd(tc["name"], result)
 
             # Append tool result

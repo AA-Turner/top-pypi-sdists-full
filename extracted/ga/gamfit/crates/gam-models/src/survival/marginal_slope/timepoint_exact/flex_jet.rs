@@ -81,8 +81,8 @@
 
 use super::*;
 use crate::bms::signed_probit_neglog_derivatives_up_to_fourth;
-use crate::survival::marginal_slope::gpu;
 use crate::inference::probability::signed_probit_logcdf_and_mills_ratio;
+use crate::survival::marginal_slope::gpu;
 
 /// The `[f64; 5]` Faà di Bruno stack of `g(η) = logΦ(−η)` at `η`.
 ///
@@ -821,12 +821,36 @@ impl SurvivalMarginalSlopeFamily {
             qd1_g[primary.qd1] = 1.0;
         }
         let out = fused_row_nll_jet2(
-            &FusedSrc { v: eta0_v, g: &eta0_gv, h: &eta0_hv },
-            &FusedSrc { v: eta1_v, g: &eta1_gv, h: &eta1_hv },
-            &FusedSrc { v: chi1_v, g: &chi1_gv, h: &chi1_hv },
-            &FusedSrc { v: d1_v, g: &d1_gv, h: &d1_hv },
-            &FusedSrc { v: q1, g: &q1_g, h: &zero_h },
-            &FusedSrc { v: qd1, g: &qd1_g, h: &zero_h },
+            &FusedSrc {
+                v: eta0_v,
+                g: &eta0_gv,
+                h: &eta0_hv,
+            },
+            &FusedSrc {
+                v: eta1_v,
+                g: &eta1_gv,
+                h: &eta1_hv,
+            },
+            &FusedSrc {
+                v: chi1_v,
+                g: &chi1_gv,
+                h: &chi1_hv,
+            },
+            &FusedSrc {
+                v: d1_v,
+                g: &d1_gv,
+                h: &d1_hv,
+            },
+            &FusedSrc {
+                v: q1,
+                g: &q1_g,
+                h: &zero_h,
+            },
+            &FusedSrc {
+                v: qd1,
+                g: &qd1_g,
+                h: &zero_h,
+            },
             surv0,
             surv1,
             wi,
@@ -1106,6 +1130,23 @@ impl MomentTerm for Jet2 {
             }
         }
         Jet2 { v: 0.0, g, h }
+    }
+}
+
+impl MomentTerm for Jet1 {
+    fn moment_term(&self, m: &Self) -> Self {
+        // Grad-only calibration residual term: the order-≤1 truncation of the
+        // [`Jet2`] `moment_term`. The value is stripped (F's VALUE is carried by
+        // the scalar seed) and the gradient keeps the same `j=1` Leibniz weight 1:
+        //   R.g[i] = c_g[i]·M_v
+        // (bit-identical to the `Jet2` gradient line). The order-2 Hessian channel
+        // the `Jet2` term also assembles is simply absent at this order.
+        let p = self.p();
+        let mut g = vec![0.0; p];
+        for i in 0..p {
+            g[i] = self.g[i] * m.v;
+        }
+        Jet1 { v: 0.0, g }
     }
 }
 
@@ -1606,9 +1647,7 @@ fn cell_edge_jet<J: FlexJet>(
             // z = (τ − a)·(1/b).
             const_jet_like(a_jet, tau).sub(a_jet).mul(&recip(b_jet))
         }
-        crate::cubic_cell_kernel::PartitionEdge::Fixed(_) => {
-            const_jet_like(a_jet, z_value)
-        }
+        crate::cubic_cell_kernel::PartitionEdge::Fixed(_) => const_jet_like(a_jet, z_value),
     }
 }
 
@@ -2029,6 +2068,68 @@ impl SurvivalMarginalSlopeFamily {
             d_uv: to_h(&d)?,
         })
     }
+
+    /// #932 grad-only single-source: the exact timepoint `(eta, chi, d)` VALUE +
+    /// GRADIENT via the SAME single-source `flex_timepoint_inputs_generic` jet
+    /// builder as [`Self::compute_survival_timepoint_exact_jet`], instantiated at
+    /// [`Jet1`] (no second-order channel). This replaces the hand first-order
+    /// cell-moment / IFT `a_u` / moving-flux `d_u` / `ρ`-`τ` `eta_u`/`chi_u`
+    /// assembly that used to live in `first_full`: there is now ONE definition of
+    /// the flex timepoint geometry, and the grad-only path is its order-≤1
+    /// truncation. Because `Jet1` shares `add`/`sub`/`mul`/`scale`/`compose_unary`
+    /// and the `moment_term` gradient line with `Jet2` op-for-op, the returned
+    /// value/gradient are bit-identical to the [`Jet2`] path's base + gradient
+    /// channels; the identity is pinned by
+    /// `flex_timepoint_first_order_matches_jet2_and_fd_932`.
+    pub(crate) fn compute_survival_timepoint_first_order_exact(
+        &self,
+        row: usize,
+        primary: &FlexPrimarySlices,
+        q: f64,
+        q_index: usize,
+        a: f64,
+        b: f64,
+        beta_h: Option<&Array1<f64>>,
+        beta_w: Option<&Array1<f64>>,
+        o_infl: f64,
+    ) -> Result<SurvivalFlexTimepointFirstOrderExact, String> {
+        let cached = self.build_cached_partition(primary, a, b, beta_h, beta_w)?;
+        let p = primary.total;
+        let d_check = self.evaluate_survival_denom_d(a, b, beta_h, beta_w)?;
+        let z_obs = self.observed_score_projection(row);
+        let (obs_coeff, obs_fixed) = observed_fixed_for(self, primary, row, a, b, beta_h, beta_w)?;
+        let cells = cells_from_cached(&cached);
+
+        let template = Jet1::primary(0.0, usize::MAX, p);
+        let b_jet = Jet1::primary(b, primary.g, p);
+        let du: Vec<Jet1> = (0..p).map(|u| Jet1::primary(0.0, u, p)).collect();
+        let (eta, chi, d) = flex_timepoint_inputs_generic(
+            &template,
+            &b_jet,
+            &du,
+            a,
+            d_check,
+            primary.g,
+            primary.infl,
+            q_index,
+            q,
+            z_obs,
+            o_infl,
+            obs_coeff,
+            &obs_fixed,
+            &cells,
+        )?;
+
+        let to_g = |j: &Jet1| Array1::from(j.g.clone());
+        Ok(SurvivalFlexTimepointFirstOrderExact {
+            eta: eta.value(),
+            chi: chi.value(),
+            d: d.value(),
+            eta_u: to_g(&eta),
+            chi_u: to_g(&chi),
+            d_u: to_g(&d),
+        })
+    }
 }
 
 // #932-2 increment 2: the higher-order `MomentTerm` channels (Jet3 directional /
@@ -2163,10 +2264,8 @@ impl SurvivalMarginalSlopeFamily {
         beta_w: Option<&Array1<f64>>,
         cached: &CachedPartitionCells,
         dir: &Array1<f64>,
-    ) -> Result<
-        crate::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointDirectional,
-        String,
-    > {
+    ) -> Result<crate::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointDirectional, String>
+    {
         let p = primary.total;
         let d_check = self.evaluate_survival_denom_d(a, b, beta_h, beta_w)?;
         let z_obs = self.observed_score_projection(row);
@@ -4164,6 +4263,125 @@ mod moment_engine_tests {
         cmp_mat("d_uv_dir", &dnorm.eps.h, &hand.d_uv_dir);
     }
 
+    /// #932 grad-only cutover: the production grad-only timepoint
+    /// (`compute_survival_timepoint_first_order_exact`, [`Jet1`]) is pinned two ways.
+    /// (1) PARITY: its value + `eta_u`/`chi_u`/`d_u` equal the grad+Hessian
+    /// production path (`compute_survival_timepoint_exact_jet`, [`Jet2`]) base +
+    /// gradient channels to ≤1e-9 relative — the single-source claim (both drive the
+    /// one `flex_timepoint_inputs_generic` builder). (2) INDEPENDENT FD WITNESS: the
+    /// TOTAL derivatives `∂(eta,chi,d)/∂g` and `∂(eta,chi,d)/∂q` — each threading the
+    /// per-row intercept CALIBRATION re-solve `a(g,q)` the audit flagged — match a
+    /// central finite difference of the production-returned VALUE channels.
+    #[test]
+    fn flex_timepoint_first_order_matches_jet2_and_fd_932() {
+        let n = 16usize;
+        let family = make_g_only_flex_family(n);
+        let primary = flex_primary_slices(&family);
+        let p = primary.total;
+        let row = 6usize;
+        let g = 0.19_f64;
+        let o_infl = 0.0_f64;
+
+        let m_beta = 0.15_f64;
+        let q1 = family.offset_exit[row] + family.marginal_design.to_dense()[[row, 0]] * m_beta;
+
+        // Base-point intercept solve + both production timepoint packs.
+        let (a1, _d1) = family
+            .solve_row_survival_intercept_with_slot(
+                q1,
+                g,
+                None,
+                None,
+                Some((row, SurvivalInterceptSlotKind::Exit)),
+            )
+            .expect("intercept solve");
+        let first = family
+            .compute_survival_timepoint_first_order_exact(
+                row, &primary, q1, primary.q1, a1, g, None, None, o_infl,
+            )
+            .expect("grad-only jet1");
+        let full = family
+            .compute_survival_timepoint_exact_jet(
+                row, &primary, q1, primary.q1, a1, g, None, None, o_infl,
+            )
+            .expect("grad+hess jet2");
+
+        // (1) Parity against the Jet2 production path (single-source).
+        let rel = |a: f64, b: f64| (a - b).abs() <= 1e-9 * (1.0 + b.abs());
+        assert!(
+            rel(first.eta, full.eta),
+            "eta {} != {}",
+            first.eta,
+            full.eta
+        );
+        assert!(
+            rel(first.chi, full.chi),
+            "chi {} != {}",
+            first.chi,
+            full.chi
+        );
+        assert!(rel(first.d, full.d), "d {} != {}", first.d, full.d);
+        for u in 0..p {
+            assert!(
+                rel(first.eta_u[u], full.eta_u[u]),
+                "eta_u[{u}] {} != {}",
+                first.eta_u[u],
+                full.eta_u[u]
+            );
+            assert!(
+                rel(first.chi_u[u], full.chi_u[u]),
+                "chi_u[{u}] {} != {}",
+                first.chi_u[u],
+                full.chi_u[u]
+            );
+            assert!(
+                rel(first.d_u[u], full.d_u[u]),
+                "d_u[{u}] {} != {}",
+                first.d_u[u],
+                full.d_u[u]
+            );
+        }
+
+        // (2) Independent central-FD witness of the returned VALUE channels. The
+        // closure re-solves the calibration intercept `a(g,q)` exactly as production
+        // does, so the FD is the genuine TOTAL derivative (intercept chain included).
+        let eval = |gg: f64, qq: f64| -> (f64, f64, f64) {
+            let (aa, _) = family
+                .solve_row_survival_intercept_with_slot(
+                    qq,
+                    gg,
+                    None,
+                    None,
+                    Some((row, SurvivalInterceptSlotKind::Exit)),
+                )
+                .expect("fd intercept solve");
+            let tp = family
+                .compute_survival_timepoint_first_order_exact(
+                    row, &primary, qq, primary.q1, aa, gg, None, None, o_infl,
+                )
+                .expect("fd grad-only");
+            (tp.eta, tp.chi, tp.d)
+        };
+        let h = 1e-6_f64;
+        let (eta_gp, chi_gp, d_gp) = eval(g + h, q1);
+        let (eta_gm, chi_gm, d_gm) = eval(g - h, q1);
+        let (eta_qp, chi_qp, d_qp) = eval(g, q1 + h);
+        let (eta_qm, chi_qm, d_qm) = eval(g, q1 - h);
+        let fd = |plus: f64, minus: f64| (plus - minus) / (2.0 * h);
+        let check = |label: &str, analytic: f64, numeric: f64| {
+            assert!(
+                (analytic - numeric).abs() <= 1e-5 * (1.0 + analytic.abs()),
+                "{label}: analytic {analytic} != fd {numeric}"
+            );
+        };
+        check("d eta/dg", first.eta_u[primary.g], fd(eta_gp, eta_gm));
+        check("d chi/dg", first.chi_u[primary.g], fd(chi_gp, chi_gm));
+        check("d d/dg", first.d_u[primary.g], fd(d_gp, d_gm));
+        check("d eta/dq", first.eta_u[primary.q1], fd(eta_qp, eta_qm));
+        check("d chi/dq", first.chi_u[primary.q1], fd(chi_qp, chi_qm));
+        check("d d/dq", first.d_u[primary.q1], fd(d_qp, d_qm));
+    }
+
     /// #932 item-2 STEP 3c: `flex_timepoint_inputs_generic::<Jet4>` mixed second-
     /// directional channel (`eps_del`) == hand `compute_survival_timepoint_
     /// bidirectional_exact_from_cached` (`block10_pack_bi`) term-for-term (≤1e-6) on a
@@ -4739,12 +4957,36 @@ mod fused_jet2_oracle_tests {
                 let mut qdg = vec![0.0; p];
                 qdg[qdax] = 1.0;
                 let f_out = fused_row_nll_jet2(
-                    &FusedSrc { v: e0v, g: &e0g, h: &e0h },
-                    &FusedSrc { v: e1v, g: &e1g, h: &e1h },
-                    &FusedSrc { v: cv, g: &cg, h: &ch },
-                    &FusedSrc { v: dv, g: &dg, h: &dh },
-                    &FusedSrc { v: q1v, g: &qg, h: &zero_h },
-                    &FusedSrc { v: qd1v, g: &qdg, h: &zero_h },
+                    &FusedSrc {
+                        v: e0v,
+                        g: &e0g,
+                        h: &e0h,
+                    },
+                    &FusedSrc {
+                        v: e1v,
+                        g: &e1g,
+                        h: &e1h,
+                    },
+                    &FusedSrc {
+                        v: cv,
+                        g: &cg,
+                        h: &ch,
+                    },
+                    &FusedSrc {
+                        v: dv,
+                        g: &dg,
+                        h: &dh,
+                    },
+                    &FusedSrc {
+                        v: q1v,
+                        g: &qg,
+                        h: &zero_h,
+                    },
+                    &FusedSrc {
+                        v: qd1v,
+                        g: &qdg,
+                        h: &zero_h,
+                    },
                     surv0,
                     surv1,
                     wi,
@@ -4754,10 +4996,18 @@ mod fused_jet2_oracle_tests {
 
                 assert_eq!(g_out.v.to_bits(), f_out.v.to_bits(), "value p={p}");
                 for i in 0..p {
-                    assert_eq!(g_out.g[i].to_bits(), f_out.g[i].to_bits(), "grad[{i}] p={p}");
+                    assert_eq!(
+                        g_out.g[i].to_bits(),
+                        f_out.g[i].to_bits(),
+                        "grad[{i}] p={p}"
+                    );
                 }
                 for k in 0..p * p {
-                    assert_eq!(g_out.h[k].to_bits(), f_out.h[k].to_bits(), "hess[{k}] p={p}");
+                    assert_eq!(
+                        g_out.h[k].to_bits(),
+                        f_out.h[k].to_bits(),
+                        "hess[{k}] p={p}"
+                    );
                 }
             }
         }
@@ -4826,7 +5076,10 @@ mod hand_vs_jet_bench_tests {
         let log_phi_eta1 = -0.5 * (eta1 * eta1 + std::f64::consts::TAU.ln());
         let log_phi_q1 = -0.5 * (q1 * q1 + std::f64::consts::TAU.ln());
         let row_nll = wi
-            * (log_surv0 - (1.0 - di) * log_surv1 - di * log_phi_eta1 - di * chi1.ln()
+            * (log_surv0
+                - (1.0 - di) * log_surv1
+                - di * log_phi_eta1
+                - di * chi1.ln()
                 - di * log_phi_q1
                 + di * d1.ln()
                 - di * qd1.ln());
@@ -4858,9 +5111,8 @@ mod hand_vs_jet_bench_tests {
                 value += entry_u2 * eta0_u[u] * eta0_u[v] + entry_u1 * eta0_uv[[u, v]];
                 value += exit_surv_u2 * eta1_u[u] * eta1_u[v] + exit_surv_u1 * eta1_uv[[u, v]];
                 value += wi * di * (eta1_u[u] * eta1_u[v] + eta1 * eta1_uv[[u, v]]);
-                value -= wi
-                    * di
-                    * (chi1_uv[[u, v]] / chi1 - (chi1_u[u] * chi1_u[v]) / (chi1 * chi1));
+                value -=
+                    wi * di * (chi1_uv[[u, v]] / chi1 - (chi1_u[u] * chi1_u[v]) / (chi1 * chi1));
                 if u == q1_idx && v == q1_idx {
                     value += wi * di;
                 }
@@ -4918,12 +5170,36 @@ mod hand_vs_jet_bench_tests {
             qd1_g[qd1_idx] = 1.0;
         }
         let out = fused_row_nll_jet2(
-            &FusedSrc { v: eta0, g: &e0g, h: &e0h },
-            &FusedSrc { v: eta1, g: &e1g, h: &e1h },
-            &FusedSrc { v: chi1, g: &cg, h: &ch },
-            &FusedSrc { v: d1, g: &dg, h: &dh },
-            &FusedSrc { v: q1, g: &q1_g, h: &zero_h },
-            &FusedSrc { v: qd1, g: &qd1_g, h: &zero_h },
+            &FusedSrc {
+                v: eta0,
+                g: &e0g,
+                h: &e0h,
+            },
+            &FusedSrc {
+                v: eta1,
+                g: &e1g,
+                h: &e1h,
+            },
+            &FusedSrc {
+                v: chi1,
+                g: &cg,
+                h: &ch,
+            },
+            &FusedSrc {
+                v: d1,
+                g: &dg,
+                h: &dh,
+            },
+            &FusedSrc {
+                v: q1,
+                g: &q1_g,
+                h: &zero_h,
+            },
+            &FusedSrc {
+                v: qd1,
+                g: &qd1_g,
+                h: &zero_h,
+            },
             surv0,
             surv1,
             wi,

@@ -29,14 +29,24 @@
 //! ```
 //!
 //! With isotropic noise `cov(z) = σ² I₂`, the delta method gives
-//! `Var(θ̂) = σ² ‖∇θ‖² = σ²/‖z‖²`, hence
+//! `Var(θ̂) = σ² ‖∇θ‖² = σ²/a²`, where the gradient is evaluated at the TRUE point
+//! `z = a·u(t₀)` (so `‖z‖ = a`), not at the noisy observation. The `σ²` here is the
+//! variance of the noise component TANGENTIAL to the circle (the component that
+//! moves the phase); under isotropy it equals the radial variance, so the same `σ̂`
+//! estimated from radial scatter also serves the phase. Hence
 //!
 //! ```text
-//!   SD(t̂) = SD(θ̂)/(2π) = σ / (2π ‖z‖).
+//!   SD(t̂) = SD(θ̂)/(2π) = σ / (2π a).
 //! ```
 //!
-//! **Amplitude.** The estimator is `â = ‖z‖`. Its gradient is the unit radial
-//! `∂‖z‖/∂z = z/‖z‖` (norm 1), so `Var(â) = σ²·1` and `SD(â) ≈ σ`.
+//! The plug-in must use the true amplitude `a`, which is NOT the observed radius
+//! `‖z‖`: since `E[‖z‖²] = a² + 2σ²`, the noise inflates `‖z‖`, and dividing by it
+//! understates the phase SE in the weak-signal regime. We plug in the bias-corrected
+//! amplitude `â = √max(‖z‖² − 2σ², 0)`, which recovers `‖z‖` at high SNR and → 0 as
+//! the signal vanishes (see the weak-signal regime below).
+//!
+//! **Amplitude.** The reported estimator is `â = ‖z‖`. Its gradient is the unit
+//! radial `∂‖z‖/∂z = z/‖z‖` (norm 1), so `Var(â) = σ²·1` and `SD(â) ≈ σ`.
 //!
 //! # Estimating σ (it is not a knob)
 //!
@@ -62,17 +72,29 @@
 //! is a one-sided guarantee: the SE never silently understates phase
 //! uncertainty from amplitude heterogeneity.
 //!
+//! The phase SE is a propagation of the TANGENTIAL noise scale. With per-firing
+//! free phases the tangential residual is absorbed by the phase estimate and is
+//! not separately identifiable from a single circle's marginal, so we identify it
+//! with the radial-scatter `σ̂` under the isotropy assumption above — the one axis
+//! on which the phase SE is conditional. What the earlier `σ̂/(2π‖z‖)` form got
+//! wrong was orthogonal to this: it evaluated the delta method at the noise-inflated
+//! observed radius instead of the true amplitude, an anti-conservative error at low
+//! SNR that the bias-corrected `â` (below) removes.
+//!
 //! # Weak-signal regime (never NaN)
 //!
-//! The linearised phase SE `σ̂/(2π‖z‖)` diverges as `‖z‖ → 0`, but phase
-//! uncertainty is bounded: the least informative posterior is the uniform
-//! distribution on the unit-circumference parameter `t ∈ [0,1)`, whose standard
-//! deviation is `√(Var U(0,1)) = √(1/12)`. We therefore clamp
-//! `t_se = min(σ̂/(2π‖z‖), √(1/12))` and set [`FiringCoordinate::t_se_clamped`]
-//! whenever the raw SE reaches that uniform ceiling — i.e. once
-//! `‖z‖ ≤ σ̂·√12/(2π)`, the *derived* radius at which the linearised SE meets
-//! the uniform SD (no separate magic threshold). A zero-norm firing maps to the
-//! uniform SD, never a NaN.
+//! The linearised phase SE `σ̂/(2π·â)` diverges as the bias-corrected amplitude
+//! `â = √max(‖z‖² − 2σ̂², 0) → 0`, but phase uncertainty is bounded: the least
+//! informative posterior is the uniform distribution on the unit-circumference
+//! parameter `t ∈ [0,1)`, whose standard deviation is `√(Var U(0,1)) = √(1/12)`.
+//! We therefore clamp `t_se = min(σ̂/(2π·â), √(1/12))` and set
+//! [`FiringCoordinate::t_se_clamped`] whenever the raw SE reaches that uniform
+//! ceiling — i.e. once `â ≤ σ̂·√12/(2π)`, equivalently `‖z‖² ≤ σ̂²·(2 + 12/(2π)²)`,
+//! the *derived* radius at which the linearised SE meets the uniform SD (no
+//! separate magic threshold). A radius at or below the noise floor
+//! (`‖z‖² ≤ 2σ̂²`, so `â = 0`) maps to the uniform SD, never a NaN — including the
+//! pure-noise (`a = 0`) firing whose observed radius is Rayleigh-distributed and
+//! strictly positive but whose phase is genuinely uniform.
 //!
 //! # b = 2H: harmonic charts
 //!
@@ -86,12 +108,13 @@
 //!
 //! `f` is a real trigonometric polynomial of degree `H`; `f'` is likewise degree
 //! `H` and has at most `2H` zeros per period, so `f` has at most `2H` critical
-//! points and at most `H` local maxima. Evaluating `f` on the `4H`-point
-//! equispaced grid (grid spacing `1/(4H)`, four times the degree) places a grid
-//! node inside the global maximum's basin — a **degree-determined** localisation,
-//! not a tuned grid — and a Newton polish on `f'(t) = 0` from the best node
-//! converges to the maximiser. The polish reverts to the grid node if it fails to
-//! increase `f`, so the reported phase is never worse than the grid argmax.
+//! points and at most `H` local maxima. We enumerate all of those stationary
+//! points without a lattice. Writing `x = cos(2πt)`, the sine and cosine parts
+//! of `f'` give a degree-`2H` Chebyshev polynomial whose real roots in `[-1,1]`
+//! contain every stationary point. Recursive derivative-root isolation finds
+//! both sign-changing and repeated roots; both circle lifts of every root are
+//! checked against the original analytic derivative. The global phase is then
+//! the best value over the complete stationary set.
 //!
 //! The SE is the M-estimator (sandwich) delta method for the root `f'(t̂) = 0`.
 //! `f'(t) = Σ_h ω_h(−ρ_{h,1} sin ω_h t + ρ_{h,2} cos ω_h t)` is linear in `ρ`
@@ -108,7 +131,7 @@
 use super::block::BlockSparseFit;
 use crate::dual_certificate::harmonic_dual_birth_eta;
 use crate::super_resolution::{recover_spikes, separation_limit};
-use ndarray::{Array2, ArrayView2};
+use ndarray::{Array2, ArrayView2, ArrayView3};
 use std::f64::consts::TAU;
 
 /// The phase and amplitude of one firing on a coordinate (circle/harmonic)
@@ -196,30 +219,90 @@ fn uniform_phase_sd() -> f64 {
     (1.0f64 / 12.0).sqrt()
 }
 
-/// Collect one block's firings from a fit as `(row, z)` with `z` the signed
-/// within-block code lifted to f64. A genuine firing is one whose stored gate
-/// `‖z_g‖₂` is non-zero (padded routing slots carry a zero gate).
-fn collect_firings(fit: &BlockSparseFit, block: usize, b: usize) -> Vec<(usize, Vec<f64>)> {
-    let n = fit.blocks.nrows();
-    let k = fit.blocks.ncols();
+/// Collect one block's firings from a fixed-width sparse route as `(row, z)`.
+///
+/// Presence is the intrinsic `‖z_g‖₂ > 0` predicate, so callers do not need a
+/// redundant `N×s` gate matrix. This validator is shared by fit-oriented and
+/// route-oriented diagnostics; a route view never needs fabricated optimizer
+/// metadata.
+fn collect_route_firings(
+    blocks: ArrayView2<'_, u32>,
+    codes: ArrayView3<'_, f32>,
+    n_blocks: usize,
+    block: usize,
+    block_size: usize,
+) -> Result<Vec<(usize, Vec<f64>)>, String> {
+    if block_size == 0 {
+        return Err("coordinate route block_size must be >= 1".to_string());
+    }
+    let (n, width) = blocks.dim();
+    if codes.shape() != [n, width, block_size] {
+        return Err(format!(
+            "coordinate route codes shape {:?} does not match blocks {:?} and block_size {block_size}",
+            codes.shape(),
+            blocks.dim()
+        ));
+    }
+    if block >= n_blocks {
+        return Err(format!(
+            "coordinate route block {block} out of range 0..{n_blocks}"
+        ));
+    }
     let mut out = Vec::new();
     for i in 0..n {
-        for j in 0..k {
-            if fit.blocks[[i, j]] as usize != block {
+        let mut found = false;
+        for j in 0..width {
+            let routed_block = blocks[[i, j]] as usize;
+            if routed_block >= n_blocks {
+                return Err(format!(
+                    "coordinate route block index {routed_block} at row {i}, slot {j} is outside 0..{n_blocks}"
+                ));
+            }
+            let mut norm2 = 0.0_f64;
+            let mut z = Vec::with_capacity(block_size);
+            for r in 0..block_size {
+                let value = codes[[i, j, r]] as f64;
+                if !value.is_finite() {
+                    return Err(format!(
+                        "coordinate route code at row {i}, slot {j}, offset {r} is not finite"
+                    ));
+                }
+                norm2 += value * value;
+                z.push(value);
+            }
+            if routed_block != block || norm2 == 0.0 {
                 continue;
             }
-            if fit.gates[[i, j]] == 0.0 {
-                continue; // padded slot
-            }
-            let mut z = Vec::with_capacity(b);
-            for r in 0..b {
-                z.push(fit.codes[[i, j, r]] as f64);
+            if found {
+                return Err(format!(
+                    "coordinate route repeats live block {block} in row {i}"
+                ));
             }
             out.push((i, z));
-            break; // a block fires at most once per row
+            found = true;
         }
     }
-    out
+    Ok(out)
+}
+
+fn collect_firings(
+    fit: &BlockSparseFit,
+    block: usize,
+    block_size: usize,
+) -> Result<Vec<(usize, Vec<f64>)>, String> {
+    if block_size == 0 || fit.decoder.nrows() % block_size != 0 {
+        return Err(format!(
+            "coordinate fit decoder rows {} not divisible by block_size {block_size}",
+            fit.decoder.nrows()
+        ));
+    }
+    collect_route_firings(
+        fit.blocks.view(),
+        fit.codes.view(),
+        fit.decoder.nrows() / block_size,
+        block,
+        block_size,
+    )
 }
 
 /// Mean radius `r̄` and unbiased radial-scatter noise `σ̂` from the firing codes.
@@ -245,12 +328,27 @@ fn radius_and_sigma(firings: &[(usize, Vec<f64>)]) -> (f64, f64) {
 }
 
 /// Assemble the phase SE for a `b = 2` firing, clamping to the uniform ceiling in
-/// the weak-signal regime. `raw_se = σ̂/(2π‖z‖)`; a zero-norm firing yields the
-/// uniform SD (never NaN).
+/// the weak-signal regime.
+///
+/// The delta method gives `Var(θ̂) = σ_t²/a²` — the TANGENTIAL noise variance over
+/// the squared circle radius — and must be evaluated at the TRUE amplitude `a`, not
+/// the noise-inflated observed radius `‖z‖`. Under the isotropic-noise circle model
+/// `σ_t = σ` (the tangential and radial components of an isotropic Gaussian share
+/// one scale, so the radial-scatter `σ̂` also estimates the phase-relevant
+/// tangential noise), while `E[‖z‖²] = a² + 2σ²`, so the bias-corrected amplitude is
+/// `â = √max(‖z‖² − 2σ², 0)`. Plugging the observed `‖z‖` in place of `â` — as a
+/// naive `σ̂/(2π‖z‖)` does — divides by a radius the noise itself inflated, so it
+/// UNDERSTATES the phase SE in the weak-signal regime (at true `a = 0` the observed
+/// radius is Rayleigh-distributed and strictly positive, yielding a small finite SE
+/// for a phase that is in fact uniform). Evaluating at `â` makes the SE degrade
+/// honestly: as the amplitude vanishes `â → 0`, the raw SE `→ ∞` and clamps to the
+/// uniform-phase ceiling `√(1/12)`. A radius below the noise floor (`‖z‖² ≤ 2σ²`)
+/// leaves the phase unidentified → uniform SD (never NaN).
 fn phase_se_b2(sigma: f64, norm: f64) -> (f64, bool) {
     let ceiling = uniform_phase_sd();
-    let raw = if norm > 0.0 {
-        sigma / (TAU * norm)
+    let amp_sq = norm * norm - 2.0 * sigma * sigma;
+    let raw = if amp_sq > 0.0 {
+        sigma / (TAU * amp_sq.sqrt())
     } else {
         f64::INFINITY
     };
@@ -261,10 +359,11 @@ fn phase_se_b2(sigma: f64, norm: f64) -> (f64, bool) {
     }
 }
 
-/// Per-firing circle-phase coordinate standard error `σ/(2π‖z‖)`, clamped at the
-/// uniform-phase ceiling `√(1/12)` — the bare SE (no clamp flag) [`phase_se_b2`]
-/// exposes for the matched-description-length report column. `σ` is the block's
-/// radial-scatter noise scale, `norm = ‖z‖` the firing radius. A zero-norm firing
+/// Per-firing circle-phase coordinate standard error `σ/(2π·â)` at the
+/// bias-corrected amplitude `â = √max(‖z‖² − 2σ², 0)`, clamped at the uniform-phase
+/// ceiling `√(1/12)` — the bare SE (no clamp flag) [`phase_se_b2`] exposes for the
+/// matched-description-length report column. `σ` is the block's radial-scatter noise
+/// scale, `norm = ‖z‖` the firing radius. A firing at or below the noise floor
 /// returns the uniform ceiling (never NaN).
 pub(crate) fn phase_coordinate_se(sigma: f64, norm: f64) -> f64 {
     phase_se_b2(sigma, norm).0
@@ -333,20 +432,19 @@ fn separated_from_all(t: f64, accepted: &[MeasureSpikeCoordinate], min_sep: f64)
 }
 
 fn count_separated_positive_modes(z: &[f64], min_sep: f64) -> usize {
-    let h_count = z.len() / 2;
-    let grid = 4 * h_count.max(1);
+    let stationary = harmonic_stationary_points(z);
+    let derivative_scale = harmonic_derivative_scale(z);
+    let sign_tol = f64::EPSILON.sqrt() * derivative_scale;
     let mut candidates = Vec::new();
-    for idx in 0..grid {
-        let prev = (idx + grid - 1) % grid;
-        let next = (idx + 1) % grid;
-        let t = idx as f64 / grid as f64;
+    for (idx, &t) in stationary.iter().enumerate() {
+        let previous = stationary[(idx + stationary.len() - 1) % stationary.len()];
+        let next = stationary[(idx + 1) % stationary.len()];
+        let left_span = (t - previous).rem_euclid(1.0);
+        let right_span = (next - t).rem_euclid(1.0);
+        let left = (t - 0.5 * left_span).rem_euclid(1.0);
+        let right = (t + 0.5 * right_span).rem_euclid(1.0);
         let val = harmonic_f(z, t);
-        if val <= 0.0 {
-            continue;
-        }
-        if val >= harmonic_f(z, prev as f64 / grid as f64)
-            && val >= harmonic_f(z, next as f64 / grid as f64)
-        {
+        if val > 0.0 && harmonic_fp(z, left) > sign_tol && harmonic_fp(z, right) < -sign_tol {
             candidates.push((t, val));
         }
     }
@@ -449,20 +547,40 @@ pub fn block_firing_coordinates(
     fit: &BlockSparseFit,
     block: usize,
 ) -> Result<BlockCoordinateReport, String> {
-    let b = fit.block_size;
+    let block_size = fit.block_size;
+    if block_size == 0 || fit.decoder.nrows() % block_size != 0 {
+        return Err(format!(
+            "block_firing_coordinates: decoder rows {} not divisible by block_size {block_size}",
+            fit.decoder.nrows()
+        ));
+    }
+    block_route_firing_coordinates(
+        fit.blocks.view(),
+        fit.codes.view(),
+        fit.decoder.nrows() / block_size,
+        block,
+    )
+}
+
+/// Per-firing circle-coordinate readout directly from sparse block routing.
+///
+/// `blocks` is `N×s` and `codes` is `N×s×2`; implicit dictionary zeros are
+/// never expanded. `n_blocks` retains empty dictionary charts in the validated
+/// block domain without requiring a decoder or a synthetic fit object.
+pub fn block_route_firing_coordinates(
+    blocks: ArrayView2<'_, u32>,
+    codes: ArrayView3<'_, f32>,
+    n_blocks: usize,
+    block: usize,
+) -> Result<BlockCoordinateReport, String> {
+    let b = codes.shape()[2];
     if b != 2 {
         return Err(format!(
-            "block_firing_coordinates: circle readout requires block_size b = 2, got b = {b}; \
+            "block_route_firing_coordinates: circle readout requires block_size b = 2, got b = {b}; \
              use harmonic_firing_coordinates for b = 2H"
         ));
     }
-    let g_total = fit.decoder.nrows() / b;
-    if block >= g_total {
-        return Err(format!(
-            "block_firing_coordinates: block {block} out of range 0..{g_total}"
-        ));
-    }
-    let firings = collect_firings(fit, block, b);
+    let firings = collect_route_firings(blocks, codes, n_blocks, block, b)?;
     let (mean_radius, sigma_hat) = radius_and_sigma(&firings);
 
     let mut coords = Vec::with_capacity(firings.len());
@@ -529,81 +647,288 @@ fn harmonic_fpp(rho: &[f64], t: f64) -> f64 {
     acc
 }
 
-/// Locate the global maximiser of `f` on `[0,1)`: `4H`-point equispaced grid
-/// scan (degree-determined localisation), then a Newton polish on `f'(t) = 0`
-/// from the best node. Returns `(t̂, f''(t̂))`. The polish reverts to the grid
-/// node if it fails to increase `f`, so `t̂` is never worse than the grid argmax.
-fn harmonic_argmax(rho: &[f64]) -> (f64, f64) {
+fn harmonic_derivative_scale(rho: &[f64]) -> f64 {
+    rho.chunks_exact(2)
+        .enumerate()
+        .map(|(h, pair)| TAU * (h + 1) as f64 * (pair[0].abs() + pair[1].abs()))
+        .sum()
+}
+
+/// Chebyshev coefficients of the degree-`2H` stationary-point eliminant.
+///
+/// With `θ = 2πt`, split `f'(t)/(2π)` into
+/// `B(θ) - S(θ)`, where `B = Σ h b_h cos(hθ)` and
+/// `S = Σ h a_h sin(hθ)`. At `x = cos θ`, every stationary point therefore
+/// projects to a root of `R(x) = B(θ)^2 - S(θ)^2`. The product identities
+/// `cos h cos k = (T_{h+k}+T_|h-k|)/2` and
+/// `sin h sin k = (T_|h-k|-T_{h+k})/2` assemble `R` directly in the stable
+/// Chebyshev basis. Both lifts `±acos(x)` are checked later, so squaring cannot
+/// introduce a false stationary phase.
+fn stationary_eliminant(rho: &[f64]) -> Vec<f64> {
     let h_count = rho.len() / 2;
-    let grid = 4 * h_count.max(1);
-    let mut best_t = 0.0;
-    let mut best_f = f64::NEG_INFINITY;
-    for m in 0..grid {
-        let t = m as f64 / grid as f64;
-        let val = harmonic_f(rho, t);
-        if val > best_f {
-            best_f = val;
-            best_t = t;
+    let rho_scale = rho
+        .iter()
+        .fold(0.0_f64, |scale, value| scale.max(value.abs()));
+    if h_count == 0 || rho_scale == 0.0 || !rho_scale.is_finite() {
+        return vec![0.0];
+    }
+    let mut alpha = vec![0.0; h_count + 1];
+    let mut beta = vec![0.0; h_count + 1];
+    for h in 1..=h_count {
+        alpha[h] = h as f64 * (rho[2 * (h - 1)] / rho_scale);
+        beta[h] = h as f64 * (rho[2 * (h - 1) + 1] / rho_scale);
+    }
+    let mut coefficients = vec![0.0; 2 * h_count + 1];
+    for h in 1..=h_count {
+        for k in 1..=h_count {
+            let aa = alpha[h] * alpha[k];
+            let bb = beta[h] * beta[k];
+            coefficients[h + k] += 0.5 * (bb + aa);
+            coefficients[h.abs_diff(k)] += 0.5 * (bb - aa);
+        }
+    }
+    coefficients
+}
+
+fn normalize_chebyshev(mut coefficients: Vec<f64>) -> Vec<f64> {
+    let scale = coefficients
+        .iter()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    if scale == 0.0 || !scale.is_finite() {
+        return vec![0.0];
+    }
+    let rounding_floor = f64::EPSILON * (coefficients.len() * coefficients.len()) as f64 * scale;
+    while coefficients.len() > 1
+        && coefficients
+            .last()
+            .is_some_and(|value| value.abs() <= rounding_floor)
+    {
+        coefficients.pop();
+    }
+    for value in &mut coefficients {
+        *value /= scale;
+    }
+    coefficients
+}
+
+fn evaluate_chebyshev(coefficients: &[f64], x: f64) -> f64 {
+    let mut next = 0.0;
+    let mut next_next = 0.0;
+    for &coefficient in coefficients.iter().skip(1).rev() {
+        let current = coefficient + 2.0 * x * next - next_next;
+        next_next = next;
+        next = current;
+    }
+    coefficients[0] + x * next - next_next
+}
+
+fn differentiate_chebyshev(coefficients: &[f64]) -> Vec<f64> {
+    let degree = coefficients.len().saturating_sub(1);
+    if degree == 0 {
+        return vec![0.0];
+    }
+    let mut derivative = vec![0.0; degree];
+    derivative[degree - 1] = 2.0 * degree as f64 * coefficients[degree];
+    if degree >= 2 {
+        derivative[degree - 2] = 2.0 * (degree - 1) as f64 * coefficients[degree - 1];
+        for k in (0..degree - 2).rev() {
+            derivative[k] = derivative[k + 2] + 2.0 * (k + 1) as f64 * coefficients[k + 1];
+        }
+    }
+    derivative[0] *= 0.5;
+    normalize_chebyshev(derivative)
+}
+
+fn chebyshev_zero_tolerance(coefficients: &[f64]) -> f64 {
+    f64::EPSILON.sqrt() * coefficients.iter().map(|value| value.abs()).sum::<f64>()
+}
+
+fn push_distinct_root(roots: &mut Vec<f64>, root: f64) {
+    let merge_tol = f64::EPSILON.sqrt();
+    if !roots
+        .iter()
+        .any(|existing| (existing - root).abs() <= merge_tol)
+    {
+        roots.push(root.clamp(-1.0, 1.0));
+    }
+}
+
+fn bisect_chebyshev_root(coefficients: &[f64], mut left: f64, mut right: f64) -> f64 {
+    let mut left_value = evaluate_chebyshev(coefficients, left);
+    loop {
+        let middle = left + 0.5 * (right - left);
+        if middle == left || middle == right {
+            break;
+        }
+        let middle_value = evaluate_chebyshev(coefficients, middle);
+        if middle_value == 0.0 {
+            return middle;
+        }
+        if left_value.is_sign_negative() != middle_value.is_sign_negative() {
+            right = middle;
+        } else {
+            left = middle;
+            left_value = middle_value;
+        }
+    }
+    if evaluate_chebyshev(coefficients, left).abs() <= evaluate_chebyshev(coefficients, right).abs()
+    {
+        left
+    } else {
+        right
+    }
+}
+
+/// Isolate every real root of a Chebyshev polynomial on `[-1,1]`.
+///
+/// Roots of the derivative partition the interval into monotone pieces, so each
+/// sign-changing piece contains exactly one simple root and bisection is fully
+/// safeguarded. Testing the derivative roots themselves retains even-multiplicity
+/// (tangential) roots that a sign-change scan would miss.
+fn chebyshev_roots_unit_interval(coefficients: Vec<f64>) -> Vec<f64> {
+    let coefficients = normalize_chebyshev(coefficients);
+    let degree = coefficients.len() - 1;
+    if degree == 0 {
+        return Vec::new();
+    }
+    if degree == 1 {
+        let root = -coefficients[0] / coefficients[1];
+        return if (-1.0..=1.0).contains(&root) {
+            vec![root]
+        } else {
+            Vec::new()
+        };
+    }
+
+    let critical = chebyshev_roots_unit_interval(differentiate_chebyshev(&coefficients));
+    let tolerance = chebyshev_zero_tolerance(&coefficients);
+    let mut roots = Vec::new();
+    for &candidate in critical.iter().chain([-1.0, 1.0].iter()) {
+        if evaluate_chebyshev(&coefficients, candidate).abs() <= tolerance {
+            push_distinct_root(&mut roots, candidate);
         }
     }
 
-    // Newton polish on f'(t) = 0 from the best grid node. The step tolerance is
-    // derived from f64 machine epsilon (Newton doubles correct digits each step,
-    // so √eps reaches full precision); the iteration cap is a non-convergence
-    // safety bound (a genuine peak converges in a handful of steps), not a tuned
-    // budget — a flat/failed polish falls back to the grid node below.
-    let tol = f64::EPSILON.sqrt();
-    let iter_cap = 64;
-    let mut t = best_t;
-    let mut converged = false;
-    for _ in 0..iter_cap {
-        let fpp = harmonic_fpp(rho, t);
-        if fpp.abs() <= f64::MIN_POSITIVE {
-            break;
-        }
-        let step = harmonic_fp(rho, t) / fpp;
-        t -= step;
-        if step.abs() <= tol * (1.0 + t.abs()) {
-            converged = true;
-            break;
+    let mut boundaries = Vec::with_capacity(critical.len() + 2);
+    boundaries.push(-1.0);
+    boundaries.extend(critical.iter().copied());
+    boundaries.push(1.0);
+    boundaries.sort_by(f64::total_cmp);
+    for interval in boundaries.windows(2) {
+        let left = interval[0];
+        let right = interval[1];
+        let left_value = evaluate_chebyshev(&coefficients, left);
+        let right_value = evaluate_chebyshev(&coefficients, right);
+        if left_value.abs() > tolerance
+            && right_value.abs() > tolerance
+            && left_value.is_sign_negative() != right_value.is_sign_negative()
+        {
+            push_distinct_root(
+                &mut roots,
+                bisect_chebyshev_root(&coefficients, left, right),
+            );
         }
     }
-    let t_polished = t.rem_euclid(1.0);
-    let (t_hat, fpp) = if converged && harmonic_f(rho, t_polished) >= best_f {
-        (t_polished, harmonic_fpp(rho, t_polished))
-    } else {
-        (best_t, harmonic_fpp(rho, best_t))
+    roots.sort_by(f64::total_cmp);
+    roots
+}
+
+fn push_distinct_phase(phases: &mut Vec<f64>, phase: f64) {
+    let phase = phase.rem_euclid(1.0);
+    let merge_tol = f64::EPSILON.sqrt();
+    if !phases
+        .iter()
+        .any(|existing| circle_dist(*existing, phase) <= merge_tol)
+    {
+        phases.push(phase);
+    }
+}
+
+fn harmonic_stationary_points(rho: &[f64]) -> Vec<f64> {
+    let derivative_scale = harmonic_derivative_scale(rho);
+    if derivative_scale == 0.0 || !derivative_scale.is_finite() {
+        return Vec::new();
+    }
+    let residual_tol = f64::EPSILON.sqrt() * derivative_scale;
+    let projected = chebyshev_roots_unit_interval(stationary_eliminant(rho));
+    let mut phases = Vec::with_capacity(2 * projected.len());
+    for x in projected {
+        let theta = x.clamp(-1.0, 1.0).acos();
+        for lifted in [theta / TAU, (-theta) / TAU] {
+            let phase = lifted.rem_euclid(1.0);
+            if harmonic_fp(rho, phase).abs() <= residual_tol {
+                push_distinct_phase(&mut phases, phase);
+            }
+        }
+    }
+    phases.sort_by(f64::total_cmp);
+    phases
+}
+
+/// Locate the global maximiser of `f` on `[0,1)` by evaluating the complete
+/// stationary set of its degree-`H` trigonometric polynomial. Returns
+/// `(t̂, f''(t̂))`; ties choose the smallest phase deterministically.
+fn harmonic_argmax(rho: &[f64]) -> (f64, f64) {
+    let stationary = harmonic_stationary_points(rho);
+    let Some(&first) = stationary.first() else {
+        return (0.0, harmonic_fpp(rho, 0.0));
     };
-    (t_hat, fpp)
+    let mut best_t = first;
+    let mut best_value = harmonic_f(rho, first);
+    for &candidate in stationary.iter().skip(1) {
+        let value = harmonic_f(rho, candidate);
+        if value > best_value || (value == best_value && candidate < best_t) {
+            best_t = candidate;
+            best_value = value;
+        }
+    }
+    (best_t, harmonic_fpp(rho, best_t))
 }
 
 /// Per-firing coordinate readout for a harmonic block (`b = 2H`, `H ≥ 1`): the
-/// phase `t̂` maximising the trig matched filter `Σ_h ρ_h·u_h(t)` via a
-/// `4H`-grid scan plus Newton polish, with the delta-method SE
+/// phase `t̂` maximising the trig matched filter `Σ_h ρ_h·u_h(t)` over all
+/// analytically isolated stationary roots, with the delta-method SE
 /// `√(σ̂² Σ_h ω_h²)/|f''(t̂)|`. Amplitude is `‖z‖` with SE `≈ σ̂`. See the module
 /// doc for the derivation; `H = 1` reproduces [`block_firing_coordinates`].
 pub fn harmonic_firing_coordinates(
     fit: &BlockSparseFit,
     block: usize,
 ) -> Result<BlockCoordinateReport, String> {
-    let b = fit.block_size;
-    if b < 2 || b % 2 != 0 {
+    let block_size = fit.block_size;
+    if block_size == 0 || fit.decoder.nrows() % block_size != 0 {
         return Err(format!(
-            "harmonic_firing_coordinates: harmonic readout requires block_size b = 2H (even, \
-             ≥ 2), got b = {b}"
+            "harmonic_firing_coordinates: decoder rows {} not divisible by block_size {block_size}",
+            fit.decoder.nrows()
         ));
     }
-    let g_total = fit.decoder.nrows() / b;
-    if block >= g_total {
+    harmonic_route_firing_coordinates(
+        fit.blocks.view(),
+        fit.codes.view(),
+        fit.decoder.nrows() / block_size,
+        block,
+    )
+}
+
+/// Harmonic coordinate readout directly from `blocks[N,s]` /
+/// `codes[N,s,b]` sparse routing, without constructing a fit result.
+pub fn harmonic_route_firing_coordinates(
+    blocks: ArrayView2<'_, u32>,
+    codes: ArrayView3<'_, f32>,
+    n_blocks: usize,
+    block: usize,
+) -> Result<BlockCoordinateReport, String> {
+    let b = codes.shape()[2];
+    if b < 2 || b % 2 != 0 {
         return Err(format!(
-            "harmonic_firing_coordinates: block {block} out of range 0..{g_total}"
+            "harmonic_route_firing_coordinates: harmonic readout requires block_size b = 2H (even, \
+             ≥ 2), got b = {b}"
         ));
     }
     let h_count = b / 2;
     // Σ_h ω_h² with ω_h = 2π h.
     let omega_sq_sum: f64 = (1..=h_count).map(|h| TAU * h as f64).map(|w| w * w).sum();
 
-    let firings = collect_firings(fit, block, b);
+    let firings = collect_route_firings(blocks, codes, n_blocks, block, b)?;
     let (mean_radius, sigma_hat) = radius_and_sigma(&firings);
     let ceiling = uniform_phase_sd();
 
@@ -666,7 +991,7 @@ pub fn harmonic_measure_coordinates(
         ));
     }
 
-    let firings = collect_firings(fit, block, b);
+    let firings = collect_firings(fit, block, b)?;
     let (mean_radius, sigma_hat) = radius_and_sigma(&firings);
     let mut measures = Vec::with_capacity(firings.len());
     for (row, z) in &firings {
@@ -773,7 +1098,7 @@ pub fn reconstruct_single_coordinate_rows(fit: &BlockSparseFit) -> Result<Array2
     }
     let mut measures = Vec::new();
     for block in 0..fit.decoder.nrows() / b {
-        for (row, z) in collect_firings(fit, block, b) {
+        for (row, z) in collect_firings(fit, block, b)? {
             let (spike, residual, residual_norm) = single_harmonic_spike(&z, 0.0);
             assert_eq!(residual.len(), b);
             assert!(residual_norm.is_finite());
@@ -854,6 +1179,73 @@ mod tests {
         d.min(1.0 - d)
     }
 
+    #[test]
+    fn stationary_root_argmax_beats_the_old_lattice_basin() {
+        // This degree-two profile's best 4H lattice node lies in the WRONG
+        // local maximum's basin. Complete stationary-root enumeration must find
+        // the true global phase near 0.07078, not the old answer near 0.47780.
+        let rho = [
+            -0.2203432413122001,
+            1.7750647300698044,
+            1.4778082357960907,
+            0.4751086996188798,
+        ];
+        let expected = 0.07077957313295;
+        let (phase, curvature) = harmonic_argmax(&rho);
+        assert!(
+            circ_err(phase, expected) <= f64::EPSILON.sqrt(),
+            "stationary-root global phase {phase} missed {expected}"
+        );
+        assert!(curvature < 0.0);
+        assert!(
+            harmonic_f(&rho, phase) > 1.86,
+            "selected local rather than global maximum"
+        );
+    }
+
+    #[test]
+    fn stationary_roots_include_tangencies_and_circle_seam() {
+        // f'(t)/(2π) = cos(2πt) - cos(4πt): t=0 is a repeated stationary root,
+        // invisible to derivative-sign bracketing alone.
+        let tangent = [0.0, 1.0, 0.0, -0.5];
+        let roots = harmonic_stationary_points(&tangent);
+        for expected in [0.0, 1.0 / 3.0, 2.0 / 3.0] {
+            assert!(
+                roots
+                    .iter()
+                    .any(|&root| circ_err(root, expected) <= f64::EPSILON.sqrt()),
+                "missing stationary root {expected}; got {roots:?}"
+            );
+        }
+
+        // The maximum of -cos(2πt) is exactly opposite the t=0 seam.
+        let seam = [-1.0, 0.0];
+        let (phase, curvature) = harmonic_argmax(&seam);
+        assert!(circ_err(phase, 0.5) <= f64::EPSILON.sqrt());
+        assert!(curvature < 0.0);
+
+        let zero = [0.0, 0.0, 0.0, 0.0];
+        assert_eq!(harmonic_argmax(&zero), (0.0, 0.0));
+    }
+
+    #[test]
+    fn exact_mode_positions_prevent_grid_snapping_separation_error() {
+        // The two positive maxima are 0.453 apart, below the production
+        // separation limit 2/H = 0.5. The former 4H lattice snapped them to
+        // 0.25 and 0.75 (exactly 0.5 apart) and falsely counted two modes.
+        let rho = [
+            -0.19136859058260647,
+            0.5744053053825253,
+            -0.8795719735057727,
+            -0.16915833401458946,
+            0.1636929927729193,
+            -0.03509594833820036,
+            0.05717764914618254,
+            -0.1065206988264421,
+        ];
+        assert_eq!(count_separated_positive_modes(&rho, separation_limit(4)), 1);
+    }
+
     /// Wrap planted `(row, code)` firings on a single block into a minimal
     /// `BlockSparseFit`. Only the fields the coordinate readout touches
     /// (`decoder` nrows for the block-count guard, `blocks`, `gates`, `codes`,
@@ -887,7 +1279,7 @@ mod tests {
             matryoshka_prefix_losses: Vec::new(),
             explained_variance: 1.0,
             epochs: 1,
-            converged: true,
+            convergence: crate::sparse_dict::BlockSparseConvergence::trivially_converged(),
             block_topk: 1,
             block_size: b,
         }

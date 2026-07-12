@@ -2,33 +2,8 @@
 
 use super::*;
 
-/// Pinned log-λ on the marginal/logslope `DoublePenaltyNullspace` slots — the
-/// numerical-identifiability floor REML cannot lower (gam#979). `λ = e^0 = 1` on
-/// the unit-Frobenius ZZᵀ block. Measured effect: this floor cut the n=3000
-/// survival marginal-slope fit ~2.3× (1976s → 851s), so it does relieve the
-/// #1082 deadlock — but a residual bottleneck remains under investigation
-/// (diagnostics logged below).
-const NULLSPACE_IDENTIFIABILITY_FLOOR_LOG_LAMBDA: f64 = 0.0;
-
-/// Byte budget for dense materialization of a survival design during the gam#979 preflight λ_max read.
+/// Per-matrix byte budget for the construction-time identifiability preflight.
 const PREFLIGHT_MATERIALIZATION_BUDGET_BYTES: usize = 256 * 1024 * 1024;
-
-/// Estimate `λ_max(XᵀX)` for a surface design — a setup-time read on the raw
-/// (un-whitened, un-penalized) curvature scale of the surface, logged as a
-/// gam#979 diagnostic to compare against the inner solver's whitened λ_max.
-/// Returns `None` when the design is empty or the Gram spectrum is not finite.
-fn surface_gram_lambda_max(design: &DesignMatrix, label: &str) -> Option<f64> {
-    let dense = design
-        .try_to_dense_by_chunks_budgeted(label, PREFLIGHT_MATERIALIZATION_BUDGET_BYTES)
-        .ok()?;
-    if dense.ncols() == 0 || dense.nrows() == 0 {
-        return None;
-    }
-    let gram = dense.t().dot(&dense);
-    gam_linalg::utils::symmetric_extremes(&gram)
-        .map(|(_lambda_min, lambda_max)| lambda_max)
-        .filter(|v| v.is_finite() && *v > 0.0)
-}
 
 pub fn fit_survival_marginal_slope_terms(
     data: ArrayView2<'_, f64>,
@@ -671,10 +646,12 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
     }
     // Penalty seeds for the flex/aux blocks beyond the core (time/marginal/
     // logslope). The absorbed influence block (#461) contributes ONE trailing
-    // fixed-ridge penalty whose log-λ is pinned (not REML-learned); its flat
-    // rho index is recorded in `pinned_rho_slots` so `joint_setup` clamps it to
-    // a degenerate box.
-    let mut pinned_rho_slots: Vec<(usize, f64)> = Vec::new();
+    // REML-learned identity penalty on γ: the outer optimizer selects the
+    // absorber precision like any other random-effect variance, seeded at the
+    // ln(n) leakage scale (SPEC: shrinkage is explicit or REML-selected, never
+    // a pinned magic constant). The absorber columns are residualized against
+    // the marginal span, so a small learned λ cannot absorb genuine β(x)
+    // signal; a large learned λ recovers the null correction.
     let extra_rho0 = {
         let mut out = Vec::new();
         if let Some(ref prepared) = score_warp_prepared {
@@ -684,89 +661,15 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
             out.extend(std::iter::repeat_n(0.0, prepared.block.penalties.len()));
         }
         if influence_absorber_residualized.is_some() {
-            let core_len = time_penalties_len
-                + marginal_design.penalties.len()
-                + logslope_design.penalties.len();
-            // The absorber's single fixed ridge sits at the trailing extra slot.
-            pinned_rho_slots.push((
-                core_len + out.len(),
-                crate::marginal_slope_orthogonal::INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA,
-            ));
+            // The absorber's single learned ridge sits at the trailing extra
+            // slot; the seed is clamped into the outer ρ box.
             out.push(
-                crate::marginal_slope_orthogonal::INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA,
+                crate::marginal_slope_orthogonal::influence_absorber_log_lambda(n)
+                    .clamp(-12.0, 12.0),
             );
         }
         out
     };
-    // gam#979: pin the null-space identifiability floor on the marginal +
-    // logslope surfaces. `enable_surface_identifiability_double_penalty` makes
-    // the builder emit a Frobenius-normalized ZZᵀ ridge on each surface's
-    // polynomial-trend null space, but that ridge's REML-selected λ is driven
-    // low whenever the trend carries real signal (REML will not shrink a used
-    // direction) — leaving the trend flat, which re-forms the large-signal /
-    // tiny-curvature mode the inner joint-Newton deadlocks on (the spectral
-    // step drops it as near-null gauge #1082 while the certificate requires it
-    // #1449, so the solve neither progresses nor certifies and grinds to the
-    // cycle cap: the measured n=3000 hang). Pinning the null-space λ to a fixed
-    // conditioning floor — REML cannot lower it, via the same degenerate-box
-    // `pinned_rho_slots` path the #461 influence absorber uses — guarantees the
-    // trend direction always carries curvature, so cond(H_pen) stays bounded
-    // and no cond>1e10 gauge mode can form. This is a numerical-identifiability
-    // floor (a prior toward no effect), not a learned surface: the ZZᵀ block is
-    // unit-Frobenius normalised, so λ = e^0 = 1 gives the trend O(1) curvature —
-    // ample to hold cond ≤ ~λ_max ≈ 1e6 (≪ 1/√eps) at the penalty-dominated
-    // operating point, yet far too mild to bias a genuinely data-identified
-    // trend (whose own data curvature dominates 1). Statistical shrinkage of the
-    // trend beyond the floor still runs through the surface's primary
-    // wiggliness penalty.
-    {
-        use gam_terms::basis::PenaltySource;
-        let floor_log_lambda = NULLSPACE_IDENTIFIABILITY_FLOOR_LOG_LAMBDA;
-        let marginal_offset = time_penalties_len;
-        let mut pinned_marginal = 0usize;
-        let mut pinned_slots: Vec<usize> = Vec::new();
-        for info in marginal_design.penaltyinfo.iter() {
-            if matches!(info.penalty.source, PenaltySource::DoublePenaltyNullspace) {
-                let slot = marginal_offset + info.global_index;
-                pinned_rho_slots.push((slot, floor_log_lambda));
-                pinned_slots.push(slot);
-                pinned_marginal += 1;
-            }
-        }
-        let logslope_offset = time_penalties_len + marginal_design.penalties.len();
-        let mut pinned_logslope = 0usize;
-        for info in logslope_design.penaltyinfo.iter() {
-            if matches!(info.penalty.source, PenaltySource::DoublePenaltyNullspace) {
-                let slot = logslope_offset + info.global_index;
-                pinned_rho_slots.push((slot, floor_log_lambda));
-                pinned_slots.push(slot);
-                pinned_logslope += 1;
-            }
-        }
-        // gam#979 diagnostic: confirm the null-space floor actually fires (how
-        // many slots on each surface, at which ρ indices, and the pinned log-λ),
-        // and report the raw surface curvature scale (design-Gram λ_max) as a
-        // reference point for the inner solver's whitened λ_max. Surfaced at INFO
-        // so the failing Python-API n=3000 test prints it, disambiguating "pin
-        // not firing" from "floor too low for the true λ_max" from "a residual
-        // bottleneck unrelated to the null-space deadlock".
-        let marginal_gram_lmax =
-            surface_gram_lambda_max(&marginal_design.design, "smgs #979 marginal gram")
-                .unwrap_or(f64::NAN);
-        let logslope_gram_lmax =
-            surface_gram_lambda_max(&logslope_design.design, "smgs #979 logslope gram")
-                .unwrap_or(f64::NAN);
-        log::info!(
-            "[survival-marginal-slope] gam#979 null-space floor fired: pinned {} slots ({} marginal + {} logslope) at log_lambda={:.3} slots={:?} | design-Gram λ_max marginal={:.3e} logslope={:.3e} (raw, un-whitened)",
-            pinned_slots.len(),
-            pinned_marginal,
-            pinned_logslope,
-            floor_log_lambda,
-            pinned_slots,
-            marginal_gram_lmax,
-            logslope_gram_lmax,
-        );
-    }
     let core_rho0_seed: Vec<f64> = {
         let mut seeds = Vec::with_capacity(
             time_penalties_len + marginal_design.penalties.len() + logslope_design.penalties.len(),
@@ -806,7 +709,6 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
         logslope_design.penalties.len(),
         &core_rho0_seed,
         &extra_rho0,
-        &pinned_rho_slots,
         initial_sigma,
         kappa_options_effective,
     );
@@ -1342,12 +1244,13 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                                         survival_block_diagonal_logslope_map,
                                         survival_reduced_logslope_transform_effective,
                                     };
+                                    use crate::bms::block_specs::ReducedLogslopeOutcome;
                                     match survival_reduced_logslope_transform_effective(
                                         m_dq.view(),
                                         g_dg.view(),
                                         &row_hess,
                                     ) {
-                                        Ok(Some(t_log)) => {
+                                        Ok(ReducedLogslopeOutcome::Reduced(t_log)) => {
                                             let wl = t_log.ncols();
                                             let bd_map = survival_block_diagonal_logslope_map(
                                                 p_time, p_marg, &t_log,
@@ -1364,11 +1267,26 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                                             );
                                             return Ok(Some((bd_map, (p_time, p_marg, wl), true)));
                                         }
-                                        Ok(None) => {
-                                            // r == p_log (no effective confound to
-                                            // remove) or r == 0 (whole logslope image
-                                            // in the marginal span). Fall through to
-                                            // the measured-phantom gate below.
+                                        Ok(ReducedLogslopeOutcome::FullRank) => {
+                                            // No effective confound to remove; fall
+                                            // through to the measured-phantom gate.
+                                        }
+                                        Ok(ReducedLogslopeOutcome::FullyConfounded) => {
+                                            // The ENTIRE effective logslope image is
+                                            // W-explained by the marginal span — the
+                                            // block is unidentified (#2245 finding 45
+                                            // sibling). Deleting the whole channel is
+                                            // the deliberate handling here: the gate
+                                            // below performs exactly that projection,
+                                            // now reached explicitly rather than via a
+                                            // signal shared with the full-rank case.
+                                            log::info!(
+                                                "[smgs phase-4b compiled-map] #979: the effective \
+                                                 Schur Gram keeps 0/{p_log} logslope directions — \
+                                                 the block is fully confounded with the marginal \
+                                                 surface; deferring to the measured-phantom gate \
+                                                 to delete the unidentified channel",
+                                            );
                                         }
                                         Err(reason) => {
                                             log::warn!(
@@ -1549,9 +1467,7 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                             .time_block
                             .penalties
                             .iter()
-                            .map(|p| {
-                                gam_terms::smooth::BlockwisePenalty::new(0..p_time, p.clone())
-                            })
+                            .map(|p| gam_terms::smooth::BlockwisePenalty::new(0..p_time, p.clone()))
                             .collect();
                         let applied: CompiledSurvivalDesignsVMExact =
                             apply_compiled_map_to_designs(
@@ -1909,8 +1825,8 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
         )?;
         // Absorbed Stage-1 influence block (#461): a trailing additive block whose
         // design is the residualized leakage columns `Z̃_infl` and whose single
-        // fixed-ridge penalty `½·ρ·‖γ‖²` is pinned out of REML (the rho slot is
-        // clamped to `INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA` by `joint_setup`). Its
+        // identity penalty `½·λ·‖γ‖²` is REML-learned from the trailing rho slot
+        // (seeded at `influence_absorber_log_lambda(n)`). Its
         // gauge priority (130) sits strictly between marginal (150) and logslope
         // (120): the residualization already removes the marginal-aligned
         // component, and the 130 tier makes the canonical-gauge RRQR demote the
@@ -1918,7 +1834,7 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
         // discrete realization of `ψ − Π_η[ψ]`. Dropped at predict.
         if let Some(z_tilde) = influence_active {
             let p_i = z_tilde.ncols();
-            // The absorber's single fixed-ridge penalty is the trailing rho slot.
+            // The absorber's single learned ridge is the trailing rho slot.
             // It is the last block, so `cursor` is not advanced past it (nothing
             // downstream consumes a further slice).
             let rho_i = rho.slice(s![cursor..cursor + 1]).to_owned();
@@ -2118,7 +2034,7 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                 // when its cycle budget is exhausted without convergence; the
                 // matching outer-side contract is `nonconverged_outer_eval_result`
                 // (custom_family.rs:5993), which surfaces zero gradient and
-                // HessianResult::Unavailable so the optimizer backs off. A
+                // HessianValue::Unavailable so the optimizer backs off. A
                 // partial pilot β can still be far from the cold-start optimum
                 // (the warning literally exists to signal that), so seeding
                 // the real outer optimizer with it can drag the first true
@@ -2410,7 +2326,7 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                 "[survival-marginal-slope/outer-inner-fit] end elapsed={:.3}s inner_cycles={} pirls_status={:?}",
                 eval_started.elapsed().as_secs_f64(),
                 fit.inner_cycles,
-                fit.pirls_status,
+                fit.convergence_evidence().inner_status(),
             );
             Ok(fit)
         },
@@ -2592,47 +2508,11 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
         }
     };
     log::info!(
-        "[survival-marginal-slope/outer] solve end n={n} elapsed={:.3}s outer_iters={} inner_cycles={} outer_converged={}",
+        "[survival-marginal-slope/outer] solve end n={n} elapsed={:.3}s outer_iters={} inner_cycles={} certified",
         fit_started.elapsed().as_secs_f64(),
         solved.fit.outer_iterations,
         solved.fit.inner_cycles,
-        solved.fit.outer_converged,
     );
-    // Never-fail outer escalation (#808), mirroring the bernoulli/custom-family
-    // path (`fit_custom_family`, src/families/custom_family.rs): when the outer
-    // smoothing optimizer cannot CERTIFY convergence we do NOT hard-error.
-    // Erroring here turned a (recoverable) outer stall on clustered-PC designs
-    // into a FATAL `IntegrationFailed`, killing the whole fit. The bernoulli
-    // path instead surfaces the non-convergence as a status flag and returns the
-    // best-iterate fit (a usable, posterior-conditional model) so a stalled
-    // landscape degrades gracefully rather than crashing.
-    //
-    // `solved.fit` is the best iterate the outer solve reached: `inner_fit`
-    // produced a full `UnifiedFitResult` (finite β + conditional covariance) at
-    // the terminating ρ. Its `outer_converged == false` propagates downstream to
-    // `PirlsStatus::StalledAtValidMinimum` (src/terms/smooth.rs), the SAME
-    // non-silent diagnostic flag every other family uses — so the caller can see
-    // the fit did not certify convergence (it is NOT reported as a clean
-    // success). This is containment for the underlying time/baseline↔η₁ alias
-    // stall, not a root-cause fix: the returned model is the reached mode, which
-    // on a genuinely stalled solve may be biased; the status flag is the honest
-    // signal of that. Kept MarginalSlope-survival-specific (the AFT
-    // location-scale family lives in survival_location_scale.rs and is
-    // untouched).
-    if !solved.fit.outer_converged {
-        log::warn!(
-            "[robust][smgs] survival marginal-slope outer smoothing did not certify \
-             convergence (iterations={} final_objective={:.6e} |g|_inf={:?}); \
-             AUTO-ESCALATE to graceful degradation: returning the best-iterate fit \
-             with PirlsStatus::StalledAtValidMinimum (outer_converged=false) instead \
-             of erroring. The reached mode may be biased; the status flag is the \
-             honest non-convergence signal (#808).",
-            solved.fit.outer_iterations,
-            solved.fit.reml_score,
-            solved.fit.outer_gradient_norm,
-        );
-    }
-
     // Recompile-after-first-PIRLS-accept refinement (math-agent review).
     //
     // The initial cutover compile used a structural identity row Hessian,
@@ -2776,7 +2656,11 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                     drops_post.0,
                     drops_post.1,
                     drops_post.2,
-                    if confound_persists { "still" } else { "no longer" },
+                    if confound_persists {
+                        "still"
+                    } else {
+                        "no longer"
+                    },
                     recompile_started.elapsed().as_secs_f64(),
                 );
             }

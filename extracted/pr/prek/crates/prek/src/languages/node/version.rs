@@ -55,15 +55,6 @@ pub(crate) struct NodeVersion {
     pub lts: Lts,
 }
 
-impl Default for NodeVersion {
-    fn default() -> Self {
-        NodeVersion {
-            version: semver::Version::new(0, 0, 0),
-            lts: Lts::NotLts,
-        }
-    }
-}
-
 impl<'de> Deserialize<'de> for NodeVersion {
     fn deserialize<D>(deserializer: D) -> anyhow::Result<NodeVersion, D::Error>
     where
@@ -240,7 +231,6 @@ mod tests {
     use super::{EXTRA_KEY_LTS, NodeRequest};
     use crate::config::Language;
     use crate::hook::InstallInfo;
-    use rustc_hash::FxHashSet;
     use std::path::PathBuf;
     use std::str::FromStr;
 
@@ -294,7 +284,7 @@ mod tests {
     fn test_node_request_satisfied_by() -> anyhow::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let mut install_info =
-            InstallInfo::new(Language::Node, FxHashSet::default(), temp_dir.path())?;
+            InstallInfo::create(Language::Node, None, Vec::new(), temp_dir.path())?;
         install_info
             .with_language_version(semver::Version::new(12, 18, 3))
             .with_toolchain(PathBuf::from("/usr/bin/node"))

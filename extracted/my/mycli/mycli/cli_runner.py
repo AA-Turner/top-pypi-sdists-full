@@ -9,18 +9,39 @@ from urllib.parse import parse_qs, unquote, urlparse
 import click
 
 from mycli.config import str_to_bool
-from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL, ISSUES_URL
+from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL
 from mycli.main_modes.batch import main_batch_from_stdin, main_batch_with_progress_bar, main_batch_without_progress_bar
 from mycli.main_modes.checkup import main_checkup
 from mycli.main_modes.execute import main_execute_from_cli
 from mycli.main_modes.list_dsn import main_list_dsn
 from mycli.packages.cli_utils import is_valid_connection_scheme
+from mycli.vault import (
+    DEFAULT_VAULT_EXECUTABLE,
+    DEFAULT_VAULT_PASSWORD_FIELD,
+    DEFAULT_VAULT_USERNAME_FIELD,
+    VaultError,
+    get_field_from_vault,
+)
 
 if TYPE_CHECKING:
     from mycli.main import CliArgs
 
 ClientFactory = Callable[..., Any]
 ENV_VAR_PATTERN = re.compile(r'^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$')
+KNOWN_DSN_QUERY_PARAMS = {
+    'character_set',
+    'keepalive_ticks',
+    'socket',
+    'ssh_jump',
+    'ssl_ca',
+    'ssl_capath',
+    'ssl_cert',
+    'ssl_cipher',
+    'ssl_key',
+    'ssl_mode',
+    'ssl_verify_server_cert',
+    'tls_version',
+}
 
 
 class DsnAliasEnvVarError(ValueError):
@@ -79,7 +100,10 @@ def expand_dsn_alias_env_vars(
     except ValueError as exc:
         raise DsnAliasEnvVarError(f'Port in DSN alias {alias_name} must be an integer.') from exc
 
-    params = {key: [expand_dsn_alias_env_var(value, alias_name) or '' for value in values] for key, values in parse_qs(uri.query).items()}
+    params = {
+        key: [expand_dsn_alias_env_var(value, alias_name) or '' for value in values]
+        for key, values in parse_qs(uri.query, keep_blank_values=True).items()
+    }
 
     return (
         expand_dsn_alias_env_var(unquote(username) if username is not None else None, alias_name),
@@ -200,7 +224,7 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
             dsn_host = uri.hostname
             dsn_port = uri.port
             dsn_database = uri.path[1:]
-            dsn_params = parse_qs(uri.query) if uri.query else {}
+            dsn_params = parse_qs(uri.query, keep_blank_values=True) if uri.query else {}
 
         if not database:
             database = dsn_database
@@ -214,16 +238,13 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
         if not cli_args.port:
             cli_args.port = dsn_port
 
-        if params := dsn_params.get('ssl'):
+        if unknown_dsn_params := sorted(set(dsn_params) - KNOWN_DSN_QUERY_PARAMS):
             click.secho(
-                'Warning: The "ssl" DSN URI parameter is deprecated and will be removed in a future release. '
-                'Please use the "ssl_mode" parameter instead. '
-                f'See issue {ISSUES_URL}/1507',
+                f'Warning: Ignored unknown DSN URI query parameters: {", ".join(unknown_dsn_params)}.',
                 err=True,
                 fg='yellow',
             )
-            if params[0].lower() == 'true':
-                cli_args.ssl_mode = 'on'
+
         if params := dsn_params.get('ssl_mode'):
             cli_args.ssl_mode = cli_args.ssl_mode or params[0]
         if params := dsn_params.get('ssl_ca'):
@@ -254,6 +275,8 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
                 cli_args.keepalive_ticks = int(params[0])
         if params := dsn_params.get('character_set'):
             cli_args.character_set = cli_args.character_set or params[0]
+        if params := dsn_params.get('ssh_jump'):
+            cli_args.ssh_jump = cli_args.ssh_jump or params[0]
 
     keepalive_ticks = cli_args.keepalive_ticks if cli_args.keepalive_ticks is not None else mycli.default_keepalive_ticks
     ssl_mode = cli_args.ssl_mode or mycli.ssl_mode
@@ -326,11 +349,51 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
         use_keyring = str_to_bool(cli_args.use_keyring)
         reset_keyring = False
 
+    if cli_args.password is None and cli_args.vault_secret:
+        vault_config = mycli.config.get('vault_beta', {})
+        vault_address = cli_args.vault_address or os.environ.get('VAULT_ADDR') or vault_config.get('address') or None
+        vault_mount = cli_args.vault_mount or vault_config.get('default_mount') or None
+        vault_field = cli_args.vault_password_field or vault_config.get('default_password_field') or DEFAULT_VAULT_PASSWORD_FIELD
+        vault_executable = vault_config.get('vault_executable') or DEFAULT_VAULT_EXECUTABLE
+        try:
+            vault_password: str | None = get_field_from_vault(
+                vault_field,
+                cli_args.vault_secret,
+                executable=vault_executable,
+                mount=vault_mount,
+                address=vault_address,
+            )
+        except VaultError as exc:
+            click.secho(f'Error reading password from Vault: {exc}', err=True, fg='red')
+            sys.exit(1)
+    else:
+        vault_password = None
+
+    if cli_args.user is None and cli_args.vault_secret:
+        vault_config = mycli.config.get('vault_beta', {})
+        vault_address = cli_args.vault_address or os.environ.get('VAULT_ADDR') or vault_config.get('address') or None
+        vault_mount = cli_args.vault_mount or vault_config.get('default_mount') or None
+        vault_field = cli_args.vault_username_field or vault_config.get('default_username_field') or DEFAULT_VAULT_USERNAME_FIELD
+        vault_executable = vault_config.get('vault_executable') or DEFAULT_VAULT_EXECUTABLE
+        try:
+            vault_username = get_field_from_vault(
+                vault_field,
+                cli_args.vault_secret,
+                executable=vault_executable,
+                mount=vault_mount,
+                address=vault_address,
+            )
+        except VaultError as exc:
+            click.secho(f'Error reading username from Vault: {exc}', err=True, fg='red')
+            sys.exit(1)
+    else:
+        vault_username = None
+
     try:
         mycli.connect(
             database=database,
-            user=cli_args.user,
-            passwd=cli_args.password,
+            user=vault_username if cli_args.user is None else cli_args.user,
+            passwd=vault_password if cli_args.password is None else cli_args.password,
             host=cli_args.host,
             port=cli_args.port,
             socket=cli_args.socket,
@@ -343,6 +406,7 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
             reset_keyring=reset_keyring,
             keepalive_ticks=keepalive_ticks,
             ssh_jump=cli_args.ssh_jump,
+            ssh_cli_options=cli_args.ssh_options,
         )
 
         if combined_init_cmd:

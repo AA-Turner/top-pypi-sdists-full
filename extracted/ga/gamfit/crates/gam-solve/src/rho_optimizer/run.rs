@@ -542,6 +542,8 @@ impl OuterProblem {
             eval_order_fn: None,
             reset_fn,
             efs_fn,
+            fixed_point_certificate_fn: None,
+            exact_polish_fn: None,
             screening_proxy_fn: None::<fn(&mut S, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
             continuation_prewarm: self.continuation_prewarm,
@@ -578,6 +580,8 @@ impl OuterProblem {
             eval_order_fn: Some(eval_order_fn),
             reset_fn,
             efs_fn,
+            fixed_point_certificate_fn: None,
+            exact_polish_fn: None,
             screening_proxy_fn: None::<fn(&mut S, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
             continuation_prewarm: self.continuation_prewarm,
@@ -616,6 +620,8 @@ impl OuterProblem {
             eval_order_fn: Some(eval_order_fn),
             reset_fn,
             efs_fn,
+            fixed_point_certificate_fn: None,
+            exact_polish_fn: None,
             screening_proxy_fn: Some(screening_proxy_fn),
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
             continuation_prewarm: self.continuation_prewarm,
@@ -640,30 +646,22 @@ impl OuterProblem {
             match classify_cache_entry_for_outer(&loaded, self.n_params) {
                 CacheSeedDecision::ExactFinal {
                     rho,
-                    beta: _beta_final,
-                    final_value,
+                    beta,
                     iterations,
                     prior_obj_display,
                 } => {
-                    let cap = primary_capability_for_config(obj.capability(), &config, context);
-                    let plan_used = plan(&cap);
                     log::info!(
-                        "[CACHE] final-hit key={}.. context={} rho_dim={} prior_obj={:.6e} iter={} action=skip-outer-validation",
+                        "[CACHE] final-hit key={}.. context={} rho_dim={} prior_obj={:.6e} iter={} action=resume-and-recertify",
                         short_key,
                         context,
                         rho.len(),
                         prior_obj_display,
                         iterations,
                     );
-                    let mut result =
-                        OuterResult::new(rho, final_value, iterations, true, plan_used);
-                    result.rho_uncertainty_diagnostic = Some(compute_rho_uncertainty_diagnostic(
-                        obj,
-                        &config,
-                        context,
-                        &mut result,
-                    ));
-                    return Ok(result);
+                    config.initial_rho = Some(rho);
+                    config.screen_initial_rho = false;
+                    cached_inner_beta = (!beta.is_empty()).then(|| Array1::from_vec(beta));
+                    had_hit = true;
                 }
                 CacheSeedDecision::Seed {
                     rho,
@@ -818,6 +816,10 @@ impl OuterProblem {
         if let Ok(result) = result.as_ref()
             && result.final_value.is_finite()
             && result.converged
+            && result
+                .criterion_certificate
+                .as_ref()
+                .is_some_and(OuterCriterionCertificate::certifies)
             && let Some(bytes) = encode_iterate(
                 &result.rho,
                 final_beta.as_ref(),
@@ -867,6 +869,69 @@ impl OuterProblem {
     }
 }
 
+/// Internal outcome of one planned solver/multistart attempt.
+///
+/// Exhausted checkpoints carry resumable work only. They never pass through
+/// finalization, cache promotion, uncertainty diagnostics, or fitted-model
+/// construction.
+pub(crate) enum PlanRunOutcome {
+    Converged(OuterResult),
+    Exhausted(OuterResult),
+}
+
+/// Which certificate concluded a CONVERGED outer run (#2235/#2241).
+///
+/// `OuterResult.converged == true` bundles genuinely different endings, each
+/// with its own certificate. Distinguishing them is pure evidence for the
+/// caller's termination report — every variant is a converged fit. There is
+/// deliberately no "budget/freeze" variant: exhaustion is a typed error
+/// carrying the resume checkpoint, never a minted fit (SPEC 20; the #2235
+/// forcing-function redesign deleted the freeze lanes).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum OuterConvergedVia {
+    /// The bound-projected analytic gradient at the returned point cleared the
+    /// solver's absolute/score-scaled stationarity tolerance.
+    GradientStationary,
+    /// Criterion-flat certificate (#2241/#2253): the criterion stalled over the
+    /// cost-stall window and the residual projected gradient sits inside the
+    /// flat certificate band — the score-relative stationarity bound
+    /// (`flat_valley_converged_grad_bound`), the probe-noise-floor bound
+    /// measured from the stall window's own value scatter, and/or the
+    /// curvature-scaled Newton-decrement bound (`newton_predicted_decrease`),
+    /// under which a residual above the gradient-magnitude bands is still
+    /// stationary when the second-order-predicted improvement `½·gᵀH⁻¹g` is below
+    /// the outer objective tolerance. `certificate_bound` is the operative
+    /// (widened) bound the residual actually cleared.
+    CriterionFlat {
+        residual_grad_norm: f64,
+        certificate_bound: f64,
+    },
+    /// Every optimized coordinate carried an explicit analytic fixed-point
+    /// equation and the KKT-projected residual cleared the solver tolerance.
+    FixedPointStationary {
+        projected_residual_inf_norm: f64,
+        certificate_bound: f64,
+    },
+    /// Fellner–Schall model-state fixed point (#2235 verdict 2): two
+    /// consecutive outer evaluations restored the same banked incumbent, so a
+    /// further outer update provably does not change the fitted state. The
+    /// analytic first-order certificate is still taken at the incumbent.
+    RecurrentIncumbent { consecutive_restores: usize },
+}
+
+impl OuterConvergedVia {
+    /// Stable wire name for termination reports; the enum owns the vocabulary
+    /// so bindings marshal instead of mapping.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::GradientStationary => "converged_stationary",
+            Self::CriterionFlat { .. } => "converged_criterion_flat",
+            Self::FixedPointStationary { .. } => "converged_fixed_point",
+            Self::RecurrentIncumbent { .. } => "incumbent_stationary",
+        }
+    }
+}
+
 /// Result of a completed outer optimization.
 #[derive(Clone, Debug)]
 pub struct OuterResult {
@@ -902,7 +967,20 @@ pub struct OuterResult {
     /// (gradient-free solvers, cache-hit short-circuits, per-atom EFS) or
     /// when an audit probe failed to evaluate. Populated once by
     /// [`run_outer`] after the solver ladder returns, outside all hot loops.
-    pub criterion_certificate: Option<CriterionCertificate>,
+    pub criterion_certificate: Option<OuterCriterionCertificate>,
+    /// Which certificate concluded a converged run (#2235/#2241). Stamped by
+    /// [`certify_outer_optimality`] on every certified result (the
+    /// Fellner–Schall lane pre-stamps `RecurrentIncumbent`, which certification
+    /// preserves); `None` exactly on non-converged resume checkpoints.
+    pub converged_via: Option<OuterConvergedVia>,
+    /// Probe-noise-floor gradient bound measured by the cost-stall guard at a
+    /// halted stall (#2241): σ̂/Δ, the criterion's evaluation-noise floor over
+    /// the stall window divided by the radius the accepted steps actually
+    /// probed. Present only on results rebuilt from a cost-stall exit;
+    /// [`certify_outer_optimality`] folds it into the stationarity bound so the
+    /// final re-measured gradient is judged against the same flat certificate
+    /// the guard granted.
+    pub flat_noise_grad_bound: Option<f64>,
     /// Post-fit PSIS diagnostic for whether sampled smoothing-parameter weights
     /// show evidence that plug-in REML/LAML intervals are unreliable. Populated
     /// once by [`run_outer`] when the exact rho Hessian is cheap enough to use.
@@ -929,6 +1007,8 @@ impl OuterResult {
             operator_trust_radius: None,
             operator_stop_reason: None,
             criterion_certificate: None,
+            converged_via: None,
+            flat_noise_grad_bound: None,
             rho_uncertainty_diagnostic: None,
         }
     }
@@ -946,87 +1026,43 @@ impl OuterResult {
 // ─── First-order optimality certificate (#934) ────────────────────────
 //
 // The objective↔gradient desync bug genus (#748, #752, #808, #901, …) has a
-// universal signature: at the returned "optimum" the analytic gradient says
-// converged while a finite difference of the ACTUAL criterion value says
-// otherwise (or the optimizer stalls and rails λ). Every such bug was
-// diagnosed by a human running exactly that FD comparison by hand. The
-// certificate makes the engine run it on itself, once, at θ̂, on every fit:
-// two central-difference pairs of the VALUE path along one deterministic
-// random direction, compared against ∇F(θ̂)·v from the analytic path, plus
-// the two ancillary facts every desync postmortem asks for (is the outer
-// curvature PD here; did any λ rail to a bound). It is the runtime
-// enforcement layer for the criterion-atom architecture (#931): atoms make
-// desync structurally hard, the certificate makes any residue observable.
+// universal signature: at the returned "optimum" the optimizer claims
+// convergence while the criterion is not actually stationary there (or the
+// optimizer stalls and rails λ). The certificate makes the engine check
+// itself, once, at θ̂, on every generic outer fit — purely from the ANALYTIC
+// objective, per SPEC rule 2 (finite differences never run outside tests;
+// the FD gradient oracle now lives in the test-only `fd_audit` module): the
+// KKT-projected analytic gradient norm against the same score-relative
+// stationarity bound the outer loop already uses to accept flat-valley
+// stalls (#1690), a scaled PSD probe of the tracked outer Hessian, and the
+// λ-rail facts every desync postmortem asks for. It is the runtime
+// enforcement layer for the criterion-atom architecture (#931).
 //
-// Cost discipline: at most four value-path evaluations at the single final
-// point, outside every hot loop. The value path is evaluated through
-// `eval_cost` at θ̂±hv — points the gradient path never visited, so the
-// existing ρ-keyed caches naturally miss and the true value code runs.
-// Disagreement does not fail the fit: it names the broken criterion loudly
-// in the result, the log, and the report.
+// A failed certificate REJECTS the fit as typed non-convergence — never a
+// warn-and-continue diagnostic — so a nonstationary point can never be
+// minted into a fit (SPEC rule 20).
 
-/// Deterministic unit direction on the θ sphere for the certificate audit.
+/// Cholesky positive-SEMIdefiniteness probe for the (small, outer-dim) final
+/// Hessian, with a roundoff-scale diagonal shift. Returns `None` when the
+/// matrix is empty, non-square, or non-finite; `Some(false)` when the shifted
+/// matrix has a non-positive pivot — i.e. the curvature is genuinely
+/// indefinite, not merely semidefinite-within-noise.
 ///
-/// Seeded from the problem fingerprint (context string + θ̂ bits) via FNV-1a
-/// and expanded with SplitMix64 + Box–Muller — no clock, no global RNG, so
-/// the audit direction is reproducible across runs of the same fit.
-pub(crate) fn certificate_audit_direction(theta: &Array1<f64>, context: &str) -> Array1<f64> {
-    let mut seed: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut fnv = |byte: u8| {
-        seed ^= u64::from(byte);
-        seed = seed.wrapping_mul(0x0000_0100_0000_01b3);
-    };
-    for byte in context.bytes() {
-        fnv(byte);
-    }
-    for &x in theta.iter() {
-        for byte in x.to_bits().to_le_bytes() {
-            fnv(byte);
-        }
-    }
-    let mut state = seed;
-    let mut next_unit = move || {
-        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let mut z = state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-        z ^= z >> 31;
-        // Uniform in (0, 1): 53 mantissa bits, nudged off zero for the log.
-        ((z >> 11) as f64 + 0.5) / (1u64 << 53) as f64
-    };
-    let mut direction = Array1::<f64>::zeros(theta.len());
-    let mut i = 0;
-    while i < direction.len() {
-        let (u1, u2) = (next_unit(), next_unit());
-        let radius = (-2.0 * u1.ln()).sqrt();
-        let angle = 2.0 * std::f64::consts::PI * u2;
-        direction[i] = radius * angle.cos();
-        if i + 1 < direction.len() {
-            direction[i + 1] = radius * angle.sin();
-        }
-        i += 2;
-    }
-    let norm = direction.dot(&direction).sqrt();
-    if norm.is_finite() && norm > f64::EPSILON {
-        direction.mapv_inplace(|v| v / norm);
-        direction
-    } else {
-        // Degenerate draw (probability ~0): fall back to the first axis.
-        let mut fallback = Array1::<f64>::zeros(theta.len());
-        fallback[0] = 1.0;
-        fallback
-    }
-}
-
-/// Plain Cholesky positive-definiteness probe for the (small, outer-dim)
-/// final Hessian. Returns `None` when the matrix is empty, non-square, or
-/// non-finite; `Some(false)` on any non-positive pivot.
-pub(crate) fn certificate_hessian_is_pd(hessian: &Array2<f64>) -> Option<bool> {
+/// The shift is `√ε · max(1, max|H_ii|)`: eigenvalues assembled through
+/// O(‖H‖)-scaled arithmetic carry O(ε·‖H‖) roundoff, so a `√ε`-relative
+/// margin cleanly separates a true negative direction from accumulated
+/// floating-point noise on a flat (near-semidefinite) valley.
+pub(crate) fn certificate_hessian_is_psd(hessian: &Array2<f64>) -> Option<bool> {
     let n = hessian.nrows();
     if n == 0 || hessian.ncols() != n || hessian.iter().any(|v| !v.is_finite()) {
         return None;
     }
+    let max_diag = (0..n).fold(0.0_f64, |acc, j| acc.max(hessian[[j, j]].abs()));
+    let shift = f64::EPSILON.sqrt() * max_diag.max(1.0);
     let mut chol = hessian.clone();
+    for j in 0..n {
+        chol[[j, j]] += shift;
+    }
     for j in 0..n {
         for k in 0..j {
             let l_jk = chol[[j, k]];
@@ -1044,6 +1080,103 @@ pub(crate) fn certificate_hessian_is_pd(hessian: &Array2<f64>) -> Option<bool> {
         }
     }
     Some(true)
+}
+
+/// Second-order predicted objective decrease of a safeguarded Newton step at a
+/// flat-valley cost-stall exit (#2253/#2249/#2015).
+///
+/// On a flat-valley cost-stall exit the outer criterion has provably stopped
+/// improving (the cost-stall window fired), yet the re-measured projected
+/// gradient can sit modestly above the score-relative flat band on a
+/// weakly-identified small-n fit (measured: |Pg| ≈ 0.072 vs a score-relative
+/// band ≈ 0.053 on an n=84/p=64 K=1 circle). Whether that residual is genuine
+/// available descent is a SECOND-ORDER question. The improvement a safeguarded
+/// Newton step buys is the Newton decrement over two:
+///
+///     Δpred = ½ · gᵀ H⁻¹ g,
+///
+/// the textbook Newton stopping quantity (Boyd–Vandenberghe §9.5). When `Δpred`
+/// is below the outer objective tolerance, no step can reduce the criterion by
+/// more than that tolerance and the point is stationary at the resolution the
+/// criterion can be optimized — the mathematically correct "no further descent
+/// possible" criterion.
+///
+/// This is curvature-scaled, not a constant: because `H⁻¹` weights each gradient
+/// component by the inverse eigenvalue, a residual aligned with a NEAR-FLAT
+/// Hessian eigenvector (a linear ramp that DOES carry real descent) inflates
+/// `gᵀ H⁻¹ g` toward the roundoff-regularized `|g_flat|² / shift` and is
+/// REJECTED; only a residual that is small along the well-curved directions and
+/// nearly orthogonal to the flat ones certifies. An indefinite Hessian never
+/// reaches here — the certificate's curvature gate (`certificate_hessian_is_psd`)
+/// rejects a genuinely indefinite point independently, and this factorization
+/// returns `None` on a non-PSD shifted factor so the caller falls back to the
+/// gradient-only bound.
+///
+/// `hessian` and `grad` are the analytic outer Hessian and the KKT-PROJECTED
+/// gradient at the certified point. The shift `√ε · max|H_jj|` matches
+/// [`certificate_hessian_is_psd`] so the definiteness verdict and this decrement
+/// agree on the same regularized operator. Returns `None` when the shapes are
+/// malformed, an entry is non-finite, the shifted factor is not PD, or the
+/// resulting quadratic form is negative (impossible for a PD factor, guarded
+/// against roundoff).
+pub(crate) fn newton_predicted_decrease(
+    hessian: &Array2<f64>,
+    grad: &Array1<f64>,
+) -> Option<f64> {
+    let n = hessian.nrows();
+    if n == 0 || hessian.ncols() != n || grad.len() != n {
+        return None;
+    }
+    if hessian.iter().any(|v| !v.is_finite()) || grad.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let max_diag = (0..n).fold(0.0_f64, |acc, j| acc.max(hessian[[j, j]].abs()));
+    let shift = f64::EPSILON.sqrt() * max_diag.max(1.0);
+    // Lower Cholesky factor L of H + shift·I (same regularization the PSD probe
+    // uses), computed in place.
+    let mut l = hessian.clone();
+    for j in 0..n {
+        l[[j, j]] += shift;
+    }
+    for j in 0..n {
+        for k in 0..j {
+            let l_jk = l[[j, k]];
+            for i in j..n {
+                l[[i, j]] -= l[[i, k]] * l_jk;
+            }
+        }
+        let pivot = l[[j, j]];
+        if !(pivot > 0.0) || !pivot.is_finite() {
+            return None;
+        }
+        let inv_sqrt = 1.0 / pivot.sqrt();
+        for i in j..n {
+            l[[i, j]] *= inv_sqrt;
+        }
+    }
+    // Solve (L Lᵀ) d = g for d = H_s⁻¹ g: forward-substitute L y = g, then
+    // back-substitute Lᵀ d = y.
+    let mut y = grad.clone();
+    for j in 0..n {
+        let mut s = y[j];
+        for k in 0..j {
+            s -= l[[j, k]] * y[k];
+        }
+        y[j] = s / l[[j, j]];
+    }
+    let mut d = y;
+    for j in (0..n).rev() {
+        let mut s = d[j];
+        for k in (j + 1)..n {
+            s -= l[[k, j]] * d[k];
+        }
+        d[j] = s / l[[j, j]];
+    }
+    let quad = grad.dot(&d); // gᵀ H_s⁻¹ g ≥ 0 for a PD factor.
+    if !quad.is_finite() || quad < 0.0 {
+        return None;
+    }
+    Some(0.5 * quad)
 }
 
 /// Smoothing coordinates (leading ρ block) railed against the outer box.
@@ -1065,141 +1198,530 @@ pub(crate) fn certificate_railed_lambdas(
         .collect()
 }
 
-/// Perform the randomized first-order self-audit at the returned optimum.
-///
-/// Requires an analytic final gradient (the thing being audited); returns
-/// `None` — never an error — when the gradient is absent/non-finite or when
-/// any of the four value probes fails to evaluate, so the audit can never
-/// fail a fit that the optimizer accepted.
-pub(crate) fn audit_first_order_optimality(
+fn outer_nonconvergence_error(
+    context: &str,
+    reason: &str,
+    result: &OuterResult,
+    projected_grad_norm: Option<f64>,
+    stationarity_bound: f64,
+) -> EstimationError {
+    EstimationError::RemlDidNotConverge {
+        context: context.to_string(),
+        reason: reason.to_string(),
+        iterations: result.iterations,
+        final_value: result.final_value,
+        projected_grad_norm,
+        stationarity_bound,
+        rho_checkpoint: result.rho.to_vec(),
+    }
+}
+
+fn certify_fixed_point_optimality(
     obj: &mut dyn OuterObjective,
     config: &OuterConfig,
     context: &str,
-    result: &OuterResult,
-) -> Option<CriterionCertificate> {
-    let gradient = result.final_gradient.as_ref()?;
-    if gradient.is_empty()
-        || gradient.len() != result.rho.len()
-        || gradient.iter().any(|g| !g.is_finite())
-        || result.rho.iter().any(|r| !r.is_finite())
-    {
-        return None;
+    result: &mut OuterResult,
+) -> Result<OuterCriterionCertificate, EstimationError> {
+    let layout = obj.capability().theta_layout();
+    let evaluation = obj
+        .eval_fixed_point_certificate(&result.rho)
+        .map_err(|err| {
+            outer_nonconvergence_error(
+                context,
+                &format!("analytic fixed-point certificate evaluation failed: {err}"),
+                result,
+                None,
+                config.tolerance,
+            )
+        })?;
+    if evaluation.coordinates.len() != layout.n_params {
+        return Err(outer_nonconvergence_error(
+            context,
+            &format!(
+                "fixed-point certificate returned {} coordinates for an outer problem of dimension {}",
+                evaluation.coordinates.len(),
+                layout.n_params
+            ),
+            result,
+            None,
+            config.tolerance,
+        ));
+    }
+    if !evaluation.cost.is_finite() {
+        return Err(outer_nonconvergence_error(
+            context,
+            "fixed-point certificate returned a non-finite objective value",
+            result,
+            None,
+            config.tolerance,
+        ));
     }
 
-    let theta = &result.rho;
-    let rho_dim = obj.capability().theta_layout().rho_dim();
-    let railed = certificate_railed_lambdas(theta, rho_dim, config);
-
-    // The full-space audit direction is unit-norm over all θ coordinates.
-    let full_direction = certificate_audit_direction(theta, context);
-    // At an active box bound the constrained first-order optimality condition
-    // is KKT: ∇F·e_k need NOT vanish along a railed coordinate k (the bound
-    // multiplier balances it), AND the central FD steps ρ_k across the bound
-    // into the infeasible/clamped region, corrupting the value path. An
-    // unconstrained FD-vs-analytic directional check that spans a railed
-    // coordinate is therefore ill-posed and produces a spurious disagreement
-    // (the railed-coordinate audit artifact). Restrict the comparison to the
-    // free (non-railed, box-interior) subspace: zero the railed components of
-    // the audit direction and re-normalize. When nothing is railed this is the
-    // exact original unit direction (byte-identical), so the interior desync
-    // check the certificate exists for (#748/#752/#808) is unchanged.
-    let direction = if railed.is_empty() {
-        full_direction
-    } else {
-        let mut projected = full_direction;
-        for &k in &railed {
-            if k < projected.len() {
-                projected[k] = 0.0;
+    let mut normalized_updates = Vec::with_capacity(layout.n_params);
+    let mut uncovered = Vec::new();
+    for (index, coordinate) in evaluation.coordinates.iter().enumerate() {
+        match coordinate {
+            FixedPointCoordinateCertificate::Covered { update, scale }
+                if update.is_finite() && scale.is_finite() && *scale > 0.0 =>
+            {
+                normalized_updates.push(*update / *scale);
+            }
+            FixedPointCoordinateCertificate::Covered { update, scale } => {
+                uncovered.push(format!(
+                    "coordinate {index} has invalid covered residual update={update} scale={scale}"
+                ));
+                normalized_updates.push(f64::NAN);
+            }
+            FixedPointCoordinateCertificate::Uncovered { reason } => {
+                uncovered.push(format!("coordinate {index}: {reason}"));
+                normalized_updates.push(f64::NAN);
             }
         }
-        let norm = projected.dot(&projected).sqrt();
-        if norm.is_finite() && norm > f64::EPSILON {
-            projected.mapv_inplace(|v| v / norm);
-            projected
-        } else {
-            // Every audited coordinate is railed (free subspace empty): there
-            // is no interior direction to audit, so the directional check is
-            // vacuous. Skip the certificate rather than divide by ~0.
-            log::debug!(
-                "[CERTIFICATE] {context}: every audited coordinate railed \
-                 (railed={railed:?}); no free direction to audit, certificate skipped"
-            );
-            return None;
-        }
-    };
-    // Central-difference step on the optimal ε^(1/3) scale, sized to the
-    // iterate so saturated ρ (|ρ| up to rho_bound) keeps θ̂±2hv resolvable.
-    let theta_scale = theta.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
-    let step = f64::EPSILON.cbrt() * (1.0 + theta_scale);
+    }
+    if !uncovered.is_empty() {
+        return Err(outer_nonconvergence_error(
+            context,
+            &format!(
+                "fixed-point certificate lacks root-equivalent analytic coverage: {}",
+                uncovered.join("; ")
+            ),
+            result,
+            None,
+            config.tolerance,
+        ));
+    }
 
-    let mut probe = |scale: f64| -> Option<f64> {
-        let point = theta + &(scale * &direction);
-        match obj.eval_cost(&point) {
-            Ok(value) if value.is_finite() => Some(value),
-            Ok(value) => {
-                log::debug!(
-                    "[CERTIFICATE] {context}: audit probe at θ̂{scale:+.3e}·v returned \
-                     non-finite criterion value {value}; certificate skipped"
-                );
-                None
+    let (lower, upper) = outer_bounds_template(config, layout.n_params);
+    let mut raw_inf = 0.0_f64;
+    let mut projected_inf = 0.0_f64;
+    for index in 0..layout.n_params {
+        let update = normalized_updates[index];
+        raw_inf = raw_inf.max(update.abs());
+        // `update` is a signed descent/update direction, the negative of the
+        // gradient convention used by `projected_gradient_norm`: at a lower
+        // bound a negative update points out of the box, and at an upper bound
+        // a positive update does. Only those infeasible multiplier components
+        // are removed.
+        let projected = if result.rho[index] <= lower[index] {
+            update.max(0.0)
+        } else {
+            update
+        };
+        let projected = if result.rho[index] >= upper[index] {
+            projected.min(0.0)
+        } else {
+            projected
+        };
+        projected_inf = projected_inf.max(projected.abs());
+    }
+
+    let solver_final_value = result.final_value;
+    let cost_agreement_bound =
+        f64::EPSILON.sqrt() * solver_final_value.abs().max(evaluation.cost.abs()).max(1.0);
+    result.final_value = evaluation.cost;
+    result.final_grad_norm = None;
+    result.final_gradient = None;
+    result.final_hessian = None;
+    result.converged = false;
+    if !solver_final_value.is_finite()
+        || (solver_final_value - evaluation.cost).abs() > cost_agreement_bound
+    {
+        return Err(outer_nonconvergence_error(
+            context,
+            &format!(
+                "fixed-point solver value {solver_final_value:.16e} disagrees with certificate value {:.16e} at the selected point (roundoff bound {cost_agreement_bound:.3e})",
+                evaluation.cost
+            ),
+            result,
+            Some(projected_inf),
+            config.tolerance,
+        ));
+    }
+
+    let certificate = OuterCriterionCertificate {
+        stationarity: OuterStationarityCertificate::FixedPoint {
+            residual_inf_norm: raw_inf,
+            projected_residual_inf_norm: projected_inf,
+            bound: config.tolerance,
+            covered_coordinates: layout.n_params,
+        },
+        hessian_psd: None,
+        lambdas_railed: certificate_railed_lambdas(&result.rho, layout.rho_dim(), config),
+    };
+    result.criterion_certificate = Some(certificate.clone());
+    if !certificate.certifies() {
+        return Err(outer_nonconvergence_error(
+            context,
+            &certificate.summary(),
+            result,
+            Some(projected_inf),
+            config.tolerance,
+        ));
+    }
+
+    result.converged = true;
+    result.converged_via = match result.converged_via {
+        Some(via @ OuterConvergedVia::RecurrentIncumbent { .. }) => Some(via),
+        _ => Some(OuterConvergedVia::FixedPointStationary {
+            projected_residual_inf_norm: projected_inf,
+            certificate_bound: config.tolerance,
+        }),
+    };
+    log::info!("[CERTIFICATE] {context}: {}", certificate.summary());
+    Ok(certificate)
+}
+
+/// Build the mandatory analytic optimality certificate at the returned point.
+///
+/// The objective is evaluated once at the selected point through its analytic
+/// derivative path. Missing, malformed, or non-finite derivative evidence is
+/// non-convergence: an optimizer status bit cannot substitute for a
+/// stationarity certificate. Exact analytic curvature is checked when the
+/// objective declares it and can materialize it; BFGS/EFS solver geometry is
+/// never mistaken for objective curvature.
+pub(crate) fn certify_outer_optimality(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+    result: &mut OuterResult,
+) -> Result<OuterCriterionCertificate, EstimationError> {
+    let capability = obj.capability();
+    let layout = capability.theta_layout();
+    layout
+        .validate_point_len(&result.rho, "outer certificate point")
+        .map_err(|err| {
+            EstimationError::RemlOptimizationFailed(format!(
+                "{context}: invalid outer certificate point: {err}"
+            ))
+        })?;
+    if result.rho.iter().any(|value| !value.is_finite()) {
+        return Err(outer_nonconvergence_error(
+            context,
+            "the selected checkpoint contains non-finite coordinates",
+            result,
+            None,
+            outer_gradient_tolerance(config).abs,
+        ));
+    }
+    if layout.n_params == 0 {
+        let value = obj.eval_cost(&result.rho).map_err(|err| {
+            outer_nonconvergence_error(
+                context,
+                &format!("zero-dimensional final objective evaluation failed: {err}"),
+                result,
+                Some(0.0),
+                outer_gradient_tolerance(config).abs,
+            )
+        })?;
+        if !value.is_finite() {
+            return Err(outer_nonconvergence_error(
+                context,
+                "the zero-dimensional final objective is non-finite",
+                result,
+                Some(0.0),
+                outer_gradient_tolerance(config).abs,
+            ));
+        }
+        let certificate = OuterCriterionCertificate {
+            stationarity: OuterStationarityCertificate::AnalyticGradient {
+                grad_norm: 0.0,
+                projected_grad_norm: 0.0,
+                bound: outer_gradient_tolerance(config).abs,
+            },
+            hessian_psd: None,
+            lambdas_railed: Vec::new(),
+        };
+        result.final_value = value;
+        result.final_grad_norm = Some(0.0);
+        result.final_gradient = Some(Array1::zeros(0));
+        result.final_hessian = None;
+        result.converged = true;
+        result.converged_via = Some(OuterConvergedVia::GradientStationary);
+        result.criterion_certificate = Some(certificate.clone());
+        return Ok(certificate);
+    }
+    if matches!(result.plan_used.solver, Solver::Efs | Solver::HybridEfs)
+        && capability.gradient != Derivative::Analytic
+    {
+        return certify_fixed_point_optimality(obj, config, context, result);
+    }
+    if capability.gradient != Derivative::Analytic {
+        return Err(outer_nonconvergence_error(
+            context,
+            "the objective exposes no analytic gradient for final certification",
+            result,
+            None,
+            outer_gradient_tolerance(config).abs,
+        ));
+    }
+
+    let order = if capability.hessian.is_analytic() {
+        OuterEvalOrder::ValueGradientHessian
+    } else {
+        OuterEvalOrder::ValueAndGradient
+    };
+    let evaluation = obj.eval_with_order(&result.rho, order).map_err(|err| {
+        outer_nonconvergence_error(
+            context,
+            &format!("analytic final-point evaluation failed: {err}"),
+            result,
+            result.final_grad_norm,
+            outer_gradient_tolerance(config).abs,
+        )
+    })?;
+    layout
+        .validate_gradient_len(&evaluation.gradient, "outer certificate gradient")
+        .map_err(|err| {
+            outer_nonconvergence_error(
+                context,
+                &format!("malformed analytic final gradient: {err}"),
+                result,
+                None,
+                outer_gradient_tolerance(config).abs,
+            )
+        })?;
+    if !evaluation.cost.is_finite() || evaluation.gradient.iter().any(|value| !value.is_finite()) {
+        return Err(outer_nonconvergence_error(
+            context,
+            "the analytic final-point value or gradient is non-finite",
+            result,
+            None,
+            outer_gradient_tolerance(config).abs,
+        ));
+    }
+
+    let bounds = outer_bounds_template(config, layout.n_params);
+    let grad_norm = evaluation.gradient.dot(&evaluation.gradient).sqrt();
+    // KKT-projected gradient VECTOR (not just its norm): the norm feeds the
+    // stationarity certificate below, and the vector feeds the curvature-scaled
+    // flat-valley Newton decrement (#2253/#2249/#2015) once the analytic Hessian
+    // is in hand.
+    let projected_gradient = project_gradient_vector(&result.rho, &evaluation.gradient, Some(&bounds));
+    let projected_grad_norm = projected_gradient.iter().map(|v| v * v).sum::<f64>().sqrt();
+    let solver_bound = outer_gradient_tolerance(config).threshold(evaluation.cost, grad_norm);
+    let mut stationarity_bound = if matches!(
+        result.operator_stop_reason,
+        Some(OperatorTrustRegionStopReason::CostStallFlatValley)
+    ) {
+        solver_bound.max(flat_valley_converged_grad_bound(evaluation.cost))
+    } else {
+        solver_bound
+    };
+    // #2241 — a cost-stall exit carries the guard's measured probe-noise-floor
+    // gradient bound σ̂/Δ. The certificate must judge the re-measured final
+    // gradient against the same flat band the guard certified, or the guard's
+    // noise-scale convergence would be granted in the loop and revoked here.
+    if let Some(noise_bound) = result.flat_noise_grad_bound
+        && noise_bound.is_finite()
+    {
+        stationarity_bound = stationarity_bound.max(noise_bound);
+    }
+
+    // The cost-only and derivative-bearing interfaces must describe the same
+    // objective.  This is an analytic consistency check, not a finite
+    // difference: the solver's terminal value came from the value path and
+    // `evaluation.cost` came from the unified analytic sample at the identical
+    // point.  A scale-aware roundoff bound catches structurally desynchronised
+    // closures without rejecting harmless evaluation-order noise.
+    let solver_final_value = result.final_value;
+    let cost_agreement_bound =
+        f64::EPSILON.sqrt() * solver_final_value.abs().max(evaluation.cost.abs()).max(1.0);
+
+    // Install measured first-order evidence before any fallible curvature
+    // processing. If curvature is malformed, the retained resume checkpoint
+    // still carries the exact value/gradient that caused certification to stop.
+    result.final_value = evaluation.cost;
+    result.final_grad_norm = Some(projected_grad_norm);
+    result.final_gradient = Some(evaluation.gradient);
+    result.converged = false;
+    // #2253 — a WALL-SENTINEL solver value against a FINITE analytic sample is a
+    // transient-refusal-vs-real mismatch, NOT a two-closure objective desync.
+    // The solver's terminal value comes from the value/probe lane, which can hit
+    // the finite collapse/refusal wall (a bounded but astronomically large
+    // sentinel) at a hard terminal ρ where the full derivative-bearing eval
+    // still certifies a real value — measured 2026-07-11: solver 1e12 vs
+    // analytic 51.86 on a K=1 circle after the IFT-deflation fixes. The analytic
+    // sample is the authoritative objective (it just re-solved the inner state
+    // AND its gradient at this exact point and passed the finite check above);
+    // adopt it and let the stationarity/Hessian gates below judge it. A genuine
+    // closure desync surfaces as two FINITE values differing beyond the roundoff
+    // bound, which the branch still rejects.
+    const OUTER_WALL_SENTINEL_FLOOR: f64 = 1.0e10;
+    let solver_is_wall =
+        !solver_final_value.is_finite() || solver_final_value.abs() >= OUTER_WALL_SENTINEL_FLOOR;
+    let analytic_is_real = result.final_value.is_finite()
+        && result.final_value.abs() < OUTER_WALL_SENTINEL_FLOOR;
+    let transient_wall = solver_is_wall && analytic_is_real;
+    if !transient_wall
+        && (!solver_final_value.is_finite()
+            || (solver_final_value - result.final_value).abs() > cost_agreement_bound)
+    {
+        return Err(outer_nonconvergence_error(
+            context,
+            &format!(
+                "cost-only value {solver_final_value:.16e} disagrees with analytic-sample value \
+                 {:.16e} at the selected point (roundoff bound {cost_agreement_bound:.3e})",
+                result.final_value,
+            ),
+            result,
+            Some(projected_grad_norm),
+            stationarity_bound,
+        ));
+    }
+
+    let analytic_hessian = if capability.hessian.is_analytic() {
+        match evaluation.hessian.materialize_dense() {
+            Ok(Some(hessian)) => {
+                layout
+                    .validate_hessian_shape(&hessian, "outer certificate Hessian")
+                    .map_err(|err| {
+                        outer_nonconvergence_error(
+                            context,
+                            &format!("malformed analytic final Hessian: {err}"),
+                            result,
+                            Some(projected_grad_norm),
+                            stationarity_bound,
+                        )
+                    })?;
+                if hessian.iter().any(|value| !value.is_finite()) {
+                    return Err(outer_nonconvergence_error(
+                        context,
+                        "the analytic final Hessian contains non-finite entries",
+                        result,
+                        Some(projected_grad_norm),
+                        stationarity_bound,
+                    ));
+                }
+                Some(hessian)
+            }
+            Ok(None) => {
+                return Err(outer_nonconvergence_error(
+                    context,
+                    "the objective declared analytic curvature but returned none at the final point",
+                    result,
+                    Some(projected_grad_norm),
+                    stationarity_bound,
+                ));
             }
             Err(err) => {
-                log::debug!(
-                    "[CERTIFICATE] {context}: audit probe at θ̂{scale:+.3e}·v failed ({err}); \
-                     certificate skipped"
-                );
-                None
+                return Err(outer_nonconvergence_error(
+                    context,
+                    &format!("analytic final Hessian could not be certified: {err}"),
+                    result,
+                    Some(projected_grad_norm),
+                    stationarity_bound,
+                ));
             }
         }
-    };
-    let f_plus_h = probe(step)?;
-    let f_minus_h = probe(-step)?;
-    let f_plus_2h = probe(2.0 * step)?;
-    let f_minus_2h = probe(-2.0 * step)?;
-
-    let d_h = (f_plus_h - f_minus_h) / (2.0 * step);
-    let d_2h = (f_plus_2h - f_minus_2h) / (4.0 * step);
-    // FD-OK: FD-audit certificate construction (Richardson FD oracle auditing the analytic gradient, never feeds the optimizer)
-    let fd_directional = (4.0 * d_h - d_2h) / 3.0; // fd-ok: FD-audit certificate, not in math path
-    // Error bar: the Richardson residual measures truncation + value-path
-    // noise (inner-solve tolerance) empirically; the roundoff bound floors
-    // it when the residual is accidentally tiny.
-    let value_scale = f_plus_h
-        .abs()
-        .max(f_minus_h.abs())
-        .max(f_plus_2h.abs())
-        .max(f_minus_2h.abs());
-    let roundoff = f64::EPSILON * (1.0 + value_scale) / step;
-    let fd_error = (d_h - d_2h).abs().max(roundoff); // fd-ok: FD-audit certificate, not in math path
-
-    let analytic_directional = gradient.dot(&direction);
-    let grad_norm = gradient.dot(gradient).sqrt();
-    let agreement_z = (analytic_directional - fd_directional).abs() / fd_error; // fd-ok: FD-audit certificate, not in math path
-
-    let certificate = CriterionCertificate {
-        grad_norm,
-        analytic_directional,
-        fd_directional, // fd-ok: FD-audit certificate, not in math path
-        fd_error,       // fd-ok: FD-audit certificate, not in math path
-        agreement_z,
-        fd_step: step, // fd-ok: FD-audit certificate, not in math path
-        // END-FD-OK
-        hessian_pd: result
-            .final_hessian
-            .as_ref()
-            .and_then(certificate_hessian_is_pd),
-        lambdas_railed: railed,
-    };
-    if certificate.is_clean() {
-        log::info!("[CERTIFICATE] {context}: {}", certificate.summary());
     } else {
-        log::warn!(
-            "[CERTIFICATE warning] {context}: optimality self-audit flagged the returned \
-             optimum — {}",
-            certificate.summary(),
-        );
+        None
+    };
+
+    // Curvature-scaled stationarity (#2253/#2249/#2015/#2091). The re-measured
+    // projected gradient can sit modestly ABOVE the score-relative / probe-noise
+    // bands even though NO step reduces the objective by more than the outer
+    // tolerance — a weakly-identified small-n fit reaches this by a flat-valley
+    // cost-stall, and an *already-stationary* fit reaches it at iteration 0 when
+    // the plan search exhausts without stepping (a 2-parameter Gaussian-linear
+    // REML lands λ→0 at a genuine interior optimum whose |Pg|≈1e-7 sits just above
+    // an absolute score·1e-9 gradient floor tighter than the REML gradient's
+    // matrix-factorization round-off). Whether that residual is genuine descent is
+    // a second-order question the flat bands above cannot answer: they are
+    // gradient-magnitude tests, blind to how the local curvature maps a gradient
+    // to an objective change. The Newton decrement `½·gᵀH⁻¹g` (see
+    // `newton_predicted_decrease`) IS that map — the exact predicted improvement of
+    // a safeguarded second-order step. When it is below the outer objective
+    // tolerance, the point is stationary at the resolution the criterion can be
+    // optimized ("no further descent possible"), independent of HOW the solver
+    // stopped.
+    //
+    // Applied whenever a PSD-along-gradient analytic Hessian is in hand (NOT gated
+    // to a specific exit reason: the decrement test is the certificate, the exit
+    // reason is not). It can NEVER wrongly certify a fit with real available
+    // descent: it only widens when `curvature_grad_bound > stationarity_bound`, so
+    // a well-identified fit that already clears `solver_bound` is untouched; a
+    // gradient aligned with a near-flat Hessian direction inflates the decrement
+    // and is rejected; a globally indefinite Hessian is rejected independently by
+    // the `hessian_psd` gate inside `certifies()`. The derived widening is a
+    // genuine, direction-aware curvature-scaled GRADIENT bound — the largest ‖Pg‖
+    // that, in this gradient's direction under this curvature, still predicts a
+    // decrease of exactly `objective_tol` — not a constant bump: because the
+    // decrement scales quadratically with ‖g‖ at fixed direction, that bound is
+    // `‖Pg‖·√(objective_tol/Δpred)`, which clears the actual ‖Pg‖ iff
+    // `Δpred ≤ objective_tol`.
+    if let Some(hessian) = analytic_hessian.as_ref()
+        && let Some(predicted_decrease) =
+            newton_predicted_decrease(hessian, &projected_gradient)
+        && predicted_decrease.is_finite()
+        && predicted_decrease > 0.0
+    {
+        // The SAME relative cost floor the cost-stall guard used to declare the
+        // criterion stalled (run_plan.rs), so certification asserts nothing
+        // tighter than the loop already proved about this surface.
+        let objective_tol = config
+            .rel_cost_tolerance
+            .unwrap_or(config.tolerance * 1.0e-2)
+            .max(COST_STALL_REL_TOL_FLOOR)
+            * (1.0 + evaluation.cost.abs());
+        let curvature_grad_bound =
+            projected_grad_norm * (objective_tol / predicted_decrease).sqrt();
+        if curvature_grad_bound.is_finite() && curvature_grad_bound > stationarity_bound {
+            log::info!(
+                "[CERTIFICATE] {context}: curvature-scaled flat-valley bound {curvature_grad_bound:.3e} \
+                 (|Pg|={projected_grad_norm:.3e}, Newton ½gᵀH⁻¹g={predicted_decrease:.3e} ≤ tol {objective_tol:.3e}) \
+                 widened from gradient-band {stationarity_bound:.3e}"
+            );
+            stationarity_bound = curvature_grad_bound;
+        }
     }
-    Some(certificate)
+
+    let certificate = OuterCriterionCertificate {
+        stationarity: OuterStationarityCertificate::AnalyticGradient {
+            grad_norm,
+            projected_grad_norm,
+            bound: stationarity_bound,
+        },
+        hessian_psd: analytic_hessian
+            .as_ref()
+            .and_then(certificate_hessian_is_psd),
+        lambdas_railed: certificate_railed_lambdas(&result.rho, layout.rho_dim(), config),
+    };
+    // Install the measured evidence before deciding its verdict.  A rejected
+    // candidate is retained only as a resumable checkpoint, and that
+    // checkpoint must carry the actual analytic residual/curvature evidence
+    // that caused the rejection rather than the optimizer's stale terminal
+    // status.
+    result.final_hessian = analytic_hessian;
+    result.criterion_certificate = Some(certificate.clone());
+    if !certificate.certifies() {
+        result.converged = false;
+        return Err(outer_nonconvergence_error(
+            context,
+            &certificate.summary(),
+            result,
+            Some(projected_grad_norm),
+            stationarity_bound,
+        ));
+    }
+
+    result.converged = true;
+    // #2235/#2241 — record WHICH certificate concluded this run. A
+    // Fellner–Schall model-state fixed point was pre-stamped by the runner and
+    // is preserved (this analytic certificate is its corroborating evidence);
+    // otherwise the verdict is decided by which stationarity band the measured
+    // projected gradient actually cleared: the solver's own tolerance
+    // (gradient-stationary) or only the widened flat certificate band
+    // (criterion-flat, #2241).
+    result.converged_via = match result.converged_via {
+        Some(via @ OuterConvergedVia::RecurrentIncumbent { .. }) => Some(via),
+        _ if projected_grad_norm <= solver_bound => Some(OuterConvergedVia::GradientStationary),
+        _ => Some(OuterConvergedVia::CriterionFlat {
+            residual_grad_norm: projected_grad_norm,
+            certificate_bound: stationarity_bound,
+        }),
+    };
+    log::info!("[CERTIFICATE] {context}: {}", certificate.summary());
+    Ok(certificate)
 }
 
 pub(crate) fn compute_rho_uncertainty_diagnostic(
@@ -1355,6 +1877,11 @@ pub enum OperatorTrustRegionStopReason {
     Converged,
     RejectFloor,
     IterationBudget,
+    /// The objective stopped changing on a criterion-flat surface. The
+    /// in-loop guard may already have certified the score-relative residual or
+    /// may have returned a non-stationary floor; either way the final analytic
+    /// certificate needs this provenance to reproduce the guard's derived
+    /// stationarity band exactly.
     CostStallFlatValley,
     /// Family returned a non-operator Hessian mid-flight after routing into
     /// the operator path. Best-effort `x_k` returned with this reason; the
@@ -1401,16 +1928,40 @@ pub(crate) fn run_outer(
         return Ok(outer_result_to_native(result, &perm));
     }
     let mut result = run_outer_uncertified(obj, config, context)?;
-    if config.max_iter <= 1 {
-        return Ok(result);
+    if obj.begin_exact_polish() {
+        // A sampled outer-derivative pilot is an optimization stage, never a
+        // certifiable objective. Continue from its best checkpoint on the
+        // family's exact full-data measure before the mandatory analytic
+        // certificate. This transition is unconditional whenever the family
+        // reports that a sample actually ran, so convergence before a nominal
+        // phase budget cannot strand the optimizer on the stochastic surface
+        // (#979: matrix-free TR stopped after 6 evaluations while the family
+        // waited for a 12-evaluation counter).
+        let pilot_iterations = result.iterations;
+        let mut exact_config = config.clone();
+        exact_config.initial_rho = Some(result.rho.clone());
+        exact_config.heuristic_lambdas = None;
+        exact_config.seed_config.max_seeds = 1;
+        exact_config.seed_config.seed_budget = 1;
+        exact_config.screen_initial_rho = false;
+        exact_config.warm_start_cache_hit = true;
+        exact_config.operator_initial_trust_radius = result.operator_trust_radius;
+        exact_config.warm_start_outer_hessian = result.final_hessian.clone();
+        log::info!(
+            "[OUTER] {context}: sampled derivative pilot completed after {} iteration(s); \
+             continuing from its checkpoint on the exact full-data measure",
+            pilot_iterations,
+        );
+        let mut polished = run_outer_uncertified(obj, &exact_config, context)?;
+        polished.iterations = polished.iterations.saturating_add(pilot_iterations);
+        result = polished;
     }
-    // First-order optimality self-audit (#934): once, at the returned θ̂,
-    // outside all hot loops, for every entry point of the solver ladder
-    // (dense, device, per-atom EFS, fallback plans). Probes evaluate the
-    // value path at θ̂±hv AFTER the solve, so the only state they perturb
-    // is warm-start residue O(h) from the optimum — every caller recovers
-    // its fitted state from `result.rho`, not from last-eval residue.
-    result.criterion_certificate = audit_first_order_optimality(obj, config, context, &result);
+    // Mandatory analytic optimality certificate (#934): once at the selected
+    // point, outside every hot loop, for every solver path and every iteration
+    // budget. Missing or failed evidence is typed non-convergence; there is no
+    // max-iteration or logging-level bypass.
+    result.criterion_certificate =
+        Some(certify_outer_optimality(obj, config, context, &mut result)?);
     result.rho_uncertainty_diagnostic = Some(compute_rho_uncertainty_diagnostic(
         obj,
         config,
@@ -1501,7 +2052,16 @@ pub(crate) fn run_outer_uncertified(
     // iteration; everything else falls through to the dense / standard path
     // below. Routed here so every entry point inherits it (magic by default).
     if let Some(result) = run_per_atom_efs_if_frontier(obj, config, context)? {
-        return Ok(result);
+        if result.converged {
+            return Ok(result);
+        }
+        return Err(outer_nonconvergence_error(
+            context,
+            "per-atom EFS exhausted its iteration budget before the fixed-point step converged",
+            &result,
+            None,
+            outer_gradient_tolerance(config).abs,
+        ));
     }
 
     if cap.n_params == 0 {
@@ -1532,6 +2092,7 @@ pub(crate) fn run_outer_uncertified(
     }
 
     let mut last_error: Option<EstimationError> = None;
+    let mut best_checkpoint: Option<OuterResult> = None;
 
     for (attempt_idx, attempt_cap) in attempts.iter().enumerate() {
         let the_plan = plan(attempt_cap);
@@ -1577,9 +2138,9 @@ pub(crate) fn run_outer_uncertified(
                 retry_config.clone().unwrap_or_else(|| config.clone());
             let active_config: &OuterConfig = &active_config_owned;
             match run_outer_with_plan(obj, active_config, context, attempt_cap, &the_plan) {
-                Ok(result) => {
-                    if result.converged
-                        || arc_retries_left == 0
+                Ok(PlanRunOutcome::Converged(result)) => break Ok(result),
+                Ok(PlanRunOutcome::Exhausted(result)) => {
+                    if arc_retries_left == 0
                         || matches!(
                             result.operator_stop_reason,
                             Some(
@@ -1683,17 +2244,17 @@ pub(crate) fn run_outer_uncertified(
 
         match outcome {
             Ok(result) => {
-                if result.converged || attempt_idx + 1 == attempts.len() {
-                    if !result.converged {
-                        log::warn!(
-                            "[OUTER warning] {context}: final outer attempt returned without convergence \
-                             (plan={the_plan}, iterations={}, final_value={:.6e}, |g|={})",
-                            result.iterations,
-                            result.final_value,
-                            result.final_grad_norm_report(),
-                        );
-                    }
+                if result.converged {
                     return Ok(result);
+                }
+
+                let improves_checkpoint = result.final_value.is_finite()
+                    && best_checkpoint.as_ref().is_none_or(|checkpoint| {
+                        !checkpoint.final_value.is_finite()
+                            || result.final_value < checkpoint.final_value
+                    });
+                if improves_checkpoint {
+                    best_checkpoint = Some(result);
                 }
 
                 let message = format!(
@@ -1711,6 +2272,25 @@ pub(crate) fn run_outer_uncertified(
                 last_error = Some(e);
             }
         }
+    }
+
+    if let Some(checkpoint) = best_checkpoint {
+        // The solver ladder produced no result that its OWN internal
+        // (raw-gradient) convergence test accepted — but that test cannot see a
+        // railed or already-stationary optimum. At a smoothing parameter railed to
+        // the ρ box floor (λ→0, e.g. an exact linear fit or a separated smooth),
+        // the RAW gradient stays large along the railed axis — it "wants" to push
+        // past the boundary — so the solver reports non-convergence and can take
+        // zero steps, even though the KKT-PROJECTED gradient (which zeroes
+        // outward-railed axes) is stationary and no feasible step reduces the
+        // objective. Only the mandatory analytic certificate in `run_outer`
+        // computes that projected gradient AND the curvature-scaled flat-valley
+        // bound (½·gᵀH⁻¹g ≤ objective_tol), so IT, not this raw-gradient ladder, is
+        // the sole authority on stationarity. Hand it the best finite checkpoint:
+        // `certify_outer_optimality` mints iff the point is genuinely stationary
+        // (interior, railed, or flat-valley) and returns typed non-convergence
+        // otherwise, so a truly divergent fit is still rejected there.
+        return Ok(checkpoint);
     }
 
     Err(last_error.unwrap_or_else(|| {
@@ -1805,13 +2385,11 @@ pub(crate) fn run_per_atom_efs_if_frontier(
         lower,
         upper,
     );
-    let topology =
-        crate::estimate::reml::per_atom_efs::SharedBorderTopology::disjoint(rho_dim);
+    let topology = crate::estimate::reml::per_atom_efs::SharedBorderTopology::disjoint(rho_dim);
 
     obj.reset();
-    let result = crate::estimate::reml::per_atom_efs::run_per_atom_efs(
-        obj, &seed, &pa_cfg, &topology,
-    )?;
+    let result =
+        crate::estimate::reml::per_atom_efs::run_per_atom_efs(obj, &seed, &pa_cfg, &topology)?;
     Ok(Some(result.into_outer_result(the_plan)))
 }
 
@@ -1897,15 +2475,22 @@ pub(crate) fn run_fixed_point_outer_solver(
     label: &str,
     failure_prefix: &str,
 ) -> Result<OuterResult, FixedPointOuterRunError> {
+    // Shared publication slot for the recurrent-restored-incumbent stop
+    // (#2235 verdict 2): the bridge is moved into the driver, so the streak
+    // count comes back through this cell and is stamped onto the returned
+    // `OuterResult` below.
+    let recurrent_incumbent_exit = Arc::new(Mutex::new(None));
     let mut objective = OuterFixedPointBridge {
         obj,
         layout,
         barrier_config,
         fixed_point_tolerance: config.tolerance,
         consecutive_psi_zero_iters: 0,
+        last_restored_incumbent_streak: None,
+        recurrent_incumbent_exit: Arc::clone(&recurrent_incumbent_exit),
     };
-    match objective.eval_step(seed) {
-        Ok(_) => {}
+    let seed_sample = match objective.eval_step(seed) {
+        Ok(sample) => sample,
         Err(err) => {
             let err = match err {
                 ObjectiveEvalError::Recoverable { message }
@@ -1925,11 +2510,29 @@ pub(crate) fn run_fixed_point_outer_solver(
     let max_iter =
         outer_max_iterations(config.max_iter).map_err(FixedPointOuterRunError::Failed)?;
     let mut optimizer = FixedPoint::new(seed.clone(), objective)
+        // Seed validation already paid the complete EFS inner solve. Reuse that
+        // exact sample so iteration zero neither repeats the expensive solve nor
+        // mistakes two evaluations at the identical rho for recurrent incumbent
+        // evidence (#2241).
+        .with_initial_sample(seed.clone(), seed_sample)
         .with_bounds(bounds)
         .with_tolerance(tol)
         .with_max_iterations(max_iter);
     match optimizer.run() {
-        Ok(sol) => Ok(solution_into_outer_result(sol, true, the_plan)),
+        Ok(sol) => {
+            let mut result = solution_into_outer_result(sol, true, the_plan);
+            // Stamp the model-state fixed-point stop when the bridge published
+            // one; `None` means the walk stopped through the ordinary
+            // step-norm test instead.
+            if let Some(consecutive_restores) =
+                recurrent_incumbent_exit.lock().ok().and_then(|slot| *slot)
+            {
+                result.converged_via = Some(OuterConvergedVia::RecurrentIncumbent {
+                    consecutive_restores,
+                });
+            }
+            Ok(result)
+        }
         Err(FixedPointError::MaxIterationsReached { last_solution }) => {
             log::warn!(
                 "[OUTER warning] {context}: {label} hit max_iter={} at final_value={:.6e} step_norm={:.3e}",

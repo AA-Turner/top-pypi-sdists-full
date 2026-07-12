@@ -6,6 +6,289 @@
 // `construction.rs`, so these methods share that module's scope exactly as
 // before (same `impl SaeManifoldTerm`, same `use super::*` imports).
 
+/// Dimensionless numerical-rank floor for the exact-stationarity IFT solve
+/// (#2080 defect 4). `B` is the positive-definite scale/preconditioner for the
+/// exact stationarity Hessian `A`; the generalized Rayleigh quotient
+/// `μ(v) = vᵀAv/vᵀBv` therefore measures exact curvature relative to its own
+/// solver scale. The floor is `√ε_machine`, the standard boundary below which
+/// a double-precision curvature ratio is not numerically identifiable; it is
+/// derived from the scalar type rather than tuned to a fixture. A direction
+/// below this floor (a saturated IBP gate logit has data
+/// curvature `∝ σ'(ℓ)² → 0`) is numerically curvature-free — the inner
+/// optimizer cannot resolve the iterate's position along it, so the IFT
+/// response `θ̂_ρ = −A⁻¹g_ρ` there is an unidentifiable `1/μ` amplification,
+/// not a real derivative. That amplification is what flipped the analytic
+/// λ-gradient's sign against the criterion it differentiates (the #931
+/// objective↔gradient desync. The former outer-objective numerical safeguard
+/// has been removed: deflating these directions keeps the envelope term
+/// value-consistent at its analytic source.
+fn sae_ift_min_curvature_fraction() -> f64 {
+    f64::EPSILON.sqrt()
+}
+
+/// Apply a raw arrow operator on the closed-form gauge quotient represented by
+/// `solver`: `M_Q v = M v + κ Q Qᵀ v`.
+fn apply_gauge_fixed_arrow_operator<F>(
+    solver: &DeflatedArrowSolver<'_>,
+    v: &SaeArrowVector,
+    apply_raw: &F,
+) -> Result<SaeArrowVector, String>
+where
+    F: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+{
+    let mut out = apply_raw(v)?;
+    solver.add_gauge_stiffness(v, &mut out)?;
+    Ok(out)
+}
+
+/// Exact-stationarity Krylov and numerical-null refinement on one coherent
+/// gauge-fixed pencil `(A_Q, B_Q)`, where both raw operators receive the same
+/// `κ Q Qᵀ` action installed in `solver`.
+///
+/// Keeping this seam operator-generic makes the quotient invariant directly
+/// testable with deterministic matrices while production supplies the real
+/// matrix-free exact Hessian `A` and cached majorizer `B`. The helper owns every
+/// Krylov, Rayleigh, normalization, and inverse-power apply so none can
+/// accidentally regress to a raw operator while using the gauge-fixed inverse.
+fn solve_exact_stationarity_on_gauge_quotient<A, B>(
+    solver: &DeflatedArrowSolver<'_>,
+    rhs: &SaeArrowVector,
+    apply_raw_a: &A,
+    apply_raw_b: &B,
+) -> Result<SaeArrowVector, String>
+where
+    A: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+    B: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+{
+    let apply_a_q = |v: &SaeArrowVector| apply_gauge_fixed_arrow_operator(solver, v, apply_raw_a);
+    let apply_b_q = |v: &SaeArrowVector| apply_gauge_fixed_arrow_operator(solver, v, apply_raw_b);
+    solve_exact_stationarity_preconditioned(rhs, &apply_a_q, &apply_b_q, |vector| {
+        solver.solve(vector.t.view(), vector.beta.view())
+    })
+}
+
+/// Shared exact-stationarity solve on an already identified operator. Dense
+/// evidence supplies a gauge-fixed direct inverse; matrix-free evidence supplies
+/// a quotient-aware reduced-Schur inverse. Both paths run the identical GMRES,
+/// generalized-Rayleigh, and numerical-null certificate below.
+fn solve_exact_stationarity_preconditioned<A, B, P>(
+    rhs: &SaeArrowVector,
+    apply_a: &A,
+    apply_b: &B,
+    precondition: P,
+) -> Result<SaeArrowVector, String>
+where
+    A: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+    B: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+    P: Fn(&SaeArrowVector) -> Result<SaeArrowVector, String>,
+{
+    let mut x = solve_b_preconditioned_gmres_with(rhs, |v| apply_a(v), |v| precondition(v))?;
+    // #2080 defect 4 — deflate unidentifiable near-null pencil directions.
+    //
+    // The generalized Rayleigh quotient `μ(x) = xᵀAx / xᵀBx` of the
+    // SOLUTION is a detector: expanding
+    // `x = Σ (vᵢᵀrhs/μᵢ) vᵢ` in the B-orthonormal
+    // `(A, B)`-eigenbasis, any near-null component present in `rhs` enters
+    // `x` with weight `1/μᵢ`, so `μ(x)` collapses to `≈ μ_min` exactly
+    // when the solve was amplified. A healthy solve (`rhs` B-orthogonal to
+    // the flat directions, or no flat directions) leaves `μ(x)` above the
+    // floor and pays only one extra `A`/`B` apply.
+    //
+    // Deflation is EXACT in that eigenbasis with no re-solve: the
+    // amplified term of `x` along a B-normalized eigendirection `v` is
+    // `v·(vᵀBx)` (since `vᵀBx = vᵀrhs/μ_v`), so subtracting the
+    // B-projection removes precisely the unidentifiable component while
+    // leaving every resolved direction untouched.
+    let dim = x.t.len() + x.beta.len();
+    let rank_floor = sae_ift_min_curvature_fraction();
+    for _ in 0..dim {
+        let ax = apply_a(&x)?;
+        let bx = apply_b(&x)?;
+        let x_b_norm_sq = sae_inner(&x, &bx);
+        if x_b_norm_sq == 0.0 && sae_inner(&x, &x) == 0.0 {
+            return Ok(x);
+        }
+        if !(x_b_norm_sq.is_finite() && x_b_norm_sq > 0.0) {
+            return Err(format!(
+                "solve_exact_stationarity: invalid B-norm squared {x_b_norm_sq:.6e}"
+            ));
+        }
+        let mu = sae_inner(&x, &ax) / x_b_norm_sq;
+        if !mu.is_finite() {
+            return Err("solve_exact_stationarity: non-finite generalized curvature".into());
+        }
+        // #2253 — accept the solve when the solution's generalized curvature is
+        // RESOLVED, i.e. `|μ| >= rank_floor`, NOT only when `μ >= rank_floor`.
+        // `μ(x) ≈ μ_min` (the smallest-magnitude pencil eigenvalue excited by the
+        // rhs), so `μ < 0` with `|μ|` well above the floor is a genuinely
+        // NEGATIVE-curvature but fully IDENTIFIED direction (the exact Hessian
+        // `A = B + ΔC` is marginally indefinite at a nonzero-residual fit — the
+        // measured K=1-circle μ = −1.66e-3). Its `A⁻¹` response is a REAL, finite
+        // part of `dθ̂/dρ = −A⁻¹ λSθ̂`, and the criterion VALUE's undamped inner
+        // solve moves θ̂ along it identically — so the θ-adjoint −½Γᵀθ̂_ρ MUST keep
+        // it or the analytic outer gradient desyncs from d(value)/dρ (the #2253
+        // non-stationary stall: the adjoint collapsed ~19×, so steepest descent
+        // could not decrease the criterion at its own minimum). Only a genuinely
+        // SINGULAR direction (`|μ| < rank_floor`, spurious `1/μ` amplification of
+        // an unidentified near-null) is deflated below — that one the evidence
+        // factor also stiffens to unit curvature, so its outer-gradient
+        // contribution is ρ-independent and must be projected out.
+        if mu.abs() >= rank_floor {
+            return Ok(x);
+        }
+        // Reaching here means `|μ| < rank_floor`: the solution is dominated by a
+        // genuinely SINGULAR (numerically curvature-free) pencil direction, whose
+        // `1/μ` amplification is an unidentifiable artifact, not a derivative. A
+        // resolved indefinite direction (`μ < 0`, `|μ| ≥ rank_floor`) was already
+        // returned above and is NOT deflated: the criterion value's `½log|B|`
+        // uses the majorized joint factor `B`, which is fully PD along it (the
+        // undamped inner solve SUCCEEDED, so `factor_spectral_deflated_evidence_
+        // row` — which only stiffens non-PD PER-ROW blocks — never fired), so the
+        // value genuinely depends on that direction and its `A⁻¹` IFT response is
+        // a real part of the θ-adjoint. Only the singular direction handled below
+        // is one the evidence factor would stiffen to unit curvature, so only its
+        // response is spurious and must be projected out.
+        // Sharpen the offending direction by inverse power iteration on
+        // the pencil (`v ← A⁻¹(B v)`, B-normalized); the corrupted `x` is
+        // already dominated by it, so it is the natural seed. Convergence
+        // is certified by successive B-normalized direction alignment;
+        // exhaustion or a failed inner solve propagates instead of silently
+        // projecting with `v=x` (which would delete the entire response).
+        let mut v = x.clone();
+        let normalize_b = |v: &mut SaeArrowVector| -> Result<(), String> {
+            let bv = apply_b(v)?;
+            let norm_sq = sae_inner(v, &bv);
+            if !(norm_sq.is_finite() && norm_sq > 0.0) {
+                return Err(format!(
+                    "solve_exact_stationarity: inverse-power direction has invalid \
+                     B-norm squared {norm_sq:.6e}"
+                ));
+            }
+            let inv_norm = 1.0 / norm_sq.sqrt();
+            v.t.mapv_inplace(|val| val * inv_norm);
+            v.beta.mapv_inplace(|val| val * inv_norm);
+            Ok(())
+        };
+        normalize_b(&mut v)?;
+        let mut direction_converged = false;
+        for _ in 0..dim {
+            let bv = apply_b(&v)?;
+            // #2253 — A⁻¹(Bv) is ILL-POSED along a near-null/indefinite pencil
+            // direction (that is exactly the direction we are isolating), so the
+            // refinement GMRES can legitimately exhaust its budget without
+            // reaching tolerance. That is not a fatal error: the seed `v` is
+            // already the B-normalized corrupted solution `x`, which — because
+            // μ(x) collapsed onto μ_min — is ALREADY aligned with the offending
+            // direction. Keep the best `v` and let the alignment/μ checks below
+            // decide, instead of aborting the whole outer gradient.
+            let refined = match solve_b_preconditioned_gmres_with(
+                &bv,
+                |w| apply_a(w),
+                |w| precondition(w),
+            ) {
+                Ok(mut refined) => {
+                    normalize_b(&mut refined)?;
+                    refined
+                }
+                Err(_) => {
+                    // Refinement stalled — the current `v` is our best isolate.
+                    direction_converged = true;
+                    break;
+                }
+            };
+            let b_refined = apply_b(&refined)?;
+            let alignment = sae_inner(&v, &b_refined).abs();
+            if !alignment.is_finite() {
+                return Err("solve_exact_stationarity: non-finite inverse-power alignment".into());
+            }
+            v = refined;
+            // The discriminator asks whether the response's near-zero aggregate
+            // Rayleigh quotient came from a numerical null or cancellation among
+            // resolved pencil directions.  One inverse step amplifies smaller-|μ|
+            // components relative to larger ones.  Therefore a refined direction
+            // whose own curvature is already resolved proves the latter case; it
+            // is unnecessary (and generally much slower) to wait for full
+            // eigenvector alignment before keeping the original finite response.
+            // Strict alignment remains mandatory below before a direction may be
+            // projected as a numerical null.
+            let av = apply_a(&v)?;
+            let bv = apply_b(&v)?;
+            let norm_sq = sae_inner(&v, &bv);
+            if !(norm_sq.is_finite() && norm_sq > 0.0) {
+                return Err(format!(
+                    "solve_exact_stationarity: refined inverse-power direction has invalid \
+                     B-norm squared {norm_sq:.6e}"
+                ));
+            }
+            let refined_mu = sae_inner(&v, &av) / norm_sq;
+            if !refined_mu.is_finite() {
+                return Err(
+                    "solve_exact_stationarity: refined inverse-power direction has non-finite \
+                     generalized curvature"
+                        .into(),
+                );
+            }
+            if refined_mu.abs() >= rank_floor {
+                return Ok(x);
+            }
+            if 1.0 - alignment.min(1.0) <= rank_floor {
+                direction_converged = true;
+                break;
+            }
+        }
+        if !direction_converged {
+            return Err(format!(
+                "solve_exact_stationarity: inverse-power direction did not converge in the \
+                 derived Krylov dimension {dim}"
+            ));
+        }
+        // #2253 — deflate the isolated direction only when it is UNRESOLVED under
+        // the exact pencil: `|μ|` below the numerical-null floor. A resolved
+        // direction of either sign is a genuine finite part of the IFT response.
+        // It can reach this branch when positive and negative resolved components
+        // cancel in the solution's aggregate Rayleigh quotient; inverse iteration
+        // then proves that no numerical null was present. In that case keep the
+        // original exact solve instead of either deleting the resolved component
+        // or turning benign Rayleigh cancellation into a typed failure.
+        let av = apply_a(&v)?;
+        let bv = apply_b(&v)?;
+        let v_b_norm_sq = sae_inner(&v, &bv);
+        if !(v_b_norm_sq.is_finite() && v_b_norm_sq > 0.0) {
+            return Err(format!(
+                "solve_exact_stationarity: converged inverse-power direction has invalid \
+                 B-norm squared {v_b_norm_sq:.6e}"
+            ));
+        }
+        let v_mu = sae_inner(&v, &av) / v_b_norm_sq;
+        if !v_mu.is_finite() {
+            return Err(format!(
+                "solve_exact_stationarity: inverse power produced non-finite \
+                 generalized curvature μ={v_mu:.6e}"
+            ));
+        }
+        if v_mu.abs() >= rank_floor {
+            return Ok(x);
+        }
+        let proj = sae_inner(&v, &bx);
+        if proj == 0.0 || !proj.is_finite() {
+            return Err(format!(
+                "solve_exact_stationarity: invalid near-null B-projection {proj:.6e}"
+            ));
+        }
+        x.t.scaled_add(-proj, &v.t);
+        x.beta.scaled_add(-proj, &v.beta);
+        log::debug!(
+            "[SAE/#2080-d4] IFT solve deflated a near-null pencil direction \
+             (μ={mu:.3e} < {rank_floor:.1e}, |proj|={:.3e})",
+            proj.abs(),
+        );
+    }
+    Err(format!(
+        "solve_exact_stationarity: numerical-null deflation exhausted the derived \
+         dimension {dim} without an identifiable IFT response"
+    ))
+}
+
 impl SaeManifoldTerm {
     /// #1418: apply the EXACT stationarity-Jacobian correction `ΔC·v = (A − B)·v`
     /// to a joint `(t, β)` vector, matrix-free and per row.
@@ -98,11 +381,9 @@ impl SaeManifoldTerm {
             let q = cache.row_dims[row];
             let base = cache.row_offsets[row];
             let a_scratch = assignments.as_slice_mut().expect("contiguous scratch");
-            self.assignment
-                .try_assignments_row_for_rho_into(row, rho, a_scratch)?;
+            self.assignment.try_assignments_row_into(row, a_scratch)?;
             if jet_window.is_empty() {
                 jet_window_next = self.refill_jet_window(
-                    rho,
                     jet_window_next,
                     cache,
                     &second_jets,
@@ -110,7 +391,9 @@ impl SaeManifoldTerm {
                     &mut jet_window,
                 )?;
             }
-            let jets = jet_window.pop_front().expect("jet window must be non-empty");
+            let jets = jet_window
+                .pop_front()
+                .expect("jet window must be non-empty");
             let sqrt_row_w = row_loss_w.map_or(1.0, |w| w[row].sqrt());
 
             // √w-scaled metric-applied per-row residual `error_metric = √w·M_n r_n`
@@ -119,7 +402,14 @@ impl SaeManifoldTerm {
             // so this is exactly the residual contracted against the raw `∂²f`
             // jets. `M_n = I` on the isotropic path ⇒ `error_metric = √w·r`.
             fitted.fill(0.0);
+            let active_atoms = self
+                .last_row_layout
+                .as_ref()
+                .map(|layout| layout.active_atoms[row].as_slice());
             for k in 0..k_atoms {
+                if active_atoms.is_some_and(|active| active.binary_search(&k).is_err()) {
+                    continue;
+                }
                 self.atoms[k].fill_decoded_row(row, &mut decoded);
                 let a_k = assignments[k];
                 for out_col in 0..p {
@@ -179,6 +469,12 @@ impl SaeManifoldTerm {
                     .as_slice()
                     .expect("softmax assignments row must be contiguous");
                 let m = softmax_majorizer_log_mean(a_soft);
+                // #991 — the assembled `B` wrote the design-weighted majorizer
+                // `w_row·D` into the logit block (see the assembly), and the exact
+                // prior curvature is `w_row·H_entropy`, so this dropped-curvature
+                // correction `ΔC = A − B = w_row·(H_entropy − D)` carries the SAME
+                // `w_row`. The prior is weighted directly, not via the √w data seam.
+                let w_row = row_loss_w.map_or(1.0, |w| w[row]);
                 for (a, va) in jets.vars.iter().enumerate() {
                     let SaeLocalRowVar::Logit { atom: ka } = *va else {
                         continue;
@@ -204,21 +500,17 @@ impl SaeManifoldTerm {
                         } else {
                             h_entropy
                         };
-                        acc += delta * v_t[b];
+                        acc += w_row * delta * v_t[b];
                     }
                     out.t[base + a] += acc;
                 }
             }
 
             // (3) periodic ARD: ΔC_coord = (V'' − max(V'',0)) = min(V'',0), diagonal.
-            // HT row weighting: the assembly writes the majorizer this corrects as
-            // `w_row·max(V'',0)` (the weighted ARD seam in
-            // `construction_arrow_schur_assembly.rs`), so the dropped-curvature
-            // delta `A − B = w_row·min(V'',0)` must carry the SAME full `w_row` —
-            // otherwise the exact operator `A = B + ΔC` no longer equals the
-            // weighted von-Mises curvature `w_row·V''` on a subsample (the prior is
-            // added directly with full `w_row`, NOT through the √w jet seam, so the
-            // correct single factor here is `w_row`, not `√w`). `None` ⇒ w_row = 1.
+            // The assembly writes the mean-one design-weighted majorizer
+            // `w_row·max(V'',0)`, so the dropped-curvature correction must carry
+            // that same `w_row`: `A = B + ΔC` then recovers `w_row·V''` exactly.
+            // The prior is weighted directly, not through the √w data-jet seam.
             let w_row = row_loss_w.map_or(1.0, |w| w[row]);
             for (a, va) in jets.vars.iter().enumerate() {
                 let SaeLocalRowVar::Coord { atom, axis } = *va else {
@@ -259,12 +551,15 @@ impl SaeManifoldTerm {
     }
 
     /// #1418: solve `A x = rhs` for the EXACT stationarity Jacobian `A = ∇²_θθ L`
-    /// via `B`-preconditioned CG ([`solve_b_preconditioned_cg`]) with the
-    /// matrix-free `A v = B v + ΔC v` apply ([`Self::apply_exact_hessian`]). The
-    /// IFT step `θ̂_ρ = −A⁻¹ g_ρ` must invert the EXACT `A`, not the surrogate `B`;
-    /// CG converges for any `ρ(B⁻¹ΔC)`, where the earlier Neumann series diverged
-    /// once the dropped curvature `ΔC = ⟨r, ∂²f⟩` grew (large unmodellable residual).
-    fn solve_exact_stationarity(
+    /// on the closed-form gauge quotient via left-`B_Q`-preconditioned GMRES
+    /// ([`solve_b_preconditioned_gmres`]) with the matrix-free
+    /// `A_Q v = B v + ΔC v + κ Q Qᵀv` apply owned by
+    /// [`solve_exact_stationarity_on_gauge_quotient`]. The
+    /// IFT step `θ̂_ρ = −A⁻¹ g_ρ` (the code contracts `−½·⟨Γ, A⁻¹ g_ρ⟩` with rhs `= +∂g/∂ρ`, i.e. `+½·Γᵀθ̂_ρ` of the response — the sign lives in the −0.5 factor) must invert the EXACT `A`, not the surrogate `B`;
+    /// GMRES does not require the exact stationarity Jacobian to be SPD; it
+    /// refuses non-convergence instead of returning a negative-curvature CG
+    /// iterate as though it were an inverse solve.
+    pub(crate) fn solve_exact_stationarity(
         &self,
         rho: &SaeManifoldRho,
         target: ArrayView2<'_, f64>,
@@ -272,9 +567,219 @@ impl SaeManifoldTerm {
         solver: &DeflatedArrowSolver<'_>,
         rhs: &SaeArrowVector,
     ) -> Result<SaeArrowVector, String> {
-        solve_b_preconditioned_cg(solver, rhs, |v| {
-            self.apply_exact_hessian(rho, target, cache, v)
-        })
+        let apply_raw_a = |v: &SaeArrowVector| self.apply_exact_hessian(rho, target, cache, v);
+        let apply_raw_b =
+            |v: &SaeArrowVector| apply_cached_arrow_hessian(cache, v.t.view(), v.beta.view());
+        solve_exact_stationarity_on_gauge_quotient(solver, rhs, &apply_raw_a, &apply_raw_b)
+    }
+
+    /// Matrix-free exact-stationarity sibling used by the wide-border REML
+    /// assignment-strength residual. `system` is the reassembled undamped
+    /// bordered operator at the converged inner state; `cache` supplies the same
+    /// row factors and H_tbeta operator whose rational log-determinant and shared
+    /// inverse-probe bundle were consumed by the value/trace lanes.
+    ///
+    /// The reduced beta solve is quotient-aware and matrix-free. Per-row
+    /// spectral deflation is refused by the selected-inverse channels before
+    /// this seam is reached: a border-only probe bundle cannot differentiate
+    /// the Daleckii-Krein deflation map, so proceeding would be a false exactness
+    /// claim rather than a usable fallback.
+    fn solve_exact_stationarity_matrix_free(
+        &self,
+        rho: &SaeManifoldRho,
+        target: ArrayView2<'_, f64>,
+        cache: &ArrowFactorCache,
+        system: &ArrowSchurSystem,
+        rhs: &SaeArrowVector,
+    ) -> Result<SaeArrowVector, String> {
+        let apply_b = |vector: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            let (t, beta) = matrix_free_arrow_operator_apply(
+                system,
+                cache,
+                vector.t.view(),
+                vector.beta.view(),
+            )
+            .map_err(|error| format!("matrix-free evidence operator: {error}"))?;
+            Ok(SaeArrowVector { t, beta })
+        };
+        let apply_a = |vector: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            let base = apply_b(vector)?;
+            let correction = self.apply_exact_hessian_minus_b(rho, target, cache, vector)?;
+            Ok(SaeArrowVector {
+                t: &base.t + &correction.t,
+                beta: &base.beta + &correction.beta,
+            })
+        };
+        let precondition = |vector: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            // The outer exact-stationarity residual is certified to 1e-10 in
+            // `solve_b_preconditioned_gmres`; drive its deterministic SPD
+            // reduced preconditioner to the same relative accuracy. In exact
+            // arithmetic CG terminates in at most the reduced dimension, so the
+            // dimension itself is the non-arbitrary iteration bound.
+            let (t, beta) = matrix_free_arrow_inverse_apply(
+                system,
+                cache,
+                vector.t.view(),
+                vector.beta.view(),
+                1.0e-10,
+                cache.k.max(1),
+            )
+            .map_err(|error| format!("matrix-free evidence inverse: {error}"))?;
+            Ok(SaeArrowVector { t, beta })
+        };
+        solve_exact_stationarity_preconditioned(rhs, &apply_a, &apply_b, precondition)
+    }
+
+    fn combine_assignment_strength_gradient(
+        &self,
+        rho: &SaeManifoldRho,
+        logdet_trace: f64,
+        gamma: &SaeArrowVector,
+        response: &SaeArrowVector,
+        lane: &str,
+    ) -> Result<f64, OuterGradientError> {
+        let explicit = crate::assignment::assignment_prior_log_strength_derivative_weighted(
+            &self.assignment,
+            rho,
+            self.row_loss_weights.as_deref(),
+        );
+        let correction = -0.5 * sae_inner(gamma, response);
+        let gradient = explicit + logdet_trace + correction;
+        if !gradient.is_finite() {
+            return Err(OuterGradientError::internal(format!(
+                "{lane} assignment-strength gradient is non-finite: explicit={explicit}, \
+                 logdet_trace={logdet_trace}, IFT_correction={correction}"
+            )));
+        }
+        Ok(gradient)
+    }
+
+    /// Dense-cache sibling of
+    /// [`Self::analytic_assignment_strength_gradient_matrix_free`]. Hybrid-EFS
+    /// uses this when the full streaming working set is not resident but the
+    /// reduced Schur itself still fits and the returned cache therefore owns an
+    /// exact dense factor. Computing only this coordinate avoids the O(K) IFT
+    /// solves of the complete outer gradient while retaining identical math.
+    pub(crate) fn analytic_assignment_strength_gradient_dense(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        cache: &ArrowFactorCache,
+        solver: &DeflatedArrowSolver<'_>,
+    ) -> Result<f64, OuterGradientError> {
+        let sparse_index = rho.sparse_flat_index().ok_or_else(|| {
+            OuterGradientError::internal(
+                "dense assignment-strength gradient requested for a rho with no sparse coordinate",
+            )
+        })?;
+        let joint_trace = self
+            .assignment_log_strength_hessian_trace(rho, cache, solver)
+            .map_err(OuterGradientError::internal)?;
+        let coordinate_trace = self
+            .coordinate_block_assignment_log_strength_hessian_trace(rho, cache)
+            .map_err(OuterGradientError::internal)?;
+        let logdet_trace = joint_trace - coordinate_trace;
+        let loss = self
+            .loss(target, rho)
+            .map_err(OuterGradientError::internal)?;
+        let rank_charge = self
+            .hard_rank_charge_derivative(target, rho, &loss, cache)
+            .map_err(OuterGradientError::internal)?;
+        let mut gamma = self
+            .logdet_theta_adjoint(rho, cache, solver)
+            .map_err(OuterGradientError::internal)?;
+        let coordinate_gamma = self
+            .coordinate_block_logdet_theta_adjoint(rho, cache, solver)
+            .map_err(OuterGradientError::internal)?;
+        gamma.t -= &coordinate_gamma.t;
+        gamma.beta -= &coordinate_gamma.beta;
+        gamma.t.scaled_add(2.0, &rank_charge.theta.t);
+        gamma.beta.scaled_add(2.0, &rank_charge.theta.beta);
+        let rhs = self
+            .outer_rho_gradient_ift_rhs(rho, sparse_index, cache)
+            .map_err(OuterGradientError::internal)?;
+        let response = self
+            .solve_exact_stationarity(rho, target, cache, solver, &rhs)
+            .map_err(|error| {
+                OuterGradientError::classify_arrow_solver_error(
+                    &error,
+                    OuterGradientError::NonIdentifiable {
+                        reason: error.clone(),
+                    },
+                )
+            })?;
+        self.combine_assignment_strength_gradient(rho, logdet_trace, &gamma, &response, "dense")
+    }
+
+    /// Exact non-IBP assignment-strength REML gradient on the matrix-free
+    /// evidence path. This is the one coordinate softmax entropy and gated L1
+    /// cannot update through a Fellner-Schall equation:
+    ///
+    /// `dV/drho_sparse = explicit_prior + 0.5 tr(B^-1 dB/drho_sparse)
+    ///                    - 0.5 Gamma^T A^-1 dg/drho_sparse`.
+    ///
+    /// Every selected-inverse contraction uses the same `(z, S^-1 z)` bundle
+    /// the rational log-determinant emitted, and the implicit response uses the
+    /// matrix-free exact-stationarity solve above. No dense Schur, finite
+    /// difference, held-zero surrogate, or degraded derivative is involved.
+    pub(crate) fn analytic_assignment_strength_gradient_matrix_free(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        cache: &ArrowFactorCache,
+        system: &ArrowSchurSystem,
+        probes: &[Array1<f64>],
+        inverse_probes: &[Array1<f64>],
+    ) -> Result<f64, OuterGradientError> {
+        let sparse_index = rho.sparse_flat_index().ok_or_else(|| {
+            OuterGradientError::internal(
+                "matrix-free assignment-strength gradient requested for a rho with no sparse coordinate",
+            )
+        })?;
+        let joint_trace = self
+            .assignment_log_strength_hessian_trace_from_probes(rho, cache, probes, inverse_probes)
+            .map_err(OuterGradientError::internal)?;
+        let coordinate_trace = self
+            .coordinate_block_assignment_log_strength_hessian_trace(rho, cache)
+            .map_err(OuterGradientError::internal)?;
+        let logdet_trace = joint_trace - coordinate_trace;
+        let plain_solver = DeflatedArrowSolver::plain(cache);
+        let loss = self
+            .loss(target, rho)
+            .map_err(OuterGradientError::internal)?;
+        let rank_charge = self
+            .hard_rank_charge_derivative(target, rho, &loss, cache)
+            .map_err(OuterGradientError::internal)?;
+        let mut gamma = self
+            .logdet_theta_adjoint_from_probes(rho, cache, probes, inverse_probes)
+            .map_err(OuterGradientError::internal)?;
+        let coordinate_gamma = self
+            .coordinate_block_logdet_theta_adjoint(rho, cache, &plain_solver)
+            .map_err(OuterGradientError::internal)?;
+        gamma.t -= &coordinate_gamma.t;
+        gamma.beta -= &coordinate_gamma.beta;
+        gamma.t.scaled_add(2.0, &rank_charge.theta.t);
+        gamma.beta.scaled_add(2.0, &rank_charge.theta.beta);
+        let rhs = self
+            .outer_rho_gradient_ift_rhs(rho, sparse_index, cache)
+            .map_err(OuterGradientError::internal)?;
+        let response = self
+            .solve_exact_stationarity_matrix_free(rho, target, cache, system, &rhs)
+            .map_err(|error| {
+                OuterGradientError::classify_arrow_solver_error(
+                    &error,
+                    OuterGradientError::NonIdentifiable {
+                        reason: error.clone(),
+                    },
+                )
+            })?;
+        self.combine_assignment_strength_gradient(
+            rho,
+            logdet_trace,
+            &gamma,
+            &response,
+            "matrix-free",
+        )
     }
 
     /// Analytic SAE REML outer-ρ gradient components at the already converged
@@ -299,26 +804,27 @@ impl SaeManifoldTerm {
     /// #2080 forward plumbing — the analytic outer-ρ gradient with an OPTIONAL
     /// shared selected-inverse probe bundle `(z_j, S⁻¹ z_j)`.
     ///
-    /// When `inverse_probe_bundle` is `Some`, the two `½log|H|`-trace channels
-    /// that have matrix-free selected-inverse siblings — the per-atom decoder
-    /// smoothness EDF `tr(H⁻¹ M_k)` and the per-(atom,axis) ARD log-precision
-    /// Hessian trace `½tr(H⁻¹ ∂H/∂logα)` — are evaluated off that bundle
-    /// (`decoder_smoothness_effective_dof_per_atom_from_probes` /
-    /// `ard_log_precision_hessian_trace_from_probes`) instead of the dense
-    /// `DeflatedArrowSolver` selected inverse. They convert together as ONE
-    /// all-or-nothing cluster on the single `Some` (invariant #1): never a
-    /// partial mix within a single eval.
+    /// When `inverse_probe_bundle` is `Some`, the THREE selected-inverse channels
+    /// that have matrix-free siblings — the per-atom decoder smoothness EDF
+    /// `tr(H⁻¹ M_k)`, the per-(atom,axis) ARD log-precision Hessian trace
+    /// `½tr(H⁻¹ ∂H/∂logα)`, and the #1006 envelope Γ = tr(H⁻¹ ∂H/∂θ) — are evaluated
+    /// off that bundle (`decoder_smoothness_effective_dof_per_atom_from_probes` /
+    /// `ard_log_precision_hessian_trace_from_probes` / `logdet_theta_adjoint_from_probes`)
+    /// instead of the dense `DeflatedArrowSolver` selected inverse. They convert
+    /// together as ONE all-or-nothing cluster on the single `Some` (invariant #1):
+    /// never a partial mix within a single eval. Each from-probes channel hard-refuses
+    /// deflated rows (the plain-S⁻¹ bundle cannot reconstruct the Daleckii–Krein
+    /// correction), routing those fits to the dense channel.
     ///
-    /// The analytic-gradient cluster is DENSE-ONLY today (invariant #3): every
-    /// production caller passes `None`, so this `Some` branch is dormant forward
-    /// plumbing that the eventual routing flip (once the surrogate lane owns the
-    /// analytic gradient, not just the EFS lane) will exercise. Flipping any
-    /// caller to `Some` additionally requires matrix-free siblings for the
-    /// channels that still consume `solver` even on the `Some` branch — the
-    /// assignment/learnable-IBP log-strength traces and the `logdet_theta_adjoint`
-    /// envelope Γ (#2080 task-2, the θ-adjoint `tr(S⁻¹·M)` fold) — so the `solver`
-    /// argument is still required here and the flip stays off until that gap
-    /// closes.
+    /// The complete all-coordinate assembler remains dense-solver-bound: its IFT
+    /// correction requires one exact-stationarity solve per active outer
+    /// coordinate and still accepts a [`DeflatedArrowSolver`]. Production
+    /// Hybrid-EFS deliberately does not route the scalable fit through that O(K)
+    /// surface. It evaluates the sole non-FS assignment-strength coordinate with
+    /// [`Self::analytic_assignment_strength_gradient_matrix_free`] and leaves the
+    /// simultaneous smoothness/ARD block on Fellner-Schall updates. The `Some`
+    /// branch here is retained for exact dense/bundle parity of the complete
+    /// derivative, not as the production matrix-free route.
     pub(crate) fn analytic_outer_rho_gradient_components_with_bundle(
         &self,
         target: ArrayView2<'_, f64>,
@@ -333,31 +839,38 @@ impl SaeManifoldTerm {
         let mut logdet_trace = Array1::<f64>::zeros(n_params);
         let mut occam = Array1::<f64>::zeros(n_params);
         let mut third_order_correction = Array1::<f64>::zeros(n_params);
-        let mut third_order_correction_raw = Array1::<f64>::zeros(n_params);
+        let rank_charge = self
+            .hard_rank_charge_derivative(target, rho, loss, cache)
+            .map_err(OuterGradientError::internal)?;
 
-        explicit[0] = assignment_prior_log_strength_derivative(&self.assignment, rho)
-            + self
-                .learnable_ibp_forward_alpha_data_derivative(rho, target)
+        if let Some(sparse_index) = rho.sparse_flat_index() {
+            explicit[sparse_index] =
+                crate::assignment::assignment_prior_log_strength_derivative_weighted(
+                    &self.assignment,
+                    rho,
+                    self.row_loss_weights.as_deref(),
+                );
+            // IBP concentration controls only the Beta--Bernoulli prior. The
+            // final posterior-mean gate is `sigmoid(logit/tau)`, so the data
+            // likelihood and its Gauss--Newton blocks have no direct alpha
+            // derivative. Structurally fixed assignments have no sparse index
+            // and skip this channel entirely.
+            let joint_trace = match inverse_probe_bundle {
+                Some((probes, sinv)) => self
+                    .assignment_log_strength_hessian_trace_from_probes(rho, cache, probes, sinv)
+                    .map_err(OuterGradientError::internal)?,
+                None => self
+                    .assignment_log_strength_hessian_trace(rho, cache, solver)
+                    .map_err(OuterGradientError::internal)?,
+            };
+            let coordinate_trace = self
+                .coordinate_block_assignment_log_strength_hessian_trace(rho, cache)
                 .map_err(OuterGradientError::internal)?;
-        // #1417: the FULL `½ tr(H⁻¹ ∂H/∂logα)` for the assignment coordinate.
-        // For LEARNABLE IBP alpha the forward assignments `a_ik = σ(ℓ/τ)·π_k(α)`
-        // carry an explicit α-dependence (`∂logπ_k/∂logα = k/(α+1)`), so BOTH the
-        // assignment-prior Hessian AND the data Gauss-Newton blocks
-        // `H_ββ`, `H_tβ`, `H_tt` depend on logα. We assemble both traces:
-        //   • prior:  `assignment_log_strength_hessian_trace`,
-        //   • data:   `learnable_ibp_data_logdet_alpha_trace` (#1417), using the
-        //             exact `(k_a+k_b)/(α+1)` block-scaling identity.
-        // For FIXED alpha (and non-IBP modes) the data term is identically zero,
-        // so the fixed-alpha gradient is unchanged and exact.
-        logdet_trace[0] = self
-            .assignment_log_strength_hessian_trace(rho, cache, solver)
-            .map_err(OuterGradientError::internal)?
-            + self
-                .learnable_ibp_data_logdet_alpha_trace(rho, cache, solver)
-                .map_err(OuterGradientError::internal)?;
+            logdet_trace[sparse_index] = joint_trace - coordinate_trace;
+        }
 
         // #1556: λ_smooth is per-atom, so the smoothness gradient block occupies
-        // flat indices `1..1+K` (one per atom), not a single index 1. Each atom
+        // the K layout-derived smooth indices (one per atom). Each atom
         // `k` carries its own explicit penalty-energy derivative, log|H| trace,
         // and Occam-normalizer derivative.
         let k_smooth = rho.log_lambda_smooth.len();
@@ -403,9 +916,10 @@ impl SaeManifoldTerm {
             .reml_occam_log_lambda_smooth_derivative(rho)
             .map_err(OuterGradientError::internal)?;
         for atom_idx in 0..k_smooth {
-            explicit[1 + atom_idx] = smooth_explicit[atom_idx];
-            logdet_trace[1 + atom_idx] = 0.5 * smooth_logdet[atom_idx];
-            occam[1 + atom_idx] = -smooth_occam[atom_idx];
+            let index = rho.smooth_flat_index(atom_idx);
+            explicit[index] = smooth_explicit[atom_idx];
+            logdet_trace[index] = 0.5 * smooth_logdet[atom_idx];
+            occam[index] = -smooth_occam[atom_idx];
         }
 
         let ard_explicit = self
@@ -418,7 +932,7 @@ impl SaeManifoldTerm {
         // any row carrying gauge/rotation deflation (the plain-S⁻¹ bundle cannot
         // reconstruct the Daleckii–Krein correction), routing that fit to the dense
         // channel rather than silently dropping the correction.
-        let ard_trace = match inverse_probe_bundle {
+        let ard_joint_trace = match inverse_probe_bundle {
             Some((probes, sinv)) => self
                 .ard_log_precision_hessian_trace_from_probes(rho, cache, probes, sinv)
                 .map_err(|err| OuterGradientError::InternalInvariant {
@@ -433,6 +947,13 @@ impl SaeManifoldTerm {
                     reason: format!("analytic_outer_rho_gradient_components: {err}"),
                 })?,
         };
+        let ard_coordinate_trace = self
+            .coordinate_block_ard_log_precision_hessian_trace(rho, cache)
+            .map_err(|err| OuterGradientError::InternalInvariant {
+                reason: format!(
+                    "analytic_outer_rho_gradient_components: coordinate-block ARD trace: {err}"
+                ),
+            })?;
         // #1026 shared-ARD: `ard_flat_index` maps `(k, axis)` onto the flat outer
         // coordinate for BOTH parameterizations. In `Shared` mode several atoms
         // alias one axis coordinate `1+K+axis`, and the outer derivative there is
@@ -445,61 +966,101 @@ impl SaeManifoldTerm {
             for axis in 0..rho.log_ard[k].len() {
                 let idx = rho.ard_flat_index(k, axis);
                 explicit[idx] += ard_explicit[k][axis];
-                logdet_trace[idx] += ard_trace[k][axis];
+                logdet_trace[idx] += ard_joint_trace[k][axis] - ard_coordinate_trace[k][axis];
             }
         }
 
-        let gamma = self
-            .logdet_theta_adjoint(rho, cache, solver)
+        // The scalar criterion replaces `½ log|H_tt|` with the realised-rank
+        // charge. Its direct rho differential belongs alongside the explicit
+        // penalty channels and is present on every layout (dense or probes).
+        explicit += &rank_charge.direct_rho;
+
+        // #2080: the envelope Γ = tr(H⁻¹ ∂H/∂θ) off the SAME shared selected-inverse
+        // bundle (the all-or-nothing cluster's third channel) when present; the dense
+        // selected inverse otherwise. The border-only bundle reconstructs the NO-SELF
+        // base inverse `(H₀')⁻¹`, so `logdet_theta_adjoint_from_probes` HARD-REFUSES
+        // (routes to dense) any cache carrying a T-space rank-R correction the border
+        // cannot span — per-row gauge/rotation deflation OR an IBP cross-row Woodbury —
+        // and otherwise owns the softmax / euclidean / non-cross-row regimes exactly.
+        // This completes the matrix-free selected-inverse cluster (smoothness EDF + ARD
+        // Hessian trace + θ-adjoint); the assignment/learnable-IBP log-strength traces
+        // (when that coordinate exists) plus the θ-adjoint's IBP-refused fits remain
+        // solver-bound
+        // — the last gaps before the routing flip (see the docstring).
+        let mut gamma = match inverse_probe_bundle {
+            Some((probes, sinv)) => self
+                .logdet_theta_adjoint_from_probes(rho, cache, probes, sinv)
+                .map_err(OuterGradientError::internal)?,
+            None => self
+                .logdet_theta_adjoint(rho, cache, solver)
+                .map_err(OuterGradientError::internal)?,
+        };
+        let coordinate_gamma = self
+            .coordinate_block_logdet_theta_adjoint(rho, cache, solver)
             .map_err(OuterGradientError::internal)?;
+        gamma.t -= &coordinate_gamma.t;
+        gamma.beta -= &coordinate_gamma.beta;
+        // `½ Γ_joint·theta_hat - ½ Γ_tt·theta_hat + ∇R·theta_hat`
+        // is represented by one effective logdet adjoint
+        // `Γ_eff = Γ_joint - Γ_tt + 2∇R`, preserving the existing
+        // `-½ <Γ_eff, A^-1 g_rho>` contraction convention below.
+        gamma.t.scaled_add(2.0, &rank_charge.theta.t);
+        gamma.beta.scaled_add(2.0, &rank_charge.theta.beta);
         // #1418: the implicit-function correction is `−½·Γᵀ·θ̂_ρ` with
-        // `θ̂_ρ = −A⁻¹ g_ρ`, where `A = ∇²_θθ L` is the EXACT stationarity
+        // `θ̂_ρ = −A⁻¹ g_ρ` (the code contracts `−½·⟨Γ, A⁻¹ g_ρ⟩` with rhs `= +∂g/∂ρ`, i.e. `+½·Γᵀθ̂_ρ` of the response — the sign lives in the −0.5 factor), where `A = ∇²_θθ L` is the EXACT stationarity
         // Jacobian of the inner fit — data residual curvature, exact softmax
         // entropy Hessian, exact periodic ARD curvature. The matrix the `solver`
         // factors is `B` (Gauss-Newton data curvature, softmax Fisher metric,
         // `max(V'',0)` ARD majorizers): the `½log|B|` Laplace term is consistent
         // with `Γ = ½tr(B⁻¹ ∂B/∂θ)`, but the implicit step is governed by `A`.
-        // `solve_exact_stationarity` applies the TRUE `A⁻¹` via a B⁻¹-
-        // preconditioned Neumann fixed point (`A = B + ΔC`,
-        // `ΔC = apply_exact_hessian_minus_b`), so the correction is no longer
-        // biased by `(B⁻¹ − A⁻¹)`.
+        // `solve_exact_stationarity` applies the TRUE `A⁻¹` with left-`B`
+        // preconditioned GMRES on `A = B + ΔC`, where
+        // `ΔC = apply_exact_hessian_minus_b`, so the correction is no longer
+        // biased by `(B⁻¹ − A⁻¹)` and does not assume `A` is SPD.
         //
-        // #2087 dead-zone gate. The raw envelope term `−½·Γᵀθ̂_ρ` is the response
-        // of the SMOOTH criterion `V(ρ) = penalized_loss(θ̂(ρ),ρ) + ½log|H|` that
-        // presumes the inner optimum tracks ρ exactly. The production inner solve
-        // does NOT: it accepts `θ̂` once the KKT gradient is stationary to the
-        // relative tolerance `τ = SAE_MANIFOLD_INNER_GRAD_REL_TOL · iterate_scale`
-        // (`reml_criterion`'s `grad_tolerance`, construction.rs). Under an outer
-        // step `dρ_j` the warm-started re-solve leaves `θ̂` UNCHANGED as long as
-        // the perturbed inner gradient stays inside that dead-zone. The IFT step
-        // `θ̂_ρ,j = −A⁻¹ rhs_j` images back through the inner Hessian to an inner
-        // gradient of exactly `A·θ̂_ρ,j = −rhs_j` (the `rhs_j` = `∂g/∂ρ_j`
-        // perturbation the re-solve would have to null), so `‖rhs_j‖` is precisely
-        // the inner-gradient signal that the predicted θ̂-response carries. When
-        // `‖rhs_j‖ ≤ τ`, a unit-ρ move perturbs the inner KKT gradient by less
-        // than the stationarity tolerance that declared convergence — the re-solve
-        // returns the incumbent and `θ̂` is FROZEN, so the criterion the outer
-        // search actually experiences has `θ̂` locally constant and its gradient is
-        // `explicit + logdet_trace + occam` with NO envelope term. A large raw
-        // `−½·Γᵀθ̂_ρ` there is the spurious amplification of a below-tolerance
-        // signal through a weakly-identified (near-null) direction of `A`. We
-        // therefore keep the envelope term ONLY on coordinates whose driving
-        // signal escapes the dead-zone (`‖rhs_j‖ > τ`, where the inner re-solve
-        // genuinely tracks `θ̂(ρ)`), and zero it otherwise. The raw value is
-        // preserved on `third_order_correction_raw` for diagnostics; no VALUE
-        // channel changes. Constants come entirely from the inner solver's own
-        // stationarity tolerance — no new knob.
-        let dead_zone_tol = SAE_MANIFOLD_INNER_GRAD_REL_TOL * self.inner_iterate_scale();
+        // A numerical stopping tolerance does not change the mathematical
+        // objective.  At the exact inner optimum the envelope theorem cancels
+        // the penalized-loss response, but the Laplace term still contributes
+        // `-1/2 Gamma' theta_hat_rho`.  Dropping this term differentiates a
+        // fictitious criterion in which the fitted state is held fixed.  The
+        // exact stationarity solve above supplies the required implicit response.
+        // #2231 — the trailing `L−1` flat coordinates are the crosscoder block
+        // relevances `log λ_ℓ` (`SaeManifoldRho::to_flat` appends them last).
+        // Their inner-gradient dependence enters through the λ-scaled target, so
+        // their RHS is `−½·Jᵀ_M Z̃^{(ℓ)}` (`crosscoder_block_ift_rhs`), NOT the
+        // penalty/prior channels `outer_rho_gradient_ift_rhs` owns. The adjoint
+        // contraction below then completes the block gradient with the same
+        // `−½·Γᵀθ̂_ρ` channel every other coordinate carries; the explicit data
+        // + Jacobian parts stay with the eval lane's `block_log_lambda_gradient`.
+        let block_tail_start = n_params - rho.log_lambda_block.len();
         for coord in 0..n_params {
-            let rhs = self
-                .outer_rho_gradient_ift_rhs(rho, target, coord, cache)
-                .map_err(OuterGradientError::internal)?;
-            let rhs_norm_sq = rhs.t.iter().map(|&v| v * v).sum::<f64>()
-                + rhs.beta.iter().map(|&v| v * v).sum::<f64>();
-            let rhs_norm = rhs_norm_sq.sqrt();
+            let rhs = if coord >= block_tail_start && !rho.log_lambda_block.is_empty() {
+                let &(p_x, ref block_dims) =
+                    self.crosscoder_pricing_spans.as_ref().ok_or_else(|| {
+                        OuterGradientError::internal(
+                            "analytic_outer_rho_gradient_components: rho carries block \
+                             coordinates but no crosscoder pricing spans are installed"
+                                .to_string(),
+                        )
+                    })?;
+                let block = coord - block_tail_start;
+                let start = p_x + block_dims[..block].iter().sum::<usize>();
+                self.crosscoder_block_ift_rhs(cache, target, start..start + block_dims[block])
+                    .map_err(OuterGradientError::internal)?
+            } else {
+                self.outer_rho_gradient_ift_rhs(rho, coord, cache)
+                    .map_err(OuterGradientError::internal)?
+            };
             let solved = self
                 .solve_exact_stationarity(rho, target, cache, solver, &rhs)
-                .map_err(OuterGradientError::internal)?;
+                .map_err(|err| {
+                    OuterGradientError::classify_arrow_solver_error(
+                        &err,
+                        OuterGradientError::NonIdentifiable {
+                            reason: err.clone(),
+                        },
+                    )
+                })?;
             let mut dot = 0.0_f64;
             for idx in 0..gamma.t.len() {
                 dot += gamma.t[idx] * solved.t[idx];
@@ -507,11 +1068,7 @@ impl SaeManifoldTerm {
             for idx in 0..gamma.beta.len() {
                 dot += gamma.beta[idx] * solved.beta[idx];
             }
-            let raw = -0.5 * dot;
-            third_order_correction_raw[coord] = raw;
-            // Dead-zone gate: only trust the envelope response where the outer
-            // step would drive the inner gradient past the stationarity tolerance.
-            third_order_correction[coord] = if rhs_norm > dead_zone_tol { raw } else { 0.0 };
+            third_order_correction[coord] = -0.5 * dot;
         }
 
         Ok(SaeOuterRhoGradientComponents {
@@ -519,7 +1076,6 @@ impl SaeManifoldTerm {
             logdet_trace,
             occam,
             third_order_correction,
-            third_order_correction_raw,
         })
     }
 }

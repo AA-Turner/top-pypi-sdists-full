@@ -192,7 +192,7 @@ class StateFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[
         if not create or not extracted:
             return
 
-        permissions = [permission_by_name(p) for p in set(extracted)]
+        permissions = [permission_by_name(p).pk for p in set(extracted)]
         self.permissions.add(*permissions)
 
     @factory.post_generation

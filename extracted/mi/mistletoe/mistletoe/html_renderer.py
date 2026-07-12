@@ -10,6 +10,7 @@ from mistletoe import span_token
 from mistletoe.block_token import HtmlBlock
 from mistletoe.span_token import HtmlSpan
 from mistletoe.base_renderer import BaseRenderer
+from mistletoe.base_renderer import URI_SAFE_CHARACTERS
 
 
 class HtmlRenderer(BaseRenderer):
@@ -73,11 +74,12 @@ class HtmlRenderer(BaseRenderer):
 
     def render_image(self, token: span_token.Image) -> str:
         template = '<img src="{}" alt="{}"{} />'
+        src = self.escape_url(token.src)
         if token.title:
             title = ' title="{}"'.format(html.escape(token.title))
         else:
             title = ''
-        return template.format(token.src, self.render_to_plain(token), title)
+        return template.format(src, self.render_to_plain(token), title)
 
     def render_link(self, token: span_token.Link) -> str:
         template = '<a href="{target}"{title}>{inner}</a>'
@@ -92,7 +94,7 @@ class HtmlRenderer(BaseRenderer):
     def render_auto_link(self, token: span_token.AutoLink) -> str:
         template = '<a href="{target}">{inner}</a>'
         if token.mailto:
-            target = 'mailto:{}'.format(token.target)
+            target = self.escape_url('mailto:{}'.format(token.target))
         else:
             target = self.escape_url(token.target)
         inner = self.render_inner(token)
@@ -235,7 +237,7 @@ class HtmlRenderer(BaseRenderer):
         """
         Escape urls to prevent code injection craziness. (Hopefully.)
         """
-        return html.escape(quote(raw, safe='/#:()*?=%@+,&;'))
+        return html.escape(quote(raw, safe=URI_SAFE_CHARACTERS))
 
 
 HTMLRenderer = HtmlRenderer

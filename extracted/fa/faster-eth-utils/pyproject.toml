@@ -2,8 +2,8 @@
 requires = [
   "setuptools",
   "wheel",
-  "mypy[mypyc]==2.1.0",
-  "cchecksum==0.4.4",
+  "mypy[mypyc]==2.2.0",
+  "cchecksum==0.4.5",
   "eth-hash==0.7.1",
   "eth-typing==5.2.1",
   # puccinialin (installed with eth-utils) is unable to install for
@@ -139,7 +139,7 @@ name = "Removals"
 showcontent = true
 
 [tool.bumpversion]
-current_version = "5.3.28"
+current_version = "5.3.29"
 parse = """
   (?P<major>\\d+)
   \\.(?P<minor>\\d+)

@@ -23,8 +23,8 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     organization: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOrgDataExchangesResponseHttpRequest: ...
                 def list_next(
@@ -49,15 +49,15 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: Listing = ...,
-                        listingId: str = ...,
+                        body: Listing,
+                        listingId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListingHttpRequest: ...
                     def delete(
                         self,
                         *,
                         name: str,
-                        deleteCommercial: bool = ...,
+                        deleteCommercial: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> EmptyHttpRequest: ...
                     def get(
@@ -67,15 +67,15 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: GetIamPolicyRequest = ...,
+                        body: GetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListListingsResponseHttpRequest: ...
                     def list_next(
@@ -87,9 +87,9 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        includeDeletedSubscriptions: bool = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        includeDeletedSubscriptions: bool | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSharedResourceSubscriptionsResponseHttpRequest: ...
                     def listSubscriptions_next(
@@ -101,29 +101,29 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: Listing = ...,
-                        updateMask: str = ...,
+                        body: Listing,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListingHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def subscribe(
                         self,
                         *,
                         name: str,
-                        body: SubscribeListingRequest = ...,
+                        body: SubscribeListingRequest,
                         **kwargs: typing.Any,
                     ) -> SubscribeListingResponseHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -133,15 +133,15 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ApproveQueryTemplateRequest = ...,
+                        body: ApproveQueryTemplateRequest,
                         **kwargs: typing.Any,
                     ) -> QueryTemplateHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: QueryTemplate = ...,
-                        queryTemplateId: str = ...,
+                        body: QueryTemplate,
+                        queryTemplateId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> QueryTemplateHttpRequest: ...
                     def delete(
@@ -154,8 +154,8 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListQueryTemplatesResponseHttpRequest: ...
                     def list_next(
@@ -167,15 +167,15 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: QueryTemplate = ...,
-                        updateMask: str = ...,
+                        body: QueryTemplate,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> QueryTemplateHttpRequest: ...
                     def submit(
                         self,
                         *,
                         name: str,
-                        body: SubmitQueryTemplateRequest = ...,
+                        body: SubmitQueryTemplateRequest,
                         **kwargs: typing.Any,
                     ) -> QueryTemplateHttpRequest: ...
 
@@ -183,8 +183,8 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: DataExchange = ...,
-                    dataExchangeId: str = ...,
+                    body: DataExchange,
+                    dataExchangeId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> DataExchangeHttpRequest: ...
                 def delete(
@@ -197,15 +197,15 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListDataExchangesResponseHttpRequest: ...
                 def list_next(
@@ -217,9 +217,9 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    includeDeletedSubscriptions: bool = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    includeDeletedSubscriptions: bool | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSharedResourceSubscriptionsResponseHttpRequest: ...
                 def listSubscriptions_next(
@@ -231,29 +231,29 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: DataExchange = ...,
-                    updateMask: str = ...,
+                    body: DataExchange,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> DataExchangeHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def subscribe(
                     self,
                     *,
                     name: str,
-                    body: SubscribeDataExchangeRequest = ...,
+                    body: SubscribeDataExchangeRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def listings(self) -> ListingsResource: ...
@@ -271,16 +271,16 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: GetIamPolicyRequest = ...,
+                    body: GetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSubscriptionsResponseHttpRequest: ...
                 def list_next(
@@ -292,21 +292,21 @@ class AnalyticsHubResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: RefreshSubscriptionRequest = ...,
+                    body: RefreshSubscriptionRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def revoke(
                     self,
                     *,
                     name: str,
-                    body: RevokeSubscriptionRequest = ...,
+                    body: RevokeSubscriptionRequest,
                     **kwargs: typing.Any,
                 ) -> RevokeSubscriptionResponseHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
 

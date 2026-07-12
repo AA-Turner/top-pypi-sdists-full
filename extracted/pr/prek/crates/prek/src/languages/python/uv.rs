@@ -22,7 +22,7 @@ use crate::version;
 use crate::warn_user;
 
 // The version range of `uv` we will install. Should update periodically.
-const CUR_UV_VERSION: &str = "0.11.23";
+const CUR_UV_VERSION: &str = "0.11.25";
 static UV_VERSION_RANGE: LazyLock<VersionReq> =
     LazyLock::new(|| VersionReq::parse(">=0.7.0").unwrap());
 
@@ -111,7 +111,7 @@ fn validate_uv_binary(uv_path: &Path) -> Result<Version> {
     if !UV_VERSION_RANGE.matches(&version) {
         bail!(
             "uv version `{version}` does not satisfy required range `{}`",
-            &*UV_VERSION_RANGE
+            *UV_VERSION_RANGE
         );
     }
     Ok(version)
@@ -600,7 +600,7 @@ mod tests {
         assert!(
             UV_VERSION_RANGE.matches(&version),
             "CUR_UV_VERSION {CUR_UV_VERSION} does not satisfy the version requirement {}",
-            &*UV_VERSION_RANGE
+            *UV_VERSION_RANGE
         );
     }
 

@@ -23,7 +23,7 @@ class CloudLifeSciencesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: CancelOperationRequest = ...,
+                    body: CancelOperationRequest,
                     **kwargs: typing.Any,
                 ) -> EmptyHttpRequest: ...
                 def get(
@@ -33,9 +33,9 @@ class CloudLifeSciencesResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -47,11 +47,7 @@ class CloudLifeSciencesResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class PipelinesResource(googleapiclient.discovery.Resource):
                 def run(
-                    self,
-                    *,
-                    parent: str,
-                    body: RunPipelineRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, parent: str, body: RunPipelineRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
 
             def get(
@@ -61,10 +57,10 @@ class CloudLifeSciencesResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(

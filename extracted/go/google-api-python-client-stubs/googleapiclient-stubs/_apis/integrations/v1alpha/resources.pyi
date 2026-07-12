@@ -18,13 +18,14 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
         def generateToken(
             self,
             *,
-            code: str = ...,
-            gcpProjectId: str = ...,
+            code: str | None = ...,
+            gcpProjectId: str | None = ...,
             product: typing_extensions.Literal[
                 "UNSPECIFIED_PRODUCT", "IP", "APIGEE", "SECURITY"
-            ] = ...,
-            redirectUri: str = ...,
-            state: str = ...,
+            ]
+            | None = ...,
+            redirectUri: str | None = ...,
+            state: str | None = ...,
             **kwargs: typing.Any,
         ) -> GoogleCloudIntegrationsV1alphaGenerateTokenResponseHttpRequest: ...
 
@@ -44,14 +45,14 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudIntegrationsV1alphaCreateAppsScriptProjectRequest = ...,
+                    body: GoogleCloudIntegrationsV1alphaCreateAppsScriptProjectRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaCreateAppsScriptProjectResponseHttpRequest: ...
                 def link(
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudIntegrationsV1alphaLinkAppsScriptProjectRequest = ...,
+                    body: GoogleCloudIntegrationsV1alphaLinkAppsScriptProjectRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaLinkAppsScriptProjectResponseHttpRequest: ...
 
@@ -61,10 +62,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudIntegrationsV1alphaAuthConfig = ...,
-                    clientCertificate_encryptedPrivateKey: str = ...,
-                    clientCertificate_passphrase: str = ...,
-                    clientCertificate_sslCertificate: str = ...,
+                    body: GoogleCloudIntegrationsV1alphaAuthConfig,
+                    clientCertificate_encryptedPrivateKey: str | None = ...,
+                    clientCertificate_passphrase: str | None = ...,
+                    clientCertificate_sslCertificate: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaAuthConfigHttpRequest: ...
                 def delete(
@@ -77,10 +78,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudIntegrationsV1alphaListAuthConfigsResponseHttpRequest
@@ -97,11 +98,11 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudIntegrationsV1alphaAuthConfig = ...,
-                    clientCertificate_encryptedPrivateKey: str = ...,
-                    clientCertificate_passphrase: str = ...,
-                    clientCertificate_sslCertificate: str = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudIntegrationsV1alphaAuthConfig,
+                    clientCertificate_encryptedPrivateKey: str | None = ...,
+                    clientCertificate_passphrase: str | None = ...,
+                    clientCertificate_sslCertificate: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaAuthConfigHttpRequest: ...
 
@@ -119,9 +120,9 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListRuntimeActionSchemasResponseHttpRequest: ...
                     def list_next(
@@ -139,9 +140,9 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListRuntimeEntitySchemasResponseHttpRequest: ...
                     def list_next(
@@ -162,10 +163,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudIntegrationsV1alphaListConnectionsResponseHttpRequest
@@ -191,17 +192,17 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaLiftSuspensionRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaLiftSuspensionRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaLiftSuspensionResponseHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaListSuspensionsResponseHttpRequest: ...
                         def list_next(
@@ -216,7 +217,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaResolveSuspensionRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaResolveSuspensionRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaResolveSuspensionResponseHttpRequest: ...
 
@@ -224,26 +225,26 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        filterParams_customFilter: str = ...,
-                        filterParams_endTime: str = ...,
-                        filterParams_eventStatuses: str | _list[str] = ...,
-                        filterParams_executionId: str = ...,
-                        filterParams_parameterKey: str = ...,
-                        filterParams_parameterPairKey: str = ...,
-                        filterParams_parameterPairValue: str = ...,
-                        filterParams_parameterType: str = ...,
-                        filterParams_parameterValue: str = ...,
-                        filterParams_startTime: str = ...,
-                        filterParams_taskStatuses: str | _list[str] = ...,
-                        filterParams_workflowName: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
-                        refreshAcl: bool = ...,
-                        snapshotMetadataWithoutParams: bool = ...,
-                        truncateParams: bool = ...,
+                        filter: str | None = ...,
+                        filterParams_customFilter: str | None = ...,
+                        filterParams_endTime: str | None = ...,
+                        filterParams_eventStatuses: str | _list[str] | None = ...,
+                        filterParams_executionId: str | None = ...,
+                        filterParams_parameterKey: str | None = ...,
+                        filterParams_parameterPairKey: str | None = ...,
+                        filterParams_parameterPairValue: str | None = ...,
+                        filterParams_parameterType: str | None = ...,
+                        filterParams_parameterValue: str | None = ...,
+                        filterParams_startTime: str | None = ...,
+                        filterParams_taskStatuses: str | _list[str] | None = ...,
+                        filterParams_workflowName: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
+                        refreshAcl: bool | None = ...,
+                        snapshotMetadataWithoutParams: bool | None = ...,
+                        truncateParams: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudIntegrationsV1alphaListExecutionsResponseHttpRequest
@@ -264,9 +265,9 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudIntegrationsV1alphaIntegrationVersion = ...,
-                        createSampleIntegrations: bool = ...,
-                        newIntegration: bool = ...,
+                        body: GoogleCloudIntegrationsV1alphaIntegrationVersion,
+                        createSampleIntegrations: bool | None = ...,
+                        newIntegration: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudIntegrationsV1alphaIntegrationVersionHttpRequest
@@ -280,7 +281,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         name: str,
                         fileFormat: typing_extensions.Literal[
                             "FILE_FORMAT_UNSPECIFIED", "JSON", "YAML"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         files: typing_extensions.Literal[
                             "INTEGRATION_FILE_UNSPECIFIED",
                             "INTEGRATION",
@@ -292,7 +294,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                                 "INTEGRATION",
                                 "INTEGRATION_CONFIG_VARIABLES",
                             ]
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaDownloadIntegrationVersionResponseHttpRequest: ...
                     def get(
@@ -304,11 +307,11 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        fieldMask: str = ...,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        fieldMask: str | None = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListIntegrationVersionsResponseHttpRequest: ...
                     def list_next(
@@ -323,8 +326,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaIntegrationVersion = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudIntegrationsV1alphaIntegrationVersion,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudIntegrationsV1alphaIntegrationVersionHttpRequest
@@ -333,28 +336,28 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaPublishIntegrationVersionRequest = ...,
+                        body: GoogleCloudIntegrationsV1alphaPublishIntegrationVersionRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaPublishIntegrationVersionResponseHttpRequest: ...
                     def takeoverEditLock(
                         self,
                         *,
                         integrationVersion: str,
-                        body: GoogleCloudIntegrationsV1alphaTakeoverEditLockRequest = ...,
+                        body: GoogleCloudIntegrationsV1alphaTakeoverEditLockRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaTakeoverEditLockResponseHttpRequest: ...
                     def unpublish(
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaUnpublishIntegrationVersionRequest = ...,
+                        body: GoogleCloudIntegrationsV1alphaUnpublishIntegrationVersionRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleProtobufEmptyHttpRequest: ...
                     def upload(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudIntegrationsV1alphaUploadIntegrationVersionRequest = ...,
+                        body: GoogleCloudIntegrationsV1alphaUploadIntegrationVersionRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaUploadIntegrationVersionResponseHttpRequest: ...
 
@@ -365,7 +368,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudIntegrationsV1alphaExecuteIntegrationsRequest = ...,
+                    body: GoogleCloudIntegrationsV1alphaExecuteIntegrationsRequest,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudIntegrationsV1alphaExecuteIntegrationsResponseHttpRequest
@@ -374,18 +377,18 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: dict[str, typing.Any] = ...,
-                    triggerId: str = ...,
+                    body: dict[str, typing.Any],
+                    triggerId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaExecuteEventResponseHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudIntegrationsV1alphaListIntegrationsResponseHttpRequest
@@ -402,7 +405,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudIntegrationsV1alphaScheduleIntegrationsRequest = ...,
+                    body: GoogleCloudIntegrationsV1alphaScheduleIntegrationsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaScheduleIntegrationsResponseHttpRequest: ...
                 def executions(self) -> ExecutionsResource: ...
@@ -416,10 +419,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudIntegrationsV1alphaAuthConfig = ...,
-                        clientCertificate_encryptedPrivateKey: str = ...,
-                        clientCertificate_passphrase: str = ...,
-                        clientCertificate_sslCertificate: str = ...,
+                        body: GoogleCloudIntegrationsV1alphaAuthConfig,
+                        clientCertificate_encryptedPrivateKey: str | None = ...,
+                        clientCertificate_passphrase: str | None = ...,
+                        clientCertificate_sslCertificate: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaAuthConfigHttpRequest: ...
                     def delete(
@@ -432,10 +435,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudIntegrationsV1alphaListAuthConfigsResponseHttpRequest
@@ -452,11 +455,11 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaAuthConfig = ...,
-                        clientCertificate_encryptedPrivateKey: str = ...,
-                        clientCertificate_passphrase: str = ...,
-                        clientCertificate_sslCertificate: str = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudIntegrationsV1alphaAuthConfig,
+                        clientCertificate_encryptedPrivateKey: str | None = ...,
+                        clientCertificate_passphrase: str | None = ...,
+                        clientCertificate_sslCertificate: str | None = ...,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaAuthConfigHttpRequest: ...
 
@@ -466,7 +469,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudIntegrationsV1alphaCertificate = ...,
+                        body: GoogleCloudIntegrationsV1alphaCertificate,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaCertificateHttpRequest: ...
                     def delete(
@@ -479,10 +482,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListCertificatesResponseHttpRequest: ...
                     def list_next(
@@ -497,8 +500,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaCertificate = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudIntegrationsV1alphaCertificate,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaCertificateHttpRequest: ...
 
@@ -512,17 +515,17 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudIntegrationsV1alphaLiftSuspensionRequest = ...,
+                                body: GoogleCloudIntegrationsV1alphaLiftSuspensionRequest,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudIntegrationsV1alphaLiftSuspensionResponseHttpRequest: ...
                             def list(
                                 self,
                                 *,
                                 parent: str,
-                                filter: str = ...,
-                                orderBy: str = ...,
-                                pageSize: int = ...,
-                                pageToken: str = ...,
+                                filter: str | None = ...,
+                                orderBy: str | None = ...,
+                                pageSize: int | None = ...,
+                                pageToken: str | None = ...,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudIntegrationsV1alphaListSuspensionsResponseHttpRequest: ...
                             def list_next(
@@ -537,7 +540,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                                 self,
                                 *,
                                 name: str,
-                                body: GoogleCloudIntegrationsV1alphaResolveSuspensionRequest = ...,
+                                body: GoogleCloudIntegrationsV1alphaResolveSuspensionRequest,
                                 **kwargs: typing.Any,
                             ) -> GoogleCloudIntegrationsV1alphaResolveSuspensionResponseHttpRequest: ...
 
@@ -545,7 +548,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaCancelExecutionRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaCancelExecutionRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaCancelExecutionResponseHttpRequest: ...
                         def get(
@@ -555,26 +558,26 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            filterParams_customFilter: str = ...,
-                            filterParams_endTime: str = ...,
-                            filterParams_eventStatuses: str | _list[str] = ...,
-                            filterParams_executionId: str = ...,
-                            filterParams_parameterKey: str = ...,
-                            filterParams_parameterPairKey: str = ...,
-                            filterParams_parameterPairValue: str = ...,
-                            filterParams_parameterType: str = ...,
-                            filterParams_parameterValue: str = ...,
-                            filterParams_startTime: str = ...,
-                            filterParams_taskStatuses: str | _list[str] = ...,
-                            filterParams_workflowName: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            readMask: str = ...,
-                            refreshAcl: bool = ...,
-                            snapshotMetadataWithoutParams: bool = ...,
-                            truncateParams: bool = ...,
+                            filter: str | None = ...,
+                            filterParams_customFilter: str | None = ...,
+                            filterParams_endTime: str | None = ...,
+                            filterParams_eventStatuses: str | _list[str] | None = ...,
+                            filterParams_executionId: str | None = ...,
+                            filterParams_parameterKey: str | None = ...,
+                            filterParams_parameterPairKey: str | None = ...,
+                            filterParams_parameterPairValue: str | None = ...,
+                            filterParams_parameterType: str | None = ...,
+                            filterParams_parameterValue: str | None = ...,
+                            filterParams_startTime: str | None = ...,
+                            filterParams_taskStatuses: str | _list[str] | None = ...,
+                            filterParams_workflowName: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            readMask: str | None = ...,
+                            refreshAcl: bool | None = ...,
+                            snapshotMetadataWithoutParams: bool | None = ...,
+                            truncateParams: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaListExecutionsResponseHttpRequest: ...
                         def list_next(
@@ -593,9 +596,9 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudIntegrationsV1alphaIntegrationVersion = ...,
-                            createSampleIntegrations: bool = ...,
-                            newIntegration: bool = ...,
+                            body: GoogleCloudIntegrationsV1alphaIntegrationVersion,
+                            createSampleIntegrations: bool | None = ...,
+                            newIntegration: bool | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudIntegrationsV1alphaIntegrationVersionHttpRequest
@@ -609,7 +612,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             name: str,
                             fileFormat: typing_extensions.Literal[
                                 "FILE_FORMAT_UNSPECIFIED", "JSON", "YAML"
-                            ] = ...,
+                            ]
+                            | None = ...,
                             files: typing_extensions.Literal[
                                 "INTEGRATION_FILE_UNSPECIFIED",
                                 "INTEGRATION",
@@ -621,7 +625,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                                     "INTEGRATION",
                                     "INTEGRATION_CONFIG_VARIABLES",
                                 ]
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaDownloadIntegrationVersionResponseHttpRequest: ...
                         def get(
@@ -633,11 +638,11 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            fieldMask: str = ...,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            fieldMask: str | None = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaListIntegrationVersionsResponseHttpRequest: ...
                         def list_next(
@@ -652,8 +657,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaIntegrationVersion = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudIntegrationsV1alphaIntegrationVersion,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> (
                             GoogleCloudIntegrationsV1alphaIntegrationVersionHttpRequest
@@ -662,28 +667,28 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaPublishIntegrationVersionRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaPublishIntegrationVersionRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaPublishIntegrationVersionResponseHttpRequest: ...
                         def takeoverEditLock(
                             self,
                             *,
                             integrationVersion: str,
-                            body: GoogleCloudIntegrationsV1alphaTakeoverEditLockRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaTakeoverEditLockRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaTakeoverEditLockResponseHttpRequest: ...
                         def unpublish(
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaUnpublishIntegrationVersionRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaUnpublishIntegrationVersionRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleProtobufEmptyHttpRequest: ...
                         def upload(
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudIntegrationsV1alphaUploadIntegrationVersionRequest = ...,
+                            body: GoogleCloudIntegrationsV1alphaUploadIntegrationVersionRequest,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaUploadIntegrationVersionResponseHttpRequest: ...
 
@@ -694,17 +699,17 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaExecuteIntegrationsRequest = ...,
+                        body: GoogleCloudIntegrationsV1alphaExecuteIntegrationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaExecuteIntegrationsResponseHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListIntegrationsResponseHttpRequest: ...
                     def list_next(
@@ -719,7 +724,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaScheduleIntegrationsRequest = ...,
+                        body: GoogleCloudIntegrationsV1alphaScheduleIntegrationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaScheduleIntegrationsResponseHttpRequest: ...
                     def executions(self) -> ExecutionsResource: ...
@@ -733,7 +738,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudIntegrationsV1alphaIntegrationTemplateVersion = ...,
+                            body: GoogleCloudIntegrationsV1alphaIntegrationTemplateVersion,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaIntegrationTemplateVersionHttpRequest: ...
                         def get(
@@ -743,9 +748,9 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaListIntegrationTemplateVersionsResponseHttpRequest: ...
                         def list_next(
@@ -767,7 +772,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            body: GoogleCloudIntegrationsV1alphaSfdcChannel = ...,
+                            body: GoogleCloudIntegrationsV1alphaSfdcChannel,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaSfdcChannelHttpRequest: ...
                         def delete(
@@ -780,10 +785,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
-                            readMask: str = ...,
+                            filter: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
+                            readMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaListSfdcChannelsResponseHttpRequest: ...
                         def list_next(
@@ -798,8 +803,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: GoogleCloudIntegrationsV1alphaSfdcChannel = ...,
-                            updateMask: str = ...,
+                            body: GoogleCloudIntegrationsV1alphaSfdcChannel,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> GoogleCloudIntegrationsV1alphaSfdcChannelHttpRequest: ...
 
@@ -807,7 +812,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudIntegrationsV1alphaSfdcInstance = ...,
+                        body: GoogleCloudIntegrationsV1alphaSfdcInstance,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaSfdcInstanceHttpRequest: ...
                     def delete(
@@ -820,10 +825,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListSfdcInstancesResponseHttpRequest: ...
                     def list_next(
@@ -838,8 +843,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaSfdcInstance = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudIntegrationsV1alphaSfdcInstance,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaSfdcInstanceHttpRequest: ...
                     def sfdcChannels(self) -> SfdcChannelsResource: ...
@@ -858,7 +863,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudIntegrationsV1alphaSfdcChannel = ...,
+                        body: GoogleCloudIntegrationsV1alphaSfdcChannel,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaSfdcChannelHttpRequest: ...
                     def delete(
@@ -871,10 +876,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        readMask: str = ...,
+                        filter: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        readMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaListSfdcChannelsResponseHttpRequest: ...
                     def list_next(
@@ -889,8 +894,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudIntegrationsV1alphaSfdcChannel = ...,
-                        updateMask: str = ...,
+                        body: GoogleCloudIntegrationsV1alphaSfdcChannel,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudIntegrationsV1alphaSfdcChannelHttpRequest: ...
 
@@ -898,7 +903,7 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudIntegrationsV1alphaSfdcInstance = ...,
+                    body: GoogleCloudIntegrationsV1alphaSfdcInstance,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaSfdcInstanceHttpRequest: ...
                 def delete(
@@ -911,10 +916,10 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    readMask: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    readMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudIntegrationsV1alphaListSfdcInstancesResponseHttpRequest
@@ -931,8 +936,8 @@ class IntegrationsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudIntegrationsV1alphaSfdcInstance = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudIntegrationsV1alphaSfdcInstance,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudIntegrationsV1alphaSfdcInstanceHttpRequest: ...
                 def sfdcChannels(self) -> SfdcChannelsResource: ...

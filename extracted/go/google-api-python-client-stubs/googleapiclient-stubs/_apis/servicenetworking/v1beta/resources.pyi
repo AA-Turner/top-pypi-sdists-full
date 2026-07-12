@@ -25,26 +25,26 @@ class ServiceNetworkingResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: GoogleCloudServicenetworkingV1betaConnection = ...,
+                body: GoogleCloudServicenetworkingV1betaConnection,
                 **kwargs: typing.Any,
             ) -> OperationHttpRequest: ...
             def list(
-                self, *, parent: str, network: str = ..., **kwargs: typing.Any
+                self, *, parent: str, network: str | None = ..., **kwargs: typing.Any
             ) -> ListConnectionsResponseHttpRequest: ...
 
         def addSubnetwork(
-            self, *, parent: str, body: AddSubnetworkRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: AddSubnetworkRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def searchRange(
-            self, *, parent: str, body: SearchRangeRequest = ..., **kwargs: typing.Any
+            self, *, parent: str, body: SearchRangeRequest, **kwargs: typing.Any
         ) -> OperationHttpRequest: ...
         def updateConnections(
             self,
             *,
             name: str,
-            body: GoogleCloudServicenetworkingV1betaConnection = ...,
-            force: bool = ...,
-            updateMask: str = ...,
+            body: GoogleCloudServicenetworkingV1betaConnection,
+            force: bool | None = ...,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def connections(self) -> ConnectionsResource: ...

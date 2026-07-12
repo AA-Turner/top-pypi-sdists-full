@@ -39,6 +39,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -64,6 +65,21 @@ RETENTION_ENV_VAR = "BERNSTEIN_REPLAY_RETENTION"
 _NON_DETERMINISTIC_FIELDS = frozenset({"ts", "elapsed_s", "index", "prev_hash", "payload_hash", "event_hash"})
 
 _GENESIS_HASH = ""
+
+#: A run_id names exactly one journal directory and must be a single safe path
+#: segment. This mirrors ``run_service.paths.validate_run_id``: an anchored
+#: allowlist match then a return of the checked value, the shape CodeQL credits
+#: as a path-injection barrier. The journal path is derived only from the value
+#: :func:`_validated_run_id` returns, so no attacker-controlled character reaches
+#: the filesystem sinks below.
+_RUN_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+
+
+def _validated_run_id(run_id: str) -> str:
+    """Return *run_id* unchanged when it is a safe path segment, else raise."""
+    if not _RUN_ID_RE.match(run_id):
+        raise ValueError(f"unsafe run_id for journal path: {run_id!r}")
+    return run_id
 
 
 def _payload_hash(event_type: str, payload: dict[str, Any]) -> str:
@@ -139,7 +155,22 @@ class EventJournal:
     def __init__(self, run_id: str, sdd_dir: Path) -> None:
         self._run_id = run_id
         self._runs_root = sdd_dir / "runs"
-        self._path = self._runs_root / run_id / JOURNAL_FILENAME
+        # Path-injection barrier (py/path-injection). A run_id names one journal
+        # directory and must be a single safe path segment. ``.``/``..`` pass the
+        # id alphabet but are the current/parent directory, so reject them first;
+        # then ``_validated_run_id`` -- an anchored allowlist match that returns
+        # the checked value, mirroring run_service.paths.validate_run_id -- is the
+        # sanitizer the filesystem sinks below are built from. The path is derived
+        # only from the value that flows out of that barrier.
+        if run_id in {".", ".."}:
+            raise ValueError(f"unsafe run_id for journal path: {run_id!r}")
+        safe_run_id = _validated_run_id(run_id)
+        self._path = self._runs_root / safe_run_id / JOURNAL_FILENAME
+        # Defence in depth: refuse a resolved path that still escapes the runs
+        # root, e.g. through a symlinked run directory.
+        runs_root_real = os.path.realpath(self._runs_root)
+        if os.path.commonpath((runs_root_real, os.path.realpath(self._path))) != runs_root_real:
+            raise ValueError(f"run_id escapes the journal runs root: {run_id!r}")
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._index = 0

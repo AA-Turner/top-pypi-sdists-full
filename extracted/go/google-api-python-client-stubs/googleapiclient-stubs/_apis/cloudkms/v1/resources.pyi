@@ -25,16 +25,16 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: AutokeyConfig = ...,
-            updateMask: str = ...,
+            body: AutokeyConfig,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> AutokeyConfigHttpRequest: ...
         def updateKajPolicyConfig(
             self,
             *,
             name: str,
-            body: KeyAccessJustificationsPolicyConfig = ...,
-            updateMask: str = ...,
+            body: KeyAccessJustificationsPolicyConfig,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> KeyAccessJustificationsPolicyConfigHttpRequest: ...
 
@@ -47,8 +47,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: KeyAccessJustificationsPolicyConfig = ...,
-            updateMask: str = ...,
+            body: KeyAccessJustificationsPolicyConfig,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> KeyAccessJustificationsPolicyConfigHttpRequest: ...
 
@@ -62,21 +62,21 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -86,8 +86,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: EkmConnection = ...,
-                    ekmConnectionId: str = ...,
+                    body: EkmConnection,
+                    ekmConnectionId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> EkmConnectionHttpRequest: ...
                 def get(
@@ -97,17 +97,17 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListEkmConnectionsResponseHttpRequest: ...
                 def list_next(
@@ -119,22 +119,22 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: EkmConnection = ...,
-                    updateMask: str = ...,
+                    body: EkmConnection,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> EkmConnectionHttpRequest: ...
                 def setIamPolicy(
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def verifyConnectivity(
@@ -147,8 +147,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: KeyHandle = ...,
-                    keyHandleId: str = ...,
+                    body: KeyHandle,
+                    keyHandleId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -158,9 +158,9 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListKeyHandlesResponseHttpRequest: ...
                 def list_next(
@@ -179,28 +179,28 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: AsymmetricDecryptRequest = ...,
+                            body: AsymmetricDecryptRequest,
                             **kwargs: typing.Any,
                         ) -> AsymmetricDecryptResponseHttpRequest: ...
                         def asymmetricSign(
                             self,
                             *,
                             name: str,
-                            body: AsymmetricSignRequest = ...,
+                            body: AsymmetricSignRequest,
                             **kwargs: typing.Any,
                         ) -> AsymmetricSignResponseHttpRequest: ...
                         def create(
                             self,
                             *,
                             parent: str,
-                            body: CryptoKeyVersion = ...,
+                            body: CryptoKeyVersion,
                             **kwargs: typing.Any,
                         ) -> CryptoKeyVersionHttpRequest: ...
                         def decapsulate(
                             self,
                             *,
                             name: str,
-                            body: DecapsulateRequest = ...,
+                            body: DecapsulateRequest,
                             **kwargs: typing.Any,
                         ) -> DecapsulateResponseHttpRequest: ...
                         def delete(
@@ -210,7 +210,7 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: DestroyCryptoKeyVersionRequest = ...,
+                            body: DestroyCryptoKeyVersionRequest,
                             **kwargs: typing.Any,
                         ) -> CryptoKeyVersionHttpRequest: ...
                         def get(
@@ -226,27 +226,29 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                                 "DER",
                                 "NIST_PQC",
                                 "XWING_RAW_BYTES",
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> PublicKeyHttpRequest: ...
                         def import_(
                             self,
                             *,
                             parent: str,
-                            body: ImportCryptoKeyVersionRequest = ...,
+                            body: ImportCryptoKeyVersionRequest,
                             **kwargs: typing.Any,
                         ) -> CryptoKeyVersionHttpRequest: ...
                         def list(
                             self,
                             *,
                             parent: str,
-                            filter: str = ...,
-                            orderBy: str = ...,
-                            pageSize: int = ...,
-                            pageToken: str = ...,
+                            filter: str | None = ...,
+                            orderBy: str | None = ...,
+                            pageSize: int | None = ...,
+                            pageToken: str | None = ...,
                             view: typing_extensions.Literal[
                                 "CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED", "FULL"
-                            ] = ...,
+                            ]
+                            | None = ...,
                             **kwargs: typing.Any,
                         ) -> ListCryptoKeyVersionsResponseHttpRequest: ...
                         def list_next(
@@ -258,43 +260,43 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                             self,
                             *,
                             name: str,
-                            body: MacSignRequest = ...,
+                            body: MacSignRequest,
                             **kwargs: typing.Any,
                         ) -> MacSignResponseHttpRequest: ...
                         def macVerify(
                             self,
                             *,
                             name: str,
-                            body: MacVerifyRequest = ...,
+                            body: MacVerifyRequest,
                             **kwargs: typing.Any,
                         ) -> MacVerifyResponseHttpRequest: ...
                         def patch(
                             self,
                             *,
                             name: str,
-                            body: CryptoKeyVersion = ...,
-                            updateMask: str = ...,
+                            body: CryptoKeyVersion,
+                            updateMask: str | None = ...,
                             **kwargs: typing.Any,
                         ) -> CryptoKeyVersionHttpRequest: ...
                         def rawDecrypt(
                             self,
                             *,
                             name: str,
-                            body: RawDecryptRequest = ...,
+                            body: RawDecryptRequest,
                             **kwargs: typing.Any,
                         ) -> RawDecryptResponseHttpRequest: ...
                         def rawEncrypt(
                             self,
                             *,
                             name: str,
-                            body: RawEncryptRequest = ...,
+                            body: RawEncryptRequest,
                             **kwargs: typing.Any,
                         ) -> RawEncryptResponseHttpRequest: ...
                         def restore(
                             self,
                             *,
                             name: str,
-                            body: RestoreCryptoKeyVersionRequest = ...,
+                            body: RestoreCryptoKeyVersionRequest,
                             **kwargs: typing.Any,
                         ) -> CryptoKeyVersionHttpRequest: ...
 
@@ -302,27 +304,19 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: CryptoKey = ...,
-                        cryptoKeyId: str = ...,
-                        skipInitialVersionCreation: bool = ...,
+                        body: CryptoKey,
+                        cryptoKeyId: str | None = ...,
+                        skipInitialVersionCreation: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> CryptoKeyHttpRequest: ...
                     def decrypt(
-                        self,
-                        *,
-                        name: str,
-                        body: DecryptRequest = ...,
-                        **kwargs: typing.Any,
+                        self, *, name: str, body: DecryptRequest, **kwargs: typing.Any
                     ) -> DecryptResponseHttpRequest: ...
                     def delete(
                         self, *, name: str, **kwargs: typing.Any
                     ) -> OperationHttpRequest: ...
                     def encrypt(
-                        self,
-                        *,
-                        name: str,
-                        body: EncryptRequest = ...,
-                        **kwargs: typing.Any,
+                        self, *, name: str, body: EncryptRequest, **kwargs: typing.Any
                     ) -> EncryptResponseHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -331,20 +325,21 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         versionView: typing_extensions.Literal[
                             "CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED", "FULL"
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListCryptoKeysResponseHttpRequest: ...
                     def list_next(
@@ -356,29 +351,29 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: CryptoKey = ...,
-                        updateMask: str = ...,
+                        body: CryptoKey,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> CryptoKeyHttpRequest: ...
                     def setIamPolicy(
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
                     def updatePrimaryVersion(
                         self,
                         *,
                         name: str,
-                        body: UpdateCryptoKeyPrimaryVersionRequest = ...,
+                        body: UpdateCryptoKeyPrimaryVersionRequest,
                         **kwargs: typing.Any,
                     ) -> CryptoKeyHttpRequest: ...
                     def cryptoKeyVersions(self) -> CryptoKeyVersionsResource: ...
@@ -389,8 +384,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: ImportJob = ...,
-                        importJobId: str = ...,
+                        body: ImportJob,
+                        importJobId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ImportJobHttpRequest: ...
                     def get(
@@ -403,24 +398,25 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                             "DER",
                             "NIST_PQC",
                             "XWING_RAW_BYTES",
-                        ] = ...,
+                        ]
+                        | None = ...,
                         **kwargs: typing.Any,
                     ) -> ImportJobHttpRequest: ...
                     def getIamPolicy(
                         self,
                         *,
                         resource: str,
-                        options_requestedPolicyVersion: int = ...,
+                        options_requestedPolicyVersion: int | None = ...,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListImportJobsResponseHttpRequest: ...
                     def list_next(
@@ -432,14 +428,14 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         resource: str,
-                        body: SetIamPolicyRequest = ...,
+                        body: SetIamPolicyRequest,
                         **kwargs: typing.Any,
                     ) -> PolicyHttpRequest: ...
                     def testIamPermissions(
                         self,
                         *,
                         resource: str,
-                        body: TestIamPermissionsRequest = ...,
+                        body: TestIamPermissionsRequest,
                         **kwargs: typing.Any,
                     ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -447,8 +443,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: KeyRing = ...,
-                    keyRingId: str = ...,
+                    body: KeyRing,
+                    keyRingId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> KeyRingHttpRequest: ...
                 def get(
@@ -458,17 +454,17 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    options_requestedPolicyVersion: int = ...,
+                    options_requestedPolicyVersion: int | None = ...,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def list(
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListKeyRingsResponseHttpRequest: ...
                 def list_next(
@@ -480,14 +476,14 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     resource: str,
-                    body: SetIamPolicyRequest = ...,
+                    body: SetIamPolicyRequest,
                     **kwargs: typing.Any,
                 ) -> PolicyHttpRequest: ...
                 def testIamPermissions(
                     self,
                     *,
                     resource: str,
-                    body: TestIamPermissionsRequest = ...,
+                    body: TestIamPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> TestIamPermissionsResponseHttpRequest: ...
                 def cryptoKeys(self) -> CryptoKeysResource: ...
@@ -508,8 +504,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListRetiredResourcesResponseHttpRequest: ...
                 def list_next(
@@ -526,15 +522,15 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ApproveSingleTenantHsmInstanceProposalRequest = ...,
+                        body: ApproveSingleTenantHsmInstanceProposalRequest,
                         **kwargs: typing.Any,
                     ) -> ApproveSingleTenantHsmInstanceProposalResponseHttpRequest: ...
                     def create(
                         self,
                         *,
                         parent: str,
-                        body: SingleTenantHsmInstanceProposal = ...,
-                        singleTenantHsmInstanceProposalId: str = ...,
+                        body: SingleTenantHsmInstanceProposal,
+                        singleTenantHsmInstanceProposalId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def delete(
@@ -544,7 +540,7 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: ExecuteSingleTenantHsmInstanceProposalRequest = ...,
+                        body: ExecuteSingleTenantHsmInstanceProposalRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
                     def get(
@@ -554,11 +550,11 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
-                        showDeleted: bool = ...,
+                        filter: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
+                        showDeleted: bool | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListSingleTenantHsmInstanceProposalsResponseHttpRequest: ...
                     def list_next(
@@ -573,8 +569,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: SingleTenantHsmInstance = ...,
-                    singleTenantHsmInstanceId: str = ...,
+                    body: SingleTenantHsmInstance,
+                    singleTenantHsmInstanceId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -584,11 +580,11 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    showDeleted: bool = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    showDeleted: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSingleTenantHsmInstancesResponseHttpRequest: ...
                 def list_next(
@@ -602,7 +598,7 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 location: str,
-                body: GenerateRandomBytesRequest = ...,
+                body: GenerateRandomBytesRequest,
                 **kwargs: typing.Any,
             ) -> GenerateRandomBytesResponseHttpRequest: ...
             def get(
@@ -615,10 +611,10 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
@@ -630,8 +626,8 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: EkmConfig = ...,
-                updateMask: str = ...,
+                body: EkmConfig,
+                updateMask: str | None = ...,
                 **kwargs: typing.Any,
             ) -> EkmConfigHttpRequest: ...
             def ekmConfig(self) -> EkmConfigResource: ...
@@ -663,16 +659,16 @@ class CloudKMSResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: AutokeyConfig = ...,
-            updateMask: str = ...,
+            body: AutokeyConfig,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> AutokeyConfigHttpRequest: ...
         def updateKajPolicyConfig(
             self,
             *,
             name: str,
-            body: KeyAccessJustificationsPolicyConfig = ...,
-            updateMask: str = ...,
+            body: KeyAccessJustificationsPolicyConfig,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> KeyAccessJustificationsPolicyConfigHttpRequest: ...
         def locations(self) -> LocationsResource: ...

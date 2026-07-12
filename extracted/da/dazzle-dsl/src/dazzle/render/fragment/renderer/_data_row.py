@@ -13,7 +13,6 @@ byte-for-byte by `tests/unit/test_data_row_characterization_1505.py`.
 """
 
 import html as _html_mod
-import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,6 +28,7 @@ from dazzle.render.filters import (
     resolve_status_tone,
 )
 from dazzle.render.fragment.icon_html import lucide_svg_html
+from dazzle.render.fragment.ingest import GridEditCell, edit_span_attrs
 from dazzle.render.fragment.primitives import DataTable, RowCapabilities
 from dazzle.render.fragment.state_affordance import gated_row_transitions
 
@@ -56,10 +56,29 @@ ARCHETYPE_EMBEDDED = _RowArchetype("dz-table__row", "embedded")
 ARCHETYPE_LIST_REGION = _RowArchetype("dz-list-row", "region")
 
 
-def drill_row_attrs(url_attr: str) -> str:
+def drill_row_attrs(
+    url_attr: str,
+    *,
+    pane: bool = False,
+    auto_load: bool = False,
+    pane_target: str = "",
+) -> str:
     """The shared clickable-row block (#1511, design §3.2): the row owns a
-    bare-click `hx-get` to the detail surface (full-page swap). `url_attr` is the
+    bare-click `hx-get` to the detail surface. `url_attr` is the
     already-escaped detail URL — empty means the row is not clickable.
+
+    Default: full-page swap into ``body`` (standalone list / non-paired
+    workspace regions).
+
+    ``pane=True`` (dual_pane_flow master-detail): swap into the detail pane
+    identified by ``pane_target`` (CSS id selector, already escaped); no
+    push-url; row also needs ``dz-master-detail__item`` on the ``class``
+    (caller via class_extra). Do **not** use ``closest A B`` — htmx/Element.closest
+    cannot resolve a cousin pane under the master-detail root.
+
+    ``auto_load=True`` (first pane row only): also fire on ``load once`` so
+    when the list fragment settles, the first item fills the detail pane
+    without a second click. Sets ``aria-current="true"`` for the controller.
 
     This is the single load-bearing composition rule: the *row* owns the bare
     click; every interactive sub-element (checkbox, edit cell, action button,
@@ -68,6 +87,15 @@ def drill_row_attrs(url_attr: str) -> str:
     """
     if not url_attr:
         return ""
+    if pane:
+        trigger = "click, load once" if auto_load else "click"
+        current = ' aria-current="true"' if auto_load else ""
+        target = pane_target or "#dz-md-detail"
+        return (
+            f'hx-get="{url_attr}" hx-trigger="{trigger}" '
+            f'hx-target="{target}" '
+            f'hx-swap="innerHTML" tabindex="0"{current}'
+        )
     # 2b preload-drill (#1491): `hx-preload="mouseover"` warms the detail GET on
     # hover (the vendored htmx-4 `preload` extension), so the click serves the
     # cached prefetch — perceived-instant drill. The extension dedups per row
@@ -445,31 +473,31 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
             # and the typed buffer lives on the grid root, out of the morph
             # path.
             kind = {"bool": "bool", "badge": "select", "date": "date"}.get(col_type, "text")
+            # A select editor with zero options was never usable — degrade to
+            # text before the model (which forbids optionless selects) sees it.
+            if kind == "select" and not col.get("filter_options"):
+                kind = "text"
             if col_type == "bool":
                 raw = "true" if cell_value else "false"
             else:
                 raw = "" if cell_value is None else str(cell_value)
-            raw_attr = _html_mod.escape(raw, quote=True)
-            label_attr = _html_mod.escape(str(col.get("label", col_key)), quote=True)
-            options_attr = ""
-            if kind == "select":
-                pairs = [
-                    [str(o.get("value", "")), str(o.get("label", ""))]
-                    for o in (col.get("filter_options") or [])
-                ]
-                options_attr = (
-                    f' data-dz-edit-options="{_html_mod.escape(json.dumps(pairs), quote=True)}"'
-                )
+            # #1573 closure: ONE ingestion boundary — the model's validator
+            # normalises the three producer shapes (dict/tuple/bare string);
+            # emission is derived from the model (see fragment/ingest.py for
+            # the contract source-of-truth pointer).
+            cell_model = GridEditCell(
+                col=col_key,
+                kind=kind,  # type: ignore[arg-type]
+                value=raw,
+                label=str(col.get("label", col_key)),
+                options=(col.get("filter_options") or None) if kind == "select" else None,
+            )
             title_attr = ""
             if cell_value is not None:
                 title_attr = f' title="{_html_mod.escape(str(cell_value), quote=True)}"'
             cell_inner = (
                 f'<span class="dz-tr-cell-display" '
-                f'data-dz-grid-edit="{col_key_attr}" '
-                f'data-dz-edit-kind="{kind}" '
-                f'data-dz-edit-value="{raw_attr}" '
-                f'data-dz-edit-label="{label_attr}"'
-                f"{options_attr}{title_attr}>{display_html}</span>"
+                f"{edit_span_attrs(cell_model)}{title_attr}>{display_html}</span>"
             )
         else:
             cell_inner = display_html

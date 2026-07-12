@@ -24,34 +24,30 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 ) -> AlertDocumentHttpRequest: ...
 
             def benign(
-                self,
-                *,
-                name: str,
-                body: MarkAlertAsBenignRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: MarkAlertAsBenignRequest, **kwargs: typing.Any
             ) -> AlertHttpRequest: ...
             def duplicate(
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsDuplicateRequest = ...,
+                body: MarkAlertAsDuplicateRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def enumerateFacets(
-                self, *, parent: str, filter: str = ..., **kwargs: typing.Any
+                self, *, parent: str, filter: str | None = ..., **kwargs: typing.Any
             ) -> EnumerateAlertFacetsResponseHttpRequest: ...
             def escalate(
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsEscalatedRequest = ...,
+                body: MarkAlertAsEscalatedRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def falsePositive(
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsFalsePositiveRequest = ...,
+                body: MarkAlertAsFalsePositiveRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> AlertHttpRequest: ...
@@ -59,10 +55,10 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAlertsResponseHttpRequest: ...
             def list_next(
@@ -74,35 +70,31 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsNotActionableRequest = ...,
+                body: MarkAlertAsNotActionableRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def read(
-                self,
-                *,
-                name: str,
-                body: MarkAlertAsReadRequest = ...,
-                **kwargs: typing.Any,
+                self, *, name: str, body: MarkAlertAsReadRequest, **kwargs: typing.Any
             ) -> AlertHttpRequest: ...
             def resolve(
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsResolvedRequest = ...,
+                body: MarkAlertAsResolvedRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def trackExternally(
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsTrackedExternallyRequest = ...,
+                body: MarkAlertAsTrackedExternallyRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def triage(
                 self,
                 *,
                 name: str,
-                body: MarkAlertAsTriagedRequest = ...,
+                body: MarkAlertAsTriagedRequest,
                 **kwargs: typing.Any,
             ) -> AlertHttpRequest: ...
             def documents(self) -> DocumentsResource: ...
@@ -115,10 +107,10 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    orderBy: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    orderBy: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListConfigurationRevisionsResponseHttpRequest: ...
                 def list_next(
@@ -134,10 +126,10 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListConfigurationsResponseHttpRequest: ...
             def list_next(
@@ -149,8 +141,8 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: Configuration = ...,
-                publishTime: str = ...,
+                body: Configuration,
+                publishTime: str | None = ...,
                 **kwargs: typing.Any,
             ) -> UpsertConfigurationResponseHttpRequest: ...
             def revisions(self) -> RevisionsResource: ...
@@ -162,10 +154,10 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListFindingsResponseHttpRequest: ...
             def list_next(
@@ -177,10 +169,10 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                query: str = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                query: str | None = ...,
                 **kwargs: typing.Any,
             ) -> SearchFindingsResponseHttpRequest: ...
             def search_next(
@@ -193,7 +185,7 @@ class ThreatIntelligenceServiceResource(googleapiclient.discovery.Resource):
             self,
             *,
             name: str,
-            body: GenerateOrgProfileConfigurationRequest = ...,
+            body: GenerateOrgProfileConfigurationRequest,
             **kwargs: typing.Any,
         ) -> OperationHttpRequest: ...
         def alerts(self) -> AlertsResource: ...

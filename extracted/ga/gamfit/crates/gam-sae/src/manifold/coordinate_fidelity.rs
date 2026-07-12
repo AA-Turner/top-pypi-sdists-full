@@ -124,22 +124,59 @@ pub fn angle_fidelity_verdict(reading: Option<&ChartArcLengthReading>) -> AngleF
     }
 }
 
-/// Watson's `U²` uniformity statistic and its asymptotic null p-value for a set
-/// of coordinates already mapped onto the unit interval `[0, 1)` (a circle by
-/// wrapping modulo its period, an interval by range-normalization). Larger `U²`
-/// ⟺ farther from the uniform invariant measure.
+/// Geometry-appropriate uniformity statistic for a one-dimensional chart.
+/// Circles use rotation-invariant Watson `U²`; intervals use the ordinary
+/// (non-wrapping) Kolmogorov--Smirnov distance on `[0, 1]`.
 #[derive(Debug, Clone, Copy)]
 pub struct WatsonUniformity {
-    /// Watson's `U²` statistic. Rotation- and reflection-invariant. Null mean
-    /// `1/12 ≈ 0.0833`; the classical asymptotic upper-tail critical values are
-    /// `0.187` (5%) and `0.267` (1%).
+    /// Watson `U²` for a circle, or two-sided KS distance for an interval.
     pub statistic: f64,
-    /// Closed-form asymptotic upper-tail p-value `P(U² ≥ statistic)` under the
-    /// uniform null. Small ⟺ coordinates flagged non-uniform. `1.0` for
-    /// `n < 2` (statistic undefined).
+    /// Closed-form Watson upper-tail p-value for circles. `NaN` for intervals:
+    /// the interval endpoints are estimated from this same sample, so a
+    /// known-boundary KS p-value would not be calibrated. The interval statistic
+    /// remains a descriptive occupancy diagnostic until endpoint uncertainty is
+    /// carried by the chart schema.
     pub p_value: f64,
     /// Number of coordinates the statistic was computed from.
     pub n: usize,
+}
+
+/// Non-circular KS distance of range-normalized interval coordinates. The value
+/// `1.0` is retained as the right endpoint; it is never folded to zero.
+fn interval_uniformity(
+    u: &[f64],
+    weights: Option<ArrayView1<'_, f64>>,
+) -> Option<WatsonUniformity> {
+    let mut pairs: Vec<(f64, f64)> = u
+        .iter()
+        .copied()
+        .enumerate()
+        .filter_map(|(i, x)| {
+            let w = weights.map_or(1.0, |wv| wv[i]);
+            (x.is_finite() && w.is_finite() && w > 0.0).then_some((x.clamp(0.0, 1.0), w))
+        })
+        .collect();
+    if pairs.len() < 2 {
+        return None;
+    }
+    pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mass: f64 = pairs.iter().map(|(_, w)| *w).sum();
+    if !(mass > 0.0) {
+        return None;
+    }
+    let mut cumulative = 0.0_f64;
+    let mut d = 0.0_f64;
+    for (x, w) in pairs.iter().copied() {
+        let before = cumulative / mass;
+        cumulative += w;
+        let after = cumulative / mass;
+        d = d.max((x - before).abs()).max((after - x).abs());
+    }
+    Some(WatsonUniformity {
+        statistic: d,
+        p_value: f64::NAN,
+        n: pairs.len(),
+    })
 }
 
 /// Closed-form asymptotic upper-tail p-value of Watson's `U²` under the uniform
@@ -277,9 +314,12 @@ fn coordinate_uniformity_impl(
             coords.iter().map(|&t| (t - lo) / span).collect()
         }
     };
-    match weights {
-        Some(w) => watson_u2_uniform_weighted(&u, w),
-        None => Some(watson_u2_uniform(&u)),
+    match topology {
+        CanonicalChartTopology::Circle { .. } => match weights {
+            Some(w) => watson_u2_uniform_weighted(&u, w),
+            None => Some(watson_u2_uniform(&u)),
+        },
+        CanonicalChartTopology::Interval => interval_uniformity(&u, weights),
     }
 }
 
@@ -568,15 +608,8 @@ fn classify_occupancy_weighted_impl(
     let bic_uniform = 0.0_f64;
     let sigma_floor = 1.0 / (2.0 * ess);
 
-    let single = wrapped_gaussian_mixture_bic_weighted(
-        &pts,
-        &w,
-        1,
-        sigma_floor,
-        ln_n,
-        circular,
-        mass,
-    );
+    let single =
+        wrapped_gaussian_mixture_bic_weighted(&pts, &w, 1, sigma_floor, ln_n, circular, mass);
 
     let mut best_law = OccupancyLaw::Uniform;
     let mut best_bic = bic_uniform;
@@ -590,15 +623,9 @@ fn classify_occupancy_weighted_impl(
         if k >= pairs.len() {
             break;
         }
-        if let Some(bic) = wrapped_gaussian_mixture_bic_weighted(
-            &pts,
-            &w,
-            k,
-            sigma_floor,
-            ln_n,
-            circular,
-            mass,
-        ) {
+        if let Some(bic) =
+            wrapped_gaussian_mixture_bic_weighted(&pts, &w, k, sigma_floor, ln_n, circular, mass)
+        {
             if bic < best_bic {
                 best_bic = bic;
                 best_law = OccupancyLaw::Discrete { anchors: k };
@@ -642,9 +669,7 @@ fn wrapped_gaussian_mixture_bic(
     // local optimum and loses to a larger `k` that happens to seed onto data.
     // Quantile init always seeds inside occupied regions, so the true `k` finds
     // its anchors.
-    let mut means: Vec<f64> = (0..k)
-        .map(|j| pts[(j * n) / k.max(1)])
-        .collect();
+    let mut means: Vec<f64> = (0..k).map(|j| pts[(j * n) / k.max(1)]).collect();
     let mut assign = vec![0usize; n];
     for _ in 0..100 {
         let mut changed = false;
@@ -918,8 +943,8 @@ pub struct AtomCoordinateFidelity {
     /// Watson's `U²` of the fitted coordinates against the uniform invariant
     /// measure (larger ⟺ less uniform). Rotation/reflection invariant.
     pub uniformity_statistic: f64,
-    /// Closed-form asymptotic p-value of `uniformity_statistic`. Small ⟺ the
-    /// coordinates are flagged non-uniform relative to the invariant measure.
+    /// Closed-form asymptotic p-value of the circle Watson statistic. `NaN` for
+    /// interval charts whose endpoints were fitted from these same coordinates.
     pub uniformity_p_value: f64,
     /// Arc-length (unit-speed) defect of the chart parameterization
     /// ([`crate::chart_canonicalization::chart_unit_speed_defect`]): speed
@@ -1345,6 +1370,61 @@ pub fn prefer_candidate_basin(
     }
 }
 
+/// #2230 — ONE-referee state preference for the inner-fit keep-best incumbent,
+/// keyed on the PENALIZED OBJECTIVE (the exact scalar the inner Armijo lane
+/// descends and the outer REML evidence consumes), with the #2081
+/// EV-then-uniformity ordering ([`prefer_candidate_basin`]) demoted to a
+/// tie-break at (near-)equal objective.
+///
+/// Rationale: the inner walk at a probed ρ is objective-monotone (Armijo), so a
+/// trajectory that ends at lower reconstruction EV has a LOWER penalized
+/// objective — at that ρ the objective genuinely prefers the walked-to state.
+/// An EV-keyed incumbent restore then installs a HIGHER-objective state, and
+/// because the restored state is ρ-independent the outer criterion gets priced
+/// at ≈ the same state for every probe: the outer objective flattens, the ρ
+/// search loses its gradient, and the fit grinds `max_iter` restoring the same
+/// incumbent after every evaluation (the #2230/#2134 churn signature). Keying
+/// the incumbent on the objective makes the restore fire ONLY when the
+/// non-monotone boundary hooks (collapse reseeds, gauge retraction/pin, frame
+/// refresh) genuinely damaged the walk — never to veto legitimate descent.
+///
+/// `objective_rel_tol` is the numerical convergence tolerance of the penalized
+/// objective itself; it must not be borrowed from the much coarser,
+/// dimensionless EV negligibility band. Within the objective convergence band,
+/// `ev_tol` controls the EV/uniformity tie-break.
+pub fn prefer_candidate_state(
+    candidate_objective: f64,
+    candidate_ev: f64,
+    candidate_uniformity: Option<f64>,
+    incumbent_objective: f64,
+    incumbent_ev: f64,
+    incumbent_uniformity: Option<f64>,
+    objective_rel_tol: f64,
+    ev_tol: f64,
+) -> bool {
+    if !candidate_objective.is_finite() {
+        return false;
+    }
+    if !incumbent_objective.is_finite() {
+        return true;
+    }
+    let scale =
+        objective_rel_tol * (1.0 + candidate_objective.abs().max(incumbent_objective.abs()));
+    if candidate_objective < incumbent_objective - scale {
+        return true; // strictly lower penalized objective — the walk's own referee
+    }
+    if candidate_objective > incumbent_objective + scale {
+        return false; // strictly higher objective can never displace the incumbent
+    }
+    prefer_candidate_basin(
+        candidate_ev,
+        candidate_uniformity,
+        incumbent_ev,
+        incumbent_uniformity,
+        ev_tol,
+    )
+}
+
 impl SaeManifoldTerm {
     /// #2081 — aggregate chart-honesty score over the fit's `d = 1` atoms: the
     /// MEAN arc-length (unit-speed) DEFECT
@@ -1413,7 +1493,9 @@ impl SaeManifoldTerm {
 #[cfg(test)]
 mod coordinate_fidelity_tests {
     use super::*;
-    use crate::manifold::{SAE_FINAL_EV_DEGRADATION_TOL, SaeBasisEvaluator};
+    use crate::manifold::{
+        SAE_FINAL_EV_DEGRADATION_TOL, SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL, SaeBasisEvaluator,
+    };
     use ndarray::{Array1, Array2, Array3, Array4, Array5, ArrayView2};
 
     /// A minimal circle-harmonic evaluator for the arc-length-defect tests:
@@ -1562,6 +1644,14 @@ mod coordinate_fidelity_tests {
         assert!((weighted.statistic - unweighted.statistic).abs() < 1e-12);
         assert!((weighted.p_value - unweighted.p_value).abs() < 1e-12);
         assert_eq!(weighted.n, unweighted.n);
+    }
+
+    #[test]
+    fn interval_uniformity_keeps_the_right_endpoint_distinct() {
+        let coords = Array1::from_vec(vec![0.0, 0.5, 1.0]);
+        let result = coordinate_uniformity(coords.view(), &interval()).unwrap();
+        assert!((result.statistic - 1.0 / 3.0).abs() < 1e-12);
+        assert!(result.p_value.is_nan());
     }
 
     #[test]
@@ -1782,6 +1872,101 @@ mod coordinate_fidelity_tests {
             0.5,
             Some(0.5),
             tol
+        ));
+    }
+
+    /// #2230 ONE-referee ordering: the penalized objective is primary — a
+    /// lower-objective candidate wins even at catastrophically worse EV (the
+    /// walk's own preference at this ρ must never be vetoed), a higher-objective
+    /// candidate loses even at much better EV (the exact churn mode: the
+    /// high-EV incumbent must NOT displace a legitimately walked-to state), and
+    /// only a numerical objective tie falls through to EV-then-uniformity.
+    #[test]
+    fn prefer_candidate_state_prices_objective_then_ev() {
+        let objective_tol = SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL;
+        let ev_tol = SAE_FINAL_EV_DEGRADATION_TOL;
+        // Strictly lower objective wins despite much worse EV.
+        assert!(prefer_candidate_state(
+            100.0,
+            0.13,
+            Some(0.5),
+            200.0,
+            0.65,
+            Some(0.01),
+            objective_tol,
+            ev_tol,
+        ));
+        // Strictly higher objective loses despite much better EV — the #2230
+        // churn signature (EV 0.65 incumbent vetoing an EV 0.13 walked state).
+        assert!(!prefer_candidate_state(
+            200.0,
+            0.65,
+            Some(0.01),
+            100.0,
+            0.13,
+            Some(0.5),
+            objective_tol,
+            ev_tol,
+        ));
+        // Numerically tied objective (within objective_tol·(1+scale)): EV decides.
+        assert!(prefer_candidate_state(
+            100.0,
+            0.65,
+            Some(0.5),
+            100.0 + 0.5 * objective_tol,
+            0.13,
+            Some(0.01),
+            objective_tol,
+            ev_tol,
+        ));
+        // Tied objective AND near-equal EV: uniformity decides.
+        assert!(prefer_candidate_state(
+            100.0,
+            0.65,
+            Some(0.02),
+            100.0,
+            0.6502,
+            Some(0.20),
+            objective_tol,
+            ev_tol,
+        ));
+        // Non-finite candidate objective never preferred.
+        assert!(!prefer_candidate_state(
+            f64::NAN,
+            0.9,
+            Some(0.0),
+            100.0,
+            0.1,
+            Some(0.5),
+            objective_tol,
+            ev_tol,
+        ));
+        // Non-finite incumbent objective: any finite candidate adopted.
+        assert!(prefer_candidate_state(
+            100.0,
+            0.1,
+            None,
+            f64::INFINITY,
+            0.9,
+            None,
+            objective_tol,
+            ev_tol,
+        ));
+
+        // The original #2230 patch used the 1e-3 EV tolerance for objective
+        // ties. At the issue's O(1e5) criterion scale that made an O(1)
+        // objective improvement look tied and allowed EV to restore the worse
+        // state. Objective convergence is five orders tighter than that EV
+        // reporting band, so the walked-to state must win here.
+        assert!(prefer_candidate_state(
+            83_999.0,
+            0.13,
+            Some(0.5),
+            84_000.0,
+            0.65,
+            Some(0.01),
+            objective_tol,
+            ev_tol,
         ));
     }
 
@@ -2028,8 +2213,13 @@ mod coordinate_fidelity_tests {
         let raw = Array1::linspace(0.0, 1.0 - 1.0 / n as f64, n);
         let u_arc = Array1::from_iter(raw.iter().map(|&t| (0.5 * t * t + 0.5 * t).rem_euclid(1.0)));
         let unit = Array1::<f64>::ones(raw.len());
-        let (rms0, _) =
-            raw_vs_arclength_defect_weighted(raw.view(), u_arc.view(), unit.view(), &circle(), true);
+        let (rms0, _) = raw_vs_arclength_defect_weighted(
+            raw.view(),
+            u_arc.view(),
+            unit.view(),
+            &circle(),
+            true,
+        );
         // Rotate the raw base point and reflect its orientation: both are the
         // circle's residual gauge, so the aligned defect must not change.
         let rotated = Array1::from_iter(raw.iter().map(|&t| (t + 0.31).rem_euclid(1.0)));

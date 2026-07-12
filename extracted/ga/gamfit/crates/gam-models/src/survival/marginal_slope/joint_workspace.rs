@@ -70,6 +70,17 @@ impl SurvivalMarginalSlopeExactNewtonJointHessianWorkspace {
 }
 
 impl ExactNewtonJointHessianWorkspace for SurvivalMarginalSlopeExactNewtonJointHessianWorkspace {
+    fn warm_up_outer_caches_for_mode(
+        &self,
+        eval_mode: gam_problem::EvalMode,
+    ) -> Result<(), String> {
+        match eval_mode {
+            gam_problem::EvalMode::ValueOnly
+            | gam_problem::EvalMode::ValueAndGradient
+            | gam_problem::EvalMode::ValueGradientHessian => Ok(()),
+        }
+    }
+
     fn joint_log_likelihood_evaluation(&self) -> Result<Option<f64>, String> {
         // Phase 2d fused-pass result: the same n-row sweep that produced
         // `joint_hessian_operator` also produced the joint log-likelihood,
@@ -286,9 +297,7 @@ impl SurvivalMarginalSlopePsiWorkspace {
     }
 }
 
-impl crate::marginal_slope_shared::MarginalSlopePsiFamily
-    for SurvivalMarginalSlopePsiWorkspace
-{
+impl crate::marginal_slope_shared::MarginalSlopePsiFamily for SurvivalMarginalSlopePsiWorkspace {
     fn is_sigma_aux(&self, psi_index: usize) -> bool {
         self.family
             .is_sigma_aux_index(&self.derivative_blocks, psi_index)

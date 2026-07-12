@@ -8,21 +8,30 @@ pub(crate) struct BatchedOuterHessianTestFamily {
     pub(crate) matrix: Array2<f64>,
 }
 
-pub(crate) struct TestOuterHessianOperator {
+pub(crate) struct TestHessianOperator {
     pub(crate) matrix: Array2<f64>,
 }
 
-impl gam_problem::OuterHessianOperator for TestOuterHessianOperator {
+impl gam_problem::HessianOperator for TestHessianOperator {
     fn dim(&self) -> usize {
         self.matrix.nrows()
     }
 
-    fn matvec(&self, v: &Array1<f64>) -> Result<Array1<f64>, String> {
-        Ok(self.matrix.dot(v))
+    fn apply_into(
+        &self,
+        v: &Array1<f64>,
+        out: &mut Array1<f64>,
+    ) -> Result<(), opt::ObjectiveEvalError> {
+        out.assign(&self.matrix.dot(v));
+        Ok(())
     }
 
-    fn is_cheap_to_materialize(&self) -> bool {
-        true
+    fn materialization(&self) -> opt::HessianMaterialization {
+        opt::HessianMaterialization::Explicit
+    }
+
+    fn materialize_dense(&self) -> Result<Array2<f64>, opt::ObjectiveEvalError> {
+        Ok(self.matrix.clone())
     }
 }
 
@@ -41,8 +50,8 @@ impl CustomFamily for BatchedOuterHessianTestFamily {
     fn outer_hyper_hessian_operator(
         &self,
         _: &[ParameterBlockSpec],
-    ) -> Option<Arc<dyn gam_problem::OuterHessianOperator>> {
-        Some(Arc::new(TestOuterHessianOperator {
+    ) -> Option<Arc<dyn gam_problem::HessianOperator>> {
+        Some(Arc::new(TestHessianOperator {
             matrix: self.matrix.clone(),
         }))
     }
@@ -111,11 +120,11 @@ pub(crate) fn batched_outer_hessian_terms_materialize_to_exact_small_matrix() {
         .expect("batched Hessian hook succeeds")
         .expect("test family exposes batched HVP terms");
     let operator = match terms.outer_hessian {
-        gam_problem::HessianResult::Operator(operator) => operator,
+        gam_problem::HessianValue::Operator(operator) => operator,
         _ => panic!("batched hook should expose an operator"),
     };
     let dense = operator
-        .mul_mat(Array2::<f64>::eye(2).view())
+        .apply_mat(Array2::<f64>::eye(2).view())
         .expect("operator materializes on small exact case");
     assert_eq!(dense, exact);
 }
@@ -182,6 +191,19 @@ use gam_linalg::matrix::DesignMatrix;
 use gam_models::gamlss::{BinomialLocationScaleFamily, BinomialLocationScaleWiggleFamily};
 use gam_test_support::binomial_location_scale_base_fixture;
 use ndarray::{Array1, Array2, array};
+
+#[test]
+pub(crate) fn joint_preconditioner_preserves_negative_observed_curvature_scale() {
+    let base_diagonal = array![-12.0, 3.0, 0.0];
+    let penalty = array![[2.0, -1.0], [-1.0, 2.0]];
+    let diagonal =
+        joint_penalty_preconditioner_diag(&base_diagonal, &[(0, 2), (2, 3)], &[penalty], 0.5, None);
+
+    // The penalty contributes its absolute row sum (3) to the first block;
+    // the ridge contributes 0.5 everywhere.  In particular, -12 is a
+    // magnitude-12 trust scale rather than a direction collapsed to the floor.
+    assert_eq!(diagonal, array![15.5, 6.5, 0.5]);
+}
 
 pub(crate) fn assert_kronecker_factored_matches_dense(
     left: Array2<f64>,
@@ -273,36 +295,6 @@ pub(crate) fn default_inner_cycle_budget_covers_large_scale_joint_newton_tail() 
     assert!(
         options.inner_max_cycles > 300,
         "startup validation must not reject still-descending exact joint solves at the old cap"
-    );
-}
-
-#[test]
-pub(crate) fn startup_validation_failure_routes_to_never_fail_escalation() {
-    use gam_solve::model_types::EstimationError;
-
-    let all_seeds_rejected = EstimationError::RemlOptimizationFailed(
-        "no candidate seeds passed outer startup validation (custom family):\n  generated=4"
-            .to_string(),
-    );
-    assert!(
-        outer_startup_failure_is_escalatable(&all_seeds_rejected),
-        "post-audit all-seeds startup rejection must reach the never-fail escalation net"
-    );
-
-    let non_finite_eval = EstimationError::RemlOptimizationFailed(
-        "outer eval failed: objective returned a non-finite cost".to_string(),
-    );
-    assert!(
-        outer_startup_failure_is_escalatable(&non_finite_eval),
-        "non-finite startup evals are the same post-audit numerical pathology"
-    );
-
-    let structural_input = EstimationError::InvalidInput(
-        "zero-event survival marginal-slope input remains structurally invalid".to_string(),
-    );
-    assert!(
-        !outer_startup_failure_is_escalatable(&structural_input),
-        "structural input errors must not be converted into sampled fits"
     );
 }
 
@@ -1521,6 +1513,17 @@ pub(crate) struct CountingHessianWorkspace {
 }
 
 impl ExactNewtonJointHessianWorkspace for CountingHessianWorkspace {
+    fn warm_up_outer_caches_for_mode(
+        &self,
+        eval_mode: gam_problem::EvalMode,
+    ) -> Result<(), String> {
+        match eval_mode {
+            gam_problem::EvalMode::ValueOnly
+            | gam_problem::EvalMode::ValueAndGradient
+            | gam_problem::EvalMode::ValueGradientHessian => Ok(()),
+        }
+    }
+
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         self.dense_calls.fetch_add(1, Ordering::Relaxed);
         Ok(Some(Array2::eye(2)))
@@ -1620,6 +1623,17 @@ pub(crate) struct IntentRefiningHessianWorkspace {
 }
 
 impl ExactNewtonJointHessianWorkspace for IntentRefiningHessianWorkspace {
+    fn warm_up_outer_caches_for_mode(
+        &self,
+        eval_mode: gam_problem::EvalMode,
+    ) -> Result<(), String> {
+        match eval_mode {
+            gam_problem::EvalMode::ValueOnly
+            | gam_problem::EvalMode::ValueAndGradient
+            | gam_problem::EvalMode::ValueGradientHessian => Ok(()),
+        }
+    }
+
     fn hessian_dense(&self) -> Result<Option<Array2<f64>>, String> {
         self.dense_calls.fetch_add(1, Ordering::Relaxed);
         Ok(Some(Array2::eye(2)))
@@ -1750,22 +1764,6 @@ pub(crate) fn default_coefficient_gradient_cost_is_half_of_hessian_cost() {
 }
 
 #[test]
-pub(crate) fn first_order_outer_iter_gate_caps_expensive_gradient_paths() {
-    assert_eq!(
-        cost_gated_first_order_max_iter(60, 10_000_000_000, false),
-        8
-    );
-    assert_eq!(
-        cost_gated_first_order_max_iter(60, 100_000_000_000, false),
-        4
-    );
-    assert_eq!(
-        cost_gated_first_order_max_iter(60, 100_000_000_000, true),
-        60
-    );
-}
-
-#[test]
 pub(crate) fn custom_family_default_outer_seed_config_is_tightened_for_expensive_paths() {
     let family = OneBlockIdentityFamily;
 
@@ -1783,10 +1781,30 @@ pub(crate) fn custom_family_default_outer_seed_config_is_tightened_for_expensive
 #[test]
 pub(crate) fn floor_positiveworking_weights_preserves_exactzeros() {
     let weights = array![0.0, 1.0e-16, 0.25];
-    let floored = floor_positiveworking_weights(&weights, 1.0e-6);
+    let floored =
+        floor_positiveworking_weights(&weights, 1.0e-6).expect("valid nonnegative weights");
     assert_eq!(floored[0], 0.0);
     assert_eq!(floored[1], 1.0e-6);
     assert_eq!(floored[2], 0.25);
+}
+
+#[test]
+pub(crate) fn floor_positiveworking_weights_rejects_negative_and_nonfinite() {
+    // A negative weight is indefinite diagonal curvature: coercing it to zero
+    // would swap in a different information matrix. Must reject.
+    let negative = array![0.5, -1.0e-3, 0.25];
+    let err = floor_positiveworking_weights(&negative, 1.0e-6)
+        .expect_err("negative curvature must be rejected, not zeroed");
+    assert!(err.contains("row 1"), "error should name the row: {err}");
+
+    // NaN previously slipped through `wi <= 0.0` (false for NaN) and became
+    // `minweight` via the NaN-ignoring `f64::max`. Must reject.
+    let nan = array![0.5, f64::NAN];
+    floor_positiveworking_weights(&nan, 1.0e-6)
+        .expect_err("NaN curvature must be rejected, not coerced to minweight");
+
+    let inf = array![f64::INFINITY, 0.5];
+    floor_positiveworking_weights(&inf, 1.0e-6).expect_err("infinite curvature must be rejected");
 }
 
 #[test]
@@ -2383,7 +2401,7 @@ pub(crate) fn default_custom_family_exact_hessian_hooks_drive_profiled_outer_hes
 
     assert_eq!(result.gradient.len(), 1);
     match result.outer_hessian {
-        gam_problem::HessianResult::Analytic(hessian) => {
+        gam_problem::HessianValue::Dense(hessian) => {
             assert_eq!(hessian.dim(), (1, 1));
             assert!(hessian[[0, 0]].is_finite());
         }
@@ -2665,14 +2683,14 @@ pub(crate) fn generic_single_block_fallback_includes_nonzero_d2h_drift() {
     .expect("single-block fallback with zero d2H should evaluate");
 
     let h_with = match with_d2.outer_hessian {
-        gam_problem::HessianResult::Analytic(hessian) => hessian,
-        gam_problem::HessianResult::Operator(_) | gam_problem::HessianResult::Unavailable => {
+        gam_problem::HessianValue::Dense(hessian) => hessian,
+        gam_problem::HessianValue::Operator(_) | gam_problem::HessianValue::Unavailable => {
             panic!("expected dense analytic Hessian")
         }
     };
     let h_without = match without_d2_contribution.outer_hessian {
-        gam_problem::HessianResult::Analytic(hessian) => hessian,
-        gam_problem::HessianResult::Operator(_) | gam_problem::HessianResult::Unavailable => {
+        gam_problem::HessianValue::Dense(hessian) => hessian,
+        gam_problem::HessianValue::Operator(_) | gam_problem::HessianValue::Unavailable => {
             panic!("expected dense analytic Hessian")
         }
     };
@@ -3798,6 +3816,7 @@ pub(crate) fn objective_includes_solverridge_quadratic_term() {
         cache_session: None,
         cache_mirror_sessions: Vec::new(),
         joint_penalties: None,
+        independent_prior_factor_labels: Vec::new(),
         screen_initial_rho: true,
     };
 
@@ -3853,6 +3872,7 @@ pub(crate) fn inner_block_accepts_penalty_improving_step_even_if_loglik_drops() 
         cache_session: None,
         cache_mirror_sessions: Vec::new(),
         joint_penalties: None,
+        independent_prior_factor_labels: Vec::new(),
         screen_initial_rho: true,
     };
     let per_block_log_lambdas = vec![array![10.0_f64.ln()]];
@@ -3911,6 +3931,7 @@ pub(crate) fn exact_newton_backtracking_descent_includes_explicit_ridge() {
         cache_session: None,
         cache_mirror_sessions: Vec::new(),
         joint_penalties: None,
+        independent_prior_factor_labels: Vec::new(),
         screen_initial_rho: true,
     };
     let inner = inner_blockwise_fit(&family, &[spec], &[Array1::zeros(0)], &options, None)
@@ -4198,7 +4219,7 @@ pub(crate) fn joint_newton_budget_exhaustion_refuses_coupled_exact_inner() {
 /// ceiling were removed this test would hang instead of returning.
 #[test]
 pub(crate) fn bms_flex_marginal_slope_coupled_exact_inner_stall_is_deterministically_bounded_gam1794()
-{
+ {
     let spec0 = ParameterBlockSpec {
         name: "block0".to_string(),
         design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]])),
@@ -9043,6 +9064,63 @@ pub(crate) fn structural_edf_matches_trace_identity_noncommuting_pair() {
         (edf_at_one - 0.611111_f64).abs() < 1e-5,
         "edf at λ=1 must be ≈0.6111 (true), not 0.7000 (Rayleigh-quotient bug): got {edf_at_one}",
     );
+}
+
+/// Structural edf with a penalty NULLSPACE coupled to the range through the
+/// design Gram: the γ_j must come from the Schur complement
+/// `A_rr − A_r0 A₀₀⁺ A₀r` on the penalty quotient, not from `A_rr` alone.
+///
+/// `S = diag(0, 1, 1)` and `G = [[1, 1, 0], [1, 1+ε, 0], [0, 0, 1]]`: the
+/// unpenalized null coordinate absorbs the shared curvature between
+/// coordinates 0 and 1 at every λ, so the quotient eigenvalues are (ε, 1) —
+/// keeping `A_rr` alone would claim (1+ε, 1) and overstate the λ-resistant
+/// df. Verified against the exact trace identity
+/// `tr{G (G+λS)⁻¹} = rank(A₀₀) + Σ_j γ_j/(γ_j+λ)` with `rank(A₀₀) = 1`.
+#[test]
+pub(crate) fn structural_edf_quotients_nullspace_range_coupling() {
+    let eps = 0.01_f64;
+    // XᵀX = [[1,1,0],[1,1+ε,0],[0,0,1]] via the Cholesky factor
+    // L = [[1,0,0],[1,√ε,0],[0,0,1]], X = Lᵀ.
+    let x = array![[1.0, 1.0, 0.0], [0.0, eps.sqrt(), 0.0], [0.0, 0.0, 1.0]];
+    let design = DesignMatrix::from(x);
+    let s = array![[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    let penalty = PenaltyMatrix::Dense(s.clone());
+
+    let mut gammas = design_penalty_range_gammas(&design, &penalty)
+        .expect("rank-2 penalty range must yield generalized eigenvalues");
+    gammas.sort_by(|a, b| a.partial_cmp(b).expect("finite γ"));
+    assert_eq!(gammas.len(), 2, "range(S) has rank 2");
+    assert!(
+        (gammas[0] - eps).abs() < 1e-9,
+        "coupled range direction must carry quotient curvature ε={eps}, got {}",
+        gammas[0]
+    );
+    assert!(
+        (gammas[1] - 1.0).abs() < 1e-9,
+        "uncoupled range direction keeps curvature 1, got {}",
+        gammas[1]
+    );
+
+    // Exact trace identity: tr(G (G+λS)⁻¹) = 1 + Σ_j γ_j/(γ_j+λ), the leading
+    // 1 being the null-block rank (fitted unpenalized at every λ). Reference
+    // computed with a dense solve independent of the helper.
+    let g = array![[1.0, 1.0, 0.0], [1.0, 1.0 + eps, 0.0], [0.0, 0.0, 1.0]];
+    for &lambda in &[0.25_f64, 1.0, 7.5] {
+        let m = &g + &(&s * lambda);
+        let m_inv = {
+            use gam_linalg::faer_ndarray::FaerCholesky;
+            let chol = m.cholesky(faer::Side::Lower).expect("G+λS is SPD here");
+            let mut ident = Array2::<f64>::eye(3);
+            chol.solve_mat_in_place(&mut ident);
+            ident
+        };
+        let trace: f64 = g.dot(&m_inv).diag().iter().sum();
+        let edf = 1.0 + unit_weight_term_edf(&gammas, lambda.ln());
+        assert!(
+            (edf - trace).abs() < 1e-9,
+            "quotient edf {edf} must equal tr(G(G+λS)⁻¹) {trace} at λ={lambda}",
+        );
+    }
 }
 
 /// gam#1854 / gam#1395: the multinomial Firth/Jeffreys separation fallback assembles

@@ -68,7 +68,7 @@ fn run() -> Result<(), String> {
     }
     let (rows, decoder) = fixture(m, g, b, p);
 
-    match route_blocks_required(rows.view(), decoder.view(), b, k, gam_gpu::GpuMode::Auto) {
+    match route_blocks_required(rows.view(), decoder.view(), b, k, gam_gpu::GpuPolicy::Auto) {
         Ok((warm_route, warm_path, warm_bytes)) => {
             println!(
                 "[block-gate speedup] warm-up path={warm_path:?} rows={} dtoh={warm_bytes}B",
@@ -84,13 +84,37 @@ fn run() -> Result<(), String> {
     let cpu = route_blocks_cpu(rows.view(), decoder.view(), g, b, k);
     let cpu_secs = cpu_start.elapsed().as_secs_f64();
 
+    // The PRODUCTION CPU lane: route_blocks_required under Auto (the blocked-
+    // GEMM fallback when no device runs). Timed against the scalar oracle
+    // above, with per-row support parity accounted, so the CPU-side speedup
+    // of the fallback swap is a measured number, not an inference.
+    let fallback_start = Instant::now();
+    let (fallback, fallback_path, _fallback_bytes) =
+        route_blocks_required(rows.view(), decoder.view(), b, k, gam_gpu::GpuPolicy::Auto)
+            .map_err(|err| format!("Auto route failed: {err}"))?;
+    let fallback_secs = fallback_start.elapsed().as_secs_f64();
+    let support_mismatches = cpu
+        .iter()
+        .zip(fallback.iter())
+        .filter(|(a, c)| {
+            let sa: std::collections::BTreeSet<u32> = a.iter().map(|e| e.0).collect();
+            let sc: std::collections::BTreeSet<u32> = c.iter().map(|e| e.0).collect();
+            sa != sc
+        })
+        .count();
+    println!(
+        "[block-gate speedup] production CPU lane path={fallback_path:?}: {fallback_secs:.4}s \
+         vs scalar oracle {cpu_secs:.4}s = {:.1}x, support mismatches {support_mismatches}/{m}",
+        cpu_secs / fallback_secs.max(1e-12)
+    );
+
     let device_start = Instant::now();
     let required = route_blocks_required(
         rows.view(),
         decoder.view(),
         b,
         k,
-        gam_gpu::GpuMode::Required,
+        gam_gpu::GpuPolicy::Required,
     );
     let (routed, path, dtoh) = match required {
         Ok(value) => value,
@@ -100,14 +124,14 @@ fn run() -> Result<(), String> {
                 return Ok(());
             }
             return Err(format!(
-                "GpuMode::Required failed despite a CUDA runtime: {err}"
+                "GpuPolicy::Required failed despite a CUDA runtime: {err}"
             ));
         }
     };
     let device_secs = device_start.elapsed().as_secs_f64();
     if path != BlockRoutePath::Device {
         return Err(format!(
-            "GpuMode::Required returned {path:?}, expected Device"
+            "GpuPolicy::Required returned {path:?}, expected Device"
         ));
     }
     for (row, (dev_sel, cpu_sel)) in routed.iter().zip(&cpu).enumerate() {

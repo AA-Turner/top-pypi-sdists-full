@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: idc-index
-Version: 0.12.3
+Version: 0.12.4
 Summary: Python package to simplify access to the data available in NCI Imaging Data Commons
 Project-URL: Homepage, https://github.com/ImagingDataCommons/idc-index
 Project-URL: Bug Tracker, https://github.com/ImagingDataCommons/idc-index/issues
@@ -45,7 +45,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: click
 Requires-Dist: duckdb<2.0.0,>=1.0.0
-Requires-Dist: idc-index-data==24.2.0
+Requires-Dist: idc-index-data==24.2.2
 Requires-Dist: packaging
 Requires-Dist: pandas<=2.2.4
 Requires-Dist: platformdirs

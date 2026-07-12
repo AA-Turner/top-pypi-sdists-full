@@ -187,6 +187,14 @@ pub struct ArrowSchurSystem {
     /// `tolerate_ill_conditioning` set may stiffen a gauge-explained row
     /// direction.
     pub row_gauge_deflation: Option<ArrowRowGaugeDeflation>,
+    /// Exact scale-gauge quotient on the reduced shared `beta` border.
+    ///
+    /// SAE installs one normalized radial decoder direction per live atom.
+    /// Evidence paths factor `P S P + Q Q^T` and expose the projected inverse
+    /// `P S_quot^-1 P`; ordinary Newton steps ignore this carrier because their
+    /// joint `(delta B, delta log-amplitude)` trajectory projection is owned by
+    /// the SAE step application.
+    pub beta_gauge_quotient: Option<ArrowBetaGaugeQuotient>,
     /// Optional exact cross-row IBP low-rank source (#1038). When set, the
     /// factorization downdates the per-row logit-slot self term and layers the
     /// exact rank-`R` Woodbury correction onto the evidence cache (value,
@@ -218,6 +226,7 @@ impl Clone for ArrowSchurSystem {
             device_sae_pcg: self.device_sae_pcg.clone(),
             cross_row_penalties: self.cross_row_penalties.clone(),
             row_gauge_deflation: self.row_gauge_deflation.clone(),
+            beta_gauge_quotient: self.beta_gauge_quotient.clone(),
             ibp_cross_row: self.ibp_cross_row.clone(),
         }
     }
@@ -349,6 +358,7 @@ impl ArrowSchurSystem {
             device_sae_pcg: None,
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
+            beta_gauge_quotient: None,
             ibp_cross_row: None,
         }
     }
@@ -398,6 +408,7 @@ impl ArrowSchurSystem {
             device_sae_pcg: None,
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
+            beta_gauge_quotient: None,
             ibp_cross_row: None,
         }
     }
@@ -453,11 +464,10 @@ impl ArrowSchurSystem {
             device_sae_pcg: None,
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
+            beta_gauge_quotient: None,
             ibp_cross_row: None,
         }
     }
-
-
 
     /// Allocate a heterogeneous-row arrow system with no dense shared `H_ββ`
     /// block and with row `H_tβ` slabs allocated at `htbeta_cols` columns.
@@ -500,6 +510,7 @@ impl ArrowSchurSystem {
             device_sae_pcg: None,
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
+            beta_gauge_quotient: None,
             ibp_cross_row: None,
         }
     }
@@ -550,12 +561,108 @@ impl ArrowSchurSystem {
             device_sae_pcg: None,
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
+            beta_gauge_quotient: None,
+            ibp_cross_row: None,
+        }
+    }
+
+    /// Build a fresh numerical system while reusing caller-owned assembly
+    /// allocations when their shapes still match.
+    ///
+    /// This is deliberately an *allocation* workspace, not a factor cache:
+    /// every entry of `rows`, `hbb`, and `gb` is zeroed before the system is
+    /// returned, and all operator/fingerprint/device fields start empty. A
+    /// nonlinear assembler can therefore refill every state-dependent block at
+    /// the new iterate without paying again for the stable row/shared-buffer
+    /// shapes. Shape changes discard only the incompatible allocation.
+    pub fn new_with_assembly_buffers(
+        per_row_dims: Vec<usize>,
+        k: usize,
+        htbeta_cols: usize,
+        mut hbb: Array2<f64>,
+        mut rows: Vec<ArrowRowBlock>,
+        mut gb: Array1<f64>,
+    ) -> Self {
+        assert!(hbb.dim() == (0, 0) || hbb.dim() == (k, k));
+        hbb.fill(0.0);
+
+        let rows_match = rows.len() == per_row_dims.len()
+            && rows.iter().zip(&per_row_dims).all(|(row, &dim)| {
+                row.htt.dim() == (dim, dim)
+                    && row.htbeta.dim() == (dim, htbeta_cols)
+                    && row.gt.len() == dim
+            });
+        if rows_match {
+            for row in &mut rows {
+                row.htt.fill(0.0);
+                row.htbeta.fill(0.0);
+                row.gt.fill(0.0);
+            }
+        } else {
+            rows = per_row_dims
+                .iter()
+                .map(|&dim| ArrowRowBlock::new_with_htbeta_cols(dim, htbeta_cols))
+                .collect();
+        }
+        if gb.len() == k {
+            gb.fill(0.0);
+        } else {
+            gb = Array1::<f64>::zeros(k);
+        }
+
+        let n = per_row_dims.len();
+        let d = per_row_dims.iter().copied().max().unwrap_or(0);
+        let mut offsets = Vec::with_capacity(n + 1);
+        let mut cursor = 0usize;
+        offsets.push(cursor);
+        for &dim in &per_row_dims {
+            cursor += dim;
+            offsets.push(cursor);
+        }
+        Self {
+            rows,
+            hbb,
+            hbb_matvec: None,
+            htbeta_matvec: None,
+            htbeta_transpose_matvec: None,
+            htbeta_dense_supplement: false,
+            hbb_diag: None,
+            gb,
+            d,
+            row_dims: Arc::from(per_row_dims.into_boxed_slice()),
+            row_offsets: Arc::from(offsets.into_boxed_slice()),
+            k,
+            manifold_mode_fingerprint: EUCLIDEAN_MANIFOLD_MODE_FINGERPRINT,
+            row_hessian_fingerprint: 0,
+            analytic_row_hessian_fingerprint: 0,
+            block_offsets: Arc::from([] as [Range<usize>; 0]),
+            penalty_op: None,
+            device_sae_pcg: None,
+            cross_row_penalties: Vec::new(),
+            row_gauge_deflation: None,
+            beta_gauge_quotient: None,
             ibp_cross_row: None,
         }
     }
 
     pub fn set_row_gauge_deflation(&mut self, deflation: ArrowRowGaugeDeflation) {
         self.row_gauge_deflation = Some(deflation);
+    }
+
+    /// Install the exact evidence quotient for shared-border gauge directions.
+    pub fn set_beta_gauge_quotient(
+        &mut self,
+        quotient: ArrowBetaGaugeQuotient,
+    ) -> Result<(), String> {
+        if quotient.border_dim() != self.k {
+            return Err(format!(
+                "ArrowSchurSystem::set_beta_gauge_quotient: direction width {} != beta border {}",
+                quotient.border_dim(),
+                self.k
+            ));
+        }
+        self.beta_gauge_quotient = Some(quotient);
+        Ok(())
     }
 
     /// Register the exact cross-row IBP low-rank source (#1038). The assembly
@@ -687,6 +794,30 @@ impl ArrowSchurSystem {
     }
 
     pub fn set_device_sae_pcg_data(&mut self, data: DeviceSaePcgData) {
+        self.set_device_sae_pcg_data_reusing(data, None);
+    }
+
+    /// Install an already allocation-resident SAE device descriptor.
+    pub fn set_device_sae_pcg_allocation(&mut self, data: Arc<DeviceSaePcgData>) {
+        assert_eq!(data.beta_dim, self.k);
+        if data.frame.is_none() {
+            assert_eq!(data.a_phi.len(), self.rows.len());
+            assert_eq!(data.local_jac.len(), self.rows.len());
+        }
+        self.device_sae_pcg = Some(data);
+    }
+
+    /// Install current-iterate SAE device operands while retaining the outer
+    /// descriptor allocation from a completed prior assembly when it is
+    /// uniquely owned. Framed payloads also refill their nested row-cross/frame
+    /// vectors through `Vec::clone_from`, retaining matching capacities. `data`
+    /// still replaces every numerical value, so no state-dependent operand or
+    /// factor crosses nonlinear iterates.
+    pub fn set_device_sae_pcg_data_reusing(
+        &mut self,
+        data: DeviceSaePcgData,
+        recycled: Option<Arc<DeviceSaePcgData>>,
+    ) {
         assert_eq!(data.beta_dim, self.k);
         // The frames-engaged builder (`build_framed_device_sae_data`) carries the
         // per-row cross block through `frame.frame_blocks` and intentionally leaves
@@ -697,7 +828,17 @@ impl ArrowSchurSystem {
             assert_eq!(data.a_phi.len(), self.rows.len());
             assert_eq!(data.local_jac.len(), self.rows.len());
         }
-        self.device_sae_pcg = Some(Arc::new(data));
+        let allocation = match recycled {
+            Some(mut allocation) => match Arc::get_mut(&mut allocation) {
+                Some(slot) => {
+                    slot.replace_reusing_framed_allocations(data);
+                    allocation
+                }
+                None => Arc::new(data),
+            },
+            None => Arc::new(data),
+        };
+        self.set_device_sae_pcg_allocation(allocation);
     }
 
     /// Return the effective penalty operator: the installed `penalty_op` if
@@ -1161,12 +1302,12 @@ impl ArrowSchurSystem {
     /// Call [`ArrowSchurSystem::solve_with_options`] to force Square-Root BA
     /// or a specific inexact solve policy.
     ///
-    /// Returns `(delta_t, delta_beta, PcgDiagnostics)` with `delta_t` flat
+    /// Returns `(delta_t, delta_beta, ArrowPcgDiagnostics)` with `delta_t` flat
     /// row-major of length `N · d` and `delta_beta` of length `K`. The sign
     /// convention matches `solve_newton_direction_dense`: the returned
     /// increments satisfy the bordered system with RHS `[-g_t; -g_β]`, i.e.
     /// they are the *negated* solutions of the standard Newton-direction
-    /// formulation. `PcgDiagnostics` is zero-valued for the Direct path and
+    /// formulation. `ArrowPcgDiagnostics` is zero-valued for the Direct path and
     /// carries live counters (PCG iters, ridge escalations, residual) for
     /// InexactPCG.
     ///
@@ -1179,7 +1320,7 @@ impl ArrowSchurSystem {
         &self,
         ridge_t: f64,
         ridge_beta: f64,
-    ) -> Result<(Array1<f64>, Array1<f64>, PcgDiagnostics), ArrowSchurError> {
+    ) -> Result<(Array1<f64>, Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError> {
         let options = ArrowSolveOptions::automatic(self.k);
         solve_arrow_newton_step_core(self, ridge_t, ridge_beta, &options)
     }
@@ -1202,18 +1343,18 @@ impl ArrowSchurSystem {
         &self,
         ridge_t: f64,
         ridge_beta: f64,
-    ) -> Result<(Array1<f64>, Array1<f64>, PcgDiagnostics), ArrowSchurError> {
+    ) -> Result<(Array1<f64>, Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError> {
         let options = ArrowSolveOptions::automatic(self.k);
         solve_with_lm_escalation_inner(self, ridge_t, ridge_beta, &options)
     }
 
-    /// Solve with an explicit BA Schur mode, returning `(Δt, Δβ, PcgDiagnostics)`.
+    /// Solve with an explicit BA Schur mode, returning `(Δt, Δβ, ArrowPcgDiagnostics)`.
     ///
     /// [`ArrowSolverMode::Direct`] is the classic dense reduced-camera-system
     /// Cholesky path; [`ArrowSolverMode::SqrtBA`] forms the same dense system
     /// through Square-Root BA factors; [`ArrowSolverMode::InexactPCG`] runs
     /// inexact-step LM on the reduced system with Jacobi-preconditioned
-    /// Steihaug-CG. `PcgDiagnostics` is zero-valued for Direct/SqrtBA and
+    /// Steihaug-CG. `ArrowPcgDiagnostics` is zero-valued for Direct/SqrtBA and
     /// carries live counters for InexactPCG (iterations, matvec calls,
     /// preconditioner escalations, final relative residual, stopping reason).
     pub fn solve_with_options(
@@ -1221,7 +1362,7 @@ impl ArrowSchurSystem {
         ridge_t: f64,
         ridge_beta: f64,
         options: &ArrowSolveOptions,
-    ) -> Result<(Array1<f64>, Array1<f64>, PcgDiagnostics), ArrowSchurError> {
+    ) -> Result<(Array1<f64>, Array1<f64>, ArrowPcgDiagnostics), ArrowSchurError> {
         solve_arrow_newton_step_core(self, ridge_t, ridge_beta, options)
     }
 }
@@ -1576,7 +1717,8 @@ impl StreamingArrowSchur {
             let this: &Self = self;
             let row_into = |row_idx: usize,
                             rhs_part: &mut Array1<f64>,
-                            s_part: &mut Array2<f64>|
+                            s_part: &mut Array2<f64>,
+                            stack: &mut ChunkSchurStack|
              -> Result<(), ArrowSchurError> {
                 let row = (this.row_builder)(row_idx)?;
                 let di = row.htt.nrows();
@@ -1599,12 +1741,12 @@ impl StreamingArrowSchur {
                     // the dense Schur subtraction here (see the serial branch).
                     ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
                         let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
-                        backend.block_gemm_subtract(s_part, &htbeta, &solved);
+                        stack.subtract_or_stack(&backend, s_part, &htbeta, &solved);
                     }
                     ArrowSolverMode::SqrtBA => {
                         let whitened =
                             backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
-                        backend.block_gemm_subtract(s_part, &whitened, &whitened);
+                        stack.subtract_or_stack(&backend, s_part, &whitened, &whitened);
                     }
                 }
                 Ok(())
@@ -1615,9 +1757,14 @@ impl StreamingArrowSchur {
                 .map(|idxs| {
                     let mut rhs_part = Array1::<f64>::zeros(k);
                     let mut s_part = Array2::<f64>::zeros((k, k));
+                    // Dense-support rows accumulate into ONE stacked GEMM per
+                    // chunk instead of a per-row scalar scatter; sparse rows
+                    // keep the nnz-scaled scatter (see `ChunkSchurStack`).
+                    let mut stack = ChunkSchurStack::new(k);
                     for i in idxs {
-                        row_into(i, &mut rhs_part, &mut s_part)?;
+                        row_into(i, &mut rhs_part, &mut s_part, &mut stack)?;
                     }
+                    stack.flush(&mut s_part);
                     Ok::<_, ArrowSchurError>((rhs_part, s_part))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -2549,7 +2696,7 @@ pub struct ArrowFactorCache {
     ///
     /// Zero-valued (default) when the selected mode did not use PCG
     /// (i.e. `Direct` or `SqrtBA`).
-    pub pcg_diagnostics: PcgDiagnostics,
+    pub pcg_diagnostics: ArrowPcgDiagnostics,
     /// Number of row-local gauge directions stiffened in an undamped evidence
     /// factorization.
     ///
@@ -2567,8 +2714,8 @@ pub struct ArrowFactorCache {
     ///
     /// A deflated direction contributes `log(1) = 0` to the row-block log-det
     /// and is ρ/θ-INDEPENDENT, so its true contribution to `∂log|H|/∂ρ` is `0`.
-    /// The analytic outer-gradient traces (`assignment_log_strength_hessian_trace`,
-    /// `learnable_ibp_data_logdet_alpha_trace`, `logdet_theta_adjoint`) contract
+    /// The analytic outer-gradient traces (`assignment_log_strength_hessian_trace`
+    /// and `logdet_theta_adjoint`) contract
     /// `∂H_raw/∂ρ` (the RAW, pre-deflation block derivative) against the DEFLATED
     /// inverse, which assigns `1/λ̃ = 1` to each `vᵢ` and therefore spuriously
     /// adds `½ vᵢᵀ (∂H_raw/∂ρ) vᵢ`. Those traces subtract this per-row term
@@ -2596,6 +2743,13 @@ pub struct ArrowFactorCache {
     /// suffices), and every non-SAE-evidence solver path (streaming / device /
     /// cross-row CG). Empty overall when no row deflated spectrally.
     pub deflation_row_spectra: Arc<[Option<RowDeflationSpectrum>]>,
+    /// Shared-border scale gauge used by the evidence factor.
+    ///
+    /// When present, `schur_factor` factors `P S P + Q Q^T`, and every public
+    /// inverse primitive projects both its border RHS and result with `P`.  The
+    /// unit-pinned orbit contributes zero to `arrow_log_det` and zero to every
+    /// analytic trace, so value and gradient live on the same quotient.
+    pub beta_gauge_quotient: Option<ArrowBetaGaugeQuotient>,
     /// Exact cross-row IBP rank-`R` Woodbury correction (#1038), present iff the
     /// source system carried an [`IbpCrossRowSource`]. When set, the per-row
     /// factors above are of the NO-SELF base `H₀'` (self term `d_k·z'_ik²`
@@ -3209,10 +3363,10 @@ impl ArrowFactorCache {
     /// include the injected host-procedural reduced-Schur matvec, whose
     /// arithmetic runs on the CPU even when a CUDA context was opened to build
     /// per-row factors (#1209) — that path sets
-    /// `PcgDiagnostics::injected_host_procedural_matvec` instead. Read-only
+    /// `ArrowPcgDiagnostics::injected_host_procedural_matvec` instead. Read-only
     /// routing provenance: lets a fit result record device-vs-CPU as ground
     /// truth instead of inferring it from the runtime probe. Mirrors
-    /// `PcgDiagnostics::used_device_arrow`.
+    /// `ArrowPcgDiagnostics::used_device_arrow`.
     #[must_use]
     pub fn used_device(&self) -> bool {
         self.pcg_diagnostics.used_device_arrow
@@ -3441,7 +3595,7 @@ impl ArrowFactorCache {
     /// yet supported for the matrix-free PCG mode; that branch needs a separate
     /// Lanczos/Hutchinson estimator.
     pub fn latent_block_inverse_diagonal(&self) -> Result<Array1<f64>, ArrowSchurError> {
-        let Some(schur_factor) = self.schur_factor.as_ref() else {
+        let Some(_schur_factor) = self.schur_factor.as_ref() else {
             return Err(ArrowSchurError::SchurFactorFailed {
                 reason: "latent_block_inverse_diagonal requires a dense Schur factor; \
                          the InexactPCG mode does not form one"
@@ -3491,7 +3645,7 @@ impl ArrowFactorCache {
                     });
                 }
                 // z = S⁻¹ w; correction = w · z.
-                let z = cholesky_solve_vector(schur_factor, &w);
+                let z = self.schur_inverse_apply(w.view())?;
                 let mut corr = 0.0_f64;
                 for c in 0..self.k {
                     corr += w[c] * z[c];
@@ -3706,8 +3860,15 @@ impl ArrowFactorCache {
                 ),
             });
         }
-        let rhs_owned = rhs.to_owned();
-        Ok(cholesky_solve_vector(schur_factor, &rhs_owned))
+        let rhs_owned = match self.beta_gauge_quotient.as_ref() {
+            Some(quotient) => quotient.project_complement(rhs),
+            None => rhs.to_owned(),
+        };
+        let solved = cholesky_solve_vector(schur_factor, &rhs_owned);
+        Ok(match self.beta_gauge_quotient.as_ref() {
+            Some(quotient) => quotient.project_complement(solved.view()),
+            None => solved,
+        })
     }
 
     /// Dense principal sub-block of the β-block of the full inverse,
@@ -3734,7 +3895,7 @@ impl ArrowFactorCache {
         &self,
         block: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, ArrowSchurError> {
-        let Some(schur_factor) = self.schur_factor.as_ref() else {
+        let Some(_schur_factor) = self.schur_factor.as_ref() else {
             return Err(ArrowSchurError::SchurFactorFailed {
                 reason: "schur_inverse_block requires a dense Schur factor; \
                          the InexactPCG mode does not form one"
@@ -3762,7 +3923,7 @@ impl ArrowFactorCache {
         for (jc, j) in block.clone().enumerate() {
             e_j.fill(0.0);
             e_j[j] = 1.0;
-            let col = cholesky_solve_vector(schur_factor, &e_j);
+            let col = self.schur_inverse_apply(e_j.view())?;
             for (ic, i) in block.clone().enumerate() {
                 out[[ic, jc]] = col[i];
             }
@@ -3776,5 +3937,107 @@ impl ArrowFactorCache {
             }
         }
         Ok(out)
+    }
+}
+
+/// Per-chunk stacked Schur subtraction for the parallel assembly fan-out.
+///
+/// Dense rows are appended into stacked `(Σd × k)` factors and subtracted with
+/// ONE sequential SIMD GEMM per chunk (`s_part -= Lᵀ R`) — the CPU mirror of
+/// the device `tile_schur_partial` stacking — while rows with sparse column
+/// support keep the nnz-scaled scatter (#1995), which beats a dense GEMM
+/// there.
+///
+/// The crossover is derived, not tuned. The scatter costs
+/// `Σ_c nnz_l(c)·nnz_r(c)` scalar FMAs against a randomly indexed `k×k`
+/// accumulator (unvectorizable), while the row's share of the stacked GEMM is
+/// `d·k²` FMAs at SIMD throughput — ≈8 f64 FMAs per cycle (4-lane vectors,
+/// dual issue) on both x86-64/AVX2 and aarch64/NEON. The GEMM therefore wins
+/// once `scatter_flops > d·k²/8`. Pricing this needs one `O(d·k)` support
+/// count, the same scan the scatter pays to build its active lists, so a
+/// "scatter" verdict wastes nothing and a "stack" verdict wastes only the
+/// count.
+///
+/// Numerics: the stacked GEMM reassociates the within-chunk row sum relative
+/// to the per-row scatter — the same reassociation class as the existing
+/// chunk-partial fold and the device stacking, and deterministic run-to-run
+/// (`Par::Seq` inside the worker per #1557).
+struct ChunkSchurStack {
+    left: Vec<f64>,
+    right: Vec<f64>,
+    stacked_rows: usize,
+    k: usize,
+}
+
+impl ChunkSchurStack {
+    fn new(k: usize) -> Self {
+        Self {
+            left: Vec::new(),
+            right: Vec::new(),
+            stacked_rows: 0,
+            k,
+        }
+    }
+
+    /// Either scatter this row's Schur contribution immediately (sparse
+    /// support) or append its factors to the chunk stack (dense support).
+    fn subtract_or_stack(
+        &mut self,
+        backend: &CpuBatchedBlockSolver,
+        s_part: &mut Array2<f64>,
+        left: &Array2<f64>,
+        right: &Array2<f64>,
+    ) {
+        let k = self.k;
+        let d = left.nrows();
+        // Caller-contract shape checks; real asserts (scanner bans debug_*),
+        // and trivially cheap next to the k x k scatter below.
+        assert_eq!(left.ncols(), k, "scatter: left must be (d, k)");
+        assert_eq!(right.dim(), (d, k), "scatter: right must be (d, k)");
+        assert_eq!(s_part.dim(), (k, k), "scatter: s_part must be (k, k)");
+        let mut scatter_flops = 0usize;
+        for c in 0..d {
+            let mut nnz_left = 0usize;
+            let mut nnz_right = 0usize;
+            for col in 0..k {
+                nnz_left += usize::from(left[[c, col]] != 0.0);
+                nnz_right += usize::from(right[[c, col]] != 0.0);
+            }
+            scatter_flops += nnz_left * nnz_right;
+        }
+        if scatter_flops <= d * k * k / 8 {
+            backend.block_gemm_subtract(s_part, left, right);
+            return;
+        }
+        for source in [(left, &mut self.left), (right, &mut self.right)] {
+            let (matrix, stack) = source;
+            if let Some(values) = matrix.as_slice() {
+                stack.extend_from_slice(values);
+            } else {
+                stack.extend(matrix.iter().copied());
+            }
+        }
+        self.stacked_rows += d;
+    }
+
+    /// Subtract every stacked row in one sequential SIMD GEMM.
+    fn flush(&mut self, s_part: &mut Array2<f64>) {
+        if self.stacked_rows == 0 {
+            return;
+        }
+        let shape = (self.stacked_rows, self.k);
+        let left = ndarray::ArrayView2::from_shape(shape, self.left.as_slice())
+            .expect("ChunkSchurStack left buffer matches its recorded shape");
+        let right = ndarray::ArrayView2::from_shape(shape, self.right.as_slice())
+            .expect("ChunkSchurStack right buffer matches its recorded shape");
+        let product = gam_linalg::faer_ndarray::fast_atb_with_parallelism(
+            &left,
+            &right,
+            faer::Par::Seq,
+        );
+        *s_part -= &product;
+        self.left.clear();
+        self.right.clear();
+        self.stacked_rows = 0;
     }
 }

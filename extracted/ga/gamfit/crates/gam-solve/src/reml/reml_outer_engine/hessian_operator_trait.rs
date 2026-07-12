@@ -55,7 +55,7 @@ pub(crate) fn hutchpp_config_for_dim(dim: usize) -> StochasticTraceConfig {
     config
 }
 
-pub trait HessianOperator: Send + Sync {
+pub trait HessianFactorization: Send + Sync {
     /// log|H|₊ — pseudo-logdet using only active eigenvalues/pivots.
     fn logdet(&self) -> f64;
 
@@ -177,10 +177,10 @@ pub trait HessianOperator: Send + Sync {
     fn trace_hinv_product_cross(&self, a: &Array2<f64>, b: &Array2<f64>) -> f64 {
         let solved_a = self.solve_multi(a);
         if std::ptr::eq(a, b) {
-            return trace_matrix_product(&solved_a, &solved_a);
+            return dense::trace_product(&solved_a, &solved_a);
         }
         let solved_b = self.solve_multi(b);
-        trace_matrix_product(&solved_a, &solved_b)
+        dense::trace_product(&solved_a, &solved_b)
     }
 
     /// tr(H⁻¹ A H⁻¹ B) for a dense drift `A` and an operator-backed drift `B`.
@@ -383,10 +383,10 @@ pub trait HessianOperator: Send + Sync {
         // where Y_i = H⁻¹ Ḣ_i.
         let y_i = self.solve_multi(h_i);
         if std::ptr::eq(h_i, h_j) {
-            return -trace_matrix_product(&y_i, &y_i);
+            return -dense::trace_product(&y_i, &y_i);
         }
         let y_j = self.solve_multi(h_j);
-        -trace_matrix_product(&y_j, &y_i)
+        -dense::trace_product(&y_j, &y_i)
     }
 
     /// Operator-backed mixed form of [`trace_logdet_hessian_cross`].
@@ -467,7 +467,7 @@ pub trait HessianOperator: Send + Sync {
 /// diagonal entry but is basis-invariant, cheap after the operator has computed
 /// its log-determinant, and well-defined for both dense spectral and
 /// matrix-free operator paths.
-pub fn hessian_operator_geometric_scale(op: &dyn HessianOperator) -> Option<f64> {
+pub fn hessian_factorization_geometric_scale(op: &dyn HessianFactorization) -> Option<f64> {
     let rank = op.active_rank();
     if rank == 0 {
         return None;

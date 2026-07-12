@@ -84,6 +84,17 @@ def _fmt_tokens(n: int) -> str:
     return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
 
 
+def is_slash_command(text: str) -> bool:
+    """True only for a real ``/command``, NOT a message that merely starts with a
+    path — e.g. ``/app/env.py defines ...`` or ``/report.tex``. A command name is a
+    single leading token of word chars (no path separators, no dots); anything with
+    ``/``, ``\\`` or ``.`` in that first token is treated as a normal agent message."""
+    if not text.startswith("/"):
+        return False
+    head = text[1:].split(maxsplit=1)[0] if len(text) > 1 else ""
+    return bool(head) and not any(c in head for c in "/\\.")
+
+
 class DrydockApp(App):
     CSS = """
     Screen { background: #0b1f2a; }
@@ -248,6 +259,9 @@ class DrydockApp(App):
         super().__init__()
         self.config = config
         self.state = AgentState()
+        if config.get("event_log", True):
+            from drydock.events import EventLog, default_event_log_path
+            self.state.events = EventLog(config.get("event_log_path") or default_event_log_path())
         self.system = self._build_system(config.get("model"))
         from drydock.skills import load_skills
         self._skills = load_skills(config.get("cwd") or ".")
@@ -348,8 +362,11 @@ class DrydockApp(App):
         flag = "⚓ working" if self._busy else "⚓ ready"
         # Busy → show the interrupt keys; idle → the quit hint.
         keys = "Esc/Ctrl+C stop" if self._busy else "Ctrl+C×2 quit"
+        # Show the task phase once it's past the default (understand).
+        ph = getattr(self.state, "task", None)
+        phase = f"  ·  {ph.phase}" if (ph and ph.is_set() and ph.phase != "understand") else ""
         return (
-            f"{flag}  ·  {model}  ·  {keys} · PgUp/PgDn scroll · "
+            f"{flag}  ·  {model}{phase}  ·  {keys} · PgUp/PgDn scroll · "
             f"Ctrl+O details  ·  {ctx}"
         )
 
@@ -425,7 +442,7 @@ class DrydockApp(App):
         prompt.clear()
         if not text:
             return
-        if text.startswith("/"):
+        if is_slash_command(text):
             self._handle_slash(text)  # meta commands stay out of history
             return
         prompt.cmd_history.add(text)
@@ -517,6 +534,8 @@ class DrydockApp(App):
             self._cmd_context(arg)
         elif cmd == "/shell":
             self._cmd_shell()
+        elif cmd == "/events":
+            self._cmd_events()
         elif cmd == "/advisor":
             self._cmd_advisor(arg)
         elif cmd == "/ask":
@@ -822,6 +841,27 @@ class DrydockApp(App):
             self._refresh_status()
         else:
             self._begin(prompt)
+
+    def _cmd_events(self) -> None:
+        """Show a digest of this session's durable execution trace (event log)."""
+        log = self.state.events
+        if log is None:
+            self._info("Event log is off (config event_log = false).")
+            return
+        from drydock.events import summarize
+        s = summarize(str(log.path))
+        tools = ", ".join(f"{k}×{v}" for k, v in sorted(s["tools"].items())) or "none"
+        v = s["verifications"]
+        lines = [
+            f"Task trace — {log.path}",
+            f"  objective    : {(s['objective'] or '(none yet)')[:80]}",
+            f"  criteria     : {len(s['acceptance_criteria'])}",
+            f"  phase        : {s['final_phase']}",
+            f"  turns        : {s['turns']}   tools: {tools}",
+            f"  verifications: {v['pass']} passed, {v['fail']} failed",
+            f"  tokens       : {s['in_tok']:,} in / {s['out_tok']:,} out   ({s['event_count']} events)",
+        ]
+        self._info("\n".join(lines))
 
     def _cmd_shell(self) -> None:
         """Show exactly which shell the Bash tool runs commands through, plus the

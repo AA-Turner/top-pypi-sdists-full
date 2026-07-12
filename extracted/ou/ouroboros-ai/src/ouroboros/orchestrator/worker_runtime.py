@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from ouroboros.core.errors import ProviderError
 from ouroboros.core.types import Result
@@ -48,6 +48,8 @@ class WorkerTurn:
         error: Human-readable error message when ``is_error``.
         tool_events: Optional ordered (tool_name, detail) pairs observed during
             the turn, surfaced as ``assistant`` messages for TUI/telemetry.
+        usage: Optional provider-reported token counters for attribution. Values
+            remain raw here and are validated by the proof producer before use.
     """
 
     text: str
@@ -55,6 +57,7 @@ class WorkerTurn:
     is_error: bool = False
     error: str | None = None
     tool_events: tuple[tuple[str, str], ...] = ()
+    usage: dict[str, Any] | None = None
 
 
 class LeaderDrivenWorkerTransport(Protocol):
@@ -96,8 +99,16 @@ class LeaderDrivenWorkerTransport(Protocol):
         """
         ...
 
-    async def resume(self, *, session_id: str, prompt: str) -> WorkerTurn:
-        """Continue an EXISTING worker session identified by ``session_id``."""
+    async def resume(
+        self,
+        *,
+        session_id: str,
+        prompt: str,
+        permission_mode: str | None = None,
+        model: str | None = None,
+        reasoning_effort: str | None = None,
+    ) -> WorkerTurn:
+        """Continue an existing worker, applying supported per-turn controls."""
         ...
 
 
@@ -120,6 +131,7 @@ class LeaderDrivenWorkerRuntime:
         model: str | None = None,
         reasoning_effort_support: ParamSupport = ParamSupport.IGNORED,
         enforceable_reasoning_efforts: frozenset[str] | None = None,
+        model_override_support: ParamSupport = ParamSupport.IGNORED,
         targeted_resume: bool = True,
     ) -> None:
         self._transport = transport
@@ -130,6 +142,7 @@ class LeaderDrivenWorkerRuntime:
         self._model = model
         self._reasoning_effort_support = reasoning_effort_support
         self._enforceable_reasoning_efforts = enforceable_reasoning_efforts
+        self._model_override_support = model_override_support
         self._targeted_resume = targeted_resume
         self._provider_name = runtime_backend
 
@@ -166,6 +179,7 @@ class LeaderDrivenWorkerRuntime:
             tool_restriction_support=ParamSupport.IGNORED,
             reasoning_effort_support=self._reasoning_effort_support,
             enforceable_reasoning_efforts=self._enforceable_reasoning_efforts,
+            model_override_support=self._model_override_support,
             subagent_orchestration=SubagentOrchestration.EXTERNAL_LEADER_DRIVEN,
         )
 
@@ -191,12 +205,19 @@ class LeaderDrivenWorkerRuntime:
         resume_handle: RuntimeHandle | None = None,
         resume_session_id: str | None = None,
         reasoning_effort: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Spawn (or resume) a worker turn and stream normalized messages.
 
         ``tools`` is accepted for Protocol compatibility but intentionally NOT
         enforced — native passthrough lets the worker use whatever its provider
         natively exposes.
+
+        ``model`` is a per-call model-tier override; when set it wins over the
+        constructor pin (``self._model``), while ``None`` falls back to that pin.
+        The effective model and ``reasoning_effort`` are forwarded on both spawn
+        and resume. Each transport applies only controls it can enforce and must
+        advertise that truth through its runtime capabilities.
         """
         # A handle carrying ``fork_session`` is the HOST session delegated by the
         # parent (its native_session_id is the human's LIVE conversation). It is a
@@ -215,14 +236,20 @@ class LeaderDrivenWorkerRuntime:
 
         try:
             if prior_session_id:
-                turn = await self._transport.resume(session_id=prior_session_id, prompt=prompt)
+                turn = await self._transport.resume(
+                    session_id=prior_session_id,
+                    prompt=prompt,
+                    permission_mode=self._permission_mode,
+                    model=model or self._model,
+                    reasoning_effort=reasoning_effort,
+                )
             else:
                 turn = await self._transport.spawn(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     cwd=self._cwd,
                     permission_mode=self._permission_mode,
-                    model=self._model,
+                    model=model or self._model,
                     reasoning_effort=reasoning_effort,
                     fork_from_session_id=fork_from_session_id,
                     label=derive_session_label(prompt),
@@ -267,6 +294,7 @@ class LeaderDrivenWorkerRuntime:
                 "subtype": "error" if turn.is_error else "success",
                 "session_id": turn.session_id,
                 **({"error": turn.error} if turn.error else {}),
+                **({"usage": turn.usage} if turn.usage is not None else {}),
             },
             resume_handle=handle,
         )

@@ -715,6 +715,11 @@ def _seed_signable_rows(
     ``token_state="expired"`` mints already-expired tokens so *_token_expired*
     scenarios exercise the real "Invalid or expired link" page (TR-51).
 
+    ``token_state="already_signed"`` (TR-50) seeds a normal token then immediately
+    signs the row via the production ``POST /api/sign/...`` path (stub signature
+    PNG), so ``*_already_signed`` scenarios re-open a genuinely signed document
+    with completion page + signed-copy download instead of a pending form.
+
     ``signable_ids`` (#1382) maps entity name → a pre-generated UUID to insert
     the row under (so it matches the armed ``DAZZLE_QA_SIGNING_REJECT_IDS``).
     ``validator_reject`` stamps each :class:`SeededDoc` so the verifier expects
@@ -724,6 +729,13 @@ def _seed_signable_rows(
     (one per signable entity) ready to write into the mock inbox.
     """
     import httpx
+
+    # Same stub PNG as dazzle.qa.signing_tools (persona sign_document tool).
+    # Duplicated here so seed-time pre-sign does not import the tools module.
+    _stub_sig = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAFklEQVR4nGP8"
+        "//8/A27AhEeOYeRKAwCl4wMRx3ocVQAAAABJRU5ErkJggg=="
+    )
 
     signable_ids = signable_ids or {}
 
@@ -773,6 +785,22 @@ def _seed_signable_rows(
         # two-week-old email link.
         expires_hours = -1 if token_state == "expired" else 72
         token = mint_token(record_id=row_id, email=effective_email, expires_hours=expires_hours)
+
+        if token_state == "already_signed":
+            # TR-50: pre-sign through the real API so the row is status=signed
+            # with signed_document artifact (#1571 completion page works).
+            sign_url = f"{base_url}/api/sign/{entity.name}/{row_id}"
+            sign_resp = httpx.post(
+                sign_url,
+                json={
+                    "token": token,
+                    "signature_png_b64": _stub_sig,
+                    "signatory_name": effective_email,
+                },
+                timeout=30.0,
+            )
+            sign_resp.raise_for_status()
+
         docs.append(
             SeededDoc(
                 entity=entity.name,
@@ -1116,6 +1144,79 @@ def qa_taste_panel(
     raise typer.Exit(code=0 if data["parity"] else 1)
 
 
+@qa_app.command("component-vision")
+def qa_component_vision(
+    name: str = typer.Argument(..., help="Showcase region name, e.g. cat_list"),
+    judges: int = typer.Option(3, "--judges", help="Independent judge passes"),
+    model: str | None = typer.Option(None, "--model", help="Override judge model"),
+    out: Path = typer.Option(
+        Path(".dazzle/qa/component-vision"), "--out", help="Report output dir"
+    ),
+) -> None:
+    """On-demand advisory vision score for one HM component (rendered showcase region).
+
+    Subscription/API-billed. Advisory only — always exits 0 on a successful score.
+    """
+    import json
+
+    from dazzle.core.model_defaults import DEFAULT_JUDGMENT_MODEL
+    from dazzle.qa.component_vision import score_component_region
+    from dazzle.testing.ux_catalogue import showcase_region_names
+
+    try:
+        result = score_component_region(
+            name, judges=judges, model=model or DEFAULT_JUDGMENT_MODEL, out_dir=out
+        )
+    except KeyError:
+        typer.echo(
+            f"No showcase region {name!r}. Available: {', '.join(showcase_region_names())}",
+            err=True,
+        )
+        raise typer.Exit(code=2) from None
+
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"{name}.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    typer.echo(json.dumps(result["scores"], indent=2))
+    typer.echo(f"Advisory score for {name} — report: {out / (name + '.json')}")
+
+
+@qa_app.command("property-vision")
+def qa_property_vision(
+    url: str = typer.Argument(
+        ..., help="URL of the rendered property page (e.g. http://localhost:3000/)"
+    ),
+    family: str = typer.Option(
+        ..., "--family", help="Aesthetic family: stripe|paper|linear-dark|expressive"
+    ),
+    judges: int = typer.Option(3, "--judges", help="Independent judge passes"),
+    model: str | None = typer.Option(None, "--model", help="Override judge model"),
+    out: Path = typer.Option(Path(".dazzle/qa/property-vision"), "--out", help="Report output dir"),
+) -> None:
+    """On-demand advisory vision score for a property page vs its family exemplars.
+
+    Subscription/API-billed. Advisory only — exits 0 on a successful score.
+    family_fidelity is prompt-anchored (exemplars listed in the report), not
+    side-by-side, in this version.
+    """
+    import json
+
+    from dazzle.core.model_defaults import DEFAULT_JUDGMENT_MODEL
+    from dazzle.qa.property_vision import score_property
+
+    try:
+        result = score_property(
+            url, family, judges=judges, model=model or DEFAULT_JUDGMENT_MODEL, out_dir=out
+        )
+    except (FileNotFoundError, KeyError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from None
+
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "property-vision.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    typer.echo(json.dumps(result["scores"], indent=2))
+    typer.echo(f"Advisory score for {url} [{family}] — report: {out / 'property-vision.json'}")
+
+
 @qa_app.command("trial")
 def qa_trial(
     app: str | None = typer.Option(None, "--app", "-a", help="Example app name (defaults to cwd)"),
@@ -1257,30 +1358,35 @@ def qa_trial(
     typer.echo(f"Trial scenario: {scenario_name} (as persona {login_persona})")
     typer.echo(f"LLM driver: {resolved_driver} ({billing_note})")
 
-    # Optional per-scenario signing-token state (TR-51). "expired" seeds an
-    # already-expired token so *_token_expired scenarios exercise the real
-    # "Invalid or expired link" page instead of a fresh, signable token.
+    # Optional per-scenario signing-token state (TR-51 / TR-50).
+    # "expired" → already-expired token (Invalid or expired link page).
+    # "already_signed" → production pre-sign so re-open hits completion page.
     signing_token_state = str(chosen.get("signing_token_state", "fresh"))
-    if signing_token_state not in ("fresh", "expired"):
+    if signing_token_state not in ("fresh", "expired", "already_signed"):
         typer.echo(
             f"Scenario '{scenario_name}': signing_token_state must be "
-            f"'fresh' or 'expired', got {signing_token_state!r}.",
+            f"'fresh', 'expired', or 'already_signed', got {signing_token_state!r}.",
             err=True,
         )
         raise typer.Exit(code=2)
     if signing_token_state == "expired":
         typer.echo("Signing trial harness: seeding an EXPIRED token per scenario config.")
+    if signing_token_state == "already_signed":
+        typer.echo(
+            "Signing trial harness: pre-signing the seeded row so re-open "
+            "exercises the already-signed completion path (TR-50)."
+        )
 
     # Optional per-scenario validator-reject arming (#1382). When true, the
     # seeded row's id is pre-armed in DAZZLE_QA_SIGNING_REJECT_IDS so the
     # project signing_validator rejects the signature — the *_validator_rejected
     # scenarios exercise the authority-check path instead of silently signing.
     signing_validator_reject = bool(chosen.get("signing_validator_reject", False))
-    if signing_validator_reject and signing_token_state == "expired":
+    if signing_validator_reject and signing_token_state in ("expired", "already_signed"):
         typer.echo(
-            f"Scenario '{scenario_name}': signing_validator_reject and "
-            "signing_token_state='expired' are mutually exclusive (an expired "
-            "token never reaches the validator).",
+            f"Scenario '{scenario_name}': signing_validator_reject is mutually "
+            f"exclusive with signing_token_state={signing_token_state!r} "
+            "(expired tokens never reach the validator; already_signed is pre-signed).",
             err=True,
         )
         raise typer.Exit(code=2)

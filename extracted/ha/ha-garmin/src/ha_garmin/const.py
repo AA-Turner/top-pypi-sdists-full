@@ -27,6 +27,7 @@ DAILY_STEPS_URL = f"{GARMIN_CONNECT_API}/usersummary-service/stats/steps/daily"
 
 # Body composition endpoints
 BODY_COMPOSITION_URL = f"{GARMIN_CONNECT_API}/weight-service/weight/range"
+WEIGHT_LATEST_URL = f"{GARMIN_CONNECT_API}/weight-service/weight/latest"
 
 # Fitness/Training endpoints
 TRAINING_READINESS_URL = (
@@ -52,6 +53,8 @@ POWER_TO_WEIGHT_URL = (
 # Device endpoints
 DEVICES_URL = f"{GARMIN_CONNECT_API}/device-service/deviceregistration/devices"
 DEVICE_ALARMS_URL = f"{GARMIN_CONNECT_API}/device-service/devices/alarms"
+DEVICE_SOLAR_URL = f"{GARMIN_CONNECT_API}/web-gateway/solar"
+DEVICE_LAST_USED_URL = f"{GARMIN_CONNECT_API}/device-service/deviceservice/mylastused"
 
 # Respiration and SPO2 endpoints
 RESPIRATION_URL = f"{GARMIN_CONNECT_API}/wellness-service/wellness/daily/respiration"
@@ -81,6 +84,8 @@ NUTRITION_MEALS_URL = f"{GARMIN_CONNECT_API}/nutrition-service/meal/meals"
 # Upload/Write endpoints
 UPLOAD_URL = f"{GARMIN_CONNECT_API}/upload-service/upload"
 ACTIVITY_CREATE_URL = f"{GARMIN_CONNECT_API}/activity-service/activity"
+ACTIVITY_DOWNLOAD_URL = f"{GARMIN_CONNECT_API}/download-service/files/activity"
+ACTIVITY_EXPORT_URL = f"{GARMIN_CONNECT_API}/download-service/export"
 GEAR_LINK_URL = f"{GARMIN_CONNECT_API}/gear-service/gear/link"
 
 # Default headers for cookie-based API auth

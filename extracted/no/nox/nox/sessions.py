@@ -14,6 +14,21 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "datetime",
+    "hashlib",
+    "humanize",
+    "inspect",
+    "nox.logger",
+    "nox.popen",
+    "nox.virtualenv",
+    "pathlib",
+    "re",
+    "shutil",
+    "subprocess",
+    "unicodedata",
+}
+
 import contextlib
 import datetime
 import enum
@@ -86,16 +101,20 @@ def _chdir(path: str) -> Generator[None, None, None]:
         os.chdir(cwd)
 
 
-def _normalize_path(envdir: str, path: str | bytes) -> str:
+def _normalize_path(envdir: str, path: str) -> str:
     """Normalizes a string to be a "safe" filesystem path for a virtualenv."""
-    if isinstance(path, bytes):
-        path = path.decode("utf-8")
-
-    path = unicodedata.normalize("NFKD", path).encode("ascii", "ignore")
-    path = path.decode("ascii")
+    orig_path = path
+    path = unicodedata.normalize("NFKD", path).encode("ascii", "ignore").decode("ascii")
     path = re.sub(r"[^\w\s-]", "-", path).strip().lower()
     path = re.sub(r"[-\s]+", "-", path)
     path = path.strip("-")
+
+    if not path:
+        path = hashlib.sha1(orig_path.encode("utf-8")).hexdigest()[:8]  # noqa: S324
+        logger.warning(
+            "The virtualenv name was hashed because it contains no usable "
+            "ASCII characters."
+        )
 
     full_path = os.path.join(envdir, path)
     if len(full_path) > 100 - len("bin/pythonX.Y"):
@@ -260,7 +279,7 @@ class Session:
     def cache_dir(self) -> pathlib.Path:
         """Create and return a 'shared cache' directory to be used across sessions."""
         path = pathlib.Path(self._runner.global_config.envdir).joinpath(".cache")
-        path.mkdir(exist_ok=True)
+        path.mkdir(parents=True, exist_ok=True)
         return path
 
     @property
@@ -285,7 +304,7 @@ class Session:
         """
         Install dependencies and run a Python script.
         """
-        deps = (nox.project.load_toml(script) or {}).get("dependencies", [])
+        deps = nox.project.load_toml(script).get("dependencies", [])
         self.install(*deps)
 
         return self.run(
@@ -783,7 +802,7 @@ class Session:
             return
 
         # Escape args that should be (conda-specific; pip install does not need this)
-        if sys.platform.startswith("win32"):
+        if sys.platform.startswith("win"):
             args = _dblquote_pkg_install_args(args)
 
         if silent is None:
@@ -943,9 +962,9 @@ class Session:
         Now if you run `nox -s test`, the coverage session will run afterwards.
 
         Args:
-            target (Union[str, Callable]): The session to be notified. This
-                may be specified as the appropriate string (same as used for
-                ``nox -s``) or using the function object.
+            target (str): The session name to notify, as used for ``nox -s``.
+                Passing the decorated function object is not currently
+                supported.
             posargs (Optional[Iterable[str]]): If given, sets the positional
                 arguments *only* for the queued session. Otherwise, the
                 standard globally available positional arguments will be
@@ -1278,14 +1297,15 @@ class Result:
         Returns:
             str: A word or phrase representing the status.
         """
-        if self.status == Status.SUCCESS:
-            return "was successful" + _duration_str(self.duration, " in {time}")
-
-        status = self.status.name.lower()
-        if self.reason:
-            duration_err = _duration_str(self.duration, " (took {time})")
-            return f"{status}: {self.reason}{duration_err}"
-        return status
+        match self.status:
+            case Status.SUCCESS:
+                return "was successful" + _duration_str(self.duration, " in {time}")
+            case _:
+                status = self.status.name.lower()
+                if self.reason:
+                    duration_err = _duration_str(self.duration, " (took {time})")
+                    return f"{status}: {self.reason}{duration_err}"
+                return status
 
     def log(self, message: str) -> None:
         """Log a message using the appropriate log function.
@@ -1293,13 +1313,13 @@ class Result:
         Args:
             message (str): The message to be logged.
         """
-        log_function = logger.info
-        if self.status == Status.SUCCESS:
-            log_function = logger.success
-        if self.status == Status.SKIPPED:
-            log_function = logger.warning
-        if self.status.value <= 0:
-            log_function = logger.error
+        match self.status:
+            case Status.SUCCESS:
+                log_function = logger.success
+            case Status.SKIPPED:
+                log_function = logger.warning
+            case status:
+                log_function = logger.error if status.value <= 0 else logger.info
         log_function(message)
 
     def serialize(self) -> dict[str, Any]:

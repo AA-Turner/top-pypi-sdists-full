@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2022 Stéphane Caron
 
 import os
 import sys
@@ -12,7 +11,7 @@ from importlib import import_module  # type: ignore
 import git
 
 from robot_descriptions._descriptions import DESCRIPTIONS
-from robot_descriptions._xacro import get_urdf_path
+from robot_descriptions._xacro import get_srdf_path, get_urdf_path
 
 
 class TestDescriptions(unittest.TestCase):
@@ -51,6 +50,17 @@ class TestDescriptions(unittest.TestCase):
                 self.assertTrue(
                     os.path.exists(urdf_path),
                     f"URDF path {urdf_path} does not exist "
+                    f"in {description}",
+                )
+            if desc.has_srdf:
+                self.assertTrue(
+                    hasattr(description, "SRDF_PATH")
+                    or hasattr(description, "SRDF_XACRO_PATH")
+                )
+                srdf_path = get_srdf_path(description)
+                self.assertTrue(
+                    os.path.exists(srdf_path),
+                    f"SRDF path {srdf_path} does not exist "
                     f"in {description}",
                 )
 

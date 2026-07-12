@@ -38,7 +38,7 @@
 use super::*;
 use crate::inference::atlas_nerve::AtlasCoveringSide;
 use crate::null_battery::ClaimNullCalibration;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 /// Compute ceiling on the number of points fed to the Vietoris–Rips filtration.
 ///
@@ -213,11 +213,13 @@ fn expected_betti_signature(
     finite_set_components: Option<usize>,
 ) -> Option<BettiSignature> {
     match kind {
-        SaeAtomBasisKind::Periodic | SaeAtomBasisKind::Cylinder => Some(BettiSignature {
-            b0: 1,
-            b1: 1,
-            b2: None,
-        }),
+        SaeAtomBasisKind::Periodic | SaeAtomBasisKind::Cylinder | SaeAtomBasisKind::Mobius => {
+            Some(BettiSignature {
+                b0: 1,
+                b1: 1,
+                b2: None,
+            })
+        }
         SaeAtomBasisKind::Torus => Some(BettiSignature {
             b0: 1,
             b1: 2,
@@ -377,11 +379,16 @@ fn dtm_radii(points: ArrayView2<'_, f64>, weights: Option<ArrayView1<'_, f64>>) 
     let target_mass = total / m as f64;
     let mut radii = vec![0.0_f64; m];
     for i in 0..m {
-        let mut neighbors: Vec<(f64, f64)> = Vec::with_capacity(m - 1);
+        let mut neighbors: Vec<(f64, f64)> = Vec::with_capacity(m);
         for j in 0..m {
             let weight = local_weights[j];
-            if i != j && weight.is_finite() && weight > 0.0 {
-                neighbors.push((point_distance(points, i, j), weight));
+            if weight.is_finite() && weight > 0.0 {
+                let distance = if i == j {
+                    0.0
+                } else {
+                    point_distance(points, i, j)
+                };
+                neighbors.push((distance, weight));
             }
         }
         neighbors.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -996,14 +1003,14 @@ fn topology_persistence_verdict_impl(
     // afford the manifold's covering number of samples, whereas the coarse
     // PERSISTENCE_MAX_POINTS cover (sized for the quartic H₂ tetrahedra) fails to
     // resolve a torus's second generator (#2159).
-    let h1_landmarks = farthest_point_subsample_weighted(points, weights, PERSISTENCE_H1_MAX_POINTS);
+    let h1_landmarks =
+        farthest_point_subsample_weighted(points, weights, PERSISTENCE_H1_MAX_POINTS);
     let h1_sub = points.select(ndarray::Axis(0), &h1_landmarks);
     // P2: fold every discarded row's mass into its nearest retained landmark so the
     // DTM weighting sees the FULL support measure, not just the landmark rows' mass
     // (see `fold_mass_to_landmarks`). A no-op when nothing was subsampled.
     let h1_weights = fold_mass_to_landmarks(points, weights, &h1_landmarks);
-    let h1_diagram =
-        dtm_vietoris_rips_persistence(h1_sub.view(), Some(h1_weights.view()), 1);
+    let h1_diagram = dtm_vietoris_rips_persistence(h1_sub.view(), Some(h1_weights.view()), 1);
     let h1_distances = dtm_weighted_distances(h1_sub.view(), Some(h1_weights.view()));
 
     // H₂ shells (sphere/torus voids) need the quartic tetrahedron enumeration, so
@@ -1170,22 +1177,26 @@ pub fn atom_topology_persistence(
 /// overlapping local charts (Duchon patches glued by the in-tree
 /// [`crate::chart_transfer`] pulled-back operators in production; here the
 /// overlap is read geometrically from the point cloud), then read the topology
-/// from the nerve of the cover — the graph whose vertices are charts and whose
-/// edges join charts that overlap. A cyclic nerve is a circle; a path nerve is
-/// an arc. The nerve's first Betti number `b₁ = E − V + C` is the loop count,
-/// so `b₁ = 1, C = 1` recovers `S¹` and `b₁ = 0, C = 1` an arc — a topology that
-/// was *measured*, not latched, and can then be imposed as the typed refit.
+/// from the full nerve of the cover. Vertices are charts, edges are pairwise
+/// intersections, and a triangle is present only when one sampled point lies in
+/// all three charts. Homology is computed on that simplicial complex, so a
+/// three-chart common intersection is a filled triangle (`b1 = 0`), not the
+/// spurious graph cycle obtained from its 1-skeleton.
 #[derive(Clone, Debug)]
 pub struct AtlasNerveReport {
     /// Number of local charts (landmark cover elements).
     pub n_charts: usize,
     /// Number of nerve edges (overlapping chart pairs).
     pub n_edges: usize,
+    /// Number of filled 2-simplices (non-empty triple chart intersections).
+    pub n_triangles: usize,
     /// Connected components of the nerve.
     pub n_components: usize,
-    /// First Betti number `b₁ = E − V + C` (the graph cycle rank): the number
-    /// of independent loops in the recovered manifold.
+    /// First Betti number `dim ker(d1) - rank(d2)` of the full nerve.
     pub b1: i64,
+    /// Maximum degree in the nerve 1-skeleton. A connected acyclic nerve is an
+    /// arc only when this is at most two; a Y-junction is not an arc.
+    pub max_vertex_degree: usize,
     /// Whether the sampled support is below or at/above the atlas covering
     /// count. Below-covering reports are measurements, but marked under-resolved.
     pub covering_side: AtlasCoveringSide,
@@ -1198,7 +1209,7 @@ impl AtlasNerveReport {
     }
     /// Whether the nerve recovers a single arc / path (one component, no loop).
     pub fn is_arc(&self) -> bool {
-        self.n_components == 1 && self.b1 == 0
+        self.n_components == 1 && self.b1 == 0 && self.max_vertex_degree <= 2
     }
 }
 
@@ -1216,58 +1227,73 @@ fn nerve_find(parent: &mut [usize], x: usize) -> usize {
     root
 }
 
-/// Build the nerve of a landmark-chart atlas over a point cloud and read its
-/// topology. The chart count is data-derived (`⌈√n⌉` landmarks, floored at 3 —
-/// the nerve is invariant to it above the covering number); charts are
-/// farthest-point landmarks. The nerve edges are the **witness-complex**
-/// 1-skeleton: each point witnesses an edge between its two nearest landmark
-/// charts (the two charts whose regions overlap where it sits). This is exactly
-/// the Voronoi adjacency of the atlas — adjacent charts only, no radius, no
-/// magic constant.
+/// Build the nerve of a landmark-chart cover over a point cloud and read its
+/// topology. Each farthest-point landmark owns the smallest closed ball covering
+/// its Voronoi-assigned rows. A simplex is admitted exactly when a sampled row
+/// lies in every ball in that simplex. This constructs the actual nerve through
+/// dimension two rather than substituting its graph.
 pub fn atlas_nerve(points: ArrayView2<'_, f64>) -> AtlasNerveReport {
     let n = points.nrows();
     if n == 0 {
         return AtlasNerveReport {
             n_charts: 0,
             n_edges: 0,
+            n_triangles: 0,
             n_components: 0,
             b1: 0,
+            max_vertex_degree: 0,
             covering_side: AtlasCoveringSide::BelowCoveringNumber,
         };
     }
     let n_charts = ((n as f64).sqrt().ceil() as usize).max(3).min(n);
     let landmarks = farthest_point_subsample(points, n_charts);
     let v = landmarks.len();
-    let mut adj = vec![vec![false; v]; v];
+    let mut distances = vec![vec![0.0_f64; v]; n];
+    let mut radii = vec![0.0_f64; v];
     for i in 0..n {
         let mut best = (f64::INFINITY, 0usize);
-        let mut second = (f64::INFINITY, 0usize);
         for (ci, &l) in landmarks.iter().enumerate() {
             let d = point_distance(points, i, l);
+            distances[i][ci] = d;
             if d < best.0 {
-                second = best;
                 best = (d, ci);
-            } else if d < second.0 {
-                second = (d, ci);
             }
         }
-        if second.0.is_finite() && best.1 != second.1 {
-            adj[best.1][second.1] = true;
-            adj[second.1][best.1] = true;
+        if best.0.is_finite() {
+            radii[best.1] = radii[best.1].max(best.0);
         }
     }
-    let mut n_edges = 0usize;
-    let mut parent: Vec<usize> = (0..v).collect();
-    for a in 0..v {
-        for b in (a + 1)..v {
-            if adj[a][b] {
-                n_edges += 1;
-                let ra = nerve_find(&mut parent, a);
-                let rb = nerve_find(&mut parent, b);
-                if ra != rb {
-                    parent[ra] = rb;
+
+    let mut edges = BTreeSet::<(usize, usize)>::new();
+    let mut triangles = BTreeSet::<(usize, usize, usize)>::new();
+    for row_distances in &distances {
+        let mut membership = Vec::new();
+        for chart in 0..v {
+            let tolerance = f64::EPSILON * (1.0 + radii[chart].abs()) * v.max(1) as f64;
+            if row_distances[chart] <= radii[chart] + tolerance {
+                membership.push(chart);
+            }
+        }
+        for ia in 0..membership.len() {
+            for ib in (ia + 1)..membership.len() {
+                edges.insert((membership[ia], membership[ib]));
+                for ic in (ib + 1)..membership.len() {
+                    triangles.insert((membership[ia], membership[ib], membership[ic]));
                 }
             }
+        }
+    }
+
+    let n_edges = edges.len();
+    let mut parent: Vec<usize> = (0..v).collect();
+    let mut degree = vec![0usize; v];
+    for &(a, b) in &edges {
+        degree[a] += 1;
+        degree[b] += 1;
+        let ra = nerve_find(&mut parent, a);
+        let rb = nerve_find(&mut parent, b);
+        if ra != rb {
+            parent[ra] = rb;
         }
     }
     let mut roots = std::collections::HashSet::new();
@@ -1276,19 +1302,68 @@ pub fn atlas_nerve(points: ArrayView2<'_, f64>) -> AtlasNerveReport {
         roots.insert(r);
     }
     let n_components = roots.len();
-    let b1 = n_edges as i64 - v as i64 + n_components as i64;
-    let covering_side = if n >= v {
-        AtlasCoveringSide::AtOrAboveCoveringNumber
-    } else {
-        AtlasCoveringSide::BelowCoveringNumber
-    };
+    let edge_index: HashMap<(usize, usize), usize> = edges
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(i, edge)| (edge, i))
+        .collect();
+    let mut boundary_columns = Vec::with_capacity(triangles.len());
+    for &(a, b, c) in &triangles {
+        boundary_columns.push(vec![
+            edge_index[&(a, b)],
+            edge_index[&(a, c)],
+            edge_index[&(b, c)],
+        ]);
+    }
+    let triangle_boundary_rank = gf2_column_rank(boundary_columns);
+    let b1 =
+        (n_edges as i64 - v as i64 + n_components as i64 - triangle_boundary_rank as i64).max(0);
+    // No population covering-number bound is supplied to this empirical API.
+    // `n >= n_charts` is true by construction and conveys no resolution
+    // guarantee, so never manufacture the above-covering certificate from it.
+    let covering_side = AtlasCoveringSide::BelowCoveringNumber;
     AtlasNerveReport {
         n_charts: v,
         n_edges,
+        n_triangles: triangles.len(),
         n_components,
         b1,
+        max_vertex_degree: degree.into_iter().max().unwrap_or(0),
         covering_side,
     }
+}
+
+fn gf2_column_rank(columns: Vec<Vec<usize>>) -> usize {
+    let mut pivots: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut rank = 0usize;
+    for mut column in columns {
+        column.sort_unstable();
+        while let Some(&pivot) = column.last() {
+            if let Some(existing) = pivots.get(&pivot) {
+                let mut out = Vec::with_capacity(column.len() + existing.len());
+                let (mut i, mut j) = (0usize, 0usize);
+                while i < column.len() || j < existing.len() {
+                    if j == existing.len() || (i < column.len() && column[i] < existing[j]) {
+                        out.push(column[i]);
+                        i += 1;
+                    } else if i == column.len() || existing[j] < column[i] {
+                        out.push(existing[j]);
+                        j += 1;
+                    } else {
+                        i += 1;
+                        j += 1;
+                    }
+                }
+                column = out;
+            } else {
+                pivots.insert(pivot, column);
+                rank += 1;
+                break;
+            }
+        }
+    }
+    rank
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::manifold::{
     GEOMETRY_EPS, GeometryError, GeometryResult, RiemannianManifold, check_len, dot, flatten,
-    from_flat, identity, inverse, jacobi_symmetric, projected_standard_basis_tangent, qr_thin,
+    from_flat, identity, inverse, jacobi_symmetric, projected_standard_basis_tangent, qr_thin, sym,
     thin_svd_gram,
 };
 use crate::manifolds::sphere::SphereManifold;
@@ -75,26 +75,29 @@ impl RiemannianManifold for GrassmannManifold {
         if let Some(sphere) = self.as_sphere() {
             return sphere.exp_map(point, tangent_vec);
         }
+        // For the horizontal tangent Δ = (I−YYᵀ)Z and A = ΔᵀΔ, the
+        // usual compact-SVD geodesic
+        //
+        //   Y V cos(Σ) Vᵀ + U sin(Σ) Vᵀ
+        //
+        // is equivalently the gauge-free primary-matrix-function form
+        //
+        //   Y cos(√A) + Δ sinc(√A).
+        //
+        // This avoids differentiating singular vectors, remains analytic at
+        // repeated/zero principal angles, and costs only the same k×k Gram
+        // eigendecomposition as the prior SVD implementation. Since the two
+        // terms are exactly orthonormal in exact arithmetic, no QR gauge change
+        // is applied to the result; that would be a different map whose
+        // backward would also have to differentiate the QR convention.
+        use gam_linalg::faer_ndarray::{fast_ab, fast_atb};
         let y = from_flat(point, self.n, self.k)?;
-        let tangent = from_flat(
-            self.project_tangent(point, tangent_vec)?.view(),
-            self.n,
-            self.k,
-        )?;
-        let (u, sigma, v) = thin_svd_gram(&tangent)?;
-        let mut cos_d = Array2::<f64>::zeros((self.k, self.k));
-        let mut sin_d = Array2::<f64>::zeros((self.k, self.k));
-        for i in 0..self.k {
-            cos_d[[i, i]] = sigma[i].cos();
-            sin_d[[i, i]] = sigma[i].sin();
-        }
-        // Geodesic frame Y·V·cos(Σ)·Vᵀ + U·sin(Σ)·Vᵀ: dense products carrying the
-        // large ambient dimension n, GPU-dispatched via fast_ab/fast_abt.
-        use gam_linalg::faer_ndarray::{fast_ab, fast_abt};
-        let yv_cos = fast_ab(&fast_ab(&y, &v), &cos_d);
-        let u_sin = fast_ab(&u, &sin_d);
-        let next = &fast_abt(&yv_cos, &v) + &fast_abt(&u_sin, &v);
-        Ok(flatten(&self.orthonormalize(&next)))
+        let raw = from_flat(tangent_vec, self.n, self.k)?;
+        let delta = &raw - &fast_ab(&y, &fast_atb(&y, &raw));
+        let (_, _, cos_sqrt, sinc_sqrt) = grassmann_exp_factors(&delta)?;
+        Ok(flatten(
+            &(&fast_ab(&y, &cos_sqrt) + &fast_ab(&delta, &sinc_sqrt)),
+        ))
     }
 
     fn log_map(
@@ -415,13 +418,155 @@ impl RiemannianManifold for GrassmannManifold {
         check_len("Grassmann exp_map_vjp point", point.len(), m)?;
         check_len("Grassmann exp_map_vjp tangent", tangent_vec.len(), m)?;
         check_len("Grassmann exp_map_vjp grad", grad_output.len(), m)?;
-        // The Grassmann geodesic VJP requires the SVD-Jacobi-field
-        // differential; no closed form is wired up. Refuse rather than
-        // inherit the flat identity default, which would be silently wrong.
-        Err(GeometryError::Unsupported(
-            "Grassmann exp_map_vjp: no analytic backward implemented",
-        ))
+        use gam_linalg::faer_ndarray::{fast_ab, fast_abt, fast_atb};
+
+        // Recompute the exact gauge-free forward factorization used by
+        // `exp_map`: Δ=(I−YYᵀ)Z, A=ΔᵀΔ,
+        // R=Y cos(√A)+Δ sinc(√A).
+        let y = from_flat(point, self.n, self.k)?;
+        let z = from_flat(tangent_vec, self.n, self.k)?;
+        let g = from_flat(grad_output, self.n, self.k)?;
+        let yt_z = fast_atb(&y, &z);
+        let delta = &z - &fast_ab(&y, &yt_z);
+        let (evals, vecs, cos_sqrt, sinc_sqrt) = grassmann_exp_factors(&delta)?;
+
+        // Direct product terms of R = Y C + Δ S.
+        let mut y_bar = fast_ab(&g, &cos_sqrt);
+        let c_bar = fast_atb(&y, &g);
+        let s_bar = fast_atb(&delta, &g);
+
+        // C=cos(√A), S=sinc(√A). Primary functions of symmetric A have
+        // self-adjoint Fréchet derivatives under the Frobenius pairing. Their
+        // divided differences below are analytic at repeated and zero angles,
+        // so the pullback is invariant to the arbitrary eigenbasis of a
+        // clustered eigenspace.
+        let a_bar =
+            &symmetric_primary_pullback(&vecs, &evals, cos_sqrt_divided_difference, &sym(&c_bar))
+                + &symmetric_primary_pullback(
+                    &vecs,
+                    &evals,
+                    sinc_sqrt_divided_difference,
+                    &sym(&s_bar),
+                );
+
+        // A=ΔᵀΔ contributes 2Δ·sym(Ā); S is symmetric, so the
+        // direct Δ pullback is G·S.
+        let delta_bar = &fast_ab(&g, &sinc_sqrt) + &(2.0 * fast_ab(&delta, &sym(&a_bar)));
+
+        // Adjoint of Δ = Z − Y(YᵀZ):
+        //   Z̄ = B − Y(YᵀB)
+        //   Ȳ += −B(YᵀZ)ᵀ − Z(BᵀY).
+        let z_bar = &delta_bar - &fast_ab(&y, &fast_atb(&y, &delta_bar));
+        y_bar = y_bar - &fast_abt(&delta_bar, &yt_z) - &fast_ab(&z, &fast_atb(&delta_bar, &y));
+
+        Ok((flatten(&y_bar), flatten(&z_bar)))
     }
+}
+
+/// Spectral factors for the gauge-free Grassmann exponential
+/// `Y cos(√A) + Δ sinc(√A)`, `A=ΔᵀΔ`. Eigenvalues of a Gram
+/// matrix are non-negative analytically; tiny negative round-off is clamped in
+/// exactly the same way as [`thin_svd_gram`].
+fn grassmann_exp_factors(
+    delta: &Array2<f64>,
+) -> GeometryResult<(Array1<f64>, Array2<f64>, Array2<f64>, Array2<f64>)> {
+    use gam_linalg::faer_ndarray::fast_atb;
+    let gram = sym(&fast_atb(delta, delta));
+    let (mut evals, vecs) = jacobi_symmetric(&gram)?;
+    evals.mapv_inplace(|value| value.max(0.0));
+    let cos_sqrt = symmetric_primary_reconstruct(&vecs, &evals, |lambda| lambda.sqrt().cos());
+    let sinc_sqrt = symmetric_primary_reconstruct(&vecs, &evals, |lambda| sinc(lambda.sqrt()));
+    Ok((evals, vecs, cos_sqrt, sinc_sqrt))
+}
+
+fn symmetric_primary_reconstruct(
+    vecs: &Array2<f64>,
+    evals: &Array1<f64>,
+    f: impl Fn(f64) -> f64,
+) -> Array2<f64> {
+    use gam_linalg::faer_ndarray::{fast_ab, fast_abt};
+    let n = evals.len();
+    let mut diag = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        diag[[i, i]] = f(evals[i]);
+    }
+    fast_abt(&fast_ab(vecs, &diag), vecs)
+}
+
+/// Apply the adjoint of a symmetric primary matrix function's Fréchet
+/// derivative. The Daleckii–Krein multiplier is symmetric, hence the derivative
+/// is self-adjoint in the Frobenius pairing.
+fn symmetric_primary_pullback(
+    vecs: &Array2<f64>,
+    evals: &Array1<f64>,
+    divided_difference: impl Fn(f64, f64) -> f64,
+    cotangent: &Array2<f64>,
+) -> Array2<f64> {
+    use gam_linalg::faer_ndarray::{fast_ab, fast_abt, fast_atb};
+    let mut inner = fast_ab(&fast_atb(vecs, cotangent), vecs);
+    for i in 0..evals.len() {
+        for j in 0..evals.len() {
+            inner[[i, j]] *= divided_difference(evals[i], evals[j]);
+        }
+    }
+    fast_abt(&fast_ab(vecs, &inner), vecs)
+}
+
+fn sinc(x: f64) -> f64 {
+    if x == 0.0 { 1.0 } else { x.sin() / x }
+}
+
+/// Divided difference of `c(λ)=cos(√λ)`. With `x=√a`, `y=√b`,
+/// the subtraction-free identity
+/// `c[a,b] = −½ sinc((x+y)/2) sinc((x−y)/2)` includes the repeated and
+/// zero-angle limits directly.
+fn cos_sqrt_divided_difference(a: f64, b: f64) -> f64 {
+    let (x, y) = (a.sqrt(), b.sqrt());
+    -0.5 * sinc(0.5 * (x + y)) * sinc(0.5 * (x - y))
+}
+
+/// Divided difference of `s(λ)=sinc(√λ)`. Near zero, evaluate the
+/// entire power series
+///
+/// `s[a,b] = Σ_{m≥1} (−1)^m h_{m−1}(a,b)/(2m+1)!`
+///
+/// until adding the next term cannot change the f64 result. Away from zero the
+/// trigonometric identity in `(u,v)=((√a+√b)/2,(√a−√b)/2)` avoids
+/// subtracting values at clustered angles. Both forms contain the repeated
+/// eigenvalue derivative analytically; no eigen-gap cutoff or finite difference
+/// is used.
+fn sinc_sqrt_divided_difference(a: f64, b: f64) -> f64 {
+    if a.max(b) <= 1.0 {
+        let mut m = 1_usize;
+        let mut homogeneous = 1.0_f64; // h_0(a,b)
+        let mut b_power = 1.0_f64;
+        let mut factorial = 6.0_f64; // 3!
+        let mut sign = -1.0_f64;
+        let mut sum = sign * homogeneous / factorial;
+        loop {
+            b_power *= b;
+            homogeneous = a * homogeneous + b_power;
+            factorial *= ((2 * m + 2) * (2 * m + 3)) as f64;
+            sign = -sign;
+            m += 1;
+            let next = sum + sign * homogeneous / factorial;
+            if next == sum {
+                return sum;
+            }
+            sum = next;
+        }
+    }
+
+    // If one angle is at machine zero while the other is not small, the direct
+    // quotient is well conditioned (its denominator is the large eigenvalue)
+    // and avoids a 0/0-shaped u,v expression.
+    if a.min(b) <= f64::EPSILON * a.max(b) {
+        return (sinc(a.sqrt()) - sinc(b.sqrt())) / (a - b);
+    }
+    let (x, y) = (a.sqrt(), b.sqrt());
+    let u = 0.5 * (x + y);
+    let v = 0.5 * (x - y);
+    (u.cos() * sinc(v) - sinc(u) * v.cos()) / (2.0 * x * y)
 }
 
 #[cfg(test)]
@@ -661,17 +806,146 @@ mod tests {
         );
     }
 
+    /// Test-only central-difference oracle for the exact ambient VJP. Point
+    /// perturbations deliberately range over raw ambient coordinates: the
+    /// public backward contract differentiates the concrete Rust map, including
+    /// its horizontal projection, rather than silently projecting cotangents
+    /// after the fact.
+    fn assert_exp_vjp_matches_fd(y: &Array2<f64>, z: &Array2<f64>, g: &Array2<f64>) {
+        let (n, k) = y.dim();
+        let gr = GrassmannManifold::new(k, n).unwrap();
+        let (yf, zf, gf) = (flat(y), flat(z), flat(g));
+        let (grad_y, grad_z) = gr
+            .exp_map_vjp(yf.view(), zf.view(), gf.view())
+            .expect("analytic Grassmann VJP");
+        let loss = |point: &Array1<f64>, tangent: &Array1<f64>| {
+            gr.exp_map(point.view(), tangent.view())
+                .expect("Grassmann exp")
+                .dot(&gf)
+        };
+        let eps = 1.0e-6;
+        for idx in 0..n * k {
+            let mut direction = Array1::<f64>::zeros(n * k);
+            direction[idx] = 1.0;
+            let fd_y = (loss(&(&yf + &(&direction * eps)), &zf)
+                - loss(&(&yf - &(&direction * eps)), &zf))
+                / (2.0 * eps);
+            let fd_z = (loss(&yf, &(&zf + &(&direction * eps)))
+                - loss(&yf, &(&zf - &(&direction * eps))))
+                / (2.0 * eps);
+            let scale_y = 1.0 + fd_y.abs();
+            let scale_z = 1.0 + fd_z.abs();
+            assert!(
+                (grad_y[idx] - fd_y).abs() <= 2.0e-5 * scale_y,
+                "point VJP[{idx}]={} != FD {fd_y}",
+                grad_y[idx]
+            );
+            assert!(
+                (grad_z[idx] - fd_z).abs() <= 2.0e-5 * scale_z,
+                "tangent VJP[{idx}]={} != FD {fd_z}",
+                grad_z[idx]
+            );
+        }
+    }
+
     #[test]
-    fn exp_map_vjp_k_gt_1_is_unsupported() {
-        let gr = GrassmannManifold::new(2, 4).unwrap();
-        let y =
-            flat(&Array2::from_shape_vec((4, 2), vec![1., 0., 0., 1., 0., 0., 0., 0.]).unwrap());
-        let delta =
-            flat(&Array2::from_shape_vec((4, 2), vec![0., 0., 0., 0., 1., 0., 0., 0.]).unwrap());
-        let g_out = y.clone();
-        match gr.exp_map_vjp(y.view(), delta.view(), g_out.view()) {
-            Err(GeometryError::Unsupported(_)) => {}
-            other => panic!("expected Unsupported for k>1, got {other:?}"),
+    fn exp_map_vjp_matches_fd_for_distinct_principal_angles() {
+        let (y, _) = frames_with_angles(6, 2, &[0.0, 0.0]);
+        let z = Array2::from_shape_vec(
+            (6, 2),
+            vec![
+                0.2, -0.1, 0.05, 0.3, 0.7, -0.2, 0.1, 1.1, -0.4, 0.3, 0.2, 0.5,
+            ],
+        )
+        .unwrap();
+        let g = Array2::from_shape_vec(
+            (6, 2),
+            vec![
+                0.3, -0.8, 0.6, 0.1, -0.2, 0.5, 0.9, -0.4, 0.7, 0.2, -0.1, 0.4,
+            ],
+        )
+        .unwrap();
+        assert_exp_vjp_matches_fd(&y, &z, &g);
+    }
+
+    #[test]
+    fn exp_map_vjp_matches_fd_for_repeated_principal_angles() {
+        let (y, _) = frames_with_angles(6, 2, &[0.0, 0.0]);
+        let theta = 0.7;
+        let mut z = Array2::<f64>::zeros((6, 2));
+        // ΔᵀΔ = θ²I: the Gram eigenbasis is arbitrary, so this pins the
+        // analytic repeated-eigenvalue limit rather than an SVD-vector gauge.
+        z[[2, 0]] = theta;
+        z[[3, 1]] = theta;
+        let g = Array2::from_shape_vec(
+            (6, 2),
+            vec![
+                0.5, 0.1, -0.3, 0.7, 0.8, -0.2, 0.4, 0.9, -0.6, 0.2, 0.3, -0.5,
+            ],
+        )
+        .unwrap();
+        assert_exp_vjp_matches_fd(&y, &z, &g);
+    }
+
+    #[test]
+    fn exp_map_vjp_matches_fd_at_zero_principal_angle() {
+        let (y, _) = frames_with_angles(6, 2, &[0.0, 0.0]);
+        let mut z = Array2::<f64>::zeros((6, 2));
+        z[[2, 0]] = 0.9;
+        // Second singular value is exactly zero, exercising c'(0)=-1/2 and
+        // s'(0)=-1/6 without an eigen-gap branch.
+        let g = Array2::from_shape_vec(
+            (6, 2),
+            vec![
+                0.2, -0.4, 0.8, 0.3, -0.7, 0.5, 0.1, 0.6, -0.2, 0.9, 0.4, -0.1,
+            ],
+        )
+        .unwrap();
+        assert_exp_vjp_matches_fd(&y, &z, &g);
+    }
+
+    #[test]
+    fn principal_angle_divided_differences_use_exact_zero_limits() {
+        assert_eq!(cos_sqrt_divided_difference(0.0, 0.0), -0.5);
+        assert_eq!(sinc_sqrt_divided_difference(0.0, 0.0), -1.0 / 6.0);
+    }
+
+    #[test]
+    fn exp_map_vjp_matches_fd_for_nearly_repeated_large_angles() {
+        let (y, _) = frames_with_angles(6, 2, &[0.0, 0.0]);
+        let mut z = Array2::<f64>::zeros((6, 2));
+        let theta = 1.2;
+        z[[2, 0]] = theta;
+        z[[3, 1]] = theta * (1.0 + 1.0e-10);
+        let g = Array2::from_shape_vec(
+            (6, 2),
+            vec![
+                0.7, -0.2, 0.1, 0.8, -0.5, 0.4, 0.9, -0.3, 0.2, 0.6, -0.8, 0.5,
+            ],
+        )
+        .unwrap();
+        assert_exp_vjp_matches_fd(&y, &z, &g);
+    }
+
+    #[test]
+    fn exp_map_vjp_zero_tangent_has_closed_form_pullback() {
+        let gr = GrassmannManifold::new(2, 5).unwrap();
+        let (y, _) = frames_with_angles(5, 2, &[0.0, 0.0]);
+        let z = Array2::<f64>::zeros((5, 2));
+        let g = Array2::from_shape_vec(
+            (5, 2),
+            vec![0.4, -0.2, 0.7, 0.3, -0.5, 0.9, 0.1, -0.6, 0.8, 0.2],
+        )
+        .unwrap();
+        let (grad_y, grad_z) = gr
+            .exp_map_vjp(flat(&y).view(), flat(&z).view(), flat(&g).view())
+            .unwrap();
+        let projected_g = gr
+            .project_tangent(flat(&y).view(), flat(&g).view())
+            .unwrap();
+        for idx in 0..grad_y.len() {
+            assert!((grad_y[idx] - flat(&g)[idx]).abs() <= 2.0 * f64::EPSILON);
+            assert!((grad_z[idx] - projected_g[idx]).abs() <= 2.0 * f64::EPSILON);
         }
     }
 }

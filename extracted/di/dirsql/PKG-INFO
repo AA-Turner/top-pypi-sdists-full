@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dirsql
-Version: 0.3.92
+Version: 0.3.93
 Summary: Ephemeral SQL index over a local directory
 Keywords: sql,filesystem,directory,sqlite,index
 Author: Kevin Scott

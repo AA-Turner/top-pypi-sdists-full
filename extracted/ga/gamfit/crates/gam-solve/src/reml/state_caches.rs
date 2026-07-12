@@ -21,18 +21,6 @@ pub(crate) const ADAPTIVE_KKT_FLOOR_REML_DIVISOR: f64 = 100.0;
 
 pub(crate) const TK_MAX_DENSE_WORK: usize = 5_000_000;
 
-// `n * p` catches bam-shaped tall designs while avoiding small-n wide problems.
-pub(crate) const LARGE_N_EFS_THRESHOLD: f64 = 1.0e8;
-
-pub(crate) const EFS_SINGLE_LOOP_PIRLS_SWEEPS: usize = 2;
-
-pub(crate) const EFS_SINGLE_LOOP_PIRLS_CAP_SENTINEL: usize = usize::MAX / 4;
-
-// Bail after 3 consecutive iterations whose surrogate/partial-inner drift is >= 10%.
-pub(crate) const EFS_SINGLE_LOOP_BIAS_THRESHOLD: f64 = 0.10;
-
-pub(crate) const EFS_SINGLE_LOOP_BIAS_CONSECUTIVE_LIMIT: usize = 3;
-
 pub(crate) const HGB_INNER_FLOOR: f64 = 1e-12;
 
 pub(crate) const HGB_LINEAR_FLOOR: f64 = 1e-12;
@@ -113,166 +101,6 @@ pub(crate) const ACTIVE_CONSTRAINT_SLACK_TOL: f64 = 1e-8;
 // directions. One order of magnitude below ACTIVE_CONSTRAINT_SLACK_TOL
 // because we are comparing squared-norm residuals after subtraction.
 pub(crate) const ORTHONORM_DROP_TOL: f64 = 1e-10;
-
-#[derive(Debug, Clone)]
-pub(crate) struct AloStabilizationEval {
-    pub(crate) cost: f64,
-    pub(crate) gradient: Option<Array1<f64>>,
-    pub(crate) k_hat: Option<f64>,
-    pub(crate) max_leverage: f64,
-    pub(crate) min_denominator: f64,
-}
-
-// --- ALO-stabilization constants (conservative stabilization choices) ---
-//
-// Every constant below is a deliberately conservative gate or weight whose only
-// job is to keep the REML objective from being driven by a handful of
-// near-singular leave-one-out denominators on a high-leverage Gaussian design.
-// None of them are tunable (the repo bans CLI flags / env vars); they are fixed
-// at values that leave well-conditioned fits bit-identical and only activate on
-// genuine instability.
-//
-// Below this sample size the leave-one-out leverage estimate is too noisy to
-// distinguish a genuinely influential point from sampling jitter, so the
-// stabilization stays off entirely.
-pub(crate) const ALO_STABILIZATION_MIN_N: usize = 20;
-
-// Effective-dof fraction (edf / n) above which the design is treated as
-// over-parameterized / near-interpolating and the ALO stabilization is
-// suppressed.
-//
-// The stabilizer exists to robustify the REML criterion against a *handful* of
-// genuinely influential observations on an *identified* design. On a
-// near-saturated basis (edf approaching n — e.g. a tensor-product `te()` smooth
-// whose marginal-product column count rivals n at small n), leverage is high
-// for essentially *every* row purely from basis geometry, not from outliers.
-// There the augmentation — whose mechanism is to pull λ upward until each row's
-// LOO denominator clears the leverage barrier — can never satisfy its own gate
-// (no finite λ drives an over-parameterized basis's leverage below 0.80 for all
-// rows), so it adds a near-flat, ill-conditioned ridge to the outer surface.
-// The outer optimizer then crawls that ridge to its iteration cap (the
-// `[ALO-STABILIZED-REML]` "cost decreasing ~1e-4 per step over thousands of
-// evals" / `min_denom≈0.043` signature of #813 / #821), re-running PIRLS every
-// step. RKHS smooths (`duchon`/`matern`) regularize edf well below n and never
-// reach this regime, which is exactly why `te()` was pathological while they
-// were not on identical data. The 0.70 cut leaves genuinely identified,
-// moderately-fit designs (where a few isolated rows carry the high leverage)
-// fully stabilized while excluding the basis-saturation artifact.
-pub(crate) const ALO_EDF_FRACTION_SATURATION: f64 = 0.70;
-
-// Fraction of rows that may clear the leverage activation threshold before the
-// high leverage is judged pervasive (a basis-geometry artifact) rather than
-// concentrated in a few influential observations. Genuine influential-point
-// stabilization touches a small minority of rows; a near-interpolating
-// tensor-product basis trips a large fraction. Above this fraction the
-// stabilizer is suppressed (see the pervasiveness guard in
-// `alo_stabilization_eval`). 0.25 is well above the handful of rows a real
-// outlier cluster produces yet far below the pervasive activation a saturated
-// `te()` basis exhibits.
-pub(crate) const ALO_PERVASIVE_LEVERAGE_FRACTION: f64 = 0.25;
-
-// Suppress ALO when every ALO-triggering row is already high-leverage in the
-// exact pure-parametric subdesign. Those directions are unpenalized, so no
-// smoothness-parameter move can clear the leverage barrier (#862).
-pub(crate) const ALO_PARAMETRIC_LEVERAGE_SHARE: f64 = 0.75;
-
-// Activation gate on the leave-one-out denominator (1 - h). 0.20 means we only
-// engage once some observation's LOO predictor is amplified by >5×; below that
-// the correction is negligible and we preserve the unstabilized objective.
-pub(crate) const ALO_DENOM_INSTABILITY_THRESHOLD: f64 = 0.20;
-
-// Activation gate on raw leverage. 0.80 is the standard "very high leverage"
-// rule-of-thumb cut (well above the 2p/n and 3p/n flags); only points past it
-// can trip the stabilizer.
-pub(crate) const ALO_MAX_LEVERAGE_THRESHOLD: f64 = 0.80;
-
-// Weight on the smooth leverage barrier 0.5·τ·Σ(h - 0.80)₊². τ = 0.5 keeps the
-// barrier a soft nudge that grows quadratically past the threshold rather than
-// a hard wall, so the augmented objective stays smooth and differentiable.
-pub(crate) const ALO_TAU: f64 = 0.5;
-
-// Weight on the PSIS-reweighted Gaussian ALO deviance term. γ = 0.5 matches τ
-// so the leverage barrier and the predictive-deviance term enter on equal
-// conservative footing; neither dominates.
-pub(crate) const ALO_GAMMA: f64 = 0.5;
-
-// Saturation cap (in units of φ) on each observation's standardized squared
-// leave-one-out deviance contribution w_i·(y_i − η̃_i)²/φ. PSIS bounds the
-// *variance* of the importance weights but NOT the per-observation squared LOO
-// residual, which for an isolated near-unit-leverage point is (y_i − η̂_i)/(1 −
-// h_i): as 1 − h_i → 0 it explodes, dominating Σ D_ALO and dragging the
-// selected λ upward (global over-smoothing) just to suppress a residual that is
-// driven by basis geometry, not by model misfit — the model with that isolated
-// point removed has no support there and its LOO prediction is intrinsically
-// hopeless no matter how λ is chosen. We therefore pass each contribution
-// through the smooth saturator g(d) = cap·tanh(d/cap): for a well-fit point d ≈
-// 1 ≪ cap so g(d) ≈ d (the criterion is the ordinary LOO deviance), while a
-// geometry-driven d ≫ cap saturates to ≈ cap so no single hopeless point can
-// dominate the λ selection. cap = 9 is a robust 3-σ² cutoff on a standardized
-// squared residual — well above the ~6.63 chi-square(1) 99th percentile, so
-// every genuine bulk point is left untouched and only the pathological isolated
-// rows are bounded. This bounds the *influence* of high-leverage points on the
-// criterion (the stated design goal) without globally inflating λ.
-pub(crate) const ALO_DEVIANCE_SATURATION: f64 = 9.0;
-
-// Cap on n·p work for the analytic first-order gradient. Above this the dense
-// H⁻¹Xᵀ solve is too expensive to justify per outer evaluation, so the
-// stabilizer falls back to value-only augmentation (still bit-preserving the
-// gate-off path).
-pub(crate) const ALO_GRADIENT_MAX_WORK: usize = 4_000_000;
-
-/// Shared factorization of the stabilized penalized Hessian, computed once on
-/// the value path and threaded into the ALO ρ-gradient so the gradient never
-/// re-materializes dense `X` or re-factorizes the same matrix (#862). The
-/// inverse itself lives behind the one sensitivity operator (#935), so this
-/// site holds no private H⁻¹ convention.
-pub(crate) struct AloFactoredHessian<'a> {
-    /// Dense transformed design `X` (n × p).
-    pub(crate) x: &'a Array2<f64>,
-    /// The fit's sensitivity operator over the stabilized penalized Hessian.
-    pub(crate) sensitivity: &'a crate::sensitivity::FitSensitivity<'a>,
-    /// `H⁻¹Xᵀ` (p × n), the column-solve the gradient reuses per observation.
-    pub(crate) h_inv_xt: &'a Array2<f64>,
-}
-
-pub(crate) fn alo_leverage_barrier(h: f64) -> f64 {
-    let excess = (h - ALO_MAX_LEVERAGE_THRESHOLD).max(0.0);
-    excess * excess
-}
-
-pub(crate) fn alo_leverage_barrier_derivative(h: f64) -> f64 {
-    if h > ALO_MAX_LEVERAGE_THRESHOLD {
-        2.0 * (h - ALO_MAX_LEVERAGE_THRESHOLD)
-    } else {
-        0.0
-    }
-}
-
-/// Raw standardized leave-one-out deviance contribution
-/// d = w·(y − η̃)²/φ for one observation, before saturation.
-pub(crate) fn gaussian_alo_raw_deviance(y: f64, eta_loo: f64, prior_weight: f64, phi: f64) -> f64 {
-    let residual = y - eta_loo;
-    prior_weight * residual * residual / phi.max(f64::MIN_POSITIVE)
-}
-
-/// Saturated per-observation Gaussian ALO deviance contribution
-/// g(d) = cap·tanh(d/cap) with d the raw standardized squared LOO residual.
-/// `g(d) ≈ d` for d ≪ cap and `g(d) → cap` for d ≫ cap, so an isolated
-/// near-unit-leverage point whose LOO residual explodes from basis geometry
-/// (not model misfit) contributes a bounded amount to the λ-selection
-/// criterion instead of dragging λ up via global over-smoothing.
-pub(crate) fn gaussian_alo_deviance(y: f64, eta_loo: f64, prior_weight: f64, phi: f64) -> f64 {
-    let raw = gaussian_alo_raw_deviance(y, eta_loo, prior_weight, phi);
-    ALO_DEVIANCE_SATURATION * (raw / ALO_DEVIANCE_SATURATION).tanh()
-}
-
-/// Saturator derivative g'(d) = 1 − tanh²(d/cap) evaluated at the raw
-/// standardized squared LOO residual `raw`. Used to chain-rule the analytic
-/// ρ-gradient of the saturated deviance term: ∂g(d_i)/∂η̃_i = g'(d_i)·∂d_i/∂η̃_i.
-pub(crate) fn gaussian_alo_deviance_saturation_factor(raw: f64) -> f64 {
-    let t = (raw / ALO_DEVIANCE_SATURATION).tanh();
-    1.0 - t * t
-}
 
 pub(crate) fn transformed_penalty_matvec(
     penalty: &gam_terms::construction::CanonicalPenalty,
@@ -859,98 +687,9 @@ pub(crate) fn mean_positive(values: &[f64]) -> Option<f64> {
     (count > 0).then_some(sum / count as f64)
 }
 
-#[derive(Default)]
-pub(crate) struct EfsSingleLoopBiasGuardState {
-    pub(crate) owner: usize,
-    pub(crate) consecutive: usize,
-}
-
-// `LazyLock` (not `OnceLock` lazy init) so the init closure never parks
-// callers on the OS condvar. The init body here is trivial — just a default-
-// constructed `Mutex` — but the call site sits in a module that elsewhere
-// dispatches rayon parallel iterators, and the codebase-level lint
-// (see `tests/once_lock_get_or_init_not_inside_parallel_regions.rs`)
-// forbids the lazy `OnceLock` accessor in any rayon-adjacent file.
-// `LazyLock`'s initializer runs at first deref under its own dedicated
-// synchronization that does not interact with rayon's worker pool.
-pub(crate) static EFS_SINGLE_LOOP_BIAS_GUARD: LazyLock<Mutex<EfsSingleLoopBiasGuardState>> =
-    LazyLock::new(|| Mutex::new(EfsSingleLoopBiasGuardState::default()));
-
 #[inline]
 pub(crate) fn compute_gradient_for_tk(mode: super::reml_outer_engine::EvalMode) -> bool {
     mode != super::reml_outer_engine::EvalMode::ValueOnly
-}
-
-#[inline]
-pub(crate) fn efs_single_loop_encoded_cap() -> usize {
-    EFS_SINGLE_LOOP_PIRLS_CAP_SENTINEL + EFS_SINGLE_LOOP_PIRLS_SWEEPS
-}
-
-#[inline]
-pub(crate) fn decode_efs_single_loop_cap(raw_cap: usize) -> Option<usize> {
-    // `.then_some` evaluates its argument eagerly, so the subtraction must be
-    // guarded by `.then(|| ...)` to avoid usize underflow when raw_cap <
-    // SENTINEL (the common path for non-EFS-single-loop iterates).
-    (raw_cap >= EFS_SINGLE_LOOP_PIRLS_CAP_SENTINEL)
-        .then(|| raw_cap - EFS_SINGLE_LOOP_PIRLS_CAP_SENTINEL)
-        .filter(|cap| *cap > 0)
-}
-
-/// Apply the screening residual penalty to a cost.
-///
-/// Under multi-start seed screening (a ranking pass over candidate ρ
-/// vectors), the inner P-IRLS is intentionally capped at a few iterations.
-/// Partial modes that do not certify stationarity are accepted for ranking
-/// in `execute_pirls_if_needed`; this helper turns the partial cost into a
-/// finite ranking score
-///
-/// ```text
-/// C_screen(s) = C_approx(s) + ½ · r_g(s)² ,
-/// ```
-///
-/// where r_g = ‖g‖ / (1 + ‖score‖ + ‖Sβ‖ + ridge·‖β‖) is the scale-invariant
-/// relative gradient residual. Using r_g rather than the absolute ‖g‖ keeps
-/// the penalty meaningful at large-scale n: the absolute score grows as O(√n),
-/// so an absolute residual term would swamp the actual REML cost differences
-/// across seeds and reduce the screen to a √n-scaled tie-break. r_g is
-/// dimensionless and bounded above by 1 for any well-defined PIRLS state, so
-/// the penalty stays comparable to the cost differences that actually
-/// distinguish good seeds from bad. The penalty vanishes at the true inner
-/// mode (r_g → 0), so converged screening fits incur no penalty.
-///
-/// In the standard two-loop driver, partial fits never reach this helper:
-/// `execute_pirls_if_needed` surfaces `MaxIterationsReached` and
-/// `LmStepSearchExhausted` as `EstimationError::PirlsDidNotConverge`, so those
-/// REML evaluations always operate on certified inner modes and this helper is
-/// a strict no-op for them. The EFS single-loop strategy is the exception: it
-/// intentionally ACCEPTS a partial (`is_failed_max_iterations`) inner state at
-/// large n (the bam / Wood 2015 amortization tradeoff; see
-/// `execute_pirls_if_needed`'s `in_efs_single_loop` branch), so an uncertified
-/// inner mode can flow into cost assembly with the barrier active.
-///
-/// SINGLE SOURCE OF TRUTH (objective↔gradient consistency): this helper is the
-/// one and only place the outer objective VALUE gains the `+0.5·r_g²` barrier.
-/// Every outer-cost emission in the REML evaluator MUST route through it so the
-/// `eval_cost` line-search value (`compute_cost`), the value+gradient/Hessian
-/// path (`compute_outer_eval_with_order`), and the EFS step value
-/// (`assemble_and_evaluate_efs`) report the IDENTICAL objective. The barrier
-/// carries no analytic ρ/ψ-gradient and vanishes at every converged point, so
-/// the analytic gradient is exact wherever the barrier is inactive; the only
-/// requirement is that the reported VALUE never drifts from the gradient's
-/// objective. Omitting the wrap on any one path reintroduces the
-/// objective↔gradient desync that stalls the EFS iso-κ optimizer at large n
-/// with a nonzero `final_grad_norm` (#1122). The complete caller set is:
-///   * `compute_cost` (dense + sparse) — the `eval_cost` value
-///   * `compute_outer_eval_with_order` (value-only early return + main path)
-///   * `assemble_and_evaluate_efs` — the EFS step value
-/// Add the wrap to any future outer-cost emission as well.
-#[inline]
-pub(crate) fn screening_residual_penalty(cost: f64, pr: &PirlsResult) -> f64 {
-    crate::objective_base::failed_inner_residual_barrier_cost(
-        cost,
-        pr.status.is_failed_max_iterations(),
-        pr.relative_gradient_norm(),
-    )
 }
 
 pub(crate) fn hash_array_view(hasher: &mut Fingerprinter, values: ndarray::ArrayView1<'_, f64>) {
@@ -1679,7 +1418,7 @@ pub(crate) fn reml_jeffreys_supported_link(likelihood: &GlmLikelihoodSpec) -> Op
     if !matches!(spec.response, ResponseFamily::Binomial) {
         return None;
     }
-    if inverse_link_has_fisher_weight_jet(&spec.link) {
+    if spec.link.has_fisher_weight_jet() {
         Some(spec.link.clone())
     } else {
         None

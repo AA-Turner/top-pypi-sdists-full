@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-garmin
-Version: 0.1.27
+Version: 0.1.29
 Summary: Python client for Garmin Connect API
 Author-email: Ron Klinkien <ron@cyberjunky.nl>
 License: MIT
@@ -100,7 +100,7 @@ async def fetch_all():
     activity_data = await client.fetch_activity_data(today)  # Activities, workouts
     training_data = await client.fetch_training_data(today)  # HRV, training status
     goals_data    = await client.fetch_goals_data()          # Goals, badges
-    gear_data     = await client.fetch_gear_data()           # Gear, device alarms
+    gear_data     = await client.fetch_gear_data()           # Gear, alarms, solar, devices
 
 
 asyncio.run(fetch_all())
@@ -154,9 +154,10 @@ Optimized methods that group related API calls for Home Assistant coordinators:
 | `fetch_activity_data()` | 4+ | Activities, workouts, HR zones, polylines |
 | `fetch_training_data()` | 7 | Training readiness, status, HRV, lactate, endurance/hill scores |
 | `fetch_goals_data()` | 4 | Goals (active/future/history), badges, user level |
-| `fetch_gear_data()` | 4+ | Gear items, stats, device alarms |
+| `fetch_gear_data()` | 6+ | Gear items, stats, device alarms, solar intensity, devices, last sync |
 | `fetch_blood_pressure_data()` | 1 | Blood pressure measurements |
 | `fetch_menstrual_data()` | 2 | Menstrual cycle data |
+| `fetch_nutrition_data()` | 1 | Nutrition log: consumed macros, goals, per-meal breakdown |
 
 ## Write / Action Methods
 
@@ -194,14 +195,14 @@ The method automatically fetches the correct meal slot ID and time for the day. 
 | Method | Description |
 | ------ | ----------- |
 | `get_user_profile()` | User profile info |
-| `get_user_summary()` | Daily summary (steps, HR, stress, body battery) |
 | `get_daily_steps()` | Steps for date range |
 | `get_body_composition()` | Weight, BMI, body fat |
 | `get_fitness_age()` | Fitness age metrics |
 | `get_hydration_data()` | Daily hydration |
-| `get_activities_by_date()` | Activities in date range |
+| `get_activities()` | Most recent activities (newest first, no date filter) |
 | `get_activity_details()` | Detailed activity with polyline |
 | `get_activity_hr_in_timezones()` | HR time in zones |
+| `download_activity(activity_id, file_format)` | Download activity file (fit/original/tcx/gpx/kml/csv) |
 | `get_workouts()` | Scheduled workouts |
 | `get_training_readiness()` | Training readiness score |
 | `get_training_status()` | Training status |
@@ -209,7 +210,6 @@ The method automatically fetches the correct meal slot ID and time for the day. 
 | `get_endurance_score()` | Endurance score |
 | `get_hill_score()` | Hill score |
 | `get_lactate_threshold()` | Lactate threshold |
-| `get_hrv_data()` | Heart rate variability |
 | `get_goals()` | User goals by status |
 | `get_earned_badges()` | Earned badges |
 | `get_gear()` | User gear items |
@@ -217,10 +217,13 @@ The method automatically fetches the correct meal slot ID and time for the day. 
 | `get_gear_defaults()` | Default gear settings |
 | `get_devices()` | Connected devices |
 | `get_device_alarms()` | Device alarms |
+| `get_device_solar_data()` | Solar intensity data per device |
+| `get_device_last_used()` | Last used device and last sync time |
 | `get_device_settings()` | Device settings |
 | `get_blood_pressure()` | Blood pressure data |
 | `get_menstrual_data()` | Menstrual cycle data |
 | `get_menstrual_calendar()` | Menstrual calendar |
+| `get_nutrition_log()` | Daily nutrition log (Connect+) |
 
 ## Data Transformations
 

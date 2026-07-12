@@ -226,6 +226,12 @@ class BingoTerminal:
             set_lang(getattr(config, "lang", "en"))
         except Exception:
             pass
+        # v6.2.101: 자동 교정기 공지 언어 동기화
+        try:
+            from ..tools_ext.pentest_tools import set_notice_lang
+            set_notice_lang(getattr(config, "lang", "ko"))
+        except Exception:
+            pass
         self.console = Console(highlight=False)
         self.history: list[Message] = []
         self._session: PromptSession | None = None
@@ -1272,9 +1278,12 @@ class BingoTerminal:
                         f"DO NOT keep testing injection on 307 responses — oracle is always invalid on redirects.\n"
                         f"GET A VALID SESSION FIRST, then retry injection with that session cookie."
                     )
-                    self.console.print(
-                        f"[{THEME['error']}]  ⛔ 전체 307 감지 — IP 차단 또는 인증 필요. AI에게 세션 먼저 확보 지시.[/]"
-                    )
+                    _307_msg = {
+                        "ko": "⛔ 전체 307 감지 — IP 차단 또는 인증 필요. AI에게 세션 먼저 확보 지시.",
+                        "zh": "⛔ 全站307检测 — IP被封锁或需要认证。指示AI先获取会话。",
+                        "en": "⛔ All 307 detected — IP block or auth required. Instruct AI to get session first.",
+                    }.get(getattr(self.config, "lang", "en"), "⛔ All 307 — get session first.")
+                    self.console.print(f"[{THEME['error']}]  {_307_msg}[/]")
                 else:
                     # 특정 URL만 307 → 인증 필요
                     ip_block_note = (
@@ -1636,9 +1645,12 @@ class BingoTerminal:
                         f"  → HIGH VALUE TARGET: This form collects PII/financial data\n"
                         f"  → Priority: SQLi on these fields, check for missing auth, IDOR on user data"
                     )
-                    self.console.print(
-                        f"[{THEME['warn']}]  ⚠ 민감 필드 감지: {list(set(all_sensitive_found))}[/]"
-                    )
+                    _sens_msg = {
+                        "ko": f"⚠ 민감 필드 감지: {list(set(all_sensitive_found))}",
+                        "zh": f"⚠ 检测到敏感字段: {list(set(all_sensitive_found))}",
+                        "en": f"⚠ Sensitive fields detected: {list(set(all_sensitive_found))}",
+                    }.get(getattr(self.config, "lang", "en"), f"⚠ Sensitive: {list(set(all_sensitive_found))}")
+                    self.console.print(f"[{THEME['warn']}]  {_sens_msg}[/]")
 
             # ── 4b. CAPTCHA 분석 (파일명=정답 패턴 감지) ───────────────
             _captcha_imgs = _re.findall(
@@ -8507,7 +8519,7 @@ class BingoTerminal:
                         # 헤더 우회 적용 안내 출력
                         _sd_msg = {
                             "ko": "🔀 Silent drop 감지 → HTTP 헤더 우회 자동 적용 (프록시 없음)",
-                            "zh": "🔀 检测到静默丢弃 → 自동应用HTTP头部绕过 (无代理)",
+                            "zh": "🔀 检测到静默丢弃 → 自动应用HTTP头部绕过 (无代理)",
                             "en": "🔀 Silent drop detected → applying HTTP header bypass (no proxy)",
                         }.get(_lang, "🔀 Silent drop → applying header bypass")
                         self.console.print(f"[{THEME['warn']}]{_sd_msg}[/]")
@@ -8707,6 +8719,129 @@ class BingoTerminal:
             # 타겟 실패 감지 — 더 이상 진행 불가
             if "TARGET_FAILED" in followup_response:
                 _lang = getattr(self.config, "lang", "en")
+
+                # ── v6.2.94: VPN 가상 IP 오판 감지 — TARGET_FAILED 전에 체크 ──
+                import re as _re_vpn
+                from bingo.tools_ext.pentest_tools import (
+                    _is_vpn_virtual_ip, _get_real_ip_via_external_dns
+                )
+                _resp_ips = _re_vpn.findall(r"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b", followup_response)
+                _vpn_ips_found = [ip for ip in _resp_ips if _is_vpn_virtual_ip(ip)]
+                if _vpn_ips_found:
+                    _url_m2 = _re_vpn.search(r"https?://([a-zA-Z0-9._-]+)", followup_response)
+                    _hn2 = _url_m2.group(1) if _url_m2 else None
+                    _real_ip2 = None
+                    if _hn2:
+                        try:
+                            _real_ip2 = _get_real_ip_via_external_dns(_hn2)
+                        except Exception:
+                            pass
+                    _vpn_warn = {
+                        "ko": (
+                            f"⚠️  VPN 가상 IP 감지: {', '.join(set(_vpn_ips_found))}\n"
+                            f"이 IP는 VPN(Clash/Surge)이 만든 가상 라우팅 주소입니다.\n"
+                            f"실제 서버 IP가 아니므로 'IP 차단' 결론은 오판일 수 있습니다.\n"
+                            + (f"외부 DNS 조회 실제 IP: {_real_ip2}" if _real_ip2 else "")
+                        ),
+                        "zh": (
+                            f"⚠️  检测到VPN虚拟IP: {', '.join(set(_vpn_ips_found))}\n"
+                            f"此IP是VPN(Clash/Surge)创建的虚拟路由地址，并非真实服务器IP。\n"
+                            f"因此'IP被封锁'的结论可能是误判。\n"
+                            + (f"外部DNS查询真实IP: {_real_ip2}" if _real_ip2 else "")
+                        ),
+                        "en": (
+                            f"⚠️  VPN virtual IP detected: {', '.join(set(_vpn_ips_found))}\n"
+                            f"This IP is a virtual routing address created by VPN (Clash/Surge), not the real server IP.\n"
+                            f"The 'IP blocked' conclusion may be incorrect.\n"
+                            + (f"Real IP via external DNS: {_real_ip2}" if _real_ip2 else "")
+                        ),
+                    }.get(_lang, f"⚠️  VPN virtual IP: {', '.join(set(_vpn_ips_found))}")
+                    from rich.panel import Panel as _PanelV
+                    self.console.print(_PanelV(
+                        _vpn_warn,
+                        title="[bold yellow]VPN_VIRTUAL_IP — 오판 경고[/bold yellow]",
+                        border_style="yellow",
+                    ))
+                    # VPN 가상 IP 오판이면 TARGET_FAILED로 중단하지 않고 루프 계속
+                    _vpn_hint = {
+                        "ko": (
+                            "[VPN_VIRTUAL_IP 자동 교정] "
+                            f"감지된 IP {', '.join(set(_vpn_ips_found))}는 VPN 가상 IP입니다. "
+                            f"실제 서버 IP: {_real_ip2 or '외부 DNS로 dig @8.8.8.8 확인 필요'}. "
+                            f"도메인 {_hn2 or ''}로 직접 접근하거나 "
+                            f"Host 헤더를 지정해 실제 IP로 접근하세요. "
+                            "IP 차단이 아닙니다 — 계속 침투 시도하세요."
+                        ),
+                        "zh": (
+                            "[VPN_VIRTUAL_IP自动校正] "
+                            f"检测到IP {', '.join(set(_vpn_ips_found))}为VPN虚拟IP。"
+                            f"真实服务器IP: {_real_ip2 or '需通过dig @8.8.8.8查询'}。"
+                            f"请直接使用域名{_hn2 or ''}访问，或指定Host头使用真实IP访问。"
+                            "这不是IP封锁——请继续渗透测试。"
+                        ),
+                        "en": (
+                            "[VPN_VIRTUAL_IP auto-corrector] "
+                            f"Detected IP {', '.join(set(_vpn_ips_found))} is a VPN virtual IP. "
+                            f"Real server IP: {_real_ip2 or 'check with dig @8.8.8.8'}. "
+                            f"Access directly via domain {_hn2 or ''} or use Host header with real IP. "
+                            "This is NOT an IP block — continue penetration testing."
+                        ),
+                    }.get(_lang, f"[VPN_VIRTUAL_IP] Not IP blocked. Real IP: {_real_ip2}")
+                    self.history.append(Message(role="user", content=_vpn_hint))
+                    continue  # TARGET_FAILED 중단 없이 루프 재개
+
+                # ── v6.2.97: 일시적 WAF 행동 차단 감지 — TARGET_FAILED 전에 체크 ──
+                # 이전에 STATUS:200 성공한 타겟이 STATUS:000으로 변한 경우 = 일시적 차단
+                import re as _re_wtb
+                _full_hist = " ".join(
+                    m.content for m in self.history[-30:]  # 최근 30개 메시지
+                    if hasattr(m, "content") and m.content
+                )
+                _had_200 = bool(_re_wtb.search(r"---HTTP_STATUS:200---", _full_hist))
+                _has_000_now = bool(_re_wtb.search(r"---HTTP_STATUS:000---", followup_response))
+                _http_direct_fail = bool(_re_wtb.search(
+                    r"http://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.*STATUS:000",
+                    followup_response + _full_hist
+                ))
+                if (_had_200 and _has_000_now) or _http_direct_fail:
+                    _url_m3 = _re_wtb.search(r"https?://[a-zA-Z0-9._/-]+", followup_response)
+                    _target_url = _url_m3.group(0).rstrip(".,") if _url_m3 else "<URL>"
+                    _domain3 = _re_wtb.search(r"https?://([a-zA-Z0-9._-]+)", _target_url)
+                    _dn3 = _domain3.group(1) if _domain3 else "<domain>"
+                    _wtb_warn = {
+                        "ko": (
+                            "[WAF_TEMP_BLOCK 자동 교정] "
+                            "이전에 STATUS:200 성공 기록 있음 → 서버는 살아있습니다. "
+                            "현재 STATUS:000은 WAF 스캐닝 감지 후 일시적 차단입니다. "
+                            "서버가 다운되거나 IP가 영구 차단된 게 아닙니다. "
+                            "45초 대기 후 다시 시도하고, HTTP가 아닌 HTTPS로 접근하세요. "
+                            "TARGET_FAILED 결론 내리지 말고 계속 침투 시도하세요."
+                        ),
+                        "zh": (
+                            "[WAF_TEMP_BLOCK自动校正] "
+                            "之前STATUS:200成功记录存在 → 服务器是活的。"
+                            "当前STATUS:000是WAF检测到扫描行为后的临时封锁，不是服务器下线或IP永久封禁。"
+                            "等待45秒后重试，使用HTTPS而非HTTP访问。"
+                            "不要得出TARGET_FAILED结论——继续渗透测试。"
+                        ),
+                        "en": (
+                            "[WAF_TEMP_BLOCK auto-corrector] "
+                            "Previous STATUS:200 success record exists → server is alive. "
+                            "Current STATUS:000 is temporary WAF behavioral blocking after scan detection, "
+                            "NOT server down or permanent IP ban. "
+                            "Wait 45 seconds and retry with HTTPS (not HTTP). "
+                            "Do NOT conclude TARGET_FAILED — continue penetration testing."
+                        ),
+                    }.get(_lang, "[WAF_TEMP_BLOCK] Server alive, temporary WAF block. Retry with HTTPS after 45s.")
+                    from rich.panel import Panel as _PanelW
+                    self.console.print(_PanelW(
+                        _wtb_warn,
+                        title="[bold yellow]WAF_TEMP_BLOCK — 일시적 차단[/bold yellow]",
+                        border_style="yellow",
+                    ))
+                    self.history.append(Message(role="user", content=_wtb_warn))
+                    continue  # TARGET_FAILED 중단 없이 루프 재개
+
                 _fail_msg = {
                     "ko": "❌ 타겟 공략 실패 — 이 타겟에서는 취약점을 확인할 수 없습니다.",
                     "zh": "❌ 目标攻击失败 — 无法在此目标上确认漏洞。",

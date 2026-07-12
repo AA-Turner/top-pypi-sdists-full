@@ -12,22 +12,20 @@ fn poincare_distance<'py>(
     })
 }
 
-/// #1026/#1522 — set the process-global SAE separation-barrier strength so a
-/// SINGLE compiled wheel can sweep μ_sep without recompiling gam. `sep_strength`
-/// is NaN to restore the compiled default. The amplitude (keep-alive) barrier
-/// and its active-atom gate were removed (surplus features die into a
-/// ridge-parked state), so only the separation strength is tunable.
-#[pyfunction(signature = (sep_strength = f64::NAN))]
-fn sae_set_barrier_overrides(sep_strength: f64) {
-    gam::terms::sae::manifold::set_sae_barrier_overrides(sep_strength);
-}
-
-/// #1026 — set the process-global IBP-α override (flattens the ordered geometric
-/// assignment prior π_k=(α/(α+1))^{k+1} so all K atoms can contribute). A
-/// non-finite or non-positive value clears the override back to the compiled α.
-#[pyfunction(signature = (alpha = f64::NAN))]
-fn sae_set_ibp_alpha(alpha: f64) {
-    gam::terms::sae::assignment::set_ibp_alpha_override(alpha);
+#[pyfunction]
+fn poincare_distance_batch<'py>(
+    py: Python<'py>,
+    left: PyReadonlyArray2<'py, f64>,
+    right: PyReadonlyArray2<'py, f64>,
+    dimension: usize,
+    curvature: f64,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let left_owned = left.as_array().to_owned();
+    let right_owned = right.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_distance_batch", move || {
+        poincare_distance_batch_impl(left_owned.view(), right_owned.view(), dimension, curvature)
+    })?;
+    Ok(out.into_pyarray(py).unbind())
 }
 
 /// K-aware default IBP concentration `α` (#1784) from the Rust source of truth
@@ -46,6 +44,35 @@ fn sae_default_ibp_concentration_for_k_atoms(k_atoms: usize) -> f64 {
 #[pyfunction]
 fn sae_default_top_k_for_large_dictionary(n_obs: usize, k_atoms: usize) -> Option<usize> {
     gam::terms::sae::assignment::default_top_k_for_large_dictionary(n_obs, k_atoms)
+}
+
+/// #2232 Inc 5b (Gap B) — MODELING-CHOICE admission for an EXPLICIT
+/// linear-dictionary request (`atom_topology="linear"` + hard top-k support):
+/// the sparse-code lane at ANY `K`, owned by the Rust front door
+/// (`front_door::admit_linear_dictionary`) so the Python facade routes on the
+/// same rule the crate enforces. Shape validation only; the lane is selected
+/// by the REQUEST, not by the `K` vs `P` comparison.
+#[pyfunction]
+#[pyo3(signature = (n_obs, output_dim, n_atoms, block_size=1))]
+fn sae_linear_dictionary_admission<'py>(
+    py: Python<'py>,
+    n_obs: usize,
+    output_dim: usize,
+    n_atoms: usize,
+    block_size: usize,
+) -> PyResult<Py<PyDict>> {
+    let admission = gam::terms::sae::front_door::admit_linear_dictionary(
+        n_obs, output_dim, n_atoms, block_size,
+    )
+    .map_err(py_value_error)?;
+    let out = PyDict::new(py);
+    out.set_item("lane", "sparse_codes")?;
+    out.set_item("n_obs", admission.n_obs)?;
+    out.set_item("output_dim", admission.output_dim)?;
+    out.set_item("n_atoms", admission.n_atoms)?;
+    out.set_item("dense_assignment_cells", admission.dense_assignment_cells)?;
+    out.set_item("response_cells", admission.response_cells)?;
+    Ok(out.unbind())
 }
 
 #[pyfunction]
@@ -114,11 +141,13 @@ fn sae_select_k(
     Ok(out.into())
 }
 
-#[pyfunction(signature = (manifold_points, linear_points, mode = "kneedle", knee_slope_fraction = 0.10, complexity_penalty = 0.05, flat_span_tol = 1.0e-6))]
+#[pyfunction(signature = (manifold_points, linear_points, manifold_params_per_atom, linear_params_per_atom, mode = "kneedle", knee_slope_fraction = 0.10, complexity_penalty = 0.05, flat_span_tol = 1.0e-6))]
 fn sae_auto_k_recommendation(
     py: Python<'_>,
     manifold_points: Vec<(usize, f64)>,
     linear_points: Vec<(usize, f64)>,
+    manifold_params_per_atom: f64,
+    linear_params_per_atom: f64,
     mode: &str,
     knee_slope_fraction: f64,
     complexity_penalty: f64,
@@ -137,7 +166,18 @@ fn sae_auto_k_recommendation(
         // `MeasuredMdl` mode string falls back to Kneedle when this is `None`.
         measured_coding: None,
     };
-    let rec = gam::terms::sae::k_selection::recommend_auto_k(&manifold, &linear, &config);
+    // The manifold-vs-linear advantage is now measured in DECODER PARAMETERS, not
+    // atom count: a manifold atom stores `basis_size·p` scalars, a linear atom
+    // `p`, so `efficiency_ratio` is the parameter ratio `linear_params /
+    // manifold_params` and only exceeds 1 when the manifold reaches the target EV
+    // with fewer stored scalars.
+    let rec = gam::terms::sae::k_selection::recommend_auto_k(
+        &manifold,
+        &linear,
+        &config,
+        manifold_params_per_atom,
+        linear_params_per_atom,
+    );
     let out = PyDict::new(py);
     out.set_item("k", rec.selection.k)?;
     out.set_item("ev", rec.selection.ev)?;
@@ -147,32 +187,129 @@ fn sae_auto_k_recommendation(
     out.set_item("target_ev", rec.advantage.target_ev)?;
     out.set_item("manifold_k", rec.advantage.k_manifold)?;
     out.set_item("linear_k", rec.advantage.k_linear)?;
+    out.set_item("manifold_params", rec.advantage.manifold_params)?;
+    out.set_item("linear_params", rec.advantage.linear_params)?;
     out.set_item("efficiency_ratio", rec.advantage.compression_ratio)?;
     out.set_item("confirmed", rec.advantage.manifold_dominates())?;
     Ok(out.into())
 }
 
+/// Per-atom coordinate signal-variance spectrum: the eigenvalues of the coded
+/// chart coordinates' population covariance. This is the Gaussian-source variance
+/// spectrum the reverse-water-filling code rate is defined over, mirroring the
+/// block-chart MDL scorer's `coordinate_spectrum` (same mean-centred covariance,
+/// same `jacobi_eigh`, zeros clamped, descending). One eigenvalue per coded
+/// coordinate axis.
+fn coordinate_variance_spectrum(coords: ndarray::ArrayView2<'_, f64>) -> Vec<f64> {
+    let n = coords.nrows();
+    let d = coords.ncols();
+    if d == 0 || n == 0 {
+        return vec![0.0; d];
+    }
+    let mut means = vec![0.0f64; d];
+    for j in 0..d {
+        for i in 0..n {
+            means[j] += coords[[i, j]];
+        }
+        means[j] /= n as f64;
+    }
+    let mut cov = vec![0.0f64; d * d];
+    for i in 0..n {
+        for a in 0..d {
+            let va = coords[[i, a]] - means[a];
+            for b in 0..d {
+                cov[a * d + b] += va * (coords[[i, b]] - means[b]);
+            }
+        }
+    }
+    for v in &mut cov {
+        *v /= n as f64;
+    }
+    let mut vals = vec![0.0f64; d];
+    let mut vecs = vec![0.0f64; d * d];
+    gam::terms::sae::gpu_kernels::sae_encode_resident::jacobi_eigh(&cov, d, &mut vals, &mut vecs);
+    let mut spectrum: Vec<f64> = vals.into_iter().map(|v| v.max(0.0)).collect();
+    spectrum.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+    spectrum
+}
+
 /// Fit-level bits/token description length of a manifold-SAE reconstruction.
 ///
 /// The headline currency the results.md postmortem argues for: the whole fit's
-/// code length per token, decomposed into code / selection / dictionary bits,
-/// computed from the fit's own summary quantities (achieved EV, active-atom
-/// count, coordinate dim, dictionary size, decoder scalar count). Every math
-/// term is owned by `description_length::manifold_fit_description_length`; this
-/// only marshals scalars in and the decomposition out.
-#[pyfunction(signature = (ev, n_tokens, k_active, coord_dim, g_dict, n_params, l_param_bits = None))]
-fn sae_manifold_description_length(
-    py: Python<'_>,
+/// code length per token, decomposed into code / selection / dictionary bits.
+/// The valid accounting reads the fit's own empirical byproducts rather than
+/// pre-summarised scalars: `assignments` `(N, K)` is binarised into the empirical
+/// support matrix (an atom is coded for a token when its gate magnitude clears
+/// `active_threshold`), so SELECTION is priced by the support-entropy universal
+/// code and a maximally-spread row pays its true high support cost; `coords` is
+/// the per-atom `(N, d_k)` chart coordinates, whose per-atom covariance
+/// eigen-spectra are the per-coordinate variances the latent CODE rate reverse-
+/// water-fills at the achieved distortion `(1 − ev)·Σ var`; the code term is
+/// firing-weighted by each atom's coded dim `d_k`. Every math term is owned by
+/// `description_length::manifold_fit_description_length`; this marshals the
+/// support/spectrum in and the decomposition out.
+#[pyfunction(signature = (assignments, coords, ev, n_params, l_param_bits = None, active_threshold = 1.0e-8))]
+fn sae_manifold_description_length<'py>(
+    py: Python<'py>,
+    assignments: PyReadonlyArray2<'py, f64>,
+    coords: Vec<PyReadonlyArray2<'py, f64>>,
     ev: f64,
-    n_tokens: i64,
-    k_active: f64,
-    coord_dim: f64,
-    g_dict: i64,
     n_params: i64,
     l_param_bits: Option<f64>,
+    active_threshold: f64,
 ) -> PyResult<PyObject> {
+    let assignments = assignments.as_array();
+    let (n_obs, k_atoms) = assignments.dim();
+    if coords.len() != k_atoms {
+        return Err(py_value_error(format!(
+            "sae_manifold_description_length: expected {k_atoms} coordinate blocks \
+             (one per atom), got {}",
+            coords.len()
+        )));
+    }
+    // Per-coordinate signal-variance spectrum + coded dim per atom, from the
+    // fitted chart coordinates.
+    let mut coord_variances: Vec<f64> = Vec::new();
+    let mut atom_coord_dims: Vec<f64> = Vec::with_capacity(k_atoms);
+    for (k, block) in coords.iter().enumerate() {
+        let c = block.as_array();
+        if c.nrows() != n_obs {
+            return Err(py_value_error(format!(
+                "sae_manifold_description_length: coords[{k}] has {} rows but assignments \
+                 have {n_obs}",
+                c.nrows()
+            )));
+        }
+        atom_coord_dims.push(c.ncols() as f64);
+        coord_variances.extend(coordinate_variance_spectrum(c));
+    }
+    // Achieved coordinate coding distortion: the fit's residual fraction of the
+    // total coordinate signal variance `(1 − ev)·Σ var`, matching the
+    // per-featurizer `Featurizer::residual`. `1 − ev` is floored away from zero so
+    // a saturated fit reports a large finite rate, not +∞.
+    let total_var: f64 = coord_variances.iter().sum();
+    let delta2 = (1.0 - ev).max(1.0e-12) * total_var;
+    // Empirical binary support matrix: an atom is coded for a token when its gate
+    // magnitude clears the numerical-dust floor. Reads the TRUE recorded support
+    // per token (sparse gate families stay sparse; a maximally-spread softmax row
+    // is priced at its true high support cost) instead of a rounded-mean count.
+    let mut codes = gam::terms::sae::atom_codes::SparseAtomCodes::empty(n_obs, k_atoms);
+    for n in 0..n_obs {
+        for k in 0..k_atoms {
+            let gate = assignments[[n, k]];
+            if gate.is_finite() && gate.abs() > active_threshold {
+                codes.row_mut(n).assign(k, gate);
+            }
+        }
+    }
     let dl = gam::terms::sae::description_length::manifold_fit_description_length(
-        ev, n_tokens, k_active, coord_dim, g_dict, n_params, l_param_bits,
+        &codes,
+        &coord_variances,
+        delta2,
+        &atom_coord_dims,
+        ev,
+        n_params,
+        l_param_bits,
     );
     let out = PyDict::new(py);
     out.set_item("bits_per_token", dl.bits_per_token)?;
@@ -191,6 +328,135 @@ fn sae_manifold_description_length(
     out.set_item("coord_dim", dl.coord_dim)?;
     out.set_item("g_dict", dl.g_dict)?;
     out.set_item("n_params", dl.n_params)?;
+    Ok(out.into())
+}
+
+/// Format a float the way Python's `f"{x:g}"` does (default precision 6), so the
+/// per-target dict keys (`bits_at_r2_0.9`, …) are byte-identical to the NumPy
+/// scorer's. Fixed notation for `|x| ∈ [1e-4, 1e6)`, exponential otherwise, with
+/// trailing zeros (and a bare trailing point) stripped.
+fn format_g(x: f64) -> String {
+    if x == 0.0 {
+        return "0".to_string();
+    }
+    let strip = |s: String| -> String {
+        if s.contains('.') {
+            let trimmed = s.trim_end_matches('0');
+            trimmed.trim_end_matches('.').to_string()
+        } else {
+            s
+        }
+    };
+    let exp = x.abs().log10().floor() as i32;
+    if !(-4..6).contains(&exp) {
+        // Exponential form with 6 significant digits (5 after the point).
+        let s = format!("{x:.5e}");
+        // Rust emits `e-5`/`e0`; Python `%g` emits `e-05`/`e+00`. Normalize.
+        if let Some((mantissa, exp_part)) = s.split_once('e') {
+            let mantissa = strip(mantissa.to_string());
+            let (sign, digits) = match exp_part.strip_prefix('-') {
+                Some(rest) => ('-', rest),
+                None => ('+', exp_part.trim_start_matches('+')),
+            };
+            format!("{mantissa}e{sign}{:0>2}", digits)
+        } else {
+            strip(s)
+        }
+    } else {
+        let precision = (5 - exp).max(0) as usize;
+        strip(format!("{x:.precision$}"))
+    }
+}
+
+/// Eq. 4 fixed-distortion description length of one fitted featurizer.
+///
+/// The single Rust home for the `gamfit._description_length` scorer: it prices a
+/// featurizer's reconstruction of `test_x` at each R² target into support / code
+/// / residual / dictionary bits. Every numeric term (the combinatorial `lgamma`
+/// support cost, the residual covariance eigendecomposition, each atom's SVD
+/// coordinate spectrum, and the joint firing-weighted reverse-water-filling)
+/// lives in `eq4_description_length`; this only marshals the arrays and drives
+/// the Python `atom_contribution` callback that materialises each atom's firing
+/// rows. Returns the same dict shape the NumPy scorer returned (`support_bits`,
+/// `achieved_block_l0`, `bits_at_r2_{g}` / `code_bits_at_r2_{g}` /
+/// `resid_bits_at_r2_{g}` per target, and `native_bits_per_token` when given).
+#[pyfunction]
+#[pyo3(signature = (
+    test_x, recon, gate, code_dims, dictionary_params, atom_contribution,
+    r2_targets = None, native_bits_per_token = None,
+))]
+fn sae_eq4_description_length<'py>(
+    py: Python<'py>,
+    test_x: PyReadonlyArray2<'py, f64>,
+    recon: PyReadonlyArray2<'py, f64>,
+    gate: PyReadonlyArray2<'py, f64>,
+    code_dims: PyReadonlyArray1<'py, i64>,
+    dictionary_params: i64,
+    atom_contribution: Bound<'py, PyAny>,
+    r2_targets: Option<Vec<f64>>,
+    native_bits_per_token: Option<f64>,
+) -> PyResult<Py<PyDict>> {
+    let test_x = test_x.as_array();
+    let recon = recon.as_array();
+    let gate = gate.as_array();
+    let code_dims = code_dims.as_array();
+    let code_dims: Vec<i64> = code_dims.iter().copied().collect();
+    let targets = r2_targets.unwrap_or_else(|| {
+        gam::terms::sae::eq4_description_length::DEFAULT_EQ4_R2_TARGETS.to_vec()
+    });
+
+    // Captures the real Python exception raised inside the callback so it
+    // propagates with its original type instead of being flattened to a
+    // ValueError; the closure returns the message the core threads back.
+    let callback_err: std::cell::RefCell<Option<PyErr>> = std::cell::RefCell::new(None);
+    let fetch = |atom: usize, take: &[usize]| -> Result<Array2<f64>, String> {
+        let take_arr = take
+            .iter()
+            .map(|&i| i as i64)
+            .collect::<Vec<i64>>()
+            .into_pyarray(py);
+        let result = atom_contribution.call1((atom, take_arr)).map_err(|e| {
+            let message = e.to_string();
+            *callback_err.borrow_mut() = Some(e);
+            message
+        })?;
+        let array = result.extract::<PyReadonlyArray2<f64>>().map_err(|e| {
+            let message = format!("atom {atom} contribution must be a float64 matrix: {e}");
+            *callback_err.borrow_mut() = Some(PyErr::from(e));
+            message
+        })?;
+        Ok(array.as_array().to_owned())
+    };
+
+    let dl = gam::terms::sae::eq4_description_length::eq4_fixed_distortion_description_length(
+        test_x,
+        recon,
+        gate,
+        &code_dims,
+        dictionary_params,
+        &targets,
+        native_bits_per_token,
+        fetch,
+    )
+    .map_err(|message| {
+        callback_err
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| py_value_error(message))
+    })?;
+
+    let out = PyDict::new(py);
+    out.set_item("support_bits", dl.support_bits)?;
+    out.set_item("achieved_block_l0", dl.achieved_block_l0)?;
+    for row in &dl.per_target {
+        let suffix = format_g(row.target);
+        out.set_item(format!("bits_at_r2_{suffix}"), row.bits)?;
+        out.set_item(format!("code_bits_at_r2_{suffix}"), row.code_bits)?;
+        out.set_item(format!("resid_bits_at_r2_{suffix}"), row.resid_bits)?;
+    }
+    if let Some(native) = dl.native_bits_per_token {
+        out.set_item("native_bits_per_token", native)?;
+    }
     Ok(out.into())
 }
 
@@ -271,6 +537,76 @@ fn poincare_log_map<'py>(
     let q_owned = q.as_array().to_owned();
     let out = detach_geometry_result(py, "poincare_log_map", move || {
         poincare_log_map_impl(p_owned.view(), q_owned.view(), curvature)
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
+fn poincare_exp_map_batch<'py>(
+    py: Python<'py>,
+    points: PyReadonlyArray2<'py, f64>,
+    tangents: PyReadonlyArray2<'py, f64>,
+    dimension: usize,
+    curvature: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let points_owned = points.as_array().to_owned();
+    let tangents_owned = tangents.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_exp_map_batch", move || {
+        poincare_exp_map_batch_impl(
+            points_owned.view(),
+            tangents_owned.view(),
+            dimension,
+            curvature,
+        )
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
+fn poincare_log_map_batch<'py>(
+    py: Python<'py>,
+    points: PyReadonlyArray2<'py, f64>,
+    targets: PyReadonlyArray2<'py, f64>,
+    dimension: usize,
+    curvature: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let points_owned = points.as_array().to_owned();
+    let targets_owned = targets.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_log_map_batch", move || {
+        poincare_log_map_batch_impl(
+            points_owned.view(),
+            targets_owned.view(),
+            dimension,
+            curvature,
+        )
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
+fn poincare_project_into_ball_batch<'py>(
+    py: Python<'py>,
+    points: PyReadonlyArray2<'py, f64>,
+    dimension: usize,
+    curvature: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let points_owned = points.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_project_into_ball_batch", move || {
+        poincare_project_into_ball_batch_impl(points_owned.view(), dimension, curvature)
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
+fn poincare_metric_tensor_batch<'py>(
+    py: Python<'py>,
+    points: PyReadonlyArray2<'py, f64>,
+    dimension: usize,
+    curvature: f64,
+) -> PyResult<Py<PyArray3<f64>>> {
+    let points_owned = points.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_metric_tensor_batch", move || {
+        poincare_metric_tensor_batch_impl(points_owned.view(), dimension, curvature)
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -574,7 +910,10 @@ fn response_geometry_clr_jet<'py>(
     let (value, jac) = detach_py_result(py, "response_geometry_clr_jet", move || {
         gam::geometry::manifolds::aitchison_ilr::clr_jet(arr.view())
     })?;
-    Ok((value.into_pyarray(py).unbind(), jac.into_pyarray(py).unbind()))
+    Ok((
+        value.into_pyarray(py).unbind(),
+        jac.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Simplex log map value and its per-row Jacobian w.r.t. `values` (base held
@@ -598,7 +937,10 @@ fn response_geometry_simplex_log_map_jet<'py>(
             reference,
         )
     })?;
-    Ok((value.into_pyarray(py).unbind(), jac.into_pyarray(py).unbind()))
+    Ok((
+        value.into_pyarray(py).unbind(),
+        jac.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Simplex exp map value and its per-row Jacobian w.r.t. `tangent` (base held
@@ -622,7 +964,10 @@ fn response_geometry_simplex_exp_map_jet<'py>(
             reference,
         )
     })?;
-    Ok((value.into_pyarray(py).unbind(), jac.into_pyarray(py).unbind()))
+    Ok((
+        value.into_pyarray(py).unbind(),
+        jac.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Sphere exp map value and its per-row Jacobian w.r.t. `tangent` (base held
@@ -641,7 +986,10 @@ fn response_geometry_sphere_exp_map_jet<'py>(
             base_owned.view(),
         )
     })?;
-    Ok((value.into_pyarray(py).unbind(), jac.into_pyarray(py).unbind()))
+    Ok((
+        value.into_pyarray(py).unbind(),
+        jac.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Consolidated response-geometry log map. Owns geometry-kind routing,
@@ -768,6 +1116,7 @@ fn response_geometry_fit_curvature<'py>(
             1.0e-12,
             256,
         )
+        .map_err(|error| error.to_string())
     })?;
     let verdict = match fit.profile_ci.verdict {
         gam::geometry::CurvatureVerdict::Spherical => "spherical",
@@ -816,6 +1165,28 @@ fn sae_sinkhorn_balance_bias<'py>(
 ) -> PyResult<Py<PyArray1<f64>>> {
     let scores_owned = log_scores.as_array().to_owned();
     let out = py.detach(move || sae_sinkhorn_balance_bias_impl(scores_owned.view(), iters));
+    Ok(out.into_pyarray(py).unbind())
+}
+
+/// Exponential-moving-average blend of the per-row assignment accumulator for
+/// the torch `softmax_topk` routing lane (issue #1282). Given the current
+/// accumulator `prev (N, F)`, the freshly observed assignment signal
+/// `signal (N, F)`, and the decay `beta`, returns `beta*prev + (1-beta)*signal`.
+/// Both inputs are detached routing state; the Python `_update_assign_ema` keeps
+/// the stateful orchestration (lazy sizing, reset on a row-count change, the
+/// training-only guard) and delegates only this numeric recurrence so the EMA
+/// math is single-sourced. See `gam::geometry::sae_routing::assign_ema_update`.
+#[pyfunction]
+fn sae_assign_ema_update<'py>(
+    py: Python<'py>,
+    prev: PyReadonlyArray2<'py, f64>,
+    signal: PyReadonlyArray2<'py, f64>,
+    beta: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let prev_owned = prev.as_array().to_owned();
+    let signal_owned = signal.as_array().to_owned();
+    let out =
+        py.detach(move || sae_assign_ema_update_impl(prev_owned.view(), signal_owned.view(), beta));
     Ok(out.into_pyarray(py).unbind())
 }
 
@@ -880,6 +1251,90 @@ fn sae_residual_em_score_vjp<'py>(
     Ok(grad.into_pyarray(py).unbind())
 }
 
+fn residual_em_cuda_dtype(
+    dtype: &str,
+) -> PyResult<gam::terms::sae::criterion_atoms_gpu::ResidualEmCudaDType> {
+    gam::terms::sae::criterion_atoms_gpu::ResidualEmCudaDType::parse(dtype)
+        .map_err(PyTypeError::new_err)
+}
+
+/// Raw-pointer CUDA forward for `sae_residual_em_score`.
+///
+/// `device_ptrs` is `(x, per_atom_recon, code, relative_residual)` and `shape`
+/// is `(N, F, D)`. All allocations must be contiguous, have the exact scalar
+/// type named by `dtype`, and belong to `ordinal`'s CUDA primary context. The
+/// torch bridge validates those invariants and synchronizes its producing
+/// stream before entering this ownership-free boundary.
+#[pyfunction]
+fn sae_residual_em_score_cuda(
+    py: Python<'_>,
+    ordinal: usize,
+    dtype: &str,
+    device_ptrs: (u64, u64, u64, u64),
+    shape: (usize, usize, usize),
+    nonneg: bool,
+) -> PyResult<()> {
+    let scalar_type = residual_em_cuda_dtype(dtype)?;
+    let (x_dev_ptr, recon_dev_ptr, code_dev_ptr, relative_residual_dev_ptr) = device_ptrs;
+    let (n, atoms, dim) = shape;
+    py.detach(move || {
+        gam::terms::sae::criterion_atoms_gpu::residual_em_score_device(
+            ordinal,
+            scalar_type,
+            x_dev_ptr,
+            recon_dev_ptr,
+            n,
+            atoms,
+            dim,
+            nonneg,
+            code_dev_ptr,
+            relative_residual_dev_ptr,
+        )
+    })
+    .map_err(PyValueError::new_err)
+}
+
+/// Raw-pointer analytic CUDA VJP for `sae_residual_em_score_vjp`.
+///
+/// `device_ptrs` is `(x, per_atom_recon, g_code, g_relative_residual,
+/// grad_per_atom_recon)` and `shape` is `(N, F, D)`, with the same strict
+/// device/dtype/layout contract as [`sae_residual_em_score_cuda`].
+#[pyfunction]
+fn sae_residual_em_score_vjp_cuda(
+    py: Python<'_>,
+    ordinal: usize,
+    dtype: &str,
+    device_ptrs: (u64, u64, u64, u64, u64),
+    shape: (usize, usize, usize),
+    nonneg: bool,
+) -> PyResult<()> {
+    let scalar_type = residual_em_cuda_dtype(dtype)?;
+    let (
+        x_dev_ptr,
+        recon_dev_ptr,
+        g_code_dev_ptr,
+        g_relative_residual_dev_ptr,
+        grad_recon_dev_ptr,
+    ) = device_ptrs;
+    let (n, atoms, dim) = shape;
+    py.detach(move || {
+        gam::terms::sae::criterion_atoms_gpu::residual_em_score_vjp_device(
+            ordinal,
+            scalar_type,
+            x_dev_ptr,
+            recon_dev_ptr,
+            n,
+            atoms,
+            dim,
+            nonneg,
+            g_code_dev_ptr,
+            g_relative_residual_dev_ptr,
+            grad_recon_dev_ptr,
+        )
+    })
+    .map_err(PyValueError::new_err)
+}
+
 /// Deterministic line-clustering routing anchor for the torch `softmax_topk`
 /// lane (issue #1282). Given the `(N, D)` input rows, returns
 /// `(onehot (N, atoms), valid, confident)`: `valid` is false (with an empty
@@ -895,10 +1350,15 @@ fn sae_direction_cluster_anchor<'py>(
     iters: usize,
 ) -> PyResult<(Py<PyArray2<f64>>, bool, bool)> {
     let x_owned = x.as_array().to_owned();
-    let result = py.detach(move || sae_direction_cluster_anchor_impl(x_owned.view(), n_atoms, iters));
+    let result =
+        py.detach(move || sae_direction_cluster_anchor_impl(x_owned.view(), n_atoms, iters));
     match result {
         Some((onehot, confident)) => Ok((onehot.into_pyarray(py).unbind(), true, confident)),
-        None => Ok((Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(), false, false)),
+        None => Ok((
+            Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(),
+            false,
+            false,
+        )),
     }
 }
 
@@ -916,7 +1376,8 @@ fn sae_quadratic_subspace_anchor<'py>(
     subspace_dim: usize,
 ) -> PyResult<(Py<PyArray2<f64>>, bool, usize, usize, f64)> {
     let x_owned = x.as_array().to_owned();
-    let result = py.detach(move || sae_quadratic_subspace_anchor_impl(x_owned.view(), subspace_dim));
+    let result =
+        py.detach(move || sae_quadratic_subspace_anchor_impl(x_owned.view(), subspace_dim));
     match result {
         Some((onehot, i, j, threshold)) => {
             Ok((onehot.into_pyarray(py).unbind(), true, i, j, threshold))
@@ -980,58 +1441,11 @@ fn sae_matching_pursuit_commit<'py>(
     });
     match result {
         Some(onehot) => Ok((onehot.into_pyarray(py).unbind(), true)),
-        None => Ok((Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(), false)),
+        None => Ok((
+            Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(),
+            false,
+        )),
     }
-}
-
-/// Batched rank-1 chart-coordinate E-step solver for the torch `ManifoldSAE`
-/// `softmax_topk` lane (#2011-style Python→Rust trainer-math migration). For
-/// every `(row, atom)` pair it solves the on-manifold coordinate by projecting
-/// the target onto the atom's CURRENT decoded curve, amplitude profiled out,
-/// over a grid of `8·K` points derived from the basis width. The solved
-/// coordinates are E-step constants on the torch tape; the decoder gradient
-/// still flows through the basis evaluation at those coordinates.
-///
-/// * `x` — `(N, D)` observations.
-/// * `decoders` — `(F, K, D)` decoder blocks.
-/// * `n_harmonics` — periodic (Fourier) basis harmonic count; the basis width
-///   is `2·n_harmonics + 1` and must equal the decoder `K`.
-/// * `prev_positions` / `gate_weights` — optional `(N, F)` matrices; when BOTH
-///   are supplied the solver targets the leave-one-out residual
-///   `x − Σ_{g≠f} gate_g · m_g(t_g)` (second sweep). When either is omitted the
-///   plain target `x` is used (first sweep).
-///
-/// Returns solved coordinates `(N, F)` in `[0, 1)`. See
-/// `gam_sae::chart_coordinate_solve::solve_chart_coordinates`.
-#[pyfunction]
-#[pyo3(signature = (x, decoders, n_harmonics, prev_positions = None, gate_weights = None))]
-fn sae_solve_chart_coordinates<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    decoders: PyReadonlyArray3<'py, f64>,
-    n_harmonics: usize,
-    prev_positions: Option<PyReadonlyArray2<'py, f64>>,
-    gate_weights: Option<PyReadonlyArray2<'py, f64>>,
-) -> PyResult<Py<PyArray2<f64>>> {
-    let x_owned = x.as_array().to_owned();
-    let dec_owned = decoders.as_array().to_owned();
-    let prev_owned = prev_positions.map(|p| p.as_array().to_owned());
-    let gate_owned = gate_weights.map(|w| w.as_array().to_owned());
-    let out = py
-        .detach(move || {
-            let basis = gam::terms::sae::chart_coordinate_solve::ChartBasisKind::Periodic {
-                n_harmonics,
-            };
-            gam::terms::sae::chart_coordinate_solve::solve_chart_coordinates(
-                x_owned.view(),
-                dec_owned.view(),
-                basis,
-                prev_owned.as_ref().map(|p| p.view()),
-                gate_owned.as_ref().map(|w| w.view()),
-            )
-        })
-        .map_err(PyValueError::new_err)?;
-    Ok(out.into_pyarray(py).unbind())
 }
 
 /// Per-row / per-atom SAE trust scores from an assignment matrix and the
@@ -1057,30 +1471,6 @@ fn sae_row_trust_scores<'py>(
         row.into_pyarray(py).unbind(),
         per_atom.into_pyarray(py).unbind(),
     ))
-}
-
-/// Value and encoder-gradient of the period-1 coordinate alignment penalty for
-/// the torch manifold-SAE trainer. `encoder` and `solved` are `(N, F)`; returns
-/// `(value, grad)` where `grad` is `∂value/∂encoder` `(N, F)`. `solved` is a
-/// constant (the detached E-step solve). See
-/// `gam_sae::chart_coordinate_solve::position_alignment_penalty`.
-#[pyfunction]
-fn sae_position_alignment_penalty<'py>(
-    py: Python<'py>,
-    encoder: PyReadonlyArray2<'py, f64>,
-    solved: PyReadonlyArray2<'py, f64>,
-) -> PyResult<(f64, Py<PyArray2<f64>>)> {
-    let encoder_owned = encoder.as_array().to_owned();
-    let solved_owned = solved.as_array().to_owned();
-    let (value, grad) = py
-        .detach(move || {
-            gam::terms::sae::chart_coordinate_solve::position_alignment_penalty(
-                encoder_owned.view(),
-                solved_owned.view(),
-            )
-        })
-        .map_err(PyValueError::new_err)?;
-    Ok((value, grad.into_pyarray(py).unbind()))
 }
 
 /// Device-resident periodic basis+jet for the torch manifold-SAE lane.
@@ -1129,11 +1519,7 @@ fn sae_duchon_device_basis_width(
 ) -> PyResult<usize> {
     let centers_owned = centers.as_array().to_owned();
     py.detach(move || {
-        gam::terms::sae::basis_gpu::sae_duchon_device_basis_width(
-            ordinal,
-            centers_owned.view(),
-            m,
-        )
+        gam::terms::sae::basis_gpu::sae_duchon_device_basis_width(ordinal, centers_owned.view(), m)
     })
     .map_err(PyValueError::new_err)
 }
@@ -2651,15 +3037,12 @@ fn validate_parametric_aux_conditional_prior(
     Ok(())
 }
 
-fn inverse_softplus_scalar(value: f64) -> f64 {
-    if value <= 0.0 || value.is_nan() {
-        f64::NAN
-    } else if value > 30.0 {
-        value + (-(-value).exp()).ln_1p()
-    } else {
-        value.exp_m1().ln()
-    }
-}
+// Softplus⁻¹ reparameterization helper: the single definition lives in the core
+// `gam-sae` crate next to the forward softplus link (`terms::sae::assignment`),
+// so no numeric policy lives in this FFI shim (SPEC: pyffi thin, single source
+// of truth). Aliased to the original local name so the call sites below stay
+// unchanged.
+use gam::terms::sae::assignment::inverse_softplus as inverse_softplus_scalar;
 
 #[pyclass(
     module = "gam_pyffi._rust",
@@ -4387,6 +4770,10 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module.py().get_type::<RemlConvergenceError>(),
     )?;
     module.add(
+        "DictionaryConvergenceError",
+        module.py().get_type::<DictionaryConvergenceError>(),
+    )?;
+    module.add(
         "GradientUnavailableError",
         module.py().get_type::<GradientUnavailableError>(),
     )?;
@@ -4555,6 +4942,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<StiefelManifold>()?;
     module.add_class::<SpdManifold>()?;
     module.add_class::<ProductManifold>()?;
+    module.add_class::<PyEncodedTable>()?;
     module.add_function(wrap_pyfunction!(fit_penalized_multinomial_pyfunc, module)?)?;
     module.add_function(wrap_pyfunction!(fit_multinomial_formula_pyfunc, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -4582,25 +4970,27 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(fidelity_distortion_floor_r2, module)?)?;
     module.add_function(wrap_pyfunction!(identifiability_check_json, module)?)?;
     module.add_function(wrap_pyfunction!(set_log_level, module)?)?;
-    module.add_function(wrap_pyfunction!(interpolate_survival_surface, module)?)?;
     module.add_function(wrap_pyfunction!(interpolate_rows, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_chunk_defaults, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_chunk_ranges, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_should_chunk, module)?)?;
     module.add_function(wrap_pyfunction!(survival_chunk_iter_collect, module)?)?;
     module.add_function(wrap_pyfunction!(write_survival_csv, module)?)?;
     module.add_function(wrap_pyfunction!(survival_coerce_times, module)?)?;
     module.add_function(wrap_pyfunction!(survival_parameters_matrix, module)?)?;
-    module.add_function(wrap_pyfunction!(survival_collect_chunks, module)?)?;
-    module.add_function(wrap_pyfunction!(hazard_from_cumulative, module)?)?;
+    module.add_function(wrap_pyfunction!(hazard_from_cumulative_knots, module)?)?;
     module.add_function(wrap_pyfunction!(survival_cumulative_from_survival, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_failure_from_survival, module)?)?;
     module.add_function(wrap_pyfunction!(survival_block, module)?)?;
     module.add_function(wrap_pyfunction!(survival_block_hazard, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_block_cumulative_hazard, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_block_failure, module)?)?;
     module.add_function(wrap_pyfunction!(survival_ffi_surface, module)?)?;
     module.add_function(wrap_pyfunction!(numeric_matrix_validate, module)?)?;
     module.add_function(wrap_pyfunction!(numeric_matrix_f64, module)?)?;
+    module.add_function(wrap_pyfunction!(encoded_table_from_columns, module)?)?;
+    module.add_function(wrap_pyfunction!(encoded_table_from_arrow, module)?)?;
     module.add_function(wrap_pyfunction!(marginal_slope_clip_probabilities, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        transformation_normal_z_from_columns,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(column_stack_f64, module)?)?;
     module.add_function(wrap_pyfunction!(
         survival_prediction_payload_from_json,
@@ -4638,6 +5028,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(build_predict_payload_json, module)?)?;
     module.add_function(wrap_pyfunction!(build_model_predict_payload_json, module)?)?;
     module.add_function(wrap_pyfunction!(predict_table, module)?)?;
+    module.add_function(wrap_pyfunction!(transformation_score_table, module)?)?;
     module.add_function(wrap_pyfunction!(predict_table_conformal, module)?)?;
     // #1054: exact Gaussian jackknife+ conformal intervals (no calibration fold).
     module.add_function(wrap_pyfunction!(predict_table_jackknife_plus, module)?)?;
@@ -4661,7 +5052,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(sample_table, module)?)?;
-    module.add_function(wrap_pyfunction!(design_matrix_table, module)?)?;
     module.add_function(wrap_pyfunction!(design_matrix_table_dense, module)?)?;
     module.add_function(wrap_pyfunction!(design_matrix_array, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -4672,19 +5062,59 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(decoder_cov_from_channel_factors, module)?)?;
     module.add_function(wrap_pyfunction!(sae_canonical_n_harmonics, module)?)?;
     module.add_function(wrap_pyfunction!(sae_atom_topologies, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_canonical_assignment_kind,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_canonical_basis_kind,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_basis_kind_for_topology,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_topology_for_basis,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_canonical_topology,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_coordinate_periods,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_flat_block_assignment,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_activation_matrix_from_logits,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        crate::manifold::manifold_sae_coercion::sae_manifold_from_stagewise,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_training_mean, module)?)?;
     module.add_function(wrap_pyfunction!(sae_periodic_shape_band_reorder, module)?)?;
     module.add_function(wrap_pyfunction!(sae_coercion_json_roundtrip, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_core_from_fit_payload, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        sae_manifold_from_fit_payload,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_payload_roundtrip, module)?)?;
     module.add_class::<ManifoldSaeCore>()?;
     module.add_class::<AtomCore>()?;
     module.add_function(wrap_pyfunction!(bspline_basis, module)?)?;
     module.add_function(wrap_pyfunction!(bspline_basis_derivative, module)?)?;
+    module.add_function(wrap_pyfunction!(bspline_shape_constraints, module)?)?;
     module.add_function(wrap_pyfunction!(basis_with_jet, module)?)?;
     module.add_function(wrap_pyfunction!(periodic_basis_with_jet, module)?)?;
     module.add_function(wrap_pyfunction!(periodic_spline_curve_basis, module)?)?;
-    module.add_function(wrap_pyfunction!(cyclic_difference_penalty, module)?)?;
+    module.add_function(wrap_pyfunction!(cyclic_bspline_roughness_penalty, module)?)?;
     module.add_function(wrap_pyfunction!(duchon_basis_with_jet, module)?)?;
     module.add_function(wrap_pyfunction!(duchon_basis_with_jets, module)?)?;
     module.add_function(wrap_pyfunction!(duchon_basis, module)?)?;
@@ -4713,13 +5143,14 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     module.add_function(wrap_pyfunction!(gaussian_reml_score, module)?)?;
     module.add_function(wrap_pyfunction!(skip_transcoder_reml_metrics, module)?)?;
-    module.add_function(wrap_pyfunction!(skip_transcoder_select_reml, module)?)?;
     module.add_function(wrap_pyfunction!(tierney_kadane_normalized_score, module)?)?;
-    module.add_function(wrap_pyfunction!(topology_bic_score, module)?)?;
     module.add_function(wrap_pyfunction!(torch_smooth_dispatch_key, module)?)?;
     module.add_function(wrap_pyfunction!(assemble_candidate_formula, module)?)?;
     module.add_function(wrap_pyfunction!(ordered_prediction_columns, module)?)?;
-    module.add_function(wrap_pyfunction!(rank_topology_candidates, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        select_topology_candidate_lifecycle,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(stacking_weights_from_log_density, module)?)?;
     module.add_function(wrap_pyfunction!(stack_topologies_gaussian, module)?)?;
     module.add_function(wrap_pyfunction!(extract_reml_score, module)?)?;
@@ -4766,9 +5197,13 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(register_analytic_penalties, module)?)?;
     module.add_function(wrap_pyfunction!(analytic_penalty_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(analytic_penalty_hvp, module)?)?;
-    module.add_function(wrap_pyfunction!(harmonic_roughness_evidence_weight, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        harmonic_roughness_evidence_weight,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(gumbel_schedule_tau, module)?)?;
     module.add_function(wrap_pyfunction!(sae_ibp_map_value_grad, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_ibp_map_batch_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(sae_jumprelu_row_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(sae_jumprelu_batch_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(sae_topk_activation_value_grad, module)?)?;
@@ -4797,12 +5232,17 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     module.add_function(wrap_pyfunction!(poincare_mobius_add, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_distance, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_distance_batch, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_project_into_ball, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_log_origin, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_exp_origin, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_conformal_factor, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_exp_map, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_log_map, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_exp_map_batch, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_log_map_batch, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_project_into_ball_batch, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_metric_tensor_batch, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_to_lorentz, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_from_lorentz, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_lorentz_log_origin, module)?)?;
@@ -4817,11 +5257,23 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(response_geometry_sphere_exp_map, module)?)?;
     module.add_function(wrap_pyfunction!(response_geometry_ilr, module)?)?;
     module.add_function(wrap_pyfunction!(response_geometry_inverse_ilr, module)?)?;
-    module.add_function(wrap_pyfunction!(response_geometry_aitchison_metric, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        response_geometry_aitchison_metric,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(response_geometry_clr_jet, module)?)?;
-    module.add_function(wrap_pyfunction!(response_geometry_simplex_log_map_jet, module)?)?;
-    module.add_function(wrap_pyfunction!(response_geometry_simplex_exp_map_jet, module)?)?;
-    module.add_function(wrap_pyfunction!(response_geometry_sphere_exp_map_jet, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        response_geometry_simplex_log_map_jet,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        response_geometry_simplex_exp_map_jet,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        response_geometry_sphere_exp_map_jet,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(response_geometry_log_map, module)?)?;
     module.add_function(wrap_pyfunction!(response_geometry_exp_map, module)?)?;
     module.add_function(wrap_pyfunction!(response_geometry_fit_curvature, module)?)?;
@@ -4831,15 +5283,16 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     module.add_function(wrap_pyfunction!(sae_duchon_centers_nd, module)?)?;
     module.add_function(wrap_pyfunction!(sae_sinkhorn_balance_bias, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_assign_ema_update, module)?)?;
     module.add_function(wrap_pyfunction!(sae_residual_em_score, module)?)?;
     module.add_function(wrap_pyfunction!(sae_residual_em_score_vjp, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_residual_em_score_cuda, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_residual_em_score_vjp_cuda, module)?)?;
     module.add_function(wrap_pyfunction!(sae_direction_cluster_anchor, module)?)?;
     module.add_function(wrap_pyfunction!(sae_quadratic_subspace_anchor, module)?)?;
     module.add_function(wrap_pyfunction!(sae_apply_anchor_rule, module)?)?;
     module.add_function(wrap_pyfunction!(sae_matching_pursuit_commit, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_solve_chart_coordinates, module)?)?;
     module.add_function(wrap_pyfunction!(sae_row_trust_scores, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_position_alignment_penalty, module)?)?;
     module.add_function(wrap_pyfunction!(sae_periodic_basis_with_jet_cuda, module)?)?;
     module.add_function(wrap_pyfunction!(sae_duchon_device_basis_width, module)?)?;
     module.add_function(wrap_pyfunction!(sae_duchon_basis_with_jet_cuda, module)?)?;
@@ -4861,8 +5314,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(equivariant_rho_so3, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_rho_so3_jvp, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_gauge_companion_loss, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_set_barrier_overrides, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_set_ibp_alpha, module)?)?;
     module.add_function(wrap_pyfunction!(
         sae_default_ibp_concentration_for_k_atoms,
         module
@@ -4874,10 +5325,15 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_select_k, module)?)?;
     module.add_function(wrap_pyfunction!(sae_auto_k_recommendation, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_description_length, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_eq4_description_length, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_stagewise, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_ibp, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_minimal, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_crosscoder_fit, module)?)?;
+    module.add_class::<ManifoldCrosscoderCore>()?;
+    module.add_function(wrap_pyfunction!(sae_behavior_fit, module)?)?;
+    module.add_class::<ManifoldBehaviorCore>()?;
     module.add_function(wrap_pyfunction!(sae_manifold_predict_oos, module)?)?;
     module.add_function(wrap_pyfunction!(build_sae_encode_atlas, module)?)?;
     module.add_class::<PySaeEncodeAtlas>()?;
@@ -4892,6 +5348,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(chart_transfer_operator, module)?)?;
     module.add_function(wrap_pyfunction!(certify_chart_transfer, module)?)?;
     module.add_function(wrap_pyfunction!(sae_checkpoint_dynamics, module)?)?;
+    module.add_class::<PyInterventionCalibrationPlan>()?;
+    module.add_function(wrap_pyfunction!(intervention_calibration_plan, module)?)?;
     inference_instruments::register(module)?;
     module.add_function(wrap_pyfunction!(sae_manifold_assignment_summary, module)?)?;
     module.add_function(wrap_pyfunction!(gated_sae_decode, module)?)?;
@@ -4904,10 +5362,10 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(glm_reml_fit_latent_backward, module)?)?;
     module.add_function(wrap_pyfunction!(posterior_predict_table, module)?)?;
     module.add_function(wrap_pyfunction!(posterior_predict_bands_table, module)?)?;
+    module.add_function(wrap_pyfunction!(posterior_draw_bands, module)?)?;
     module.add_function(wrap_pyfunction!(posterior_eta_bands, module)?)?;
     module.add_function(wrap_pyfunction!(posterior_credible_interval, module)?)?;
     module.add_function(wrap_pyfunction!(posterior_coefficient_names_json, module)?)?;
-    module.add_function(wrap_pyfunction!(posterior_samples_summary_json, module)?)?;
     module.add_function(wrap_pyfunction!(posterior_trace_selection_json, module)?)?;
     module.add_function(wrap_pyfunction!(apply_inverse_link_array, module)?)?;
     module.add_function(wrap_pyfunction!(summary_json, module)?)?;
@@ -4936,8 +5394,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(report_html, module)?)?;
     module.add_function(wrap_pyfunction!(compute_residuals, module)?)?;
     module.add_function(wrap_pyfunction!(diagnostics_from_predictions, module)?)?;
-    module.add_function(wrap_pyfunction!(benchmark_prediction_metrics, module)?)?;
     module.add_function(wrap_pyfunction!(auc_from_predictions, module)?)?;
+    module.add_function(wrap_pyfunction!(weighted_auc_from_predictions, module)?)?;
     module.add_function(wrap_pyfunction!(brier_from_predictions, module)?)?;
     module.add_function(wrap_pyfunction!(log_loss_from_predictions, module)?)?;
     module.add_function(wrap_pyfunction!(nagelkerke_r2_from_predictions, module)?)?;
@@ -5009,18 +5467,27 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(conditional_prior_ivae, module)?)?;
     module.add_function(wrap_pyfunction!(diagnostics_aux_richness, module)?)?;
     module.add_function(wrap_pyfunction!(diagnostics_jacobian_sparsity, module)?)?;
-    module.add_function(wrap_pyfunction!(diagnostics_anchor_consistency, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        diagnostics_anchor_consistency_report,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(diagnostics_concat_decoder_blocks, module)?)?;
     module.add_function(wrap_pyfunction!(partial_supervision_solve, module)?)?;
     module.add_function(wrap_pyfunction!(thin_svd_scores, module)?)?;
     module.add_function(wrap_pyfunction!(linear_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(linear_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sae_fit_admission, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_linear_dictionary_admission, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_reconstruct_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruct_ffi, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_manifold_steer_rows, module)?)?;
     module.add_function(wrap_pyfunction!(block_sparse_dictionary_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        fixed_budget_block_sparse_dictionary_fit,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(
         block_sparse_dictionary_transform_ffi,
         module
@@ -5056,10 +5523,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(rank_charge_dof, module)?)?;
     module.add_class::<SparseDictStream>()?;
     module.add_class::<BlockSparseDictStream>()?;
-    module.add_function(wrap_pyfunction!(
-        identifiable_factor_select_weights_array,
-        module
-    )?)?;
+    module.add_function(wrap_pyfunction!(identifiable_factor_log_evidence, module)?)?;
     module.add_class::<IsometryPenalty>()?;
     module.add_class::<SparsityPenalty>()?;
     module.add_class::<PyTopKActivationPenalty>()?;
@@ -5079,7 +5543,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NuclearNormPenalty>()?;
     module.add_class::<MechanismSparsityPenalty>()?;
     module.add_function(wrap_pyfunction!(dimension_spectrometer, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_fit_tiered, module)?)?;
     module.add_function(wrap_pyfunction!(block_firing_coordinates, module)?)?;
     module.add_function(wrap_pyfunction!(routability_floor, module)?)?;
     module.add_function(wrap_pyfunction!(routability_audit, module)?)?;
@@ -5090,7 +5553,10 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(recover_spikes, module)?)?;
     module.add_function(wrap_pyfunction!(compose_contracts, module)?)?;
     module.add_function(wrap_pyfunction!(loop_holonomy, module)?)?;
-    module.add_function(wrap_pyfunction!(conditional_coactivation_influence, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        conditional_coactivation_influence,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(coupling_robustness_certificate, module)?)?;
     module.add_function(wrap_pyfunction!(effect_weighted_retention, module)?)?;
     module.add_function(wrap_pyfunction!(chart_interp_score, module)?)?;
@@ -5227,31 +5693,48 @@ fn diagnostics_jacobian_sparsity<'py>(
     Ok(dict.unbind())
 }
 
-/// Anchor-consistency metrics for a manifold-SAE assignment matrix.
+/// Full anchor-consistency identifiability verdict for an assignment matrix.
 ///
-/// `assignments` has shape `(N, K)`. Returns a dict with keys:
-/// `n_rows`, `n_atoms`, `n_anchors`, `anchors_per_atom` (list[int] length K).
-#[pyfunction(signature = (assignments, anchor_dominance))]
-fn diagnostics_anchor_consistency<'py>(
+/// Marshals `gam::identifiability::kernel::anchor_consistency_report` — the
+/// single core implementation of the pass/fail logic — into a dict with keys
+/// `preconditions` (dict[str, bool]), `violations` (list[str]),
+/// `recommendations` (list[str]), `anchor_dominance`, and `details`
+/// (`n_samples`, `K`, `n_anchors`, `anchor_fraction`, `anchors_per_atom`,
+/// `uncovered_atoms`).
+#[pyfunction(signature = (assignments, anchor_dominance=None))]
+fn diagnostics_anchor_consistency_report<'py>(
     py: Python<'py>,
     assignments: PyReadonlyArray2<'py, f64>,
-    anchor_dominance: f64,
+    anchor_dominance: Option<f64>,
 ) -> PyResult<Py<PyDict>> {
-    if !(anchor_dominance > 0.0 && anchor_dominance <= 1.0) {
-        return Err(py_value_error(format!(
-            "diagnostics_anchor_consistency: anchor_dominance must be in (0, 1]; got {}",
-            anchor_dominance
-        )));
-    }
-    let m = gam::identifiability::kernel::anchor_consistency_metrics(
+    let report = gam::identifiability::kernel::anchor_consistency_report(
         assignments.as_array(),
         anchor_dominance,
-    );
+    )
+    .map_err(py_value_error)?;
+    let preconditions = PyDict::new(py);
+    preconditions.set_item(
+        "enough_anchors_total",
+        report.preconditions.enough_anchors_total,
+    )?;
+    preconditions.set_item(
+        "anchors_cover_all_atoms",
+        report.preconditions.anchors_cover_all_atoms,
+    )?;
+    let details = PyDict::new(py);
+    details.set_item("n_samples", report.metrics.n_rows)?;
+    details.set_item("K", report.metrics.n_atoms)?;
+    details.set_item("n_anchors", report.metrics.n_anchors)?;
+    details.set_item("anchor_fraction", report.anchor_fraction)?;
+    details.set_item("anchors_per_atom", report.metrics.anchors_per_atom.clone())?;
+    details.set_item("uncovered_atoms", report.uncovered_atoms.clone())?;
+    details.set_item("anchor_dominance", report.anchor_dominance)?;
     let dict = PyDict::new(py);
-    dict.set_item("n_rows", m.n_rows)?;
-    dict.set_item("n_atoms", m.n_atoms)?;
-    dict.set_item("n_anchors", m.n_anchors)?;
-    dict.set_item("anchors_per_atom", m.anchors_per_atom)?;
+    dict.set_item("preconditions", preconditions)?;
+    dict.set_item("violations", report.violations.clone())?;
+    dict.set_item("recommendations", report.recommendations.clone())?;
+    dict.set_item("anchor_dominance", report.anchor_dominance)?;
+    dict.set_item("details", details)?;
     Ok(dict.unbind())
 }
 
@@ -5269,46 +5752,28 @@ fn diagnostics_concat_decoder_blocks<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
-/// Generic 2D log-λ weight-selection driver.
+/// Score one converged identifiable-factor fit at fixed hyperparameters.
 ///
-/// Takes a precomputed `(G1, G2)` RSS grid and a matching penalty grid
-/// together with the two 1D weight grids, computes the Laplace-style log
-/// marginal-likelihood proxy on every cell, and returns the maximising
-/// cell with deterministic tie-breaking. Useful for any two-penalty model
-/// (identifiable-factor recipe, double-penalty smooths, IBP + sparsity).
-///
-/// Returns a dict with keys: ``best_i``, ``best_j``, ``best_lam1``,
-/// ``best_lam2``, ``best_evidence``, ``evidence_grid``.
-#[pyfunction(signature = (rss_grid, penalty_grid, lam1_grid, lam2_grid, n_obs))]
-fn identifiable_factor_select_weights_array<'py>(
-    py: Python<'py>,
-    rss_grid: PyReadonlyArray2<'py, f64>,
-    penalty_grid: PyReadonlyArray2<'py, f64>,
-    lam1_grid: PyReadonlyArray1<'py, f64>,
-    lam2_grid: PyReadonlyArray1<'py, f64>,
+/// This is deliberately scalar. A sampled RSS/penalty table cannot supply the
+/// analytic hyperparameter derivatives needed for continuous evidence
+/// optimization and is therefore not accepted at the FFI boundary.
+#[pyfunction]
+fn identifiable_factor_log_evidence(
+    residual_sum_squares: f64,
+    penalty: f64,
     n_obs: i64,
-) -> PyResult<Py<PyDict>> {
+) -> PyResult<f64> {
     if n_obs <= 0 {
         return Err(py_value_error(format!(
-            "identifiable_factor_select_weights_array: n_obs must be > 0, got {n_obs}"
+            "identifiable_factor_log_evidence: n_obs must be > 0, got {n_obs}"
         )));
     }
-    let res = gam::terms::sae::identifiability::identifiable_factor_select_weights(
-        rss_grid.as_array(),
-        penalty_grid.as_array(),
-        lam1_grid.as_array(),
-        lam2_grid.as_array(),
+    gam::terms::sae::identifiability::identifiable_factor_log_evidence(
+        residual_sum_squares,
+        penalty,
         n_obs as usize,
     )
-    .map_err(py_value_error)?;
-    let out = PyDict::new(py);
-    out.set_item("best_i", res.best_i)?;
-    out.set_item("best_j", res.best_j)?;
-    out.set_item("best_lam1", res.best_lam1)?;
-    out.set_item("best_lam2", res.best_lam2)?;
-    out.set_item("best_evidence", res.best_evidence)?;
-    out.set_item("evidence_grid", res.evidence_grid.into_pyarray(py))?;
-    Ok(out.unbind())
+    .map_err(py_value_error)
 }
 
 /// Partial-supervision gauge-fix solver.
@@ -5317,7 +5782,7 @@ fn identifiable_factor_select_weights_array<'py>(
 /// `gamfit.examples.partial_supervision` (and reusable from the CLI / R /
 /// Julia bindings). All linear-algebra work — orthogonal Procrustes via
 /// SVD, anchor least-squares via SVD pseudo-inverse, soft-L2 ridge map via
-/// symmetric eigendecomposition with a REML grid, and the orthogonal-
+/// symmetric eigendecomposition with certified continuous REML, and the orthogonal-
 /// complement projection via thin QR — runs in Rust through the faer
 /// bridge.
 ///
@@ -5468,9 +5933,12 @@ fn linear_dictionary_fit<'py>(
         tolerance,
         center_rank_one,
     };
-    let fit = detach_py_result(py, "linear_dictionary_fit", move || {
-        fit_linear_dictionary(x_values.view(), &config)
-    })?;
+    let fit = detach_typed_py_result(
+        py,
+        "linear_dictionary_fit",
+        move || fit_linear_dictionary(x_values.view(), &config),
+        linear_dictionary_error_to_pyerr,
+    )?;
     let out = PyDict::new(py);
     out.set_item("atoms", fit.atoms.into_pyarray(py))?;
     out.set_item("assignments", fit.assignments.into_pyarray(py))?;
@@ -5479,10 +5947,47 @@ fn linear_dictionary_fit<'py>(
     out.set_item("reml_scores", fit.reml_scores.into_pyarray(py))?;
     out.set_item("explained_variance", fit.explained_variance)?;
     out.set_item("iterations", fit.iterations)?;
-    out.set_item("converged", fit.converged)?;
+    let convergence = PyDict::new(py);
+    convergence.set_item("ev_residual", fit.convergence.ev_residual)?;
+    convergence.set_item("routing_residual", fit.convergence.routing_residual)?;
+    convergence.set_item("accepted_births", fit.convergence.accepted_births)?;
+    convergence.set_item("tolerance", fit.convergence.tolerance)?;
+    out.set_item("convergence", convergence)?;
     out.set_item("assignment", fit.assignment.as_str())?;
     out.set_item("top_k", fit.top_k)?;
     Ok(out.unbind())
+}
+
+fn linear_dictionary_error_to_pyerr(py: Python<'_>, error: LinearDictionaryError) -> PyErr {
+    let message = error.to_string();
+    match error {
+        LinearDictionaryError::InvalidInput { .. } => InvalidInputError::new_err(message),
+        LinearDictionaryError::NumericalFailure { .. } => GamError::new_err(message),
+        LinearDictionaryError::NonConvergence {
+            iterations,
+            explained_variance,
+            ev_residual,
+            routing_residual,
+            accepted_births,
+            tolerance,
+        } => {
+            let error = DictionaryConvergenceError::new_err(message);
+            let bound = error.value(py);
+            let attach_result: PyResult<()> = (|| {
+                bound.setattr("iterations", iterations)?;
+                bound.setattr("explained_variance", explained_variance)?;
+                bound.setattr("ev_residual", ev_residual)?;
+                bound.setattr("routing_residual", routing_residual)?;
+                bound.setattr("accepted_births", accepted_births)?;
+                bound.setattr("tolerance", tolerance)?;
+                Ok(())
+            })();
+            if let Err(attach_error) = attach_result {
+                attach_error.write_unraisable(py, Some(&bound));
+            }
+            error
+        }
+    }
 }
 
 /// Out-of-sample encode: route held-out rows `x` (`M x P`) through a fitted
@@ -5535,18 +6040,12 @@ fn score_route_stats_dict<'py>(
     Ok(out)
 }
 
-fn parse_sparse_dict_score_mode(score_mode: &str) -> PyResult<gam::gpu::GpuMode> {
-    if score_mode.eq_ignore_ascii_case("auto") {
-        Ok(gam::gpu::GpuMode::Auto)
-    } else if score_mode.eq_ignore_ascii_case("required") {
-        Ok(gam::gpu::GpuMode::Required)
-    } else if score_mode.eq_ignore_ascii_case("off") {
-        Ok(gam::gpu::GpuMode::Off)
-    } else {
-        Err(py_value_error(format!(
+fn parse_sparse_dict_score_mode(score_mode: &str) -> PyResult<gam::gpu::GpuPolicy> {
+    gam::gpu::GpuPolicy::parse(score_mode).ok_or_else(|| {
+        py_value_error(format!(
             "sparse dictionary score_mode must be 'auto', 'required', or 'off'; got {score_mode:?}"
-        )))
-    }
+        ))
+    })
 }
 
 /// Cap on the number of top strictly-improving birth candidates a sparse-dict
@@ -5627,13 +6126,27 @@ fn sparse_dictionary_fit<'py>(
     out.set_item("codes", fit.codes.into_pyarray(py))?;
     out.set_item("explained_variance", fit.explained_variance)?;
     out.set_item("epochs", fit.epochs)?;
-    out.set_item("converged", fit.converged)?;
+    let convergence = PyDict::new(py);
+    convergence.set_item("inner_ev_residual", fit.convergence.inner_ev_residual)?;
+    convergence.set_item("inner_tolerance", fit.convergence.inner_tolerance)?;
+    convergence.set_item("decoder_residual", fit.convergence.decoder_residual)?;
+    convergence.set_item("decoder_tolerance", fit.convergence.decoder_tolerance)?;
+    convergence.set_item("routing_residual", fit.convergence.routing_residual)?;
+    convergence.set_item("routing_tolerance", fit.convergence.routing_tolerance)?;
+    convergence.set_item("outer_rho_residual", fit.convergence.outer_rho_residual)?;
+    convergence.set_item("outer_tolerance", fit.convergence.outer_tolerance)?;
+    convergence.set_item("selected_rho", fit.convergence.selected_rho)?;
+    convergence.set_item("outer_iterations", fit.convergence.outer_iterations)?;
+    out.set_item("convergence", convergence)?;
     out.set_item("active", fit.active)?;
     out.set_item(
         "score_route_stats",
         score_route_stats_dict(py, fit.score_route_stats)?,
     )?;
-    out.set_item("dual_certificate", dual_certificate_report_dict(py, &dual_cert)?)?;
+    out.set_item(
+        "dual_certificate",
+        dual_certificate_report_dict(py, &dual_cert)?,
+    )?;
     Ok(out.unbind())
 }
 
@@ -5751,6 +6264,74 @@ fn sae_manifold_reconstruct_ffi<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
+/// gam#2234 — on-manifold causal STEER of a persisted atom set: returns the
+/// ambient steering DELTA `a·(Φ(t⊕δ)−Φ(t))·B_k` for the single atom `steer_atom`
+/// on every row (shape `(n_rows, p_out)`), which the Python side adds to the
+/// residual-stream activation. `delta` is the intrinsic chart-coordinate step
+/// (radians / fraction-of-period per the atom's manifold); the group action
+/// `⊕` is the atom's own manifold retraction (Circle phase add, Euclidean
+/// translate, product blockwise). Thin marshalling around the single-sourced
+/// [`gam::terms::sae::manifold::steer_persisted_atom_set`], the stateless
+/// counterpart of `SaeManifoldTerm::steer_rows`, mirroring
+/// [`sae_manifold_reconstruct_ffi`].
+#[pyfunction(signature = (
+    atom_basis,
+    atom_dim,
+    decoder_blocks,
+    coords,
+    assignments,
+    p_out,
+    steer_atom,
+    delta,
+))]
+fn sae_manifold_steer_rows<'py>(
+    py: Python<'py>,
+    atom_basis: Vec<String>,
+    atom_dim: Vec<usize>,
+    decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
+    coords: Vec<PyReadonlyArray2<'py, f64>>,
+    assignments: PyReadonlyArray2<'py, f64>,
+    p_out: usize,
+    steer_atom: usize,
+    delta: PyReadonlyArray1<'py, f64>,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let basis_kinds = atom_basis
+        .iter()
+        .map(|name| sae_atom_basis_kind_from_str(name))
+        .collect::<Vec<_>>();
+    let decoder_values = decoder_blocks
+        .iter()
+        .map(|block| block.as_array().to_owned())
+        .collect::<Vec<_>>();
+    let coord_values = coords
+        .iter()
+        .map(|coord| coord.as_array().to_owned())
+        .collect::<Vec<_>>();
+    let assignment_values = assignments.as_array().to_owned();
+    let delta_values = delta.as_array().to_owned();
+    let out = detach_py_result(py, "sae_manifold_steer_rows", move || {
+        let decoder_views = decoder_values
+            .iter()
+            .map(|block| block.view())
+            .collect::<Vec<_>>();
+        let coord_views = coord_values
+            .iter()
+            .map(|coord| coord.view())
+            .collect::<Vec<_>>();
+        gam::terms::sae::manifold::steer_persisted_atom_set(
+            &basis_kinds,
+            &atom_dim,
+            &decoder_views,
+            &coord_views,
+            assignment_values.view(),
+            p_out,
+            steer_atom,
+            delta_values.view(),
+        )
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
 /// #1026 block-sparse lane — fit a **block-sparse** dictionary: the `K = G·b`
 /// atoms are grouped into `G` blocks of `b` orthonormal atoms, routing selects
 /// whole blocks by their group ℓ₂ gate `‖z_g‖₂` (block-TopK, signed codes, no
@@ -5799,7 +6380,67 @@ fn block_sparse_dictionary_fit<'py>(
         matryoshka_prefix,
         tolerance,
     };
-    let (fit, dual_cert) = detach_py_result(py, "block_sparse_dictionary_fit", move || {
+    block_sparse_dictionary_fit_payload(py, x_values, config, "block_sparse_dictionary_fit")
+}
+
+/// Comparison-safe block-sparse fit whose capacity and active budget are both
+/// expressed in scalar decoder coordinates.  `n_atoms` is the exact decoder-row
+/// count and `active` is the exact maximum scalar coordinates per row.  Rust
+/// refuses a block layout that would require rounding either number.
+#[pyfunction(signature = (
+    x,
+    n_atoms,
+    active,
+    block_size,
+    max_epochs = 30,
+    minibatch = 512,
+    block_tile = 1024,
+    frame_ridge = 1.0e-9,
+    aux_k = 0,
+    matryoshka_prefix = false,
+    tolerance = 1.0e-6
+))]
+fn fixed_budget_block_sparse_dictionary_fit<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f32>,
+    n_atoms: usize,
+    active: usize,
+    block_size: usize,
+    max_epochs: usize,
+    minibatch: usize,
+    block_tile: usize,
+    frame_ridge: f64,
+    aux_k: usize,
+    matryoshka_prefix: bool,
+    tolerance: f64,
+) -> PyResult<Py<PyDict>> {
+    let x_values = x.as_array().to_owned();
+    let mut config = BlockSparseConfig::from_scalar_budget(n_atoms, active, block_size)
+        .map_err(py_value_error)?;
+    config.max_epochs = max_epochs;
+    config.minibatch = minibatch;
+    config.block_tile = block_tile;
+    config.frame_ridge = frame_ridge;
+    config.aux_k = aux_k;
+    config.matryoshka_prefix = matryoshka_prefix;
+    config.tolerance = tolerance;
+    block_sparse_dictionary_fit_payload(
+        py,
+        x_values,
+        config,
+        "fixed_budget_block_sparse_dictionary_fit",
+    )
+}
+
+fn block_sparse_dictionary_fit_payload<'py>(
+    py: Python<'py>,
+    x_values: Array2<f32>,
+    config: BlockSparseConfig,
+    operation: &'static str,
+) -> PyResult<Py<PyDict>> {
+    let n_atoms = config.n_atoms();
+    let active_atoms = config.active_atoms();
+    let (fit, dual_cert) = detach_py_result(py, operation, move || {
         let fit = fit_block_sparse_dictionary(x_values.view(), &config)?;
         // Block-lane global-optimality dual certificate (gate of the residual),
         // computed in the same detached block so every block fit emits it.
@@ -5823,10 +6464,20 @@ fn block_sparse_dictionary_fit<'py>(
     out.set_item("matryoshka_prefix_losses", fit.matryoshka_prefix_losses)?;
     out.set_item("explained_variance", fit.explained_variance)?;
     out.set_item("epochs", fit.epochs)?;
-    out.set_item("converged", fit.converged)?;
+    let convergence = PyDict::new(py);
+    convergence.set_item("ev_residual", fit.convergence.ev_residual)?;
+    convergence.set_item("gamma_residual", fit.convergence.gamma_residual)?;
+    convergence.set_item("frame_residual", fit.convergence.frame_residual)?;
+    convergence.set_item("tolerance", fit.convergence.tolerance)?;
+    out.set_item("convergence", convergence)?;
     out.set_item("block_topk", fit.block_topk)?;
     out.set_item("block_size", fit.block_size)?;
-    out.set_item("dual_certificate", dual_certificate_report_dict(py, &dual_cert)?)?;
+    out.set_item("n_atoms", n_atoms)?;
+    out.set_item("active", active_atoms)?;
+    out.set_item(
+        "dual_certificate",
+        dual_certificate_report_dict(py, &dual_cert)?,
+    )?;
     Ok(out.unbind())
 }
 
@@ -6042,7 +6693,6 @@ fn block_sparse_dictionary_seed_manifest_ffi<'py>(
     min_firings = 64,
     max_blocks = 256,
     crossfit_folds = 2,
-    alpha = 0.10,
     min_effect = 0.0,
     whitening_ridge = 1.0e-8,
     pair_screen = true,
@@ -6065,7 +6715,6 @@ fn block_coordinate_chart_compose_ffi<'py>(
     min_firings: usize,
     max_blocks: usize,
     crossfit_folds: usize,
-    alpha: f64,
     min_effect: f64,
     whitening_ridge: f64,
     pair_screen: bool,
@@ -6087,7 +6736,6 @@ fn block_coordinate_chart_compose_ffi<'py>(
         min_firings,
         max_blocks,
         crossfit_folds,
-        alpha,
         min_effect,
         whitening_ridge,
         pair_screen,
@@ -6109,8 +6757,8 @@ fn block_coordinate_chart_compose_ffi<'py>(
     let out = PyDict::new(py);
     out.set_item("reconstructed", result.reconstructed.into_pyarray(py))?;
     out.set_item("selected_blocks", result.selected_blocks)?;
-    out.set_item("accepted_blocks", result.accepted_blocks)?;
-    out.set_item("accepted_pairs", result.accepted_pairs)?;
+    out.set_item("selected_chart_blocks", result.selected_chart_blocks)?;
+    out.set_item("selected_chart_pairs", result.selected_chart_pairs)?;
     out.set_item("blocks", chart_records_to_py(py, &result.block_records)?)?;
     out.set_item("pairs", chart_records_to_py(py, &result.pair_records)?)?;
     Ok(out.unbind())
@@ -6135,9 +6783,7 @@ fn chart_records_to_py(py: Python<'_>, records: &[BlockChartRecord]) -> PyResult
         row.set_item("ci_high", e.ci_high)?;
         row.set_item("charge", e.charge)?;
         row.set_item("margin", e.margin)?;
-        row.set_item("log_e_value", e.log_e_value)?;
-        row.set_item("accepted_pre_ebh", e.accepted_pre_ebh)?;
-        row.set_item("accepted", e.accepted)?;
+        row.set_item("selected_by_bic", e.selected_by_bic)?;
         rows.append(row)?;
     }
     Ok(rows.unbind())
@@ -6318,16 +6964,16 @@ impl SparseDictStream {
         Ok(out.unbind())
     }
 
-    /// Hand back the trained decoder (`K×P`, unit-norm) plus run metadata and
-    /// aggregate score-route telemetry.
+    /// Hand back the converged decoder (`K×P`, unit-norm) plus run metadata and
+    /// aggregate score-route telemetry. Raises if the streaming loop has not
+    /// converged — the handle stays resumable (SPEC 20).
     fn finalize(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let artifact = self.inner.finalize();
+        let artifact = self.inner.finalize().map_err(py_value_error)?;
         let out = PyDict::new(py);
         out.set_item("decoder", artifact.decoder.into_pyarray(py))?;
         out.set_item("active", artifact.active)?;
         out.set_item("epochs", artifact.epochs)?;
         out.set_item("explained_variance", artifact.explained_variance)?;
-        out.set_item("converged", artifact.converged)?;
         out.set_item(
             "score_route_stats",
             score_route_stats_dict(py, artifact.score_route_stats)?,
@@ -6430,16 +7076,18 @@ impl BlockSparseDictStream {
         Ok(out.unbind())
     }
 
-    /// Refresh γ + block frames from the epoch's accumulators, revive dead blocks
-    /// onto worst-reconstructed residual rows, and reset the epoch. Returns
-    /// `{explained_variance, revived, dead, gamma, converged, epoch}`.
+    /// Refresh γ + block frames from the epoch's accumulators and advance the
+    /// exact residual-row birth transaction. Returns
+    /// `{explained_variance, accepted_births, birth_pending, dead, gamma,
+    /// converged, epoch}`.
     fn end_epoch(&mut self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         let stats = py
             .detach(|| self.inner.end_epoch())
             .map_err(py_value_error)?;
         let out = PyDict::new(py);
         out.set_item("explained_variance", stats.explained_variance)?;
-        out.set_item("revived", stats.revived)?;
+        out.set_item("accepted_births", stats.accepted_births)?;
+        out.set_item("birth_pending", stats.birth_pending)?;
         out.set_item("dead", stats.dead)?;
         out.set_item("gamma", stats.gamma)?;
         out.set_item("converged", stats.converged)?;
@@ -6447,11 +7095,12 @@ impl BlockSparseDictStream {
         Ok(out.unbind())
     }
 
-    /// Hand back the trained block frames (`K×P`) + γ + per-block report + metadata:
-    /// `{decoder, gamma, block_topk, block_size, block_utilization,
-    /// block_stable_rank, epochs, explained_variance, converged}`.
+    /// Hand back the converged block frames (`K×P`) + γ + per-block report +
+    /// metadata: `{decoder, gamma, block_topk, block_size, block_utilization,
+    /// block_stable_rank, epochs, explained_variance}`. Raises if the streaming
+    /// loop has not converged — the handle stays resumable (SPEC 20).
     fn finalize(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let artifact = self.inner.finalize();
+        let artifact = self.inner.finalize().map_err(py_value_error)?;
         let out = PyDict::new(py);
         out.set_item("decoder", artifact.decoder.into_pyarray(py))?;
         out.set_item("gamma", artifact.gamma)?;
@@ -6461,7 +7110,6 @@ impl BlockSparseDictStream {
         out.set_item("block_stable_rank", artifact.block_stable_rank)?;
         out.set_item("epochs", artifact.epochs)?;
         out.set_item("explained_variance", artifact.explained_variance)?;
-        out.set_item("converged", artifact.converged)?;
         Ok(out.unbind())
     }
 
@@ -6617,7 +7265,7 @@ fn fit_dataset_impl(
     // The stderr `[OUTER step]` log stream (installed by `progress_log::
     // init_logging` at module import) carries solver progress for the Python
     // bindings; the former always-on TUI session lane has been removed.
-    let (mut fit_config, training_table_kind) = parse_fit_config(config_json)?;
+    let mut fit_config = parse_fit_config(config_json)?;
     if let Some(w) = fisher_rao_w {
         inject_scalar_fisher_rao_weight(&mut dataset, &mut fit_config, w)?;
     }
@@ -6657,7 +7305,7 @@ fn fit_dataset_impl(
             None,
         )?;
         payload.group_metadata = fit_config.group_metadata.clone();
-        payload.training_table_kind = training_table_kind;
+        payload.training_table_kind = fit_config.training_table_kind.clone();
         // The LAWS driver materializes its inner Gaussian design itself; there are
         // no outer materialize advisories to carry (matches `fit_from_formula`).
         payload.inference_notes = Vec::new();
@@ -6673,7 +7321,12 @@ fn fit_dataset_impl(
     // produces the calibrated `z` out-of-fold — no z_column is needed and no
     // Stage-1 pre-fit / synthetic column round-trip is performed here. The recipe
     // rides on fit_config straight into materialize.
-    let materialized = materialize(&formula, &dataset, &fit_config)?;
+    // Standard-fit dispatch must materialize at the adaptive structural start:
+    // this request becomes the first fitted design below. Other estimator
+    // materializers do not consume this standard-only orchestration field.
+    let mut dispatch_config = fit_config.clone();
+    dispatch_config.spatial_center_counts = Some(Vec::new());
+    let materialized = materialize(&formula, &dataset, &dispatch_config)?;
     let request = materialized.request;
     // Advisories produced while materializing (e.g. the mgcv-style "k reduced to
     // the data support" / basis-degradation notes from the cr/cs/sz cap, #1541
@@ -6682,93 +7335,158 @@ fn fit_dataset_impl(
     // silently capped got no signal at all (#1543). Carry them into the
     // serialized payload so gamfit can surface them as `GamInferenceWarning`s
     // and via `model.notes`.
-    let inference_notes = materialized.inference_notes;
+    let mut inference_notes = materialized.inference_notes;
 
     let mut payload = match request {
         FitRequest::Standard(standard_request) => {
-            // Exact O(n) spline-scan fast path (#1030/#1034): a single 1-D
-            // Gaussian cubic smooth is the penalized cubic-spline problem the
-            // state-space scan solves exactly — route through it and persist
-            // the smoother state instead of the dense fit. Detection is
-            // structural; every other shape falls through to the dense fit
-            // below. Mirrors the CLI run_fit path so CLI and FFI saves agree.
-            if let Some(inputs) =
-                gam::families::fit_orchestration::spline_scan_fast_path(&standard_request)
-            {
-                let scan = gam::solver::spline_scan::fit_spline_scan(
-                    &inputs.x,
-                    &inputs.y,
-                    &inputs.w,
-                    inputs.order,
-                )
-                .map_err(|reason| {
-                    gam::families::fit_orchestration::WorkflowError::IntegrationFailed { reason }
-                })?;
-                let feature_col = match &standard_request.spec.smooth_terms[0].basis {
-                    gam::terms::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => {
-                        *feature_col
-                    }
-                    _ => {
-                        return Err(
-                            gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
-                                reason: "spline-scan detection accepted a non-1D basis".to_string(),
-                            },
-                        );
-                    }
-                };
-                let feature_column =
-                    dataset.headers.get(feature_col).cloned().ok_or_else(|| {
-                        gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
-                            reason: format!(
-                                "spline-scan feature column {feature_col} has no header"
-                            ),
-                        }
-                    })?;
-                let mut scan_payload =
-                    gam::inference::model_payload_builders::assemble_spline_scan_payload(
+            // Fit the request that selected this arm, then hand its converged
+            // result to the same loop owner the CLI uses. Re-entering the
+            // formula entry point here used to materialize the spatial design a
+            // second time; before the adaptive loop landed, the first discarded
+            // design was also the old fully provisioned rank (#1689).
+            let standard_family = standard_request.family.clone();
+            let standard_spec = standard_request.spec.clone();
+            let initial_notes = std::mem::take(&mut inference_notes);
+            let outcome = gam::families::fit_orchestration::fit_materialized_standard_with_notes(
+                &formula,
+                &dataset,
+                &fit_config,
+                standard_request,
+                initial_notes,
+            )?;
+            inference_notes = outcome.inference_notes;
+            match outcome.result {
+                FitResult::Standard(standard_result) => {
+                    let saved_fit = standard_result.fit.clone();
+                    build_standard_payload(
                         formula,
-                        feature_column,
-                        &scan,
-                        dataset.schema.clone(),
-                        dataset.headers.clone(),
-                        dataset.feature_ranges(),
-                    );
-                scan_payload.group_metadata = fit_config.group_metadata.clone();
-                scan_payload.training_table_kind = training_table_kind;
-                scan_payload.inference_notes = inference_notes;
-                let model = FittedModel::from_payload(scan_payload);
-                return serde_json::to_vec(&model).map_err(|err| {
-                    gam::families::fit_orchestration::WorkflowError::IntegrationFailed {
-                        reason: format!("failed to serialize model: {err}"),
-                    }
-                });
-            }
-            let family = standard_request.family.clone();
-            let fit_result = fit_model(FitRequest::Standard(standard_request))?;
-            let standard_result = match fit_result {
-                FitResult::Standard(standard_result) => standard_result,
+                        &dataset,
+                        &fit_config,
+                        standard_family,
+                        &saved_fit,
+                        &standard_result.design,
+                        standard_result.resolvedspec,
+                        standard_result.adaptive_diagnostics,
+                        standard_result.wiggle_knots.map(|knots| knots.to_vec()),
+                        standard_result.wiggle_degree,
+                        standard_result.wiggle_saved_warp_beta,
+                        standard_result.wiggle_saved_index_shift,
+                    )?
+                }
+                FitResult::SplineScan(scan) => {
+                    // The scan detection is structural on the materialized
+                    // shape, so the dispatch request's single smooth is the
+                    // same 1-D B-spline the entry point scan-routed.
+                    let feature_col = match &standard_spec.smooth_terms[0].basis {
+                        gam::terms::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => {
+                            *feature_col
+                        }
+                        _ => {
+                            return Err(
+                                gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
+                                    reason: "spline-scan detection accepted a non-1D basis"
+                                        .to_string(),
+                                },
+                            );
+                        }
+                    };
+                    let feature_column =
+                        dataset.headers.get(feature_col).cloned().ok_or_else(|| {
+                            gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
+                                reason: format!(
+                                    "spline-scan feature column {feature_col} has no header"
+                                ),
+                            }
+                        })?;
+                    let mut scan_payload =
+                        gam::inference::model_payload_builders::assemble_spline_scan_payload(
+                            formula,
+                            feature_column,
+                            &scan,
+                            dataset.schema.clone(),
+                            dataset.headers.clone(),
+                            dataset.feature_ranges(),
+                        );
+                    scan_payload.group_metadata = fit_config.group_metadata.clone();
+                    scan_payload.training_table_kind = fit_config.training_table_kind.clone();
+                    scan_payload.inference_notes = inference_notes;
+                    let model = FittedModel::from_payload(scan_payload);
+                    return serde_json::to_vec(&model).map_err(|err| {
+                        gam::families::fit_orchestration::WorkflowError::IntegrationFailed {
+                            reason: format!("failed to serialize model: {err}"),
+                        }
+                    });
+                }
+                FitResult::ResidualCascade(cascade) => {
+                    // The cascade fires only for a single scattered radial
+                    // smooth; recover its feature columns from the dispatch
+                    // request the same way the CLI does from its parsed
+                    // formula.
+                    let feature_cols = standard_spec
+                        .smooth_terms
+                        .iter()
+                        .find_map(|term| match &term.basis {
+                            gam::terms::smooth::SmoothBasisSpec::ThinPlate {
+                                feature_cols, ..
+                            }
+                            | gam::terms::smooth::SmoothBasisSpec::Duchon {
+                                feature_cols, ..
+                            }
+                            | gam::terms::smooth::SmoothBasisSpec::Matern {
+                                feature_cols, ..
+                            } => Some(feature_cols.clone()),
+                            _ => None,
+                        })
+                        .ok_or_else(|| {
+                            gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
+                                reason: "residual-cascade result has no radial smooth in the \
+                                         materialized request"
+                                    .to_string(),
+                            }
+                        })?;
+                    let feature_columns = feature_cols
+                        .into_iter()
+                        .map(|col| {
+                            dataset.headers.get(col).cloned().ok_or_else(|| {
+                                gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
+                                    reason: format!(
+                                        "residual-cascade feature column {col} has no header"
+                                    ),
+                                }
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let mut cascade_payload =
+                        gam::inference::model_payload_builders::assemble_residual_cascade_payload(
+                            formula,
+                            feature_columns,
+                            &cascade,
+                            dataset.schema.clone(),
+                            dataset.headers.clone(),
+                            dataset.feature_ranges(),
+                        )
+                        .map_err(|reason| {
+                            gam::families::fit_orchestration::WorkflowError::IntegrationFailed {
+                                reason,
+                            }
+                        })?;
+                    cascade_payload.group_metadata = fit_config.group_metadata.clone();
+                    cascade_payload.training_table_kind = fit_config.training_table_kind.clone();
+                    cascade_payload.inference_notes = inference_notes;
+                    let model = FittedModel::from_payload(cascade_payload);
+                    return serde_json::to_vec(&model).map_err(|err| {
+                        gam::families::fit_orchestration::WorkflowError::IntegrationFailed {
+                            reason: format!("failed to serialize model: {err}"),
+                        }
+                    });
+                }
                 _ => {
                     return Err(gam::families::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the standard workflow to return a standard fit result"
                             .to_string(),
                     });
                 }
-            };
-            let saved_fit = standard_result.fit.clone();
-            build_standard_payload(
-                formula,
-                &dataset,
-                &fit_config,
-                family,
-                &saved_fit,
-                &standard_result.design,
-                standard_result.resolvedspec,
-                standard_result.adaptive_diagnostics,
-                standard_result.wiggle_knots.map(|knots| knots.to_vec()),
-                standard_result.wiggle_degree,
-                standard_result.wiggle_saved_warp_beta,
-                standard_result.wiggle_saved_index_shift,
-            )?
+            }
         }
         FitRequest::TransformationNormal(tn_request) => {
             let fit_result = fit_model(FitRequest::TransformationNormal(tn_request))?;
@@ -6962,7 +7680,7 @@ fn fit_dataset_impl(
         }
     };
     payload.group_metadata = fit_config.group_metadata.clone();
-    payload.training_table_kind = training_table_kind;
+    payload.training_table_kind = fit_config.training_table_kind.clone();
     payload.inference_notes = inference_notes;
     let model = FittedModel::from_payload(payload);
     serde_json::to_vec(&model).map_err(|err| {
@@ -7456,14 +8174,12 @@ fn insert_symmetric_array2(
     Ok(out)
 }
 
-fn validate_formula_json_impl(
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+fn validate_formula_dataset_json_impl(
+    mut dataset: EncodedDataset,
     formula: String,
     config_json: Option<&str>,
 ) -> Result<String, String> {
-    let mut dataset = dataset_with_inferred_schema(headers, rows)?;
-    let (mut fit_config, _training_table_kind) = parse_fit_config(config_json)?;
+    let mut fit_config = parse_fit_config(config_json)?;
     // Calibrated marginal-slope chain (#461): validation is purely structural and
     // must stay cheap — it must NOT cross-fit Stage-1. When a CTN Stage-1 recipe
     // is present, strip it and stand in a zero-valued placeholder dose column so
@@ -7635,17 +8351,24 @@ fn escape_html(value: &str) -> String {
     out
 }
 
-fn predict_table_impl(
+fn predict_encoded_table_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
     options_json: Option<&str>,
 ) -> Result<String, PredictError> {
     let model = load_model_impl(model_bytes)?;
     let model_class = model.predict_model_class();
-    let dataset = dataset_with_model_schema_typed(&model, &headers, &rows)?;
-    drop(rows);
-    drop(headers);
+    let expected_names = required_prediction_columns(&model).map_err(PredictError::Other)?;
+    let present_names = source.headers.iter().cloned().collect::<BTreeSet<_>>();
+    let missing = expected_names
+        .difference(&present_names)
+        .map(|name| format!("missing required column '{name}'"))
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(PredictError::SchemaMismatch(missing.join(" ")));
+    }
+    let dataset =
+        dataset_with_model_schema_from_encoded(&model, &source).map_err(PredictError::Other)?;
     predict_dataset_impl(&model, model_class, dataset, options_json).map_err(PredictError::Other)
 }
 
@@ -8118,12 +8841,10 @@ fn predict_columns_conformal(
     Ok(columns)
 }
 
-fn predict_table_conformal_impl(
+fn predict_encoded_table_conformal_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    calibration_headers: Vec<String>,
-    calibration_rows: Vec<Vec<String>>,
+    source: EncodedDataset,
+    calibration_source: EncodedDataset,
     conformal_level: f64,
     options_json: Option<&str>,
 ) -> Result<String, String> {
@@ -8149,12 +8870,8 @@ fn predict_table_conformal_impl(
         ));
     }
     options.conformal_level = Some(conformal_level);
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
-    drop(rows);
-    drop(headers);
-    let calibration = dataset_with_model_schema(&model, &calibration_headers, &calibration_rows)?;
-    drop(calibration_rows);
-    drop(calibration_headers);
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
+    let calibration = dataset_with_model_schema_from_encoded(&model, &calibration_source)?;
     let columns = predict_columns_conformal(&model, dataset, calibration, &options)?;
     serde_json::to_string(&PredictionPayload {
         columns,
@@ -8179,10 +8896,9 @@ fn predict_table_conformal_impl(
 /// Falls back with a clear error when the model is ineligible (non-Gaussian
 /// family, scan-routed model, link wiggle, weighted training data, or an older
 /// serialised payload that pre-dates the jackknife+ precomputation).
-fn predict_table_jackknife_plus_impl(
+fn predict_encoded_table_jackknife_plus_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
     conformal_level: f64,
 ) -> Result<String, String> {
     if !(conformal_level > 0.0 && conformal_level < 1.0) {
@@ -8219,7 +8935,7 @@ fn predict_table_jackknife_plus_impl(
     // Build test design via the frozen resolved_termspec so column ordering
     // and spline knots are identical to the training design the stats were
     // computed from.
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
     let col_map = dataset.column_map();
     let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
         &model.resolved_termspec,
@@ -8244,14 +8960,15 @@ fn predict_table_jackknife_plus_impl(
     // Plug-in mean (= beta-hat @ x_star for the Gaussian-identity model); we
     // read it from the stored stats' beta directly to avoid touching the
     // predictor stack.
-    // The jackknife+ construction of Barber et al. (2021) carries the
-    // *worst-case* guarantee P(Y_* ∈ Ĉ_α) ≥ 1 − 2α, but the set built at
-    // parameter α delivers ~1 − α marginal coverage in practice (the factor-of-two
-    // is a loose lower bound, not the realized coverage). Conflating the two
-    // over-covers: setting α = (1 − conformal_level) / 2 yields ~ (1 + level) / 2
-    // coverage (95% at level=0.9), not the advertised level. To deliver ~level
-    // marginal coverage, set α = 1 − conformal_level, matching the
-    // full-conformal path below (#1546).
+    // The jackknife+ theorem (Barber et al. 2021) guarantees
+    // P(Y_* ∈ Ĉ_α) ≥ 1 − 2α, while the set built at parameter α delivers
+    // ≈ 1 − α marginal coverage on exchangeable data in practice. Running at
+    // α = (1 − level)/2 to make the worst-case bound read "≥ level" was
+    // measured to systematically over-cover at (1 + level)/2 (#1546), so this
+    // path TARGETS the requested level with α = 1 − conformal_level — and
+    // every claim surface must then state the honest finite-sample floor at
+    // this setting, 1 − 2α = 2·level − 1, never "≥ level" (the theorem does
+    // not deliver that here).
     let alpha = 1.0 - conformal_level;
     let mut mean_vec = Vec::with_capacity(n_test);
     let mut lower_vec = Vec::with_capacity(n_test);
@@ -8276,24 +8993,31 @@ fn predict_table_jackknife_plus_impl(
         model_class: prediction_model_class_label(&model),
         family: family_link_kind(&model_likelihood_spec(&model)).to_string(),
         interval_method: Some(format!(
-            "jackknife+ (distribution-free, finite-sample ≥{:.0}% coverage; \
-             Barber et al. 2021)",
-            conformal_level * 100.0
+            "jackknife+ targeting {:.0}% coverage (distribution-free finite-sample \
+             guarantee ≥{:.0}%; Barber et al. 2021, ≥ 1 − 2α)",
+            conformal_level * 100.0,
+            (2.0 * conformal_level - 1.0).max(0.0) * 100.0
         )),
     })
     .map_err(|err| format!("failed to serialize jackknife+ prediction payload: {err}"))
 }
 
-/// #1098 EXACT Gaussian full-conformal prediction set — no calibration fold.
+/// #1098 Gaussian full-conformal prediction set at frozen `Sλ` — no
+/// calibration fold.
 ///
 /// Reads the `ExactFullConformalSubstrate` precomputed at fit time (only
 /// available for Gaussian-identity, unit-weight, offset-free models without a
 /// link wiggle), rebuilds the test design from the saved `resolved_termspec`,
 /// and calls `substrate.interval(x_*, alpha)` per test row — one Cholesky each,
-/// zero refits. The exact set is a union of intervals; the returned
-/// `mean_lower`/`mean_upper` are its outer envelope (a superset, inheriting the
-/// finite-sample coverage). A `frozen_rho_certified` column reports the Layer-3
-/// self-diagnostic per row (1.0 accepted / 0.0 refused).
+/// zero refits. The set is exact *given the frozen penalty*; because the fitted
+/// λ̂ was selected from all training responses, the frozen-λ score construction
+/// is not permutation symmetric in the n+1 augmented points, so the
+/// distribution-free finite-sample coverage theorem applies only where the
+/// per-row frozen-ρ certificate accepts (`frozen_rho_certified` = 1.0, under
+/// the global-ρ grid-Lipschitz assumption); a 0.0 row is the frozen-λ
+/// approximation with no finite-sample guarantee. The exact set is a union of
+/// intervals; the returned `mean_lower`/`mean_upper` are its outer envelope (a
+/// superset).
 ///
 /// `alpha = 1 − conformal_level` (the full-conformal set `C_α` has marginal
 /// coverage `≥ 1 − α`, so `conformal_level = 1 − α` directly; unlike jackknife+
@@ -8302,10 +9026,9 @@ fn predict_table_jackknife_plus_impl(
 /// Falls back with a clear error when the model is ineligible (non-Gaussian
 /// family, scan-routed model, link wiggle, weighted training data, or an older
 /// serialised payload that pre-dates the substrate).
-fn predict_table_full_conformal_impl(
+fn predict_encoded_table_full_conformal_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
     conformal_level: f64,
 ) -> Result<String, String> {
     if !(conformal_level > 0.0 && conformal_level < 1.0) {
@@ -8336,7 +9059,7 @@ fn predict_table_full_conformal_impl(
             prediction_model_class_label(&model)
         ));
     }
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
     let col_map = dataset.column_map();
     let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
         &model.resolved_termspec,
@@ -8358,9 +9081,11 @@ fn predict_table_full_conformal_impl(
             substrate.p()
         ));
     }
-    // The full-conformal set C_α covers Y_* with marginal probability ≥ 1 − α,
-    // so the user's conformal_level maps directly to α = 1 − conformal_level
-    // (no factor-of-two as in the jackknife+ ≥ 1 − 2α guarantee).
+    // A symmetric full-conformal set C_α covers Y_* with marginal probability
+    // ≥ 1 − α, so the user's conformal_level maps directly to
+    // α = 1 − conformal_level (no factor-of-two as in the jackknife+
+    // ≥ 1 − 2α guarantee). At frozen λ̂ that theorem is conditional on the
+    // per-row frozen-ρ certificate — see the function doc.
     let alpha = 1.0 - conformal_level;
     let mut mean_vec = Vec::with_capacity(n_test);
     let mut lower_vec = Vec::with_capacity(n_test);
@@ -8396,22 +9121,27 @@ fn predict_table_full_conformal_impl(
         model_class: prediction_model_class_label(&model),
         family: family_link_kind(&model_likelihood_spec(&model)).to_string(),
         interval_method: Some(format!(
-            "exact full-conformal (distribution-free, finite-sample ≥{:.0}% coverage; \
-             #942 Layer 1 + frozen-ρ certificate)",
+            "full-conformal at frozen smoothing parameters (exact set given Sλ; the \
+             distribution-free finite-sample ≥{:.0}% guarantee needs the symmetric \
+             ρ-re-selecting fit and is certified per row only where \
+             frozen_rho_certified=1, under the global-ρ grid-Lipschitz assumption)",
             conformal_level * 100.0
         )),
     })
     .map_err(|err| format!("failed to serialize full-conformal prediction payload: {err}"))
 }
 
-/// Distribution-free EXACT full-conformal prediction intervals — no held-out
-/// calibration fold required (#1098 / #942 Layer 1).
+/// Full-conformal prediction intervals at frozen smoothing parameters — no
+/// held-out calibration fold required (#1098 / #942 Layer 1).
 ///
 /// Routes `predict(interval='full_conformal')` for Gaussian-identity models to
-/// the `ExactFullConformalSubstrate` precomputed at fit time, giving the EXACT
-/// distribution-free set with finite-sample ≥`conformal_level` marginal
-/// coverage. Returns the same column JSON as `predict_table` plus a
-/// `frozen_rho_certified` column carrying the Layer-3 self-diagnostic.
+/// the `ExactFullConformalSubstrate` precomputed at fit time. The set is exact
+/// given the frozen `Sλ`; the distribution-free finite-sample
+/// ≥`conformal_level` marginal-coverage theorem additionally requires the
+/// symmetric ρ-re-selecting fit and is certified per row only where the
+/// returned `frozen_rho_certified` column is 1.0 (Layer-3 certificate, under
+/// the global-ρ grid-Lipschitz assumption). Returns the same column JSON as
+/// `predict_table` plus that certificate column.
 ///
 /// Raises a descriptive Python exception for ineligible models (non-Gaussian,
 /// weighted, scan-routed, …) directing the user to `predict_conformal`.
@@ -8420,11 +9150,13 @@ fn predict_table_full_conformal(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
     conformal_level: f64,
 ) -> PyResult<String> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "predict_table_full_conformal", move || {
-        predict_table_full_conformal_impl(&model_bytes, headers, rows, conformal_level)
+        predict_encoded_table_full_conformal_impl(&model_bytes, dataset, conformal_level)
     })
 }
 
@@ -8432,8 +9164,10 @@ fn predict_table_full_conformal(
 /// calibration fold required (#1054 / #942).
 ///
 /// Auto-routes `predict(interval='conformal')` for Gaussian-identity models to
-/// the `GaussianJackknifePlusStats` precomputed at fit time, giving
-/// finite-sample ≥`conformal_level` marginal coverage (Barber et al. 2021).
+/// the `GaussianJackknifePlusStats` precomputed at fit time. The interval
+/// targets ≈`conformal_level` marginal coverage (α = 1 − level, #1546); the
+/// distribution-free finite-sample guarantee at that setting is
+/// ≥ `2·conformal_level − 1` (Barber et al. 2021, coverage ≥ 1 − 2α).
 /// Returns the same column JSON as `predict_table` (with `linear_predictor`,
 /// `mean`, `mean_lower`, `mean_upper`) so the Python shaper is unchanged.
 ///
@@ -8444,11 +9178,13 @@ fn predict_table_jackknife_plus(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
     conformal_level: f64,
 ) -> PyResult<String> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "predict_table_jackknife_plus", move || {
-        predict_table_jackknife_plus_impl(&model_bytes, headers, rows, conformal_level)
+        predict_encoded_table_jackknife_plus_impl(&model_bytes, dataset, conformal_level)
     })
 }
 
@@ -8473,12 +9209,14 @@ fn generative_replicates(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
     n_draws: usize,
     seed: u64,
 ) -> PyResult<PyObject> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     let result =
-        py.detach(|| generative_replicates_impl(&model_bytes, headers, rows, n_draws, seed));
+        py.detach(|| generative_replicates_encoded_impl(&model_bytes, dataset, n_draws, seed));
     match result {
         Ok((flat, n_rows)) => {
             let arr = ndarray::Array2::<f64>::from_shape_vec((n_draws, n_rows), flat)
@@ -8489,10 +9227,9 @@ fn generative_replicates(
     }
 }
 
-fn generative_replicates_impl(
+fn generative_replicates_encoded_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
     n_draws: usize,
     seed: u64,
 ) -> Result<(Vec<f64>, usize), String> {
@@ -8536,7 +9273,7 @@ fn generative_replicates_impl(
             ));
         }
     }
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
     let col_map = dataset.column_map();
     let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
     let offset_noise =
@@ -8663,57 +9400,13 @@ fn resolve_nuts_config(model: &FittedModel, options: PySampleOptions) -> NutsCon
     }
 }
 
-#[derive(Serialize)]
-struct DesignMatrixPayload {
-    x_flat: Vec<f64>,
-    n_rows: usize,
-    n_cols: usize,
-    family_kind: String,
-    model_class: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    beta: Option<Vec<f64>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    covariance_flat: Option<Vec<f64>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    covariance_n: Option<usize>,
-}
-
-#[derive(Deserialize)]
-struct DesignMatrixDensePayload {
-    x_flat: Vec<f64>,
-    n_rows: usize,
-    n_cols: usize,
-}
-
-fn design_matrix_table_impl(
+fn design_matrix_encoded_table_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-) -> Result<String, String> {
+    source: EncodedDataset,
+) -> Result<Array2<f64>, String> {
     let model = load_model_impl(model_bytes)?;
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
-    drop(rows);
-    drop(headers);
-    design_matrix_dataset_impl(&model, dataset)
-}
-
-fn design_matrix_payload_to_dense(raw: &str) -> Result<Array2<f64>, String> {
-    let payload: DesignMatrixDensePayload = serde_json::from_str(raw)
-        .map_err(|err| format!("failed to parse design matrix payload: {err}"))?;
-    let expected_len = payload
-        .n_rows
-        .checked_mul(payload.n_cols)
-        .ok_or_else(|| "design matrix payload shape overflow".to_string())?;
-    if payload.x_flat.len() != expected_len {
-        return Err(format!(
-            "design matrix FFI payload shape mismatch: got {} floats, expected {} * {}",
-            payload.x_flat.len(),
-            payload.n_rows,
-            payload.n_cols
-        ));
-    }
-    Array2::from_shape_vec((payload.n_rows, payload.n_cols), payload.x_flat)
-        .map_err(|err| format!("failed to reshape design matrix payload: {err}"))
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
+    design_matrix_dense(&model, dataset)
 }
 
 fn design_matrix_array_impl(
@@ -8727,12 +9420,27 @@ fn design_matrix_array_impl(
 
 /// Population variance (divide by `n`, matching numpy `np.var`'s default).
 fn population_variance(values: &[f64]) -> f64 {
-    let n = values.len();
+    population_covariance(values, values)
+}
+
+/// Population covariance (divide by `n`, matching `population_variance`).
+fn population_covariance(a: &[f64], b: &[f64]) -> f64 {
+    let n = a.len();
+    assert_eq!(
+        n,
+        b.len(),
+        "population covariance requires equal-length slices"
+    );
     if n == 0 {
         return 0.0;
     }
-    let mean = values.iter().sum::<f64>() / n as f64;
-    values.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / n as f64
+    let mean_a = a.iter().sum::<f64>() / n as f64;
+    let mean_b = b.iter().sum::<f64>() / n as f64;
+    a.iter()
+        .zip(b.iter())
+        .map(|(&va, &vb)| (va - mean_a) * (vb - mean_b))
+        .sum::<f64>()
+        / n as f64
 }
 
 /// Per-term partial dependence on a grid table.
@@ -8742,14 +9450,12 @@ fn population_variance(values: &[f64]) -> f64 {
 /// `V_t` is the term-block of the fitted coefficient covariance. The design
 /// build, `β`, `V`, and the term column ranges are all owned by the Rust
 /// core; the caller only supplies the evaluation grid.
-fn model_partial_dependence_impl(
+fn model_partial_dependence_encoded_impl(
     model_bytes: &[u8],
     term: &str,
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
 ) -> Result<(Vec<f64>, Vec<f64>), String> {
-    let raw = design_matrix_table_impl(model_bytes, headers, rows)?;
-    let x = design_matrix_payload_to_dense(&raw)?;
+    let x = design_matrix_encoded_table_impl(model_bytes, source)?;
     let model = load_model_impl(model_bytes)?;
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
     let beta = &fit.beta;
@@ -8792,17 +9498,25 @@ fn model_partial_dependence_impl(
     Ok((predicted, se))
 }
 
-/// Per-term variance share: `var(X_t β_t) / var(X β)` for each non-intercept
-/// term block (or a single `term` when supplied). Evaluated on the caller's
-/// grid table; `β` and the term column ranges come from the Rust core.
-fn model_variance_share_impl(
+/// Per-term variance share: `cov(X_t β_t, X β) / var(X β)` for each
+/// non-intercept term block (or a single `term` when supplied). Evaluated on
+/// the caller's grid table; `β` and the term column ranges come from the Rust
+/// core.
+///
+/// This is a genuine variance decomposition: `var(η) = Σ_t cov(f_t, η)`, so
+/// the shares sum to exactly 1 (the intercept contributes a constant with
+/// zero covariance). Each term's cross-covariance with every other term is
+/// split symmetrically — half to each side — which is the Shapley allocation
+/// for a sum of terms. The naive `var(f_t) / var(η)` it replaces dropped all
+/// cross terms: for `f_1 = x`, `f_2 = -0.9x` it reported shares 100 and 81
+/// against a total of 0.01·var(x). A share can exceed 1 or be negative only
+/// when terms genuinely anticorrelate, which is honest rather than a bug.
+fn model_variance_share_encoded_impl(
     model_bytes: &[u8],
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    source: EncodedDataset,
     term: Option<String>,
 ) -> Result<Vec<(String, f64)>, String> {
-    let raw = design_matrix_table_impl(model_bytes, headers, rows)?;
-    let x = design_matrix_payload_to_dense(&raw)?;
+    let x = design_matrix_encoded_table_impl(model_bytes, source)?;
     let model = load_model_impl(model_bytes)?;
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
     let beta = &fit.beta;
@@ -8839,7 +9553,7 @@ fn model_variance_share_impl(
             contrib[i] = s;
         }
         let share = if total_var > 0.0 {
-            population_variance(&contrib) / total_var
+            population_covariance(&contrib, &eta) / total_var
         } else {
             0.0
         };
@@ -8854,10 +9568,12 @@ fn model_partial_dependence(
     model_bytes: Vec<u8>,
     term: String,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
 ) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     let (predicted, se) = detach_py_result(py, "model_partial_dependence", move || {
-        model_partial_dependence_impl(&model_bytes, &term, headers, rows)
+        model_partial_dependence_encoded_impl(&model_bytes, &term, dataset)
     })?;
     Ok((
         predicted.into_pyarray(py).unbind(),
@@ -8870,41 +9586,14 @@ fn model_variance_share(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
-    rows: Vec<Vec<String>>,
+    rows: PyRef<'_, PyEncodedTable>,
     term: Option<String>,
 ) -> PyResult<Vec<(String, f64)>> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
     detach_py_result(py, "model_variance_share", move || {
-        model_variance_share_impl(&model_bytes, headers, rows, term)
+        model_variance_share_encoded_impl(&model_bytes, dataset, term)
     })
-}
-
-fn design_matrix_dataset_impl(
-    model: &FittedModel,
-    dataset: EncodedDataset,
-) -> Result<String, String> {
-    let dense = design_matrix_dense(model, dataset)?;
-    let n_rows = dense.nrows();
-    let n_cols = dense.ncols();
-    // Row-major flatten matches numpy's default reshape order.
-    let x_flat: Vec<f64> = dense.iter().copied().collect();
-    let fit = fit_result_from_saved_model_for_prediction(model)?;
-    let covariance = fit
-        .beta_covariance_corrected()
-        .or_else(|| fit.beta_covariance());
-    let covariance_n = covariance.map(|c| c.nrows());
-    let covariance_flat = covariance.map(|c| c.iter().copied().collect::<Vec<_>>());
-    let payload = DesignMatrixPayload {
-        x_flat,
-        n_rows,
-        n_cols,
-        family_kind: family_link_kind(&model_likelihood_spec(&model)).to_string(),
-        model_class: prediction_model_class_label(model),
-        beta: Some(fit.beta.to_vec()),
-        covariance_flat,
-        covariance_n,
-    };
-    serde_json::to_string(&payload)
-        .map_err(|err| format!("failed to serialize design matrix payload: {err}"))
 }
 
 fn design_matrix_dense(
@@ -8963,28 +9652,18 @@ fn design_matrix_dense(
     .map_err(|err| err.to_string())
 }
 
-#[derive(Serialize)]
-struct PosteriorPredictPayload {
-    eta_flat: Vec<f64>,
-    n_draws: usize,
-    n_rows: usize,
-    model_class: String,
-    family_kind: String,
-    /// Serialized parameterized `InverseLink` (JSON) carrying the per-fit state
-    /// the bare `family_kind` tag drops; consumed by `predict_draws` /
-    /// `posterior_predict_bands_table` to route the parameterized links'
-    /// response-scale draws (issue #1133). `None` falls back to the tag.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    link_spec: Option<String>,
-}
-
 fn posterior_credible_interval_impl(
-    samples_flat: Vec<f64>,
-    n_draws: usize,
-    n_coeffs: usize,
+    samples: Array2<f64>,
     level: f64,
-) -> Result<Vec<f64>, String> {
-    gam::inference::posterior::credible_interval(&samples_flat, n_draws, n_coeffs, level)
+) -> Result<Array2<f64>, String> {
+    let (n_draws, n_coeffs) = samples.dim();
+    let contiguous = samples
+        .as_slice()
+        .ok_or_else(|| "posterior samples must use contiguous row-major storage".to_string())?;
+    let intervals =
+        gam::inference::posterior::credible_interval(contiguous, n_draws, n_coeffs, level)?;
+    Array2::from_shape_vec((n_coeffs, 2), intervals)
+        .map_err(|err| format!("failed to shape posterior credible intervals: {err}"))
 }
 
 #[derive(Deserialize)]

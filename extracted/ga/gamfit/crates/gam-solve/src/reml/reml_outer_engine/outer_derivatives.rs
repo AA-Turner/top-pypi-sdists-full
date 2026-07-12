@@ -14,7 +14,7 @@
 //! - [`dense`]: the dense `K × K` assembled outer Hessian
 //!   ([`compute_outer_hessian`]).
 //! - [`operator`]: the matrix-free assembled outer-Hessian operator
-//!   ([`UnifiedOuterHessianOperator`] and `build_outer_hessian_operator`).
+//!   ([`UnifiedHessianOperator`] and `build_outer_hessian_operator`).
 //!
 //! Every submodule reaches its cross-concern dependencies (and the parent
 //! `reml_outer_engine` namespace) through `use super::*;`; each item keeps the exact
@@ -24,13 +24,14 @@
 
 use super::*;
 
-mod dense;
+#[path = "outer_derivatives/dense.rs"]
+mod dense_assembly;
 mod kkt;
 mod operator;
 mod routing;
 mod traces;
 
-pub(crate) use dense::*;
+pub(crate) use dense_assembly::*;
 pub(crate) use kkt::*;
 pub(crate) use operator::*;
 // Re-flatten `routing` at each item's own declared visibility: the outer-Hessian

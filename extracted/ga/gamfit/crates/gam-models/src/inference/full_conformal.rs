@@ -202,6 +202,7 @@ use faer::Side;
 use ndarray::{Array1, Array2};
 
 use gam_linalg::faer_ndarray::{FaerCholesky, FaerEigh, fast_av};
+use opt::{BacktrackConfig, backtracking_line_search};
 
 /// One maximal interval of candidate values retained in the prediction set.
 /// Endpoints may be infinite (honest unboundedness in low-information /
@@ -1354,8 +1355,10 @@ const GLM_STALL_ACCEPT_RTOL: f64 = 1e-8;
 /// `B(β_pred, 2‖H₀⁻¹F(β_pred)‖)`, which then provably contains the root.
 const GLM_CONTRACTION_ACCEPT: f64 = 0.5;
 
-/// Armijo sufficient-decrease constant for the cold-fit line search.
-const GLM_ARMIJO_C1: f64 = 1e-4;
+/// Armijo sufficient-decrease constant for the cold-fit line search —
+/// sourced from the shared optimizer constants so the workspace has exactly
+/// one `c₁`.
+const GLM_ARMIJO_C1: f64 = opt::constants::ARMIJO_C1;
 
 /// `η` location of the extrema of the logistic third derivative
 /// `b‴(η) = σ(1−σ)(1−2σ)`: `σ = (3±√3)/6 ⇔ η = ±ln(2+√3)`.
@@ -1366,10 +1369,7 @@ fn vec_norm(v: &Array1<f64>) -> f64 {
     v.dot(v).sqrt()
 }
 
-#[inline]
-fn softplus(eta: f64) -> f64 {
-    eta.max(0.0) + (-eta.abs()).exp().ln_1p()
-}
+use gam_linalg::utils::stable_softplus as softplus;
 
 /// Canonical-link GLM families supported by the certified z-homotopy
 /// ([`GlmHomotopyFullConformal`]). Canonical links make the candidate
@@ -1888,30 +1888,45 @@ impl<'a> GlmHomotopyFullConformal<'a> {
             }
             // gᵀH⁻¹g ≥ 0: the Newton direction is a descent direction.
             let decrease = g.dot(&step);
-            let mut t = 1.0_f64;
-            let mut accepted = false;
-            for _ in 0..GLM_NEWTON_MAX_BACKTRACKS {
-                let mut cand = beta.clone();
-                cand.scaled_add(-t, &step);
-                let cand_nll = self.penalized_nll(&cand, z);
-                if cand_nll.is_finite() && cand_nll <= nll - GLM_ARMIJO_C1 * t * decrease {
-                    beta = cand;
-                    nll = cand_nll;
-                    accepted = true;
+            let search = backtracking_line_search::<_, std::convert::Infallible>(
+                BacktrackConfig {
+                    initial_step: 1.0,
+                    contraction: 0.5,
+                    max_steps: GLM_NEWTON_MAX_BACKTRACKS,
+                },
+                |t| {
+                    let mut cand = beta.clone();
+                    cand.scaled_add(-t, &step);
+                    let cand_nll = self.penalized_nll(&cand, z);
+                    Ok(if cand_nll.is_finite() {
+                        Some((cand_nll, cand))
+                    } else {
+                        None
+                    })
+                },
+                |t, cand_nll| cand_nll <= nll - GLM_ARMIJO_C1 * t * decrease,
+            );
+            let accepted = match search {
+                Ok(step) => step,
+                Err(never) => match never {},
+            };
+            match accepted {
+                Some(step) => {
+                    beta = step.payload;
+                    nll = step.value;
+                }
+                None => {
+                    // The Armijo line search could not realize the predicted
+                    // descent `½·gᵀH⁻¹g`. Near the optimum that decrease
+                    // underflows the round-off of `penalized_nll` (`~ε·nll`),
+                    // so a failed line search is the FLOOR of this Newton loop,
+                    // not a true failure — the iterate is
+                    // for-all-practical-purposes stationary. Stop iterating and
+                    // let the certified error bound below decide acceptance
+                    // (rather than rejecting on an un-improvable gradient
+                    // floor).
                     break;
                 }
-                t *= 0.5;
-            }
-            if !accepted {
-                // The Armijo line search could not realize the predicted
-                // descent `½·gᵀH⁻¹g`. Near the optimum that decrease underflows
-                // the round-off of `penalized_nll` (`~ε·nll`), so a failed
-                // line search is the FLOOR of this Newton loop, not a true
-                // failure — the iterate is for-all-practical-purposes
-                // stationary. Stop iterating and let the certified error bound
-                // below decide acceptance (rather than rejecting on an
-                // un-improvable gradient floor).
-                break;
             }
         }
         // Acceptance is decided by the COMPUTED coefficient-error bound, not by
@@ -2240,9 +2255,12 @@ impl JackknifePlusInterval {
 /// data and a symmetric fitting map — no model correctness assumed.
 ///
 /// The CV+ variant is THIS SAME assembly fed with K-fold out-of-fold
-/// quantities (`μ̂₋ₖ₍ᵢ₎(x_*)` and `Rᵢ = |yᵢ − μ̂₋ₖ₍ᵢ₎(xᵢ)|`); the construction
-/// and the guarantee are identical (Barber et al. 2021, Thm 4), so no second
-/// code path exists to drift.
+/// quantities (`μ̂₋ₖ₍ᵢ₎(x_*)` and `Rᵢ = |yᵢ − μ̂₋ₖ₍ᵢ₎(xᵢ)|`), so no second code
+/// path exists to drift — but its GUARANTEE is weaker, not identical: K-fold
+/// folds do not have leave-one-out symmetry, and Barber et al. (2021, Thm 4)
+/// prove only `P(Y_* ∈ Ĉ_α) ≥ 1 − 2α − (1 − K/n)/(K + 1)` for CV+. The extra
+/// slack vanishes at K = n (where CV+ IS jackknife+); any CV+ caller must
+/// state that bound, not the jackknife+ one.
 pub fn jackknife_plus_interval(
     loo_test_predictions: &Array1<f64>,
     loo_abs_residuals: &Array1<f64>,
@@ -3317,19 +3335,27 @@ mod tests {
             if vec_norm(&step) <= 1e-13 * (1.0 + vec_norm(&beta)) {
                 break;
             }
-            let mut t = 1.0_f64;
-            loop {
-                let mut cand = beta.clone();
-                cand.scaled_add(-t, &step);
-                let cand_nll = pen_nll(&cand);
-                if cand_nll.is_finite() && cand_nll <= cur {
-                    beta = cand;
-                    cur = cand_nll;
-                    break;
-                }
-                t *= 0.5;
-                assert!(t > 1e-18, "oracle line search failed at z={z}");
-            }
+            let search = backtracking_line_search::<_, std::convert::Infallible>(
+                BacktrackConfig::default(),
+                |t| {
+                    let mut cand = beta.clone();
+                    cand.scaled_add(-t, &step);
+                    let cand_nll = pen_nll(&cand);
+                    Ok(if cand_nll.is_finite() {
+                        Some((cand_nll, cand))
+                    } else {
+                        None
+                    })
+                },
+                |_t, cand_nll| cand_nll <= cur,
+            );
+            let accepted = match search {
+                Ok(step) => step,
+                Err(never) => match never {},
+            };
+            let step = accepted.unwrap_or_else(|| panic!("oracle line search failed at z={z}"));
+            beta = step.payload;
+            cur = step.value;
         }
         beta
     }

@@ -21,8 +21,8 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 parent: str,
-                body: Attestor = ...,
-                attestorId: str = ...,
+                body: Attestor,
+                attestorId: str | None = ...,
                 **kwargs: typing.Any,
             ) -> AttestorHttpRequest: ...
             def delete(
@@ -35,15 +35,15 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 resource: str,
-                options_requestedPolicyVersion: int = ...,
+                options_requestedPolicyVersion: int | None = ...,
                 **kwargs: typing.Any,
             ) -> IamPolicyHttpRequest: ...
             def list(
                 self,
                 *,
                 parent: str,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListAttestorsResponseHttpRequest: ...
             def list_next(
@@ -52,27 +52,23 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                 previous_response: ListAttestorsResponse,
             ) -> ListAttestorsResponseHttpRequest | None: ...
             def setIamPolicy(
-                self,
-                *,
-                resource: str,
-                body: SetIamPolicyRequest = ...,
-                **kwargs: typing.Any,
+                self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
             ) -> IamPolicyHttpRequest: ...
             def testIamPermissions(
                 self,
                 *,
                 resource: str,
-                body: TestIamPermissionsRequest = ...,
+                body: TestIamPermissionsRequest,
                 **kwargs: typing.Any,
             ) -> TestIamPermissionsResponseHttpRequest: ...
             def update(
-                self, *, name: str, body: Attestor = ..., **kwargs: typing.Any
+                self, *, name: str, body: Attestor, **kwargs: typing.Any
             ) -> AttestorHttpRequest: ...
             def validateAttestationOccurrence(
                 self,
                 *,
                 attestor: str,
-                body: ValidateAttestationOccurrenceRequest = ...,
+                body: ValidateAttestationOccurrenceRequest,
                 **kwargs: typing.Any,
             ) -> ValidateAttestationOccurrenceResponseHttpRequest: ...
 
@@ -86,7 +82,7 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: EvaluateGkePolicyRequest = ...,
+                        body: EvaluateGkePolicyRequest,
                         **kwargs: typing.Any,
                     ) -> EvaluateGkePolicyResponseHttpRequest: ...
 
@@ -98,12 +94,12 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: PlatformPolicy = ...,
-                    policyId: str = ...,
+                    body: PlatformPolicy,
+                    policyId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> PlatformPolicyHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> EmptyHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -112,8 +108,8 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListPlatformPoliciesResponseHttpRequest: ...
                 def list_next(
@@ -122,7 +118,7 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                     previous_response: ListPlatformPoliciesResponse,
                 ) -> ListPlatformPoliciesResponseHttpRequest | None: ...
                 def replacePlatformPolicy(
-                    self, *, name: str, body: PlatformPolicy = ..., **kwargs: typing.Any
+                    self, *, name: str, body: PlatformPolicy, **kwargs: typing.Any
                 ) -> PlatformPolicyHttpRequest: ...
 
             def gke(self) -> GkeResource: ...
@@ -134,21 +130,17 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 resource: str,
-                options_requestedPolicyVersion: int = ...,
+                options_requestedPolicyVersion: int | None = ...,
                 **kwargs: typing.Any,
             ) -> IamPolicyHttpRequest: ...
             def setIamPolicy(
-                self,
-                *,
-                resource: str,
-                body: SetIamPolicyRequest = ...,
-                **kwargs: typing.Any,
+                self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
             ) -> IamPolicyHttpRequest: ...
             def testIamPermissions(
                 self,
                 *,
                 resource: str,
-                body: TestIamPermissionsRequest = ...,
+                body: TestIamPermissionsRequest,
                 **kwargs: typing.Any,
             ) -> TestIamPermissionsResponseHttpRequest: ...
 
@@ -156,7 +148,7 @@ class BinaryAuthorizationResource(googleapiclient.discovery.Resource):
             self, *, name: str, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def updatePolicy(
-            self, *, name: str, body: Policy = ..., **kwargs: typing.Any
+            self, *, name: str, body: Policy, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def attestors(self) -> AttestorsResource: ...
         def platforms(self) -> PlatformsResource: ...

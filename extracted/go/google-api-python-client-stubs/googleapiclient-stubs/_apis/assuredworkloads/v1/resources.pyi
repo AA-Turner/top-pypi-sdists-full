@@ -18,13 +18,13 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
         def archiveResourceEvents(
             self,
             *,
-            body: GoogleCloudAssuredworkloadsV1ArchiveResourceEventsRequest = ...,
+            body: GoogleCloudAssuredworkloadsV1ArchiveResourceEventsRequest,
             **kwargs: typing.Any,
         ) -> GoogleCloudAssuredworkloadsV1ArchiveResourceEventsResponseHttpRequest: ...
         def revertArchivedResourceEvents(
             self,
             *,
-            body: GoogleCloudAssuredworkloadsV1RevertArchivedResourceEventsRequest = ...,
+            body: GoogleCloudAssuredworkloadsV1RevertArchivedResourceEventsRequest,
             **kwargs: typing.Any,
         ) -> (
             GoogleCloudAssuredworkloadsV1RevertArchivedResourceEventsResponseHttpRequest
@@ -40,9 +40,9 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1ListDbFindingSummariesResponseHttpRequest: ...
                 def list_next(
@@ -68,9 +68,9 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1ListDbFindingSummariesResponseHttpRequest: ...
                 def list_next(
@@ -91,10 +91,10 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    returnPartialSuccess: bool = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    returnPartialSuccess: bool | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningListOperationsResponseHttpRequest: ...
                 def list_next(
@@ -111,15 +111,15 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAssuredworkloadsV1ApplyWorkloadUpdateRequest = ...,
+                        body: GoogleCloudAssuredworkloadsV1ApplyWorkloadUpdateRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleLongrunningOperationHttpRequest: ...
                     def list(
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAssuredworkloadsV1ListWorkloadUpdatesResponseHttpRequest: ...
                     def list_next(
@@ -137,14 +137,14 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: GoogleCloudAssuredworkloadsV1AcknowledgeViolationRequest = ...,
+                        body: GoogleCloudAssuredworkloadsV1AcknowledgeViolationRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAssuredworkloadsV1AcknowledgeViolationResponseHttpRequest: ...
                     def batchAcknowledgeViolations(
                         self,
                         *,
                         parent: str,
-                        body: GoogleCloudAssuredworkloadsV1BatchAcknowledgeViolationsRequest = ...,
+                        body: GoogleCloudAssuredworkloadsV1BatchAcknowledgeViolationsRequest,
                         **kwargs: typing.Any,
                     ) -> GoogleCloudAssuredworkloadsV1BatchAcknowledgeViolationsResponseHttpRequest: ...
                     def get(
@@ -154,12 +154,12 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        filter: str = ...,
-                        interval_endTime: str = ...,
-                        interval_startTime: str = ...,
-                        orderBy: str = ...,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        filter: str | None = ...,
+                        interval_endTime: str | None = ...,
+                        interval_startTime: str | None = ...,
+                        orderBy: str | None = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> (
                         GoogleCloudAssuredworkloadsV1ListViolationsResponseHttpRequest
@@ -177,10 +177,10 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     target: str,
-                    assetTypes: str | _list[str] = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
-                    project: str = ...,
+                    assetTypes: str | _list[str] | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
+                    project: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> (
                     GoogleCloudAssuredworkloadsV1AnalyzeWorkloadMoveResponseHttpRequest
@@ -197,12 +197,12 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: GoogleCloudAssuredworkloadsV1Workload = ...,
-                    externalId: str = ...,
+                    body: GoogleCloudAssuredworkloadsV1Workload,
+                    externalId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleLongrunningOperationHttpRequest: ...
                 def delete(
-                    self, *, name: str, etag: str = ..., **kwargs: typing.Any
+                    self, *, name: str, etag: str | None = ..., **kwargs: typing.Any
                 ) -> GoogleProtobufEmptyHttpRequest: ...
                 def enableComplianceUpdates(
                     self, *, name: str, **kwargs: typing.Any
@@ -217,9 +217,9 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1ListWorkloadsResponseHttpRequest: ...
                 def list_next(
@@ -233,22 +233,22 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAssuredworkloadsV1MutatePartnerPermissionsRequest = ...,
+                    body: GoogleCloudAssuredworkloadsV1MutatePartnerPermissionsRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1WorkloadHttpRequest: ...
                 def patch(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAssuredworkloadsV1Workload = ...,
-                    updateMask: str = ...,
+                    body: GoogleCloudAssuredworkloadsV1Workload,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1WorkloadHttpRequest: ...
                 def restrictAllowedResources(
                     self,
                     *,
                     name: str,
-                    body: GoogleCloudAssuredworkloadsV1RestrictAllowedResourcesRequest = ...,
+                    body: GoogleCloudAssuredworkloadsV1RestrictAllowedResourcesRequest,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1RestrictAllowedResourcesResponseHttpRequest: ...
                 def updates(self) -> UpdatesResource: ...
@@ -270,9 +270,9 @@ class AssuredworkloadsResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> GoogleCloudAssuredworkloadsV1ListDbFindingSummariesResponseHttpRequest: ...
                 def list_next(

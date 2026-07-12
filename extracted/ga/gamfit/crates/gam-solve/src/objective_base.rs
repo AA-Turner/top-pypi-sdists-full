@@ -1,13 +1,13 @@
 use ndarray::Array2;
 use std::sync::Arc;
 
-use crate::rho_optimizer::RhoBlockAdditiveOuterHessian;
+use crate::rho_optimizer::RhoBlockAdditiveHessian;
 use gam_problem::OuterStrategyError;
 
-pub use gam_problem::HessianResult;
+pub use gam_problem::HessianValue;
 
 pub fn add_rho_block_dense_to_hessian(
-    hessian: &mut HessianResult,
+    hessian: &mut HessianValue,
     rho_block: &Array2<f64>,
 ) -> Result<(), String> {
     if rho_block.nrows() != rho_block.ncols() {
@@ -21,7 +21,7 @@ pub fn add_rho_block_dense_to_hessian(
         .into());
     }
     match hessian {
-        HessianResult::Analytic(h) => {
+        HessianValue::Dense(h) => {
             if rho_block.nrows() > h.nrows() || rho_block.ncols() > h.ncols() {
                 return Err(OuterStrategyError::RhoBlockShape {
                     reason: format!(
@@ -39,7 +39,7 @@ pub fn add_rho_block_dense_to_hessian(
             sl += rho_block;
             Ok(())
         }
-        HessianResult::Operator(op) => {
+        HessianValue::Operator(op) => {
             let base = Arc::clone(op);
             let dim = base.dim();
             if rho_block.nrows() > dim {
@@ -53,29 +53,13 @@ pub fn add_rho_block_dense_to_hessian(
                 }
                 .into());
             }
-            *hessian = HessianResult::Operator(Arc::new(RhoBlockAdditiveOuterHessian {
+            *hessian = HessianValue::Operator(Arc::new(RhoBlockAdditiveHessian {
                 base,
                 rho_block: rho_block.clone(),
                 dim,
             }));
             Ok(())
         }
-        HessianResult::Unavailable => Ok(()),
-    }
-}
-
-#[inline]
-pub(crate) fn failed_inner_residual_barrier_cost(
-    cost: f64,
-    inner_failed_max_iterations: bool,
-    relative_gradient_norm: f64,
-) -> f64 {
-    if !cost.is_finite() || !inner_failed_max_iterations {
-        return cost;
-    }
-    if relative_gradient_norm.is_finite() {
-        cost + 0.5 * relative_gradient_norm * relative_gradient_norm
-    } else {
-        f64::INFINITY
+        HessianValue::Unavailable => Ok(()),
     }
 }

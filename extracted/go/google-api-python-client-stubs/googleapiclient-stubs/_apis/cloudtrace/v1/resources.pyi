@@ -24,15 +24,16 @@ class CloudTraceResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 projectId: str,
-                endTime: str = ...,
-                filter: str = ...,
-                orderBy: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
-                startTime: str = ...,
+                endTime: str | None = ...,
+                filter: str | None = ...,
+                orderBy: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
+                startTime: str | None = ...,
                 view: typing_extensions.Literal[
                     "VIEW_TYPE_UNSPECIFIED", "MINIMAL", "ROOTSPAN", "COMPLETE"
-                ] = ...,
+                ]
+                | None = ...,
                 **kwargs: typing.Any,
             ) -> ListTracesResponseHttpRequest: ...
             def list_next(
@@ -42,7 +43,7 @@ class CloudTraceResource(googleapiclient.discovery.Resource):
             ) -> ListTracesResponseHttpRequest | None: ...
 
         def patchTraces(
-            self, *, projectId: str, body: Traces = ..., **kwargs: typing.Any
+            self, *, projectId: str, body: Traces, **kwargs: typing.Any
         ) -> EmptyHttpRequest: ...
         def traces(self) -> TracesResource: ...
 

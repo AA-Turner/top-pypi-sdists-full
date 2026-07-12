@@ -22,12 +22,14 @@
 //! is a single resolver arm.
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+use opt::{BacktrackConfig, armijo_roundoff_cushion, backtracking_line_search, constants};
+use std::{convert::Infallible, fmt};
 
 use crate::manifold::{
     GEOMETRY_EPS, RiemannianManifold, flatten, from_flat, jacobi_symmetric, spectral_map_symmetric,
     sym,
 };
-use crate::manifolds::constant_curvature::ConstantCurvature;
+use crate::manifolds::constant_curvature::{ConstantCurvature, cs_stacks3, distance_kappa_jet};
 use crate::{GeometryError, GeometryResult, GrassmannManifold, SpdManifold, StiefelManifold};
 
 /// Split a parenthesised `key=value, key=value` parameter list into trimmed,
@@ -288,27 +290,29 @@ impl ResponseManifold {
         }
     }
 
-    /// Whether the intrinsic Fréchet (Karcher) mean of manifold-valued responses
-    /// can have MORE THAN ONE local minimizer — i.e. whether the geometry is
-    /// positively curved somewhere, so a single safeguarded descent can stall in
-    /// a suboptimal basin and a multistart is worth the extra restarts.
+    /// Radius of a geodesic support ball that certifies a stationary Karcher
+    /// point as the unique global Fréchet mean. `None` denotes a Hadamard
+    /// geometry, where squared distance is globally geodesically convex and no
+    /// finite support-radius gate is needed.
     ///
-    /// - `Spd` and `Poincare` are Hadamard manifolds (globally non-positively
-    ///   curved / CAT(0)): the dispersion `V(P)=Σ wᵢ d(P,Xᵢ)²` is globally,
-    ///   strictly geodesically convex, so the Fréchet mean is unique and one
-    ///   descent reaches it — no restart can improve on it.
-    /// - `Stiefel` (`St(n,1)=Sⁿ⁻¹`, and `k>1` with the canonical metric) and
-    ///   `Grassmann` (`Gr(1,n)=ℝPⁿ⁻¹`) carry non-negative sectional curvature:
-    ///   for a cloud whose spread approaches the injectivity radius the mean is
-    ///   only *locally* unique and several basins can coexist, so a
-    ///   different-seed restart can land a strictly lower-dispersion mean.
-    /// - `ConstantCurvature` is positively curved exactly when `κ > 0`
-    ///   (spherical); `κ ≤ 0` is flat/hyperbolic and Hadamard.
-    fn frechet_mean_can_be_nonunique(&self) -> bool {
+    /// The positive-curvature radii are the conservative strong-convexity bound
+    /// `½ min(inj_lower, π/(2√K_max))`, specialized to each canonical metric:
+    /// `K_max=1` for projective/spherical `k=1`, `K_max=2` for Grassmann,
+    /// `K_max=5/4` for canonical Stiefel, and `K_max=κ` for a spherical
+    /// constant-curvature response. These are geometric invariants, not solver
+    /// tuning knobs.
+    fn frechet_uniqueness_radius(&self) -> Option<f64> {
         match self {
-            Self::Spd { .. } | Self::Poincare { .. } => false,
-            Self::Grassmann { .. } | Self::Stiefel { .. } => true,
-            Self::ConstantCurvature { kappa, .. } => *kappa > 0.0,
+            Self::Spd { .. } | Self::Poincare { .. } => None,
+            Self::Grassmann { k: 1, .. } | Self::Stiefel { k: 1, .. } => {
+                Some(std::f64::consts::FRAC_PI_4)
+            }
+            Self::Grassmann { .. } => Some(std::f64::consts::PI / (4.0 * 2.0_f64.sqrt())),
+            Self::Stiefel { .. } => Some(std::f64::consts::PI / (2.0 * 5.0_f64.sqrt())),
+            Self::ConstantCurvature { kappa, .. } if *kappa > 0.0 => {
+                Some(std::f64::consts::PI / (4.0 * kappa.sqrt()))
+            }
+            Self::ConstantCurvature { .. } => None,
         }
     }
 
@@ -679,7 +683,8 @@ pub fn dispatch_log_map(
     let manifold = ResponseManifold::parse(label, values.ncols())?;
     let base_point = match base {
         Some(b) => b.to_owned(),
-        None => response_frechet_mean(manifold, values, weights, 1.0e-12, 256)?,
+        None => response_frechet_mean(manifold, values, weights, 1.0e-12, 256)
+            .map_err(|err| err.to_string())?,
     };
     let tangent = response_log_map(manifold, values, base_point.view())?;
     Ok((tangent, base_point, manifold.canonical_label()))
@@ -703,8 +708,13 @@ pub fn dispatch_exp_map(
 /// [`ResponseManifold`]: a Riemannian gradient-descent on the weighted
 /// dispersion `V(P) = Σ_i w_i ‖log_P(X_i)‖²_P` with the descent direction
 /// `ξ = Σ_i w_i log_P(X_i)` (`= −½ grad V`), a unit Karcher step `exp_P(t·ξ)`
-/// with Armijo backtracking plus a round-off cushion, a best-iterate stall
-/// guard, and the metric-norm stationarity test `‖ξ‖_P ≤ tol`. The SPD-specific
+/// with Armijo backtracking plus a round-off cushion, and the metric-norm
+/// stationarity certificate `‖ξ‖_P ≤ tol`. No approximate point is returned on
+/// a stalled line search or exhausted iteration budget. Positively curved
+/// geometries additionally require the weighted support to lie inside their
+/// analytic strong-convexity radius, certifying the stationary point as the
+/// unique global Fréchet mean; diffuse data return a typed error and require an
+/// explicit base instead of selecting a capped multistart basin. The SPD-specific
 /// version in [`crate::manifolds::spd::spd_frechet_mean`] remains for the affine
 /// inverse it caches per step; this generic form pays a metric-tensor solve but
 /// covers all four geometries uniformly.
@@ -714,235 +724,178 @@ pub fn response_frechet_mean(
     weights: Option<ArrayView1<'_, f64>>,
     tol: f64,
     max_iter: usize,
-) -> Result<Array1<f64>, String> {
+) -> GeometryResult<Array1<f64>> {
     let ambient = manifold.ambient_dim();
     let (m, cols) = values.dim();
     if m == 0 || cols != ambient {
-        return Err(format!(
-            "response geometry Fréchet mean: values must be M×{ambient} with M >= 1"
+        return Err(GeometryError::InvalidPoint(
+            "response geometry Fréchet mean requires a non-empty value matrix with manifold ambient width",
         ));
     }
     if !(tol.is_finite() && tol > 0.0) {
-        return Err("response geometry Fréchet mean tolerance must be finite and positive".into());
+        return Err(GeometryError::InvalidPoint(
+            "response geometry Fréchet mean tolerance must be finite and positive",
+        ));
     }
-    let w = crate::normalize_weights(m, weights)
-        .map_err(|_| "response geometry Fréchet mean: invalid weights".to_string())?;
+    let w = crate::normalize_weights(m, weights).map_err(|_| {
+        GeometryError::InvalidPoint("response geometry Fréchet mean has invalid weights")
+    })?;
     let samples: Vec<Array1<f64>> = (0..m).map(|i| values.row(i).to_owned()).collect();
 
-    let dispersion = |p: ArrayView1<'_, f64>| -> Result<f64, String> {
+    let dispersion = |p: ArrayView1<'_, f64>| -> GeometryResult<f64> {
         let mut acc = 0.0_f64;
         for (i, x) in samples.iter().enumerate() {
-            let lg = manifold
-                .log_point(p, x.view())
-                .map_err(|e| format!("response geometry Fréchet mean log map: {e}"))?;
-            let sq = manifold
-                .sq_metric_norm(p, lg.view())
-                .map_err(|e| format!("response geometry Fréchet mean metric: {e}"))?;
+            if w[i] == 0.0 {
+                continue;
+            }
+            let lg = manifold.log_point(p, x.view())?;
+            let sq = manifold.sq_metric_norm(p, lg.view())?;
             acc += w[i] * sq;
         }
         Ok(acc)
     };
 
-    const STALL_REL: f64 = 5.0e-3;
-    const STALL_PATIENCE: usize = 10;
-    const ARMIJO_C1: f64 = 1.0e-4;
-    const MAX_BACKTRACK_HALVINGS: usize = 60;
-    const ARMIJO_ROUNDOFF_EPS_MULTIPLE: f64 = 8.0;
-    // Cap on how many admissible interior starts we descend from before giving
-    // up on finding a strictly better basin. Only reached on a positively
-    // curved manifold whose data spread makes the mean weakly identified; a
-    // small constant keeps the multistart cost `O(1)` in the sample count.
-    const MULTISTART_MAX: usize = 8;
-
-    // Safeguarded Riemannian gradient descent on the dispersion `V(P)` from one
-    // interior start. Returns the BEST iterate found (least metric-gradient
-    // norm), its gradient norm, and its dispersion. It NEVER fails on a budget
-    // or stall shortfall: on a positively curved manifold (`St(n,1)=Sⁿ⁻¹`,
-    // `Gr(1,n)=ℝPⁿ⁻¹`) a widely spread cloud makes `V` nearly flat, so the
-    // descent converges only linearly and can exhaust `max_iter` while still
-    // making monotone progress — yet the least-gradient iterate in hand is a
-    // perfectly good approximate Fréchet mean and a valid chart origin.
-    // Historically the budget-exhausted branch DISCARDED that iterate and
-    // returned `Err`, aborting fits that `sphere_frechet_mean` — the SAME
-    // manifold reached through a different driver — completes (#2140). All exit
-    // conditions (stationarity, stall, rejected step, budget, a moved iterate
-    // reaching a sample's cut locus) now agree: keep the best iterate.
-    let descend = |start: Array1<f64>| -> (Array1<f64>, f64, f64) {
-        let mut p = start;
-        let mut f_cur = match dispersion(p.view()) {
-            Ok(f) => f,
-            // An admissible start has a defined dispersion; guard defensively.
-            Err(_) => return (p.clone(), f64::INFINITY, f64::INFINITY),
-        };
-        let mut best_p = p.clone();
-        let mut best_grad = f64::INFINITY;
-        let mut best_disp = f_cur;
-        let mut stall = 0_usize;
-        for _ in 0..max_iter {
-            // Riemannian gradient direction ξ = Σ wᵢ log_p(xᵢ) = −½ grad V.
-            let mut xi = Array1::<f64>::zeros(ambient);
-            let mut log_ok = true;
-            for (i, x) in samples.iter().enumerate() {
-                match manifold.log_point(p.view(), x.view()) {
-                    Ok(lg) => xi.scaled_add(w[i], &lg),
-                    // A moved iterate reached a sample's cut locus: stop at the
-                    // best iterate held so far rather than aborting the mean.
-                    Err(_) => {
-                        log_ok = false;
-                        break;
-                    }
-                }
+    let stationarity = |p: ArrayView1<'_, f64>| -> GeometryResult<(Array1<f64>, f64)> {
+        let mut xi = Array1::<f64>::zeros(ambient);
+        for (i, x) in samples.iter().enumerate() {
+            if w[i] == 0.0 {
+                continue;
             }
-            if !log_ok {
-                break;
-            }
-            let grad_norm = match manifold.sq_metric_norm(p.view(), xi.view()) {
-                Ok(g) => g.sqrt(),
-                Err(_) => break,
-            };
-            // Track the best (least-gradient) iterate. `improved` is measured
-            // against the PRIOR best so a long linear tail eventually trips the
-            // stall guard even while the raw gradient keeps inching down.
-            let improved = grad_norm < best_grad * (1.0 - STALL_REL);
-            if grad_norm < best_grad {
-                best_grad = grad_norm;
-                best_p.assign(&p);
-                best_disp = f_cur;
-            }
-            if grad_norm <= tol {
-                break;
-            }
-            if improved {
-                stall = 0;
-            } else {
-                stall += 1;
-                if stall >= STALL_PATIENCE {
-                    break;
-                }
-            }
-
-            // Armijo-backtracked unit Karcher step exp_p(t·ξ).
-            let pred = grad_norm * grad_norm;
-            let f_tol = ARMIJO_ROUNDOFF_EPS_MULTIPLE * f64::EPSILON * (1.0 + f_cur.abs());
-            let mut t = 1.0_f64;
-            let mut accepted = false;
-            for _ in 0..MAX_BACKTRACK_HALVINGS {
-                let step = &xi * t;
-                let cand = match manifold.exp_point(p.view(), step.view()) {
-                    Ok(c) => c,
-                    Err(_) => {
-                        // The step left the manifold's domain (e.g. a Poincaré
-                        // overshoot past the ball boundary); shrink and retry.
-                        t *= 0.5;
-                        continue;
-                    }
-                };
-                let f_cand = match dispersion(cand.view()) {
-                    Ok(f) => f,
-                    Err(_) => {
-                        t *= 0.5;
-                        continue;
-                    }
-                };
-                if f_cand <= f_cur - 2.0 * ARMIJO_C1 * t * pred + f_tol {
-                    p = cand;
-                    f_cur = f_cand;
-                    accepted = true;
-                    break;
-                }
-                t *= 0.5;
-            }
-            if !accepted {
-                break;
-            }
+            let lg = manifold.log_point(p, x.view())?;
+            xi.scaled_add(w[i], &lg);
         }
-        (best_p, best_grad, best_disp)
+        let residual = manifold.sq_metric_norm(p, xi.view())?.sqrt();
+        Ok((xi, residual))
     };
 
-    // Multistart over admissible interior starts, keeping the mean with the
-    // lowest Fréchet dispersion — the generic analogue of `sphere_frechet_mean`.
-    //
-    // Each seed sample is turned into an interior start by one Karcher averaging
-    // step (`exp_seed(Σ wᵢ log_seed xᵢ)`). A fixed seed at `samples[0]` is
-    // fragile: if any *other* sample lies at that seed's cut locus the seeding
-    // log is undefined even though the mean is well defined — on `Gr(1,n)` two
-    // orthogonal lines (principal angle π/2) are exactly such a pair — so we try
-    // each sample and skip inadmissible ones.
-    //
-    // On a Hadamard geometry (`Spd`/`Poincare`) `V` is globally geodesically
-    // convex with a UNIQUE minimizer and no cut locus, so the first admissible
-    // descent settles the mean (converged → the mean; stalled → its best
-    // approximant) and no restart can improve it — one descent, exactly as
-    // before. On a positively curved geometry the mean is only LOCALLY unique:
-    // a converged descent may sit in a suboptimal basin, so — like
-    // `sphere_frechet_mean`, which scores every candidate — we descend up to
-    // `MULTISTART_MAX` admissible starts and keep the globally lowest-dispersion
-    // one rather than stopping at the first that reaches `tol`. The mean is
-    // computed once per fit to set the chart origin, so the bounded extra
-    // restarts are amortized.
-    let multistart = manifold.frechet_mean_can_be_nonunique();
-    let mut best: Option<(Array1<f64>, f64, f64)> = None;
-    let mut last_seed_err = String::new();
-    let mut descents = 0_usize;
-    for seed in &samples {
-        let base = match manifold.exp_point(seed.view(), Array1::<f64>::zeros(ambient).view()) {
-            Ok(base) => base,
-            Err(e) => {
-                last_seed_err = e.to_string();
-                continue;
+    // Safeguarded Riemannian gradient descent from one interior start. The only
+    // success exit is the analytic Karcher certificate `‖Σwᵢlogₚ(xᵢ)‖ₚ≤tol`;
+    // line-search or iteration exhaustion above it is typed non-convergence.
+    let descend = |start: Array1<f64>| -> GeometryResult<(Array1<f64>, f64)> {
+        let mut p = start;
+        let mut f_cur = dispersion(p.view())?;
+        for iteration in 0..max_iter {
+            // Riemannian gradient direction ξ = Σ wᵢ log_p(xᵢ) = −½ grad V.
+            let (xi, grad_norm) = stationarity(p.view())?;
+            if grad_norm <= tol {
+                return Ok((p, grad_norm));
             }
-        };
-        let mut xi = Array1::<f64>::zeros(ambient);
-        let mut admissible = true;
-        for (i, x) in samples.iter().enumerate() {
-            match manifold.log_point(base.view(), x.view()) {
-                Ok(lg) => xi.scaled_add(w[i], &lg),
-                Err(e) => {
-                    last_seed_err = e.to_string();
-                    admissible = false;
-                    break;
-                }
-            }
+
+            // Armijo-backtracked unit Karcher step exp_p(t·ξ). A step that
+            // leaves the manifold's domain (e.g. a Poincaré overshoot past the
+            // ball boundary) or lands where the dispersion is undefined is an
+            // INVALID trial (`Ok(None)`): shrink and retry without consulting
+            // the Armijo test — unlike `spd_frechet_mean`, this generic driver
+            // never aborts the descent on a trial-evaluation error.
+            let pred = grad_norm * grad_norm;
+            let f_tol = armijo_roundoff_cushion(f_cur);
+            let accepted = match backtracking_line_search::<_, Infallible>(
+                BacktrackConfig::default(),
+                |t| {
+                    let step = &xi * t;
+                    let Ok(cand) = manifold.exp_point(p.view(), step.view()) else {
+                        return Ok(None);
+                    };
+                    let Ok(f_cand) = dispersion(cand.view()) else {
+                        return Ok(None);
+                    };
+                    Ok(Some((f_cand, cand)))
+                },
+                |t, f_cand| f_cand <= f_cur - 2.0 * constants::ARMIJO_C1 * t * pred + f_tol,
+            ) {
+                Ok(result) => result,
+                Err(never) => match never {},
+            };
+            let Some(accepted_step) = accepted else {
+                return Err(GeometryError::NonConvergence {
+                    context: "response geometry Fréchet mean",
+                    iterations: iteration + 1,
+                    residual: grad_norm,
+                    tolerance: tol,
+                });
+            };
+            p = accepted_step.payload;
+            f_cur = accepted_step.value;
         }
-        if !admissible {
+        // The final allowed update can cross the requested threshold.
+        let (_, residual) = stationarity(p.view())?;
+        if residual <= tol {
+            Ok((p, residual))
+        } else {
+            Err(GeometryError::NonConvergence {
+                context: "response geometry Fréchet mean",
+                iterations: max_iter,
+                residual,
+                tolerance: tol,
+            })
+        }
+    };
+
+    // Choose one row-order-invariant positive-mass seed: highest weight, then
+    // lexicographically smallest coordinates. On a Hadamard manifold any seed
+    // reaches the unique global mean. On a positively curved manifold the
+    // support-ball certificate below, rather than an arbitrary number of
+    // restarts, proves that the stationary point is the unique global mean.
+    let mut seed_index: Option<usize> = None;
+    for index in 0..m {
+        if w[index] == 0.0 {
             continue;
         }
-        let start = match manifold.exp_point(base.view(), xi.view()) {
-            Ok(stepped) => stepped,
-            Err(e) => {
-                last_seed_err = e.to_string();
+        let replace = match seed_index {
+            None => true,
+            Some(current) if w[index] > w[current] => true,
+            Some(current) if w[index] == w[current] => {
+                samples[index]
+                    .iter()
+                    .zip(samples[current].iter())
+                    .find_map(|(&lhs, &rhs)| {
+                        let order = lhs.total_cmp(&rhs);
+                        (order != std::cmp::Ordering::Equal).then_some(order)
+                    })
+                    == Some(std::cmp::Ordering::Less)
+            }
+            Some(_) => false,
+        };
+        if replace {
+            seed_index = Some(index);
+        }
+    }
+    let seed_index = seed_index.ok_or(GeometryError::InvalidPoint(
+        "response geometry Fréchet mean has no positive-weight sample",
+    ))?;
+    let start = manifold.exp_point(
+        samples[seed_index].view(),
+        Array1::<f64>::zeros(ambient).view(),
+    )?;
+    let (mean, stationarity_residual) = descend(start)?;
+
+    if let Some(uniqueness_radius) = manifold.frechet_uniqueness_radius() {
+        let mut support_radius = 0.0_f64;
+        for (index, sample) in samples.iter().enumerate() {
+            if w[index] == 0.0 {
                 continue;
             }
-        };
-
-        let (p, grad, disp) = descend(start);
-        descents += 1;
-        if !multistart {
-            // Hadamard: the unique global mean (or its best approximant on a
-            // budget shortfall) — a single descent settles it.
-            return Ok(p);
+            let log = manifold.log_point(mean.view(), sample.view())?;
+            let distance = manifold.sq_metric_norm(mean.view(), log.view())?.sqrt();
+            if !distance.is_finite() {
+                return Err(GeometryError::Singular(
+                    "response geometry Fréchet support radius is non-finite",
+                ));
+            }
+            support_radius = support_radius.max(distance);
         }
-        // Positively curved: a converged descent is only a local minimizer, so
-        // keep scoring basins by dispersion and return the global best.
-        let keep = match &best {
-            Some((_, _, best_disp)) => disp < *best_disp,
-            None => true,
-        };
-        if keep {
-            best = Some((p, grad, disp));
-        }
-        if descents >= MULTISTART_MAX {
-            break;
+        if support_radius >= uniqueness_radius {
+            return Err(GeometryError::FrechetMeanNotGloballyCertified {
+                context: "response geometry Fréchet mean",
+                stationarity_residual,
+                tolerance: tol,
+                support_radius,
+                uniqueness_radius,
+            });
         }
     }
 
-    match best {
-        Some((p, _, _)) => Ok(p),
-        None => Err(format!(
-            "response geometry Fréchet mean init: no admissible seed among samples \
-             (every sample lies at another's cut locus; last error: {last_seed_err})"
-        )),
-    }
+    Ok(mean)
 }
 
 // ── Curvature as an estimand on the response geometry (#944 stage 4 / #1104) ──
@@ -1006,6 +959,71 @@ pub fn response_frechet_mean(
 // the Wilks LR statistic with a calibrated χ²₁ flatness reference — exactly the
 // contract `profile_ci_walk` / `flatness_lr_test` in `curvature_estimand.rs`
 // consume, with no new outer machinery.
+
+/// Typed failures from constant-curvature response fitting. In particular,
+/// optimiser exhaustion carries the exact score/Hessian and the normalized
+/// box-KKT residual, so a caller never receives a midpoint merely because an
+/// iteration cap was reached.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ResponseGeometryError {
+    InvalidInput(String),
+    NumericalGeometry(String),
+    CurvatureUnidentified {
+        dispersion: f64,
+    },
+    CurvatureNonConvergence {
+        iterations: usize,
+        max_iter: usize,
+        bracket_lo: f64,
+        bracket_hi: f64,
+        kappa: f64,
+        criterion: f64,
+        score: f64,
+        curvature: f64,
+        kkt_residual: f64,
+        tolerance: f64,
+    },
+}
+
+impl fmt::Display for ResponseGeometryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidInput(message) | Self::NumericalGeometry(message) => f.write_str(message),
+            Self::CurvatureUnidentified { dispersion } => write!(
+                f,
+                "response curvature is unidentified: profiled geodesic dispersion is {dispersion:.6e}"
+            ),
+            Self::CurvatureNonConvergence {
+                iterations,
+                max_iter,
+                bracket_lo,
+                bracket_hi,
+                kappa,
+                criterion,
+                score,
+                curvature,
+                kkt_residual,
+                tolerance,
+            } => write!(
+                f,
+                "response curvature did not satisfy its minimizing box-KKT certificate after \
+                 {iterations}/{max_iter} iterations: bracket=[{bracket_lo:.6e}, \
+                 {bracket_hi:.6e}], kappa={kappa:.6e}, criterion={criterion:.6e}, \
+                 score={score:.6e}, normalized KKT residual={kkt_residual:.6e} \
+                 (required <= {tolerance:.6e}), curvature={curvature:.6e} \
+                 (required > 0)"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ResponseGeometryError {}
+
+impl From<GeometryError> for ResponseGeometryError {
+    fn from(error: GeometryError) -> Self {
+        Self::NumericalGeometry(error.to_string())
+    }
+}
 
 /// Outcome of fitting curvature as an estimand on a constant-curvature response
 /// geometry: the optimised κ̂, its tangent base point, the profile-likelihood CI,
@@ -1091,7 +1109,8 @@ pub struct ResponseCurvatureFit {
 ///
 /// * **Lower (hyperbolic) bound.** The κ-stereographic chart requires
 ///   `1 + κ‖x‖² > 0` at every point measured from the chart origin, i.e.
-///   `κ > −1/R²` with `R² = max_i ‖y_i‖²`. With a safety margin: `−0.999/R²`.
+///   `κ > −1/R²` with `R² = max_i ‖y_i‖²`. The open boundary is
+///   approached only to the relative resolution of f64 arithmetic.
 /// * **Upper (spherical) bound.** Unlike the hyperbolic side this is NOT
 ///   unbounded: on a sphere of curvature κ the geodesic radius cannot exceed the
 ///   conjugate radius `π/√κ`, beyond which the exp-map volume Jacobian
@@ -1099,14 +1118,15 @@ pub struct ResponseCurvatureFit {
 ///   collapse `V_p` toward `−∞`, railing the optimiser onto a spurious shell.
 ///   The κ = 0 geodesic radius of the farthest point from the centroid is
 ///   `ρ_max = 2·max_i‖y_i − μ‖` (doubled-gauge chart). We cap κ so that radius
-///   stays strictly inside the first conjugate shell with a 10% margin:
-///   `√κ·ρ_max ≤ 0.9π ⇒ κ_max = (0.9π / ρ_max)²`. This keeps every geodesic
-///   radius before the antipodal singularity along the whole search/CI walk.
+///   stays strictly inside the first conjugate shell to f64-relative resolution:
+///   `√κ·ρ_max < π`. This keeps every geodesic radius before the
+///   antipodal singularity along the whole search/CI walk without an arbitrary
+///   fractional margin.
 ///
 /// `κ_max` is the chart-RESOLUTION limit of the cloud: at it the geodesic spread
-/// fills `(0.9π)² ≈ (π/2·1.8)²` of the conjugate shell, i.e. the cloud nearly
-/// fills the sphere `S^d(1/√κ_max)`. The DIMENSIONLESS product `κ_max·ρ_max²
-/// = (0.9π)²` is fixed and data-scale-free — it is the natural "the cloud is
+/// fills the conjugate shell to machine resolution, i.e. the cloud nearly fills
+/// the sphere `S^d(1/√κ_max)`. The DIMENSIONLESS product `κ_max·ρ_max²
+/// → π²` is fixed and data-scale-free — it is the natural "the cloud is
 /// maximally curved relative to its spread" sentinel the rail check compares κ̂ to.
 fn response_kappa_bounds(values: ArrayView2<'_, f64>) -> (f64, f64, f64) {
     let (n_rows, dim) = values.dim();
@@ -1136,25 +1156,18 @@ fn response_kappa_bounds(values: ArrayView2<'_, f64>) -> (f64, f64, f64) {
             }
         }
     }
-    if r2_max <= 0.0 && s2_max <= 0.0 {
-        // Degenerate (all points at the origin): κ is unidentified; use a wide
-        // symmetric default so the optimiser/CI report a flat, unbounded result.
-        return (-1.0e6, 1.0e6, 0.0);
-    }
-    // Keep a safety margin off the singular hyperbolic boundary.
-    let kappa_min = if r2_max > 0.0 {
-        -0.999 / r2_max
-    } else {
-        -1.0e6
-    };
+    assert!(
+        r2_max > 0.0 && s2_max > 0.0,
+        "response κ bounds require a non-degenerate cloud: max ‖y‖²={r2_max}, max ‖y−μ‖²={s2_max}"
+    );
+    // Stay one square-root-epsilon relative step inside both open singular
+    // boundaries. This is derived from f64 resolution, not a tuning knob.
+    let open_boundary = 1.0 - f64::EPSILON.sqrt();
+    let kappa_min = -open_boundary / r2_max;
     // Conjugate-radius cap: ρ_max = 2·max‖y_i − μ‖ is the κ=0 geodesic radius.
     let rho_max = 2.0 * s2_max.sqrt();
-    let kappa_max = if s2_max > 0.0 {
-        let edge = 0.9 * std::f64::consts::PI / rho_max;
-        edge * edge
-    } else {
-        1.0e6
-    };
+    let edge = open_boundary * std::f64::consts::PI / rho_max;
+    let kappa_max = edge * edge;
     (kappa_min, kappa_max, rho_max)
 }
 
@@ -1189,14 +1202,38 @@ pub fn response_curvature_criterion(
     dim: usize,
     kappa: f64,
 ) -> Result<(f64, Array1<f64>), String> {
+    response_curvature_criterion_jet(values, dim, kappa)
+        .map(|jet| (jet.value, jet.base))
+        .map_err(|error| error.to_string())
+}
+
+#[derive(Clone, Debug)]
+struct CurvatureCriterionJet {
+    kappa: f64,
+    value: f64,
+    score: f64,
+    curvature: f64,
+    base: Array1<f64>,
+}
+
+/// Hand-derived value, score, and Hessian of the profiled criterion. Every
+/// derivative is assembled from the closed-form distance κ-jet and analytic
+/// chain rules; no production finite difference or autodiff is involved.
+fn response_curvature_criterion_jet(
+    values: ArrayView2<'_, f64>,
+    dim: usize,
+    kappa: f64,
+) -> Result<CurvatureCriterionJet, ResponseGeometryError> {
     if !kappa.is_finite() {
-        return Err("response curvature criterion: kappa must be finite".into());
+        return Err(ResponseGeometryError::InvalidInput(
+            "response curvature criterion: kappa must be finite".into(),
+        ));
     }
     let (n_rows, cols) = values.dim();
     if n_rows == 0 || cols != dim || dim == 0 {
-        return Err(format!(
+        return Err(ResponseGeometryError::InvalidInput(format!(
             "response curvature criterion: values must be N×{dim} with N >= 1"
-        ));
+        )));
     }
     // κ-independent base point: the flat (ambient) centroid. Holding μ fixed across
     // κ is the de-entangling move — re-solving the Fréchet mean per κ couples the
@@ -1208,60 +1245,95 @@ pub fn response_curvature_criterion(
     base.mapv_inplace(|v| v / n_rows as f64);
 
     let chart = ConstantCurvature::new(dim, kappa);
-    // Reject κ at/over the chart boundary (1 + κ‖x‖² ≤ 0) at the centroid or any
-    // data point: the geodesic primitives are undefined there. The bracket in
-    // `response_kappa_bounds` keeps the optimiser strictly inside, but a CI/LR
-    // probe can still land on the edge, so guard rather than panic.
-    chart
-        .conformal_factor(base.view())
-        .map_err(|e| format!("response curvature criterion: base off chart: {e}"))?;
-
     let d = dim as f64;
-    let mut dispersion = 0.0_f64; // D = Σ s_i²
-    let mut ln_jac = 0.0_f64; // Σ ln J_κ(s_i)
-    let mut ln_lambda = 0.0_f64; // Σ ln λ_{y_i}
-    // Geodesic radii s_i = d_κ(μ, y_i) for every row, computed in a single
-    // batched pass (four rows per SIMD lane-group). `distance_batch` is
-    // bit-for-bit identical to the per-row `distance`, so D, Σ ln J, and Σ ln λ
-    // below are unchanged; it also validates each y_i is in-chart.
-    let mut radii = vec![0.0_f64; n_rows];
-    chart
-        .distance_batch(base.view(), values, &mut radii)
-        .map_err(|e| format!("response curvature criterion distance: {e}"))?;
-    for (row, &s) in values.outer_iter().zip(radii.iter()) {
-        dispersion += s * s;
-        // ln J_κ(s_i): exp-map volume Jacobian (≥ 0); floor before the log so the
-        // conjugate-shell clamp (J → 0 on the κ>0 antipodal shell) is a large
-        // finite penalty rather than −∞.
-        ln_jac += chart.jacobian_radial(s).max(1.0e-300).ln();
-        // ln λ_{y_i} = ln(2) − ln(1 + κ‖y_i‖²); `conformal_factor` validates chart.
-        let lam = chart
-            .conformal_factor(row)
-            .map_err(|e| format!("response curvature criterion conformal factor: {e}"))?;
-        ln_lambda += lam.ln();
+    let mut dispersion = 0.0_f64;
+    let mut dispersion_d1 = 0.0_f64;
+    let mut dispersion_d2 = 0.0_f64;
+    let mut ln_jac = 0.0_f64;
+    let mut ln_jac_d1 = 0.0_f64;
+    let mut ln_jac_d2 = 0.0_f64;
+    let mut chart_volume = 0.0_f64;
+    let mut chart_volume_d1 = 0.0_f64;
+    let mut chart_volume_d2 = 0.0_f64;
+
+    for row in values.outer_iter() {
+        let (r, r_d1, r_d2) = distance_kappa_jet(&chart, base.view(), row)?;
+        dispersion += r * r;
+        dispersion_d1 += 2.0 * r * r_d1;
+        dispersion_d2 += 2.0 * (r_d1 * r_d1 + r * r_d2);
+
+        if dim > 1 {
+            // J_κ(r)=S(u)^(d−1), u=κr². Chain-rule jets of u.
+            let u = kappa * r * r;
+            let u_d1 = r * r + 2.0 * kappa * r * r_d1;
+            let u_d2 = 4.0 * r * r_d1 + 2.0 * kappa * (r_d1 * r_d1 + r * r_d2);
+            let s = cs_stacks3(u).1;
+            if !(s[0].is_finite() && s[0] > 0.0) {
+                return Err(ResponseGeometryError::NumericalGeometry(
+                    "response curvature criterion reached the conjugate shell".into(),
+                ));
+            }
+            let log_s_d1 = s[1] / s[0];
+            let log_s_d2 = s[2] / s[0] - log_s_d1 * log_s_d1;
+            let exponent = (dim - 1) as f64;
+            ln_jac += exponent * s[0].ln();
+            ln_jac_d1 += exponent * log_s_d1 * u_d1;
+            ln_jac_d2 += exponent * (log_s_d2 * u_d1 * u_d1 + log_s_d1 * u_d2);
+        }
+
+        // −d ln λ_y = d[ln(1+κ‖y‖²)−ln 2].
+        let q = row.dot(&row);
+        let gauge = 1.0 + kappa * q;
+        if !(gauge.is_finite() && gauge > 0.0) {
+            return Err(ResponseGeometryError::NumericalGeometry(
+                "response curvature criterion reached the chart boundary".into(),
+            ));
+        }
+        chart_volume += d * (gauge.ln() - std::f64::consts::LN_2);
+        chart_volume_d1 += d * q / gauge;
+        chart_volume_d2 -= d * q * q / (gauge * gauge);
     }
     let nobs = (n_rows * dim) as f64;
-    // Floor the dispersion so a (near-)perfect flat fit does not blow ln up; the
-    // floor is far below any genuine residual scale and cancels in profile drops.
-    let disp = dispersion.max(1.0e-300 * nobs.max(1.0));
+    if !(dispersion.is_finite() && dispersion > 0.0) {
+        return Err(ResponseGeometryError::CurvatureUnidentified { dispersion });
+    }
 
     // σ profiles in closed form: σ̂² = D/(nd). Substituting and dropping the
     // κ-independent constant (nd/2)(1 + ln 2π):
     //   V_p(κ) = (nd/2)·ln(D/(nd)) + Σ ln J_κ(s_i) − d·Σ ln λ_{y_i}.
-    let v_p = 0.5 * nobs * (disp / nobs).ln() + ln_jac - d * ln_lambda;
-    Ok((v_p, base))
+    let value = 0.5 * nobs * (dispersion / nobs).ln() + ln_jac + chart_volume;
+    let score = 0.5 * nobs * dispersion_d1 / dispersion + ln_jac_d1 + chart_volume_d1;
+    let curvature = 0.5
+        * nobs
+        * (dispersion_d2 / dispersion
+            - (dispersion_d1 / dispersion) * (dispersion_d1 / dispersion))
+        + ln_jac_d2
+        + chart_volume_d2;
+    if !value.is_finite() || !score.is_finite() || !curvature.is_finite() {
+        return Err(ResponseGeometryError::NumericalGeometry(
+            "response curvature criterion jet is non-finite".into(),
+        ));
+    }
+    Ok(CurvatureCriterionJet {
+        kappa,
+        value,
+        score,
+        curvature,
+        base,
+    })
 }
 
 /// Fit curvature as an estimand on a constant-curvature response geometry.
 ///
 /// κ̂ is the minimiser of the profiled criterion [`response_curvature_criterion`]
 /// (the σ-profiled honest change-of-variables negative log-evidence of the wrapped
-/// normal w.r.t. ambient measure), found by a golden-section search inside the
-/// chart-validity bracket. The base point μ is the κ-independent flat centroid, so
+/// normal w.r.t. ambient measure), found by a safeguarded root solve of its
+/// exact analytic score inside the chart-validity bracket. The base point μ is
+/// the κ-independent flat centroid, so
 /// every `V_p` evaluation scores the SAME geometry without re-entangling κ with the
 /// chart scale (the #1104 fix). The exact outer
-/// curvature `V_p''(κ̂)` is taken by a central second difference of the same
-/// criterion and handed to [`profile_ci_walk`](crate::profile_ci_walk)
+/// curvature `V_p''(κ̂)` is evaluated by the same hand-derived criterion jet
+/// and handed to [`profile_ci_walk`](crate::profile_ci_walk)
 /// to size the initial Wald step; the CI itself is the exact χ²₁ profile crossing.
 /// Flatness is the interior-point χ²₁ LR test
 /// [`flatness_lr_test`](crate::flatness_lr_test). κ = 0 is an interior
@@ -1291,20 +1363,40 @@ pub fn fit_response_curvature(
     level: f64,
     tol: f64,
     max_iter: usize,
-) -> Result<ResponseCurvatureFit, String> {
+) -> Result<ResponseCurvatureFit, ResponseGeometryError> {
     if dim == 0 {
-        return Err("constant-curvature response geometry requires dim >= 1".into());
+        return Err(ResponseGeometryError::InvalidInput(
+            "constant-curvature response geometry requires dim >= 1".into(),
+        ));
     }
     let (n_rows, cols) = values.dim();
     if n_rows == 0 || cols != dim {
-        return Err(format!(
+        return Err(ResponseGeometryError::InvalidInput(format!(
             "constant-curvature response geometry: values must be N×{dim} with N >= 1"
-        ));
+        )));
     }
     if !(level > 0.0 && level < 1.0) {
-        return Err("response curvature CI level must lie in (0, 1)".into());
+        return Err(ResponseGeometryError::InvalidInput(
+            "response curvature CI level must lie in (0, 1)".into(),
+        ));
     }
+    if !(tol.is_finite() && tol > 0.0) {
+        return Err(ResponseGeometryError::InvalidInput(
+            "response curvature tolerance must be finite and positive".into(),
+        ));
+    }
+
+    // Establish identifiability at the flat member before constructing bounds;
+    // a zero-dispersion point cloud carries no curvature scale.
+    let flat_jet = response_curvature_criterion_jet(values, dim, 0.0)?;
     let (kappa_min, kappa_max, rho_max) = response_kappa_bounds(values);
+    let span = kappa_max - kappa_min;
+    let nobs = (n_rows * dim) as f64;
+    if !(span.is_finite() && span > 0.0) {
+        return Err(ResponseGeometryError::NumericalGeometry(
+            "response curvature chart bracket is not finite and ordered".into(),
+        ));
+    }
 
     // `V_p` as a closure over the criterion; threaded through both the κ̂ search
     // and the CI walk. Every evaluation uses the same κ-independent flat-centroid
@@ -1313,55 +1405,81 @@ pub fn fit_response_curvature(
         response_curvature_criterion(values, dim, kappa).map(|(v, _)| v)
     };
 
-    // ── κ̂: golden-section minimisation inside the chart bracket. ────────────
-    // The dispersion criterion is smooth and unimodal in practice; golden
-    // section is derivative-free and respects the bracket bounds exactly.
-    const GOLDEN_INV: f64 = 0.618_033_988_749_894_8; // 1/φ
+    // ── κ̂: analytic score root / constrained box-KKT solve. ─────────────
+    // `(span/nobs)·|V'|` is dimensionless, response-scale invariant, and row-
+    // replication invariant. At a bound only the outward score component is a
+    // KKT violation.
+    let normalized_kkt = |kappa: f64, score: f64| {
+        let violation = if kappa == kappa_min {
+            (-score).max(0.0)
+        } else if kappa == kappa_max {
+            score.max(0.0)
+        } else {
+            score.abs()
+        };
+        span * violation / nobs
+    };
+
+    let lower = response_curvature_criterion_jet(values, dim, kappa_min)?;
+    let upper = response_curvature_criterion_jet(values, dim, kappa_max)?;
     let mut a = kappa_min;
     let mut b = kappa_max;
-    let mut c = b - GOLDEN_INV * (b - a);
-    let mut d_pt = a + GOLDEN_INV * (b - a);
-    let mut fc = v_p(c)?;
-    let mut fd = v_p(d_pt)?;
-    let ktol = (tol * (kappa_max - kappa_min)).max(tol).max(1.0e-12);
-    for _ in 0..max_iter {
-        if (b - a).abs() <= ktol {
-            break;
-        }
-        if fc < fd {
-            b = d_pt;
-            d_pt = c;
-            fd = fc;
-            c = b - GOLDEN_INV * (b - a);
-            fc = v_p(c)?;
-        } else {
-            a = c;
-            c = d_pt;
-            fc = fd;
-            d_pt = a + GOLDEN_INV * (b - a);
-            fd = v_p(d_pt)?;
-        }
-    }
-    let kappa_hat = 0.5 * (a + b);
-    let (v_p_hat, base) = response_curvature_criterion(values, dim, kappa_hat)?;
+    let mut iterations = 0_usize;
+    let (jet, railed_at_resolution_limit) = if lower.score >= 0.0 {
+        // V'(κ_min)≥0 is the exact lower-bound minimization KKT condition.
+        (lower, false)
+    } else if upper.score <= 0.0 {
+        // V'(κ_max)≤0 means the criterion is still improving at the
+        // spherical chart-resolution limit.
+        (upper, true)
+    } else {
+        let mut current = flat_jet;
+        while iterations < max_iter {
+            iterations += 1;
+            if normalized_kkt(current.kappa, current.score) <= tol && current.curvature > 0.0 {
+                break;
+            }
+            if current.score < 0.0 {
+                a = current.kappa;
+            } else {
+                b = current.kappa;
+            }
 
-    // ── Honest chart-resolution-rail detection. ─────────────────────────────
-    // The spherical cap κ_max is the curvature at which the cloud's geodesic
-    // spread ρ_max fills `(0.9π)²` of the conjugate shell — i.e. the cloud nearly
-    // fills the sphere S^d(1/√κ_max). When the criterion's optimum sits AT that
-    // cap (the data want κ ≥ κ_max, but the chart cannot resolve a sphere smaller
-    // than the cloud), the search converges onto the upper bracket and κ̂ ≈ κ_max
-    // is NOT a resolved point estimate — it is a lower bound on |κ|. We flag this
-    // so the caller reports "curvature exceeds chart-resolvable range at this
-    // scale" instead of silently quoting κ̂ / ci_hi as if interior. The detection
-    // is scale-free: it triggers when κ̂ lands within the final golden-section
-    // resolution of κ_max (the dimensionless product κ̂·ρ_max² ↗ (0.9π)²), never
-    // by an absolute κ threshold. The hyperbolic side has no conjugate radius, so
-    // only the spherical (upper) cap can rail this way.
-    let span = kappa_max - kappa_min;
-    let rail_margin = (0.02 * span).max(ktol);
-    let railed_at_resolution_limit = kappa_hat >= kappa_max - rail_margin;
+            // Newton's score step supplies local quadratic convergence; the
+            // analytic sign bracket safeguards it globally. An inadmissible
+            // Newton point is replaced by the strictly contracting midpoint.
+            let newton = current.kappa - current.score / current.curvature;
+            let next = if current.curvature > 0.0 && newton.is_finite() && newton > a && newton < b
+            {
+                newton
+            } else {
+                0.5 * (a + b)
+            };
+            current = response_curvature_criterion_jet(values, dim, next)?;
+        }
+        let residual = normalized_kkt(current.kappa, current.score);
+        if residual > tol || current.curvature <= 0.0 {
+            return Err(ResponseGeometryError::CurvatureNonConvergence {
+                iterations,
+                max_iter,
+                bracket_lo: a,
+                bracket_hi: b,
+                kappa: current.kappa,
+                criterion: current.value,
+                score: current.score,
+                curvature: current.curvature,
+                kkt_residual: residual,
+                tolerance: tol,
+            });
+        }
+        (current, false)
+    };
+    let kappa_hat = jet.kappa;
+    let v_p_hat = jet.value;
+    let base = jet.base.clone();
 
+    // The upper rail flag comes only from the exact active-bound KKT condition
+    // `V'(κ_max) ≤ 0`; proximity to a bound is not treated as convergence.
     // Dimensionless scale-free invariant κ̂·r²: the geometric content the cloud
     // actually determines (invariant under y ↦ αy). r = ρ_max is the κ=0 doubled-
     // gauge characteristic radius; for a degenerate (point) cloud r = 0 and the
@@ -1369,22 +1487,24 @@ pub fn fit_response_curvature(
     // honest "how curved relative to its spread" number alongside the dimensional κ̂.
     let kappa_r2 = kappa_hat * rho_max * rho_max;
 
-    // Exact outer curvature V_p''(κ̂) by a central second difference, on a step
-    // scaled to the bracket; only used to size the Wald bracket of the CI walk.
-    let h = (1.0e-3 * (kappa_max - kappa_min)).max(1.0e-6);
-    let v_pp = if (kappa_hat - h) > kappa_min && (kappa_hat + h) < kappa_max {
-        let vp = v_p(kappa_hat + h)?;
-        let vm = v_p(kappa_hat - h)?;
-        (vp - 2.0 * v_p_hat + vm) / (h * h)
-    } else {
-        // Near a bound: leave it to the walk's default step.
-        f64::NAN
-    };
-
+    let kappa_tol = tol * span;
+    if !(kappa_tol.is_finite() && kappa_tol > 0.0) {
+        return Err(ResponseGeometryError::InvalidInput(
+            "response curvature tolerance underflows in the chart scale".into(),
+        ));
+    }
     let profile_ci = crate::curvature_estimand::profile_ci_walk(
-        &mut v_p, kappa_hat, v_pp, kappa_min, kappa_max, level, ktol,
-    )?;
-    let flatness = crate::curvature_estimand::flatness_lr_test(&mut v_p, kappa_hat)?;
+        &mut v_p,
+        kappa_hat,
+        jet.curvature,
+        kappa_min,
+        kappa_max,
+        level,
+        kappa_tol,
+    )
+    .map_err(ResponseGeometryError::NumericalGeometry)?;
+    let flatness = crate::curvature_estimand::flatness_lr_test(&mut v_p, kappa_hat)
+        .map_err(ResponseGeometryError::NumericalGeometry)?;
 
     // The sign of κ̂ is statistically resolved iff the profile CI excludes 0 — the
     // CI is the honest sign-bearing summary (it reports Flat under-resolution rather
@@ -1446,14 +1566,18 @@ mod tests {
     #[test]
     fn grassmann_round_trip_and_mean() {
         // Gr(1, 3): unit columns (lines through the origin), n·k = 3 flat.
-        let values = array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.6, 0.8, 0.0],];
+        let (c1, s1) = (0.2_f64.cos(), 0.2_f64.sin());
+        let (c2, s2) = (0.35_f64.cos(), 0.35_f64.sin());
+        let values = array![[1.0, 0.0, 0.0], [c1, s1, 0.0], [c2, s2, 0.0],];
         round_trip(ResponseManifold::Grassmann { k: 1, n: 3 }, values);
     }
 
     #[test]
     fn stiefel_round_trip_and_mean() {
         // St(1, 3): unit 1-frames in ℝ³ (== sphere S²).
-        let values = array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.6, 0.8],];
+        let (c1, s1) = (0.2_f64.cos(), 0.2_f64.sin());
+        let (c2, s2) = (0.3_f64.cos(), 0.3_f64.sin());
+        let values = array![[1.0, 0.0, 0.0], [c1, s1, 0.0], [c2, 0.0, s2],];
         round_trip(ResponseManifold::Stiefel { k: 1, n: 3 }, values);
     }
 
@@ -1519,141 +1643,188 @@ mod tests {
         v
     }
 
-    /// Uniform-weight Fréchet objective `(1/M) Σ ‖log_p Xᵢ‖²_p` — the dispersion
-    /// the driver minimizes. Lower is a better mean. Uses the module-private
-    /// per-point primitives directly (available inside this child module).
-    fn frechet_objective(
+    /// Analytic Karcher stationarity residual for a uniform-weight cloud.
+    fn frechet_residual(
         manifold: ResponseManifold,
         values: ArrayView2<'_, f64>,
         p: ArrayView1<'_, f64>,
     ) -> f64 {
-        let mut acc = 0.0;
+        let mut xi = Array1::<f64>::zeros(values.ncols());
         for row in 0..values.nrows() {
             let lg = manifold.log_point(p, values.row(row)).expect("log map");
-            acc += manifold
-                .sq_metric_norm(p, lg.view())
-                .expect("metric norm");
+            xi.scaled_add(1.0 / values.nrows() as f64, &lg);
         }
-        acc / values.nrows() as f64
+        manifold
+            .sq_metric_norm(p, xi.view())
+            .expect("metric norm")
+            .sqrt()
     }
 
     #[test]
-    fn stiefel_k1_frechet_mean_accepts_widely_spread_sphere_cloud() {
-        // #2140: `St(3,1)` IS S²; a widely spread cloud makes the single-seed
-        // generic Karcher descent exhaust its `max_iter=256` budget while still
-        // inching downhill. The driver used to DISCARD the best iterate and
-        // return `Err`, aborting the whole fit — even though `response_geometry
-        // ="sphere"` on the identical data succeeds. It must instead return the
-        // best (near-stationary) on-manifold mean.
-        let values = fibonacci_sphere(80);
+    fn successful_stiefel_k1_frechet_mean_is_analytically_stationary() {
+        let inv = 1.0 / 1.01_f64.sqrt();
+        let values = array![
+            [1.0, 0.0, 0.0],
+            [inv, 0.1 * inv, 0.0],
+            [inv, 0.0, -0.1 * inv],
+            [inv, -0.1 * inv, 0.0],
+        ];
         let manifold = ResponseManifold::Stiefel { k: 1, n: 3 };
-        let mean = response_frechet_mean(manifold, values.view(), None, 1.0e-12, 256)
-            .expect("widely spread sphere cloud must yield a Fréchet mean, not a budget error");
+        let tol = 1.0e-10;
+        let mean = response_frechet_mean(manifold, values.view(), None, tol, 256)
+            .expect("tight sphere cloud must reach the Karcher certificate");
 
-        // On-manifold: a genuine unit vector (a valid chart origin the tangent
-        // regression can expand around).
         assert_eq!(mean.len(), 3);
         let nrm = (mean[0] * mean[0] + mean[1] * mean[1] + mean[2] * mean[2]).sqrt();
-        assert!((nrm - 1.0).abs() < 1e-9, "mean must be unit-norm, got {nrm}");
-        assert!(mean.iter().all(|c| c.is_finite()), "mean must be finite");
-
-        // And it is a genuine minimizer, not just any on-manifold point: its
-        // dispersion beats an arbitrary data point's.
-        let obj_mean = frechet_objective(manifold, values.view(), mean.view());
-        let obj_pt0 = frechet_objective(manifold, values.view(), values.row(0));
         assert!(
-            obj_mean < obj_pt0,
-            "Fréchet mean dispersion {obj_mean} must beat a data point's {obj_pt0}"
+            (nrm - 1.0).abs() < 1e-9,
+            "mean must be unit-norm, got {nrm}"
+        );
+        let residual = frechet_residual(manifold, values.view(), mean.view());
+        assert!(
+            residual <= tol,
+            "successful mean residual {residual:.3e} exceeds tolerance {tol:.3e}"
         );
     }
 
     #[test]
-    fn stiefel_k1_and_sphere_drivers_agree_on_widely_spread_cloud() {
-        // `stiefel(k=1)` (generic driver) and `sphere` (dedicated driver) are
-        // the SAME manifold; on the identical widely spread cloud the generic
-        // driver's mean must be essentially as good as the sphere driver's —
-        // proof the returned budget-exhausted iterate is a true near-mean, not a
-        // degraded surrogate.
-        let values = fibonacci_sphere(80);
-        let stiefel = ResponseManifold::Stiefel { k: 1, n: 3 };
-        let generic = response_frechet_mean(stiefel, values.view(), None, 1.0e-12, 256)
-            .expect("generic driver must return a mean");
-        let sphere = crate::manifolds::sphere::sphere_frechet_mean(values.view(), None, 1.0e-12, 256)
-            .expect("sphere driver must return a mean");
-        let sphere = Array1::from(sphere);
-
-        let obj_generic = frechet_objective(stiefel, values.view(), generic.view());
-        let obj_sphere = frechet_objective(stiefel, values.view(), sphere.view());
-        assert!(
-            obj_generic <= obj_sphere + 1e-3,
-            "generic-driver dispersion {obj_generic} must match the sphere driver's {obj_sphere}"
-        );
-    }
-
-    #[test]
-    fn budget_exhausted_generic_frechet_returns_best_iterate_not_error() {
-        // Directly pin the fixed branch: a `max_iter` too small to ever reach
-        // stationarity must STILL return the best on-manifold iterate (matching
-        // the stall and rejected-step exits), never the historical
-        // "did not reach stationarity within max_iter" error.
+    fn budget_exhausted_generic_frechet_is_typed_non_convergence() {
         let values = fibonacci_sphere(60);
         for manifold in [
             ResponseManifold::Stiefel { k: 1, n: 3 },
             ResponseManifold::Grassmann { k: 1, n: 3 },
         ] {
-            let mean = response_frechet_mean(manifold, values.view(), None, 1.0e-12, 1)
-                .unwrap_or_else(|e| panic!("{manifold:?} budget=1 must return best iterate: {e}"));
-            assert!(
-                mean.iter().all(|c| c.is_finite()),
-                "{manifold:?} best iterate must be finite"
-            );
-            let nrm = mean.iter().map(|c| c * c).sum::<f64>().sqrt();
-            assert!(
-                (nrm - 1.0).abs() < 1e-9,
-                "{manifold:?} best iterate must stay on-manifold (unit-norm), got {nrm}"
-            );
+            match response_frechet_mean(manifold, values.view(), None, 1.0e-30, 0) {
+                Err(GeometryError::NonConvergence {
+                    context,
+                    iterations,
+                    residual,
+                    tolerance,
+                }) => {
+                    assert_eq!(context, "response geometry Fréchet mean");
+                    assert_eq!(iterations, 0);
+                    assert!(residual.is_finite() && residual > tolerance);
+                }
+                other => panic!("{manifold:?} expected typed exhaustion, got {other:?}"),
+            }
         }
     }
 
     #[test]
-    fn hadamard_frechet_mean_uses_single_descent_fast_path() {
-        // Spd/Poincaré are Hadamard: the mean is unique, so `multistart` must be
-        // OFF and a well-clustered cloud converges to `grad ≤ tol` on the first
-        // seed. Guard the classifier and the fast path together.
-        assert!(!ResponseManifold::Spd { n: 2 }.frechet_mean_can_be_nonunique());
-        assert!(
-            !ResponseManifold::Poincare {
+    fn frechet_global_uniqueness_radii_are_geometry_derived() {
+        assert_eq!(
+            ResponseManifold::Spd { n: 2 }.frechet_uniqueness_radius(),
+            None
+        );
+        assert_eq!(
+            ResponseManifold::Poincare {
                 dim: 2,
                 curvature: -1.0
             }
-            .frechet_mean_can_be_nonunique()
+            .frechet_uniqueness_radius(),
+            None
         );
-        assert!(ResponseManifold::Stiefel { k: 1, n: 3 }.frechet_mean_can_be_nonunique());
-        assert!(ResponseManifold::Grassmann { k: 1, n: 4 }.frechet_mean_can_be_nonunique());
-        assert!(
+        assert_eq!(
+            ResponseManifold::Stiefel { k: 1, n: 3 }.frechet_uniqueness_radius(),
+            Some(std::f64::consts::FRAC_PI_4)
+        );
+        assert_eq!(
+            ResponseManifold::Grassmann { k: 2, n: 4 }.frechet_uniqueness_radius(),
+            Some(std::f64::consts::PI / (4.0 * 2.0_f64.sqrt()))
+        );
+        assert_eq!(
+            ResponseManifold::ConstantCurvature { dim: 2, kappa: 4.0 }.frechet_uniqueness_radius(),
+            Some(std::f64::consts::PI / 8.0)
+        );
+        assert_eq!(
             ResponseManifold::ConstantCurvature {
-                dim: 2,
-                kappa: 3.0
-            }
-            .frechet_mean_can_be_nonunique()
-        );
-        assert!(
-            !ResponseManifold::ConstantCurvature {
                 dim: 2,
                 kappa: -3.0
             }
-            .frechet_mean_can_be_nonunique()
+            .frechet_uniqueness_radius(),
+            None
         );
 
-        // A tight SPD cluster still converges to the unique Karcher mean.
+        // A tight SPD cluster still converges to the unique Hadamard mean.
         let values = array![
             [2.0, 0.0, 0.0, 1.0],
             [2.1, 0.05, 0.05, 1.02],
             [1.95, -0.03, -0.03, 0.98],
         ];
-        let mean = response_frechet_mean(ResponseManifold::Spd { n: 2 }, values.view(), None, 1e-12, 500)
-            .expect("SPD cluster must converge");
+        let mean = response_frechet_mean(
+            ResponseManifold::Spd { n: 2 },
+            values.view(),
+            None,
+            1e-12,
+            500,
+        )
+        .expect("SPD cluster must converge");
         assert!(mean.iter().all(|c| c.is_finite()));
+    }
+
+    #[test]
+    fn diffuse_positive_curvature_cloud_has_typed_global_certificate_error() {
+        let manifold = ResponseManifold::Stiefel { k: 1, n: 2 };
+        let angle = 0.9_f64;
+        let values = array![[angle.cos(), -angle.sin()], [angle.cos(), angle.sin()],];
+        for cloud in [
+            values.clone(),
+            values.slice(ndarray::s![..;-1, ..]).to_owned(),
+        ] {
+            match response_frechet_mean(manifold, cloud.view(), None, 1.0e-12, 256) {
+                Err(GeometryError::FrechetMeanNotGloballyCertified {
+                    stationarity_residual,
+                    tolerance,
+                    support_radius,
+                    uniqueness_radius,
+                    ..
+                }) => {
+                    assert!(stationarity_residual <= tolerance);
+                    assert!(support_radius >= uniqueness_radius);
+                    assert_eq!(uniqueness_radius, std::f64::consts::FRAC_PI_4);
+                }
+                other => panic!("expected diffuse-cloud certificate error, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn tight_positive_curvature_mean_is_permutation_invariant_beyond_eight_rows() {
+        let manifold = ResponseManifold::Stiefel { k: 1, n: 2 };
+        let angles = [
+            -0.20_f64, -0.16, -0.12, -0.08, -0.04, 0.0, 0.03, 0.06, 0.09, 0.12, 0.15, 0.18,
+        ];
+        let mut values = Array2::<f64>::zeros((angles.len(), 2));
+        for (row, angle) in angles.into_iter().enumerate() {
+            values[[row, 0]] = angle.cos();
+            values[[row, 1]] = angle.sin();
+        }
+        let reversed = values.slice(ndarray::s![..;-1, ..]).to_owned();
+        let direct = response_frechet_mean(manifold, values.view(), None, 1.0e-12, 256)
+            .expect("tight cloud has a certified global mean");
+        let permuted = response_frechet_mean(manifold, reversed.view(), None, 1.0e-12, 256)
+            .expect("permuted tight cloud has a certified global mean");
+        assert!(
+            (&direct - &permuted)
+                .iter()
+                .all(|value| value.abs() <= 1.0e-12)
+        );
+        assert!(frechet_residual(manifold, values.view(), direct.view()) <= 1.0e-12);
+    }
+
+    #[test]
+    fn zero_weight_cut_locus_rows_do_not_affect_mean_or_certificate() {
+        let manifold = ResponseManifold::Stiefel { k: 1, n: 2 };
+        let values = array![[1.0, 0.0], [-1.0, 0.0]];
+        let weights = array![1.0, 0.0];
+        let mean =
+            response_frechet_mean(manifold, values.view(), Some(weights.view()), 1.0e-12, 32)
+                .expect("zero-mass cut-locus row must be ignored");
+        assert!(
+            (&mean - &values.row(0))
+                .iter()
+                .all(|value| value.abs() <= f64::EPSILON)
+        );
     }
 
     #[test]
@@ -1720,11 +1891,19 @@ mod tests {
             ),
             (
                 "grassmann(k=1)",
-                array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.6, 0.8, 0.0]],
+                array![
+                    [1.0, 0.0, 0.0],
+                    [0.2_f64.cos(), 0.2_f64.sin(), 0.0],
+                    [0.35_f64.cos(), 0.35_f64.sin(), 0.0],
+                ],
             ),
             (
                 "stiefel(k=1)",
-                array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.6, 0.8]],
+                array![
+                    [1.0, 0.0, 0.0],
+                    [0.2_f64.cos(), 0.2_f64.sin(), 0.0],
+                    [0.3_f64.cos(), 0.0, 0.3_f64.sin()],
+                ],
             ),
             ("poincare", array![[0.1, 0.2], [-0.3, 0.1], [0.2, -0.25]]),
         ];
@@ -1766,19 +1945,20 @@ mod tests {
     /// before the fix it hard-passed `None` for the weights, so the chart origin
     /// was the unweighted intrinsic mean even when the tangent regression was
     /// weighted — a biased linearization. Here Stiefel(k=1,n=3) is the sphere S²:
-    /// two clusters of unit vectors 90° apart, with weights concentrated on the
-    /// first cluster, must move the base point toward that cluster.
+    /// two separated clusters, both inside the certified convexity ball, have
+    /// weights concentrated on the first cluster and must move the base toward it.
     #[test]
     fn dispatch_log_map_uses_weighted_frechet_mean() {
-        let a = 0.15_f64;
+        let a = 0.05_f64;
+        let separation = 0.6_f64;
         // Two clusters on the great circle z = 0: cluster A about [1,0,0]
-        // (rows 0,1) and cluster B about [0,1,0] (rows 2,3). Every row is an
-        // exact unit vector (cos²+sin²=1), so Stiefel(k=1) accepts them.
+        // (rows 0,1) and cluster B `separation` radians away (rows 2,3).
+        // Every row is an exact unit vector (cos²+sin²=1).
         let values = array![
             [a.cos(), a.sin(), 0.0],
             [(-a).cos(), (-a).sin(), 0.0],
-            [(std::f64::consts::FRAC_PI_2 - a).cos(), (std::f64::consts::FRAC_PI_2 - a).sin(), 0.0],
-            [(std::f64::consts::FRAC_PI_2 + a).cos(), (std::f64::consts::FRAC_PI_2 + a).sin(), 0.0],
+            [(separation - a).cos(), (separation - a).sin(), 0.0],
+            [(separation + a).cos(), (separation + a).sin(), 0.0],
         ];
         // Heavily weight cluster A: the weighted mean must sit near [1,0,0],
         // whereas the unweighted mean sits near the 45° bisector.
@@ -1797,7 +1977,7 @@ mod tests {
         // Sanity: the two intrinsic means genuinely differ, so this design can
         // distinguish a weighted from an unweighted base point.
         assert!(
-            geodesic(unweighted_ref.view(), weighted_ref.view()) > 0.3,
+            geodesic(unweighted_ref.view(), weighted_ref.view()) > 0.2,
             "test design degenerate: weighted and unweighted means nearly coincide"
         );
 
@@ -1900,6 +2080,65 @@ mod tests {
         values
     }
 
+    #[test]
+    fn response_curvature_criterion_jet_matches_finite_difference_oracle() {
+        // Test-only central differences verify the hand-derived score and
+        // Hessian on both sides of the flat member. Production fitting uses
+        // only `response_curvature_criterion_jet`.
+        let values = array![
+            [0.18, -0.07],
+            [-0.11, 0.16],
+            [0.04, 0.21],
+            [-0.15, -0.09],
+            [0.09, -0.13],
+        ];
+        let h = 1.0e-5;
+        for kappa in [-0.8, 0.0, 0.9] {
+            let jet = response_curvature_criterion_jet(values.view(), 2, kappa)
+                .expect("analytic curvature jet");
+            let plus = response_curvature_criterion_jet(values.view(), 2, kappa + h)
+                .expect("positive finite-difference probe");
+            let minus = response_curvature_criterion_jet(values.view(), 2, kappa - h)
+                .expect("negative finite-difference probe");
+            let score_fd = (plus.value - minus.value) / (2.0 * h);
+            let curvature_fd = (plus.score - minus.score) / (2.0 * h);
+            let score_scale = 1.0 + jet.score.abs().max(score_fd.abs());
+            let curvature_scale = 1.0 + jet.curvature.abs().max(curvature_fd.abs());
+            assert!(
+                (jet.score - score_fd).abs() <= 2.0e-8 * score_scale,
+                "kappa={kappa}: analytic score {} != FD {score_fd}",
+                jet.score
+            );
+            assert!(
+                (jet.curvature - curvature_fd).abs() <= 2.0e-8 * curvature_scale,
+                "kappa={kappa}: analytic curvature {} != FD {curvature_fd}",
+                jet.curvature
+            );
+        }
+    }
+
+    #[test]
+    fn response_curvature_budget_exhaustion_is_typed_non_convergence() {
+        let values = synth_cloud(3, 0.8, 80, 0.15, 0xC0A7_2247);
+        match fit_response_curvature(values.view(), 3, 0.95, 1.0e-14, 0) {
+            Err(ResponseGeometryError::CurvatureNonConvergence {
+                iterations,
+                max_iter,
+                kkt_residual,
+                tolerance,
+                score,
+                curvature,
+                ..
+            }) => {
+                assert_eq!(iterations, 0);
+                assert_eq!(max_iter, 0);
+                assert!(kkt_residual.is_finite() && kkt_residual > tolerance);
+                assert!(score.is_finite() && curvature.is_finite());
+            }
+            other => panic!("expected typed curvature exhaustion, got {other:?}"),
+        }
+    }
+
     /// The #1104 reparameterisation-invariant curvature estimator: on synthetic
     /// clouds generated at known κ⋆ the fitted κ̂ must be (a) INTERIOR to the
     /// chart bracket (never railed), (b) close to κ⋆ and MONOTONE in κ⋆, (c)
@@ -1973,8 +2212,8 @@ mod tests {
                 .expect("scaled response curvature fit");
             let expected = fit.kappa_hat / (alpha * alpha);
             // Tolerance scales with magnitude; the transform is exact in the
-            // criterion (V(κ, αy) = V(α²κ, y)) up to the finite golden-section /
-            // bracket discretisation.
+            // criterion (V(κ, αy) = V(α²κ, y)) up to the analytic score
+            // solve's floating-point tolerance.
             assert!(
                 (fit_scaled.kappa_hat - expected).abs() <= 0.05 + 0.05 * expected.abs(),
                 "κ⋆={k_star}: rescale covariance broken: κ̂(αy)={} vs κ̂(y)/α²={}",

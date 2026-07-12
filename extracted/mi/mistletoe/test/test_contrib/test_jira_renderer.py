@@ -113,6 +113,12 @@ class TestJiraRenderer(BaseRendererTest):
         expected = '[{body}|{url}|{title}]'.format(url=url, body=body, title=title)
         self.assertEqual(output, expected)
 
+    def test_render_link_with_escapes(self):
+        token = next(iter(tokenize_inner('[A link with \\[brackets\\]](http://wwww.example.com/some[complex]url "[A title]")')))
+        output = self.renderer.render(token)
+        expected = '[A link with \\[brackets\\]|http://wwww.example.com/some\\[complex\\]url|\\[A title\\]]'
+        self.assertEqual(output, expected)
+
     def test_render_footnote_link(self):
         pass
 
@@ -208,6 +214,20 @@ public static void main(String[] args) {
         expected = """\
 ||A||B||C||
 |1| |3|
+
+"""
+        self.markdownResultTest(markdown, expected)
+
+    def test_table_pipe_in_cell(self):
+        """ Escape pipe in cells """
+        markdown = """\
+| A     | B |
+|-----------|
+| 1\\|1 | 2 |
+"""
+        expected = """\
+||A||B||
+|1\\|1|2|
 
 """
         self.markdownResultTest(markdown, expected)

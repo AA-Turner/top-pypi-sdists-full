@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-nlp-nightly
-Version: 0.30.0.dev202607100550
+Version: 0.30.0.dev202607120540
 Summary: Pretrained models for Keras.
 Author-email: Keras team <keras-users@googlegroups.com>
 License-Expression: Apache-2.0
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: keras-hub-nightly==0.30.0.dev202607100550
+Requires-Dist: keras-hub-nightly==0.30.0.dev202607120540
 
 # KerasNLP: Multi-framework NLP Models
 

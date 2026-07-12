@@ -297,6 +297,21 @@ impl BSplineBoundaryConditions {
         matches!(self.left, BSplineEndpointBoundaryCondition::Free)
             && matches!(self.right, BSplineEndpointBoundaryCondition::Free)
     }
+
+    /// Whether exactly one endpoint fixes the function's absolute level.
+    ///
+    /// A one-sided anchor replaces the global intercept as the level-setting
+    /// constraint. Centering that same smooth to zero would impose a second,
+    /// incompatible level constraint and exclude every non-zero-mean anchored
+    /// function from the model space.
+    pub const fn has_one_sided_anchor(&self) -> bool {
+        let left = matches!(self.left, BSplineEndpointBoundaryCondition::Anchored { .. });
+        let right = matches!(
+            self.right,
+            BSplineEndpointBoundaryCondition::Anchored { .. }
+        );
+        left != right
+    }
 }
 
 /// Per-smooth identifiability policy for 1D B-spline bases.
@@ -361,6 +376,28 @@ pub enum CenterStrategy {
     UniformGrid {
         points_per_dim: usize,
     },
+}
+
+impl CenterStrategy {
+    /// The number of centers this strategy will select, computed from the
+    /// strategy alone (no data pass). `d` is the smooth's covariate
+    /// dimensionality, needed only by `UniformGrid` whose count is
+    /// `points_per_dim^d`. Adaptive-fit provenance consults this before freeze,
+    /// because the frozen center matrix can contain periodic image expansion
+    /// and therefore is not the requested resolution for the next refit.
+    pub fn planned_num_centers(&self, d: usize) -> usize {
+        match self {
+            Self::Auto(inner) => inner.planned_num_centers(d),
+            Self::UserProvided(centers) => centers.nrows(),
+            Self::EqualMass { num_centers }
+            | Self::EqualMassCovarRepresentative { num_centers }
+            | Self::FarthestPoint { num_centers }
+            | Self::KMeans { num_centers, .. } => *num_centers,
+            Self::UniformGrid { points_per_dim } => {
+                points_per_dim.saturating_pow(d.clamp(1, u32::MAX as usize) as u32)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -454,66 +491,79 @@ pub fn conservative_secondary_centers(n: usize, d: usize) -> usize {
     default_num_centers(n, d).min(modest).max(1)
 }
 
-/// mgcv-parity STARTING center count for saturation-escalation (#1689).
+/// Low-rank starting center count for saturation-driven spatial fitting.
 ///
-/// Rather than provisioning [`default_num_centers`] up-front (≈134 at n=800, d=2)
-/// and paying `O(n·k² + k³)` for the worst case on every fit, a spatial smooth is
-/// first fit at this modest count and grows [`escalated_num_centers`] ONLY when
-/// its own fitted evidence says the basis is saturated ([`basis_is_saturated`]).
-/// The start is mgcv's thin-plate/Duchon default `k = 10·3^(d−1)` (30 in 2-D) —
-/// the SAME quantity `default_duchon_center_count` already uses as its implicit
-/// low-rank cap, not a new constant — clamped so it never exceeds the ceiling on
-/// small `n` (where `default_num_centers` is already below 30).
+/// The structural minimum (`d + 1` polynomial directions plus one radial
+/// direction) is only enough to make the algebra identifiable. It is not an
+/// adequate pilot function space: structure orthogonal to that single radial
+/// direction is absorbed into the residual, so REML can legitimately shrink
+/// the direction and report EDF below its ceiling even when the surface is
+/// badly under-resolved (#1689). Start from the project's established
+/// thin-plate-style low-rank resolution `10 * 3^(d - 1)` instead. This is the
+/// same dimension rule already used by the automatic Duchon builder, capped by
+/// [`default_num_centers`] so the pilot never exceeds the validated production
+/// basis at small sample sizes.
 pub fn starting_num_centers(n: usize, d: usize) -> usize {
-    let mgcv_default = 10usize.saturating_mul(3usize.saturating_pow(d.saturating_sub(1) as u32));
-    mgcv_default.min(default_num_centers(n, d)).max(1)
+    let low_rank_resolution = 10usize
+        .saturating_mul(3usize.saturating_pow(d.saturating_sub(1).min(u32::MAX as usize) as u32));
+    low_rank_resolution
+        .min(default_num_centers(n, d))
+        .min(n)
+        .max(1)
 }
 
-/// Center count at escalation `level` (0 = [`starting_num_centers`]) for #1689.
+/// Next evidence-backed center count for a saturated spatial basis, bounded by
+/// the already validated production-default resolution.
 ///
-/// Geometric doubling from the start, capped at the [`default_num_centers`]
-/// ceiling. The ceiling is TODAY's provisioned count, so a fully-saturated fit
-/// escalates back to exactly the current basis size — making the current
-/// accuracy the fixed point for wiggly truths (no quality loss), while smooth
-/// truths stop at a small `level` and never pay for the dense basis. Because each
-/// step at most doubles, the number of escalations before hitting the ceiling is
-/// bounded by `⌈log₂(ceiling / start)⌉` (≈1–2 in the n≈800 regime).
-pub fn escalated_num_centers(n: usize, d: usize, level: u32) -> usize {
-    let ceiling = default_num_centers(n, d);
-    let start = starting_num_centers(n, d);
-    let grown = start.saturating_mul(2usize.saturating_pow(level.min(32)));
-    grown.min(ceiling).max(1)
+/// Growth is geometric so the number of certified refits is logarithmic. The
+/// ceiling is supplied by the owning workflow because it depends on the
+/// spatial family/dimension and resource plan; the standard formula workflow
+/// uses [`default_num_centers`]. Adaptive resolution may therefore avoid work
+/// below the previous default, but can never turn an ordinary fit into an
+/// unvalidated row-rank dense basis. `None` means the validated function-space
+/// ceiling has been reached.
+pub fn expanded_num_centers(current: usize, ceiling: usize) -> Option<usize> {
+    if current >= ceiling {
+        return None;
+    }
+    let expanded = current.saturating_mul(2).min(ceiling);
+    (expanded > current).then_some(expanded)
 }
 
 /// Is a fitted spatial smooth's basis SATURATED — i.e. does its own evidence say
-/// the data wants more resolution than the current `num_centers` provides (#1689)?
+/// the data wants more resolution than its realized coefficient span provides (#1689)?
 ///
-/// The penalizable capacity is `num_centers − nullspace_dim`: the unpenalized
+/// The penalizable capacity is `realized_width − nullspace_dim`: the unpenalized
 /// polynomial null space is always fully used, so it is excluded from the "is the
-/// PENALIZED part maxed out?" test. The effective degrees of freedom `edf` of the
-/// penalized block rises toward that capacity exactly as REML drives the penalty
+/// PENALIZED part maxed out?" test. The supplied `edf` is the total term EDF;
+/// subtracting `nullspace_dim` yields its penalized contribution, which rises
+/// toward that capacity exactly as REML drives the penalty
 /// λ toward its floor to chase structure the basis cannot resolve. Saturated ⟺
 /// `edf ≥ capacity − ε`, with the margin `ε` DERIVED from the outer REML
-/// convergence tolerance (`ε = capacity · outer_tol`, floored at `outer_tol` so a
-/// tiny-capacity block still has a positive margin) rather than a tuned knob:
-/// escalation only fires when the fit has converged with edf pinned within outer
-/// tolerance of the ceiling. Non-positive capacity (a block whose null space
-/// already exhausts its columns) is never saturated. The absolute scale of `ε`
-/// is what the MSI truth-recovery sweep (sin8/kappa/large_scale + #1074)
-/// validates — the criterion SHAPE (edf-vs-capacity, nullspace excluded, tol-tied
-/// margin) is the load-bearing contract this function pins.
+/// numerical resolution (`ε = capacity · resolution_tol`, floored at
+/// `resolution_tol` so a tiny-capacity block still has a positive margin) rather
+/// than a tuned knob. The workflow derives `resolution_tol` from the maximum of
+/// its outer convergence tolerance and any rho-independent penalty shrinkage
+/// floor, because that floor bounds how closely EDF can approach the algebraic
+/// ceiling even as lambda tends to zero. Non-positive capacity (a block whose
+/// null space already exhausts its columns) is never saturated. The absolute
+/// scale of `ε` is what the MSI truth-recovery sweep
+/// (sin8/kappa/large_scale + #1074) validates — the criterion SHAPE
+/// (edf-vs-capacity, nullspace excluded, tol-tied margin) is the load-bearing
+/// contract this function pins.
 pub fn basis_is_saturated(
     edf: f64,
-    num_centers: usize,
+    realized_width: usize,
     nullspace_dim: usize,
-    outer_tol: f64,
+    resolution_tol: f64,
 ) -> bool {
-    let capacity = num_centers.saturating_sub(nullspace_dim) as f64;
+    let capacity = realized_width.saturating_sub(nullspace_dim) as f64;
     if !(capacity > 0.0) || !edf.is_finite() {
         return false;
     }
-    let margin = (capacity * outer_tol).max(outer_tol);
-    edf >= capacity - margin
+    let penalized_edf = (edf - nullspace_dim as f64).clamp(0.0, capacity);
+    let margin = (capacity * resolution_tol).max(resolution_tol);
+    penalized_edf >= capacity - margin
 }
 
 /// Resource-aware plan for a spatial smooth (Duchon / Matérn / TPS).
@@ -721,14 +771,16 @@ pub fn center_strategy_num_centers(strategy: &CenterStrategy) -> Option<usize> {
 pub fn center_strategy_with_num_centers(
     strategy: &CenterStrategy,
     num_centers: usize,
+    d: usize,
 ) -> Result<CenterStrategy, BasisError> {
     validate_center_count(num_centers)?;
     fn rebuild_inner(
         strategy: &CenterStrategy,
         num_centers: usize,
+        d: usize,
     ) -> Result<CenterStrategy, BasisError> {
         match strategy {
-            CenterStrategy::Auto(inner) => rebuild_inner(inner.as_ref(), num_centers),
+            CenterStrategy::Auto(inner) => rebuild_inner(inner.as_ref(), num_centers, d),
             CenterStrategy::EqualMass { .. } => Ok(CenterStrategy::EqualMass { num_centers }),
             CenterStrategy::EqualMassCovarRepresentative { .. } => {
                 Ok(CenterStrategy::EqualMassCovarRepresentative { num_centers })
@@ -740,6 +792,9 @@ pub fn center_strategy_with_num_centers(
                 num_centers,
                 max_iter: *max_iter,
             }),
+            CenterStrategy::UniformGrid { .. } if d == 1 => Ok(CenterStrategy::UniformGrid {
+                points_per_dim: num_centers,
+            }),
             CenterStrategy::UserProvided(_) | CenterStrategy::UniformGrid { .. } => {
                 Err(BasisError::InvalidInput(format!(
                     "cannot replace center count for {:?} strategy",
@@ -748,7 +803,7 @@ pub fn center_strategy_with_num_centers(
             }
         }
     }
-    let rebuilt = rebuild_inner(strategy, num_centers)?;
+    let rebuilt = rebuild_inner(strategy, num_centers, d)?;
     Ok(match strategy {
         CenterStrategy::Auto(_) => CenterStrategy::Auto(Box::new(rebuilt)),
         _ => rebuilt,
@@ -1096,30 +1151,24 @@ impl DuchonOperatorPenaltySpec {
     /// true kernel does NOT — it over-smooths the reduced-rank fit relative to
     /// the exact GP (mgcv `bs="gp"`, GpGp).
     ///
-    /// Concretely the roughest Matérn, ν=1/2 in d=1 (`m = 1`), is the
-    /// Ornstein–Uhlenbeck/exponential kernel: an H¹ process whose sample paths
-    /// are continuous but non-differentiable. Although `∫(f')²` is finite on
-    /// its RKHS, the kernel itself already encodes the H¹ control; layering an
-    /// extra tension dial on top biases the reduced-rank fit toward the smooth
-    /// `C¹` functions the kernel does not favour (and stiffness `D2` toward
-    /// `C²`), collapsing held-out oscillation (#707). We therefore gate each
-    /// operator on `j < m` STRICTLY: mass (j=0) is always on, tension (j=1) is
-    /// on for `m > 1`, stiffness (j=2) is on for `m > 2`. For ν ≥ 3/2 (or any
-    /// d ≥ 2) every dial is active, recovering `all_active`; only the
-    /// genuinely rough ν=1/2 (d=1) kernel — where the Sobolev order sits
-    /// exactly on a derivative boundary — drops the higher operators.
+    /// The ν=1/2 Ornstein–Uhlenbeck kernel is the sole exception: its cusp at a
+    /// center makes the collocated gradient/Hessian undefined, so it retains
+    /// mass only (#707). Every differentiable order uses the inclusive Sobolev
+    /// boundary. In particular ν=3/2 in d=1 has `m=2`, and its finite `D2`
+    /// stiffness energy belongs to H². Omitting that block leaves the rough
+    /// kernel with only mass+tension, inflates EDF, and changes the REML model
+    /// class relative to its stated RKHS.
     pub fn matern_for_smoothness(nu: MaternNu, d: usize) -> Self {
         let m = nu.half_integer_value() + 0.5 * d as f64;
-        // Tolerance so an exact half-integer Sobolev order (e.g. m = 1.0 for
-        // ν=1/2, d=1) reliably DISABLES the matching-order operator instead
-        // of flipping on a float-equality knife-edge.
+        // Tolerance keeps the mathematically inclusive `j ≤ m` boundary stable
+        // under floating-point representation of half-integer orders.
         const ORDER_EPS: f64 = 1e-9;
         let active = || OperatorPenaltySpec::Active {
             initial_log_lambda: 0.0,
             prior: None,
         };
         let gate = |order: f64| {
-            if m > order + ORDER_EPS {
+            if !matches!(nu, MaternNu::Half) && m + ORDER_EPS >= order {
                 active()
             } else {
                 OperatorPenaltySpec::Disabled
@@ -2013,7 +2062,10 @@ pub(crate) fn should_use_lazy_spatial_design(
     p: usize,
     policy: &gam_runtime::resource::ResourcePolicy,
 ) -> bool {
-    dense_design_bytes(n, p) > policy.max_single_materialization_bytes
+    matches!(
+        policy.derivative_storage_mode,
+        gam_runtime::resource::DerivativeStorageMode::AnalyticOperatorRequired
+    ) || dense_design_bytes(n, p) > policy.max_single_materialization_bytes
 }
 
 pub(crate) fn wrap_dense_design_with_transform(
@@ -2217,8 +2269,63 @@ pub fn orthogonality_transform_for_design(
     if q == 0 {
         return Ok(Array2::eye(k));
     }
-    let (constraint_cross, gram) = design_cross_and_gram(design, constraint_matrix, weights)?;
+    // Scale every constraint column to unit (weighted) L2 norm before forming the
+    // design/constraint cross `M = Bᵀ W C`. The downstream rank detection
+    // (`rrqr_nullspace_basis`) decides HOW MANY parametric directions the smooth
+    // genuinely spans by testing the pivoted magnitudes of `M` against an
+    // essentially absolute floor `α·ε·max(k,q)` (the `max(|R₀₀|, 1)` reference
+    // clamps to 1 whenever the cross is sub-unit). With a RAW constraint column
+    // that floor is scale-wrong: the all-ones intercept has norm √n, so `M`
+    // carries a √n factor while the tolerance is referenced to 1. For a
+    // kernel/radial smooth whose realized design is already (numerically)
+    // orthogonal to the constant, `‖Bᵀ1‖` is pure floating-point roundoff
+    // (~ε·‖B‖·√n); the √n inflation lands it right at the floor, so a rigid
+    // rotation of the covariates — which only perturbs that roundoff — flips the
+    // detected rank between 0 and 1. A spurious rank 1 then removes an ARBITRARY
+    // real smooth direction (the pivot of a noise vector), and the fitted
+    // surface, its EDF, and the REML-selected λ all drift under rotation
+    // (gam#1818). Measuring the design's overlap with UNIT constraint directions
+    // turns the test into a genuine rotation-invariant cosine: a real overlap is
+    // O(1) and always detected, while roundoff-level overlap stays consistently
+    // below the floor (rank 0). Column scaling of `C` leaves `null(Mᵀ)` — hence
+    // the constrained-design span and the emitted transform — unchanged wherever
+    // the rank is unchanged; it only removes the roundoff-driven rank flip.
+    let normalized_constraint = unit_normalize_constraint_columns(constraint_matrix, weights);
+    let (constraint_cross, gram) =
+        design_cross_and_gram(design, normalized_constraint.view(), weights)?;
     orthogonality_transform_from_cross_and_gram(&constraint_cross, &gram)
+}
+
+/// Scale each column of a constraint block to unit L2 norm under the inner
+/// product used to form the identifiability cross — the `weights`-weighted
+/// product when `Some`, the plain product otherwise. A column that is already
+/// numerically zero (norm 0 or non-finite) is left untouched: its cross entries
+/// are zero regardless, so it contributes no rank. The returned owned copy is
+/// used only to build the cross; the emitted transform and the realized
+/// constrained design are unaffected (column scaling of `C` preserves
+/// `null(Mᵀ)`).
+fn unit_normalize_constraint_columns(
+    constraint_matrix: ArrayView2<'_, f64>,
+    weights: Option<ArrayView1<'_, f64>>,
+) -> Array2<f64> {
+    let mut c = constraint_matrix.to_owned();
+    let (n, q) = c.dim();
+    for col in 0..q {
+        let mut norm_sq = 0.0_f64;
+        for row in 0..n {
+            let v = c[[row, col]];
+            let w = weights.map_or(1.0, |ws| ws[row]);
+            norm_sq += w * v * v;
+        }
+        let norm = norm_sq.sqrt();
+        if norm > 0.0 && norm.is_finite() {
+            let inv = 1.0 / norm;
+            for row in 0..n {
+                c[[row, col]] *= inv;
+            }
+        }
+    }
+    c
 }
 
 #[cfg(test)]
@@ -2226,46 +2333,34 @@ mod saturation_escalation_tests {
     use super::*;
 
     #[test]
-    fn starting_count_is_mgcv_default_capped_by_ceiling() {
-        // Large n, d=2: mgcv default 10·3^1 = 30, well below the n=800 ceiling.
+    fn starting_count_is_a_supported_low_rank_pilot_capped_by_default() {
         assert_eq!(starting_num_centers(800, 2), 30);
-        // The start never exceeds the default_num_centers ceiling on small n.
-        let small = starting_num_centers(40, 2);
-        assert!(small <= default_num_centers(40, 2));
-        assert!(small >= 1);
-        // d=1: mgcv default 10.
         assert_eq!(starting_num_centers(100_000, 1), 10);
+        // The generic conditioning ceiling is `n / 4` and therefore reports
+        // zero below four rows; the pilot retains the basis-wide one-center
+        // degenerate minimum, which materialization subsequently raises to the
+        // exact polynomial floor for the requested family.
+        assert_eq!(starting_num_centers(3, 5), 1);
+        assert_eq!(starting_num_centers(1, 2), 1);
     }
 
     #[test]
-    fn escalation_doubles_then_pins_at_the_default_ceiling() {
-        let n = 800;
-        let d = 2;
-        let ceiling = default_num_centers(n, d);
-        let start = starting_num_centers(n, d);
-        assert_eq!(escalated_num_centers(n, d, 0), start);
-        // Each step at most doubles.
-        assert_eq!(escalated_num_centers(n, d, 1), (2 * start).min(ceiling));
-        // A high level saturates exactly at the ceiling — never past it, so the
-        // fully-escalated basis is byte-for-byte today's provisioned count.
-        assert_eq!(escalated_num_centers(n, d, 20), ceiling);
-        // Monotone non-decreasing in level.
-        let mut prev = 0;
-        for level in 0..8 {
-            let k = escalated_num_centers(n, d, level);
-            assert!(k >= prev);
-            assert!(k <= ceiling);
-            prev = k;
-        }
+    fn saturated_expansion_doubles_then_pins_at_validated_ceiling() {
+        assert_eq!(expanded_num_centers(30, 157), Some(60));
+        assert_eq!(expanded_num_centers(120, 157), Some(157));
+        assert_eq!(expanded_num_centers(157, 157), None);
+        assert_eq!(
+            expanded_num_centers(usize::MAX - 1, usize::MAX),
+            Some(usize::MAX)
+        );
     }
 
     #[test]
     fn saturation_excludes_the_nullspace_and_tracks_edf() {
         let tol = 1e-4;
-        // edf pinned at the penalizable capacity (num_centers − nullspace) reads
-        // saturated; the null space (3 unpenalized polynomial columns in 2-D) is
-        // excluded from the capacity.
-        assert!(basis_is_saturated(97.0, 100, 3, tol));
+        // Total term EDF includes the three-dimensional nullspace. Saturation
+        // means its penalized component spends all 97 remaining directions.
+        assert!(basis_is_saturated(100.0, 100, 3, tol));
         // Half-used basis is NOT saturated.
         assert!(!basis_is_saturated(48.5, 100, 3, tol));
         // Just below capacity by more than the derived margin: not saturated.
@@ -2280,11 +2375,11 @@ mod saturation_escalation_tests {
     fn saturation_is_monotone_in_edf() {
         let tol = 1e-3;
         let (k, null) = (60usize, 3usize);
-        let capacity = (k - null) as f64;
+        let full_width = k as f64;
         // Once saturated at some edf, any larger edf stays saturated.
         let mut first_true: Option<f64> = None;
-        let mut e = capacity - 5.0;
-        while e <= capacity {
+        let mut e = full_width - 5.0;
+        while e <= full_width {
             let sat = basis_is_saturated(e, k, null, tol);
             if sat && first_true.is_none() {
                 first_true = Some(e);

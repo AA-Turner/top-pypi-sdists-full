@@ -23,7 +23,7 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: IdentityAwareProxyClient = ...,
+                    body: IdentityAwareProxyClient,
                     **kwargs: typing.Any,
                 ) -> IdentityAwareProxyClientHttpRequest: ...
                 def delete(
@@ -36,8 +36,8 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListIdentityAwareProxyClientsResponseHttpRequest: ...
                 def list_next(
@@ -49,12 +49,12 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ResetIdentityAwareProxyClientSecretRequest = ...,
+                    body: ResetIdentityAwareProxyClientSecretRequest,
                     **kwargs: typing.Any,
                 ) -> IdentityAwareProxyClientHttpRequest: ...
 
             def create(
-                self, *, parent: str, body: Brand = ..., **kwargs: typing.Any
+                self, *, parent: str, body: Brand, **kwargs: typing.Any
             ) -> BrandHttpRequest: ...
             def get(self, *, name: str, **kwargs: typing.Any) -> BrandHttpRequest: ...
             def list(
@@ -74,8 +74,8 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        body: TunnelDestGroup = ...,
-                        tunnelDestGroupId: str = ...,
+                        body: TunnelDestGroup,
+                        tunnelDestGroupId: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TunnelDestGroupHttpRequest: ...
                     def delete(
@@ -88,8 +88,8 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListTunnelDestGroupsResponseHttpRequest: ...
                     def list_next(
@@ -101,8 +101,8 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         name: str,
-                        body: TunnelDestGroup = ...,
-                        updateMask: str = ...,
+                        body: TunnelDestGroup,
+                        updateMask: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> TunnelDestGroupHttpRequest: ...
 
@@ -116,39 +116,31 @@ class CloudIAPResource(googleapiclient.discovery.Resource):
     @typing.type_check_only
     class V1Resource(googleapiclient.discovery.Resource):
         def getIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: GetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: GetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def getIapSettings(
             self, *, name: str, **kwargs: typing.Any
         ) -> IapSettingsHttpRequest: ...
         def setIamPolicy(
-            self,
-            *,
-            resource: str,
-            body: SetIamPolicyRequest = ...,
-            **kwargs: typing.Any,
+            self, *, resource: str, body: SetIamPolicyRequest, **kwargs: typing.Any
         ) -> PolicyHttpRequest: ...
         def testIamPermissions(
             self,
             *,
             resource: str,
-            body: TestIamPermissionsRequest = ...,
+            body: TestIamPermissionsRequest,
             **kwargs: typing.Any,
         ) -> TestIamPermissionsResponseHttpRequest: ...
         def updateIapSettings(
             self,
             *,
             name: str,
-            body: IapSettings = ...,
-            updateMask: str = ...,
+            body: IapSettings,
+            updateMask: str | None = ...,
             **kwargs: typing.Any,
         ) -> IapSettingsHttpRequest: ...
         def validateAttributeExpression(
-            self, *, name: str, expression: str = ..., **kwargs: typing.Any
+            self, *, name: str, expression: str | None = ..., **kwargs: typing.Any
         ) -> ValidateIapAttributeExpressionResponseHttpRequest: ...
 
     def new_batch_http_request(

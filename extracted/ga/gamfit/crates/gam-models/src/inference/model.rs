@@ -1,8 +1,4 @@
-use gam_terms::basis::BasisOptions;
-use gam_solve::estimate::{BlockRole, FittedLinkState, UnifiedFitResult};
-use crate::bms::{
-    LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIntCalibration,
-};
+use crate::bms::{LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIntCalibration};
 use crate::survival::construction::{
     SurvivalBaselineConfig, SurvivalTimeBasisConfig, parse_survival_baseline_config,
 };
@@ -11,17 +7,20 @@ use crate::survival::lognormal_kernel::FrailtySpec;
 use crate::wiggle::{
     monotone_wiggle_basis_with_derivative_order, validate_monotone_wiggle_beta_nonnegative,
 };
-use gam_terms::inference::formula_dsl::{
-    inverse_link_supports_joint_wiggle, joint_wiggle_unsupported_link_message, parse_formula,
-    parse_surv_interval_response, parse_surv_response, parsed_term_column_names,
-};
-use gam_solve::mixture_link::{state_from_beta_logisticspec, state_from_sasspec};
-use gam_terms::smooth::{AdaptiveRegularizationDiagnostics, TermCollectionSpec};
+use gam_linalg::faer_ndarray::array2_to_nested_vec;
 use gam_problem::types::{
     InverseLink, LatentCLogLogState, LikelihoodSpec, MixtureLinkState, ResponseFamily, SasLinkSpec,
     SasLinkState, StandardLink,
 };
 use gam_runtime::span::span_index_for_breakpoints;
+use gam_solve::estimate::{BlockRole, FittedLinkState, UnifiedFitResult};
+use gam_solve::mixture_link::{state_from_beta_logisticspec, state_from_sasspec};
+use gam_terms::basis::BasisOptions;
+use gam_terms::inference::formula_dsl::{
+    inverse_link_supports_joint_wiggle, joint_wiggle_unsupported_link_message, parse_formula,
+    parse_surv_interval_response, parse_surv_response, parsed_term_column_names,
+};
+use gam_terms::smooth::{AdaptiveRegularizationDiagnostics, TermCollectionSpec};
 // The data-schema value types live in the `gam-data` foundation crate; they
 // were previously authored here and are still named `gam::inference::model::{
 // ColumnKindTag, DataSchema, SchemaColumn}` by a broad set of integration tests
@@ -55,7 +54,7 @@ use std::path::Path;
 /// Do NOT bump for purely additive `Option<T>` fields that the save-time
 /// invariant (`validate_for_persistence`) does not yet require. Those are
 /// forward-compatible.
-pub const MODEL_PAYLOAD_VERSION: u32 = 7;
+pub const MODEL_PAYLOAD_VERSION: u32 = 8;
 
 /// Schema-free saved-model metadata keyed by stable group id.
 ///
@@ -440,18 +439,11 @@ pub struct FittedModelPayload {
     #[serde(default)]
     pub training_headers: Option<Vec<String>>,
     /// Container type of the table the model was fitted on, as detected by the
-    /// Python binding (`"pandas"`, `"polars"`, `"pyarrow"`, `"numpy"`, or an
-    /// ambiguous tag such as `"unknown"`). This is presentation provenance, not
-    /// math: `gamfit.Model.predict` uses it as the output-container fallback
-    /// when the *prediction input* is itself container-ambiguous (a `dict` of
-    /// columns or a `list` of record dicts). Persisting it in the model payload
-    /// makes the fallback survive `save`/`load` and `dumps`/`loads`, so a
-    /// reloaded model predicts into the same container as the in-memory one.
-    /// `None` for older payloads (and for fits that never recorded a kind), in
-    /// which case the fallback degrades to `"dict"`, matching pre-persistence
-    /// behaviour for unknown-kind training tables.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub training_table_kind: Option<String>,
+    /// active frontend (`"pandas"`, `"polars"`, `"pyarrow"`, `"numpy"`, or
+    /// `"unknown"` outside a typed table frontend). This presentation provenance
+    /// is required in the current schema so save/load cannot silently change an
+    /// ambiguous predict input's output container.
+    pub training_table_kind: String,
     /// Per-column (min, max) of the training input matrix, parallel to
     /// `training_headers`. At predict time, inputs are axis-clipped to these
     /// ranges so that out-of-distribution points evaluate at the nearest face
@@ -507,8 +499,10 @@ pub struct FittedModelPayload {
     ///
     /// Populated *only* for a standard Gaussian-identity model fit with unit
     /// prior weights, where the closed-form Sherman–Morrison leave-one-out
-    /// substrate gives a distribution-free finite-sample (≥ level) prediction
-    /// interval with no held-out fold. When `Some`, `predict(interval=level)`
+    /// substrate gives a distribution-free prediction interval with no held-out
+    /// fold, targeting ≈level coverage at α = 1 − level with the finite-sample
+    /// floor ≥ 2·level − 1 (Barber et al. 2021, ≥ 1 − 2α; see the pyffi
+    /// route for the calibration decision, #1546). When `Some`, `predict(interval=level)`
     /// auto-routes through it (the MAGIC default); when `None` — any other
     /// family/link, reweighted rows, or an older payload — predict falls back
     /// to the model-based posterior band and labels the provenance honestly.
@@ -523,9 +517,13 @@ pub struct FittedModelPayload {
     /// Populated under the SAME eligibility as `gaussian_jackknife_plus`
     /// (Gaussian-identity, unit prior weights, offset-free, no link wiggle). It
     /// persists the training design + response + frozen penalty `Sλ` so the
-    /// distribution-free EXACT prediction set (a union of intervals, valid for
+    /// prediction set that is exact GIVEN `Sλ` (a union of intervals, valid for
     /// any penalized smooth) can be replayed per test point — one Cholesky each,
-    /// zero refits — and surfaces the frozen-ρ certificate flag. `None` for any
+    /// zero refits. Because λ̂ was selected from all training responses, the
+    /// frozen-λ construction is not permutation symmetric in the augmented
+    /// points; the distribution-free finite-sample coverage theorem is asserted
+    /// only per row where the surfaced frozen-ρ certificate accepts (under the
+    /// global-ρ grid-Lipschitz assumption). `None` for any
     /// ineligible model or an older payload, in which case the exact-set predict
     /// path errors with a clear message and the caller uses jackknife+ or the
     /// posterior band. `#[serde(default)]` so pre-existing models deserialize as
@@ -755,7 +753,7 @@ impl FittedModelPayload {
             survival_noise_projection_ridge_alpha: None,
             survival_distribution: None,
             training_headers: None,
-            training_table_kind: None,
+            training_table_kind: "unknown".to_string(),
             training_feature_ranges: None,
             group_metadata: None,
             deployment_extensions: Vec::new(),
@@ -2703,7 +2701,7 @@ impl FittedModel {
                 FittedLinkState::Sas { state, covariance },
             ) if likelihood.is_binomial_sas() => {
                 *sas_state = Some(*state);
-                payload.sas_param_covariance = covariance.as_ref().map(array2_to_nestedvec);
+                payload.sas_param_covariance = covariance.as_ref().map(array2_to_nested_vec);
             }
             (
                 FittedFamily::Standard {
@@ -2714,7 +2712,7 @@ impl FittedModel {
                 FittedLinkState::BetaLogistic { state, covariance },
             ) if likelihood.is_binomial_beta_logistic() => {
                 *sas_state = Some(*state);
-                payload.sas_param_covariance = covariance.as_ref().map(array2_to_nestedvec);
+                payload.sas_param_covariance = covariance.as_ref().map(array2_to_nested_vec);
             }
             (
                 FittedFamily::Standard {
@@ -2726,7 +2724,7 @@ impl FittedModel {
             ) if likelihood.is_binomial_mixture() => {
                 *mixture_state = Some(state.clone());
                 payload.mixture_link_param_covariance =
-                    covariance.as_ref().map(array2_to_nestedvec);
+                    covariance.as_ref().map(array2_to_nested_vec);
             }
             _ => {}
         }
@@ -3426,8 +3424,8 @@ impl FittedModel {
             CenterStrategy, MeasureJetExtrapolationSpectrum, MeasureJetIdentifiability,
             PenaltySource,
         };
-        use gam_terms::smooth::build_term_collection_design;
         use gam_terms::smooth::SmoothBasisSpec;
+        use gam_terms::smooth::build_term_collection_design;
         let Some(saved_spec) = self.resolved_termspec.as_ref() else {
             return Ok(None);
         };
@@ -3898,10 +3896,7 @@ impl FittedModel {
     pub fn saved_residual_cascade(
         &self,
     ) -> Result<
-        Option<(
-            &[String],
-            gam_solve::residual_cascade::ResidualCascadeFit,
-        )>,
+        Option<(&[String], gam_solve::residual_cascade::ResidualCascadeFit)>,
         FittedModelError,
     > {
         let Some(saved) = self.residual_cascade.as_ref() else {
@@ -3986,12 +3981,7 @@ impl FittedModel {
                     .columns
                     .iter()
                     .find(|c| &c.name == name)
-                    .map(|c| {
-                        matches!(
-                            c.kind,
-                            ColumnKindTag::Continuous | ColumnKindTag::Binary
-                        )
-                    })
+                    .map(|c| matches!(c.kind, ColumnKindTag::Continuous | ColumnKindTag::Binary))
                     .unwrap_or(false);
                 if !is_numeric {
                     continue;
@@ -4021,6 +4011,11 @@ impl FittedModel {
         // MODEL_PAYLOAD_VERSION constant — every payload must round-trip
         // identically between writers and readers running the same schema.
         self.validate_payload_version()?;
+        if self.training_table_kind.trim().is_empty() {
+            return Err(FittedModelError::MissingField {
+                reason: "saved model training_table_kind must be non-empty".to_string(),
+            });
+        }
         if let Some(scan) = self.spline_scan.as_ref() {
             // Spline-scan representation (#1030/#1034): the smoother state IS
             // the fit. It is exclusive with the dense representation, only
@@ -4686,10 +4681,6 @@ impl FittedModel {
     }
 }
 
-fn array2_to_nestedvec(a: &ndarray::Array2<f64>) -> Vec<Vec<f64>> {
-    a.rows().into_iter().map(|row| row.to_vec()).collect()
-}
-
 use gam_solve::estimate::{ensure_finite_scalar, validate_all_finite};
 
 fn validate_frozen_term_collectionspec(
@@ -4818,10 +4809,10 @@ mod tests {
     use super::*;
     use crate::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL;
     use crate::survival::lognormal_kernel::FrailtySpec;
-    use gam_solve::pirls::PirlsStatus;
-    use gam_solve::estimate::{FitArtifacts, FittedBlock, FittedLinkState};
-    use gam_problem::types::{LikelihoodScaleMetadata, LogLikelihoodNormalization};
     use gam_data::SchemaColumn;
+    use gam_problem::types::{LikelihoodScaleMetadata, LogLikelihoodNormalization};
+    use gam_solve::estimate::{FitArtifacts, FittedBlock, FittedLinkState};
+    use gam_solve::pirls::PirlsStatus;
     use ndarray::{Array1, Array2, array};
 
     fn empty_termspec() -> TermCollectionSpec {
@@ -4954,14 +4945,8 @@ mod tests {
     }
 
     fn saved_fit(blocks: Vec<FittedBlock>) -> UnifiedFitResult {
-        let beta = Array1::from_vec(
-            blocks
-                .iter()
-                .flat_map(|block| block.beta.iter().copied())
-                .collect(),
-        );
-        let p = beta.len();
-        UnifiedFitResult {
+        let p: usize = blocks.iter().map(|block| block.beta.len()).sum();
+        UnifiedFitResult::try_from_parts(gam_solve::estimate::UnifiedFitResultParts {
             blocks,
             log_lambdas: Array1::zeros(0),
             lambdas: Array1::zeros(0),
@@ -4975,8 +4960,6 @@ mod tests {
             penalized_objective: 0.0,
             used_device: false,
             outer_iterations: 0,
-            outer_cost_evals: 0,
-            inner_pirls_solves: 0,
             outer_converged: true,
             outer_gradient_norm: None,
             standard_deviation: 1.0,
@@ -4986,7 +4969,6 @@ mod tests {
             fitted_link: FittedLinkState::Standard(None),
             geometry: None,
             block_states: vec![],
-            beta,
             pirls_status: PirlsStatus::Converged,
             max_abs_eta: 0.0,
             constraint_kkt: None,
@@ -5001,9 +4983,11 @@ mod tests {
                 rho_posterior_escalation: None,
                 rho_covariance: None,
                 joint_log_lambdas: None,
+                firth_bias_reduction: false,
             },
             inner_cycles: 0,
-        }
+        })
+        .expect("test fixture fit must assemble")
     }
 
     fn marginal_slope_payload(version: u32, fit: UnifiedFitResult) -> FittedModelPayload {
@@ -5377,8 +5361,9 @@ mod tests {
                 "`{formula}` is a random effect; it must remain lenient on unseen levels \
                  (held-out-group policy)"
             );
-            encode_level(&grouped, "TYPO")
-                .unwrap_or_else(|err| panic!("`{formula}` must tolerate an unseen level, got: {err}"));
+            encode_level(&grouped, "TYPO").unwrap_or_else(|err| {
+                panic!("`{formula}` must tolerate an unseen level, got: {err}")
+            });
         }
     }
 

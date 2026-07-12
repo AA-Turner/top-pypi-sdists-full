@@ -20,38 +20,34 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
             @typing.type_check_only
             class InstancesResource(googleapiclient.discovery.Resource):
                 def detachLun(
-                    self,
-                    *,
-                    instance: str,
-                    body: DetachLunRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, instance: str, body: DetachLunRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def disableHyperthreading(
                     self,
                     *,
                     name: str,
-                    body: DisableHyperthreadingRequest = ...,
+                    body: DisableHyperthreadingRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def disableInteractiveSerialConsole(
                     self,
                     *,
                     name: str,
-                    body: DisableInteractiveSerialConsoleRequest = ...,
+                    body: DisableInteractiveSerialConsoleRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enableHyperthreading(
                     self,
                     *,
                     name: str,
-                    body: EnableHyperthreadingRequest = ...,
+                    body: EnableHyperthreadingRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def enableInteractiveSerialConsole(
                     self,
                     *,
                     name: str,
-                    body: EnableInteractiveSerialConsoleRequest = ...,
+                    body: EnableInteractiveSerialConsoleRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def get(
@@ -61,9 +57,9 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListInstancesResponseHttpRequest: ...
                 def list_next(
@@ -78,44 +74,32 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Instance = ...,
-                    updateMask: str = ...,
+                    body: Instance,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def reimage(
                     self,
                     *,
                     name: str,
-                    body: ReimageInstanceRequest = ...,
+                    body: ReimageInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rename(
                     self,
                     *,
                     name: str,
-                    body: RenameInstanceRequest = ...,
+                    body: RenameInstanceRequest,
                     **kwargs: typing.Any,
                 ) -> InstanceHttpRequest: ...
                 def reset(
-                    self,
-                    *,
-                    name: str,
-                    body: ResetInstanceRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: ResetInstanceRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def start(
-                    self,
-                    *,
-                    name: str,
-                    body: StartInstanceRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: StartInstanceRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def stop(
-                    self,
-                    *,
-                    name: str,
-                    body: StopInstanceRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: StopInstanceRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
 
             @typing.type_check_only
@@ -127,9 +111,9 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListNetworksResponseHttpRequest: ...
                 def list_next(
@@ -144,22 +128,18 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Network = ...,
-                    updateMask: str = ...,
+                    body: Network,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rename(
-                    self,
-                    *,
-                    name: str,
-                    body: RenameNetworkRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: RenameNetworkRequest, **kwargs: typing.Any
                 ) -> NetworkHttpRequest: ...
 
             @typing.type_check_only
             class NfsSharesResource(googleapiclient.discovery.Resource):
                 def create(
-                    self, *, parent: str, body: NfsShare = ..., **kwargs: typing.Any
+                    self, *, parent: str, body: NfsShare, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def delete(
                     self, *, name: str, **kwargs: typing.Any
@@ -171,9 +151,9 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListNfsSharesResponseHttpRequest: ...
                 def list_next(
@@ -185,15 +165,15 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: NfsShare = ...,
-                    updateMask: str = ...,
+                    body: NfsShare,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rename(
                     self,
                     *,
                     name: str,
-                    body: RenameNfsShareRequest = ...,
+                    body: RenameNfsShareRequest,
                     **kwargs: typing.Any,
                 ) -> NfsShareHttpRequest: ...
 
@@ -212,8 +192,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListOSImagesResponseHttpRequest: ...
                 def list_next(
@@ -228,8 +208,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: ProvisioningConfig = ...,
-                    email: str = ...,
+                    body: ProvisioningConfig,
+                    email: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProvisioningConfigHttpRequest: ...
                 def get(
@@ -239,16 +219,16 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: ProvisioningConfig = ...,
-                    email: str = ...,
-                    updateMask: str = ...,
+                    body: ProvisioningConfig,
+                    email: str | None = ...,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ProvisioningConfigHttpRequest: ...
                 def submit(
                     self,
                     *,
                     parent: str,
-                    body: SubmitProvisioningConfigRequest = ...,
+                    body: SubmitProvisioningConfigRequest,
                     **kwargs: typing.Any,
                 ) -> SubmitProvisioningConfigResponseHttpRequest: ...
 
@@ -258,8 +238,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListProvisioningQuotasResponseHttpRequest: ...
                 def list_next(
@@ -274,8 +254,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    body: SSHKey = ...,
-                    sshKeyId: str = ...,
+                    body: SSHKey,
+                    sshKeyId: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> SSHKeyHttpRequest: ...
                 def delete(
@@ -285,8 +265,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListSSHKeysResponseHttpRequest: ...
                 def list_next(
@@ -300,11 +280,7 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                 @typing.type_check_only
                 class LunsResource(googleapiclient.discovery.Resource):
                     def evict(
-                        self,
-                        *,
-                        name: str,
-                        body: EvictLunRequest = ...,
-                        **kwargs: typing.Any,
+                        self, *, name: str, body: EvictLunRequest, **kwargs: typing.Any
                     ) -> OperationHttpRequest: ...
                     def get(
                         self, *, name: str, **kwargs: typing.Any
@@ -313,8 +289,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListLunsResponseHttpRequest: ...
                     def list_next(
@@ -326,11 +302,7 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                 @typing.type_check_only
                 class SnapshotsResource(googleapiclient.discovery.Resource):
                     def create(
-                        self,
-                        *,
-                        parent: str,
-                        body: VolumeSnapshot = ...,
-                        **kwargs: typing.Any,
+                        self, *, parent: str, body: VolumeSnapshot, **kwargs: typing.Any
                     ) -> VolumeSnapshotHttpRequest: ...
                     def delete(
                         self, *, name: str, **kwargs: typing.Any
@@ -342,8 +314,8 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         parent: str,
-                        pageSize: int = ...,
-                        pageToken: str = ...,
+                        pageSize: int | None = ...,
+                        pageToken: str | None = ...,
                         **kwargs: typing.Any,
                     ) -> ListVolumeSnapshotsResponseHttpRequest: ...
                     def list_next(
@@ -355,16 +327,12 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                         self,
                         *,
                         volumeSnapshot: str,
-                        body: RestoreVolumeSnapshotRequest = ...,
+                        body: RestoreVolumeSnapshotRequest,
                         **kwargs: typing.Any,
                     ) -> OperationHttpRequest: ...
 
                 def evict(
-                    self,
-                    *,
-                    name: str,
-                    body: EvictVolumeRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: EvictVolumeRequest, **kwargs: typing.Any
                 ) -> OperationHttpRequest: ...
                 def get(
                     self, *, name: str, **kwargs: typing.Any
@@ -373,9 +341,9 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     parent: str,
-                    filter: str = ...,
-                    pageSize: int = ...,
-                    pageToken: str = ...,
+                    filter: str | None = ...,
+                    pageSize: int | None = ...,
+                    pageToken: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> ListVolumesResponseHttpRequest: ...
                 def list_next(
@@ -387,22 +355,18 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                     self,
                     *,
                     name: str,
-                    body: Volume = ...,
-                    updateMask: str = ...,
+                    body: Volume,
+                    updateMask: str | None = ...,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def rename(
-                    self,
-                    *,
-                    name: str,
-                    body: RenameVolumeRequest = ...,
-                    **kwargs: typing.Any,
+                    self, *, name: str, body: RenameVolumeRequest, **kwargs: typing.Any
                 ) -> VolumeHttpRequest: ...
                 def resize(
                     self,
                     *,
                     volume: str,
-                    body: ResizeVolumeRequest = ...,
+                    body: ResizeVolumeRequest,
                     **kwargs: typing.Any,
                 ) -> OperationHttpRequest: ...
                 def luns(self) -> LunsResource: ...
@@ -415,10 +379,10 @@ class BaremetalsolutionResource(googleapiclient.discovery.Resource):
                 self,
                 *,
                 name: str,
-                extraLocationTypes: str | _list[str] = ...,
-                filter: str = ...,
-                pageSize: int = ...,
-                pageToken: str = ...,
+                extraLocationTypes: str | _list[str] | None = ...,
+                filter: str | None = ...,
+                pageSize: int | None = ...,
+                pageToken: str | None = ...,
                 **kwargs: typing.Any,
             ) -> ListLocationsResponseHttpRequest: ...
             def list_next(
